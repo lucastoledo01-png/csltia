@@ -3,8 +3,10 @@
 :root {
   --background: #ffffff;
   --foreground: #050505;
-  --casaloti-yellow: #ffc400;
-  --casaloti-orange: #ff7a45;
+  --casaloti-orange-start: #ff7a1a;
+  --casaloti-orange: #ff4a1c;
+  --casaloti-orange-dark: #e92a12;
+  --casaloti-gradient: linear-gradient(135deg, #ff7a1a 0%, #ff4a1c 52%, #e92a12 100%);
   --casaloti-black: #050505;
   --casaloti-muted: #667085;
   --casaloti-line: #e5e7eb;
@@ -33,7 +35,7 @@ body {
 
 ::selection {
   background: #050505;
-  color: #ffc400;
+  color: #ff4a1c;
 }
 
 a {
