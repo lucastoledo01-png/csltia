@@ -1,0 +1,9 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="720" rx="56" fill="#fff8f4"/>
+  <rect x="156" y="96" width="888" height="528" rx="32" fill="white" stroke="#050505" stroke-width="7"/>
+  <text x="214" y="190" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="32" font-weight="800" fill="#FF4A1C">manual.md</text>
+  <text x="214" y="310" font-family="Arial, sans-serif" font-size="82" font-weight="900" letter-spacing="-6" fill="#050505">curioso de IA</text>
+  <path d="M214 390H820" stroke="#050505" stroke-width="8" stroke-linecap="round"/>
+  <path d="M214 456H930" stroke="#D0D5DD" stroke-width="8" stroke-linecap="round"/>
+  <path d="M214 522H690" stroke="#FF4A1C" stroke-width="14" stroke-linecap="round"/>
+</svg>

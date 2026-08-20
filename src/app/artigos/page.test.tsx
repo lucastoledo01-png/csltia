@@ -1,30 +1,46 @@
 import { render, screen } from "@testing-library/react";
+import Home from "../page";
 import ArticlesPage from "./page";
 
 describe("Articles index", () => {
-  it("renderiza uma área de artigos inspirada em Substack", () => {
-    render(<ArticlesPage />);
+  it("usa o mesmo padrão de menu da home", () => {
+    const { unmount } = render(<Home />);
+    const homeNav = screen.getByLabelText("Navegação principal");
+    const homeLinks = Array.from(homeNav.querySelectorAll("a")).map((link) => ({
+      href: link.getAttribute("href"),
+      text: link.textContent,
+      className: link.className,
+    }));
+    const homeHeaderClass = homeNav.closest("header")?.className;
+    unmount();
 
-    expect(screen.getByRole("heading", { name: /artigos/i })).toBeInTheDocument();
-    expect(screen.getByText(/edições, ensaios e prompts/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /assinar/i })).toHaveClass("cta-gradient");
-    expect(screen.getByRole("link", { name: /comece por aqui/i })).toHaveAttribute("href", "/newsletter");
+    render(<ArticlesPage />);
+    const articlesNav = screen.getByLabelText("Navegação principal");
+    const articlesLinks = Array.from(articlesNav.querySelectorAll("a")).map((link) => ({
+      href: link.getAttribute("href"),
+      text: link.textContent,
+      className: link.className,
+    }));
+
+    expect(articlesNav.closest("header")?.className).toBe(homeHeaderClass);
+    expect(articlesLinks).toEqual(homeLinks);
   });
 
-  it("mostra posts em lista editorial com categorias e datas", () => {
+  it("entra direto nos blocos de artigos sem headline e subheadline editorial", () => {
     render(<ArticlesPage />);
 
-    expect(screen.getByRole("heading", { name: /A semana em IA sem aquele cheiro/i })).toBeInTheDocument();
-    expect(screen.getByText(/Radar/)).toBeInTheDocument();
-    expect(screen.getByText(/20 AGO 2026/)).toBeInTheDocument();
-    expect(screen.getAllByLabelText(/placeholder visual do artigo/i).length).toBeGreaterThanOrEqual(4);
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+    expect(screen.queryByText(/artigos com alma de Substack/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/edições, ensaios e prompts/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("lista editorial de artigos")).toBeInTheDocument();
   });
 
-  it("não reutiliza a home como página de artigos", () => {
+  it("mostra cards com imagem real, descrição e link para artigo completo", () => {
     render(<ArticlesPage />);
 
-    expect(screen.queryByText(/anti-spam entra aqui/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: /while IA atualiza/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /capa do artigo A semana em IA/i })).toBeInTheDocument();
+    expect(screen.getByText(/O que mudou em modelos, produtos e benchmarks/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Ler A semana em IA/i })).toHaveAttribute("href", "/artigos/ia-semana-sem-hype");
   });
 
   it("mantém estrutura responsiva para mobile, tablet e desktop", () => {

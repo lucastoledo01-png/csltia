@@ -1,0 +1,9 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="720" rx="56" fill="#050505"/>
+  <rect x="96" y="96" width="1008" height="528" rx="48" fill="#151515" stroke="#FF4A1C" stroke-width="6"/>
+  <text x="150" y="178" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="34" font-weight="800" fill="#FF7A1A">CTRL+C</text>
+  <text x="150" y="320" font-family="Arial, sans-serif" font-size="98" font-weight="900" letter-spacing="-7" fill="white">prompt de bolso</text>
+  <text x="150" y="410" font-family="Arial, sans-serif" font-size="40" font-weight="700" fill="#D0D5DD">noticia vira post util</text>
+  <rect x="150" y="478" width="330" height="64" rx="32" fill="#FF4A1C"/>
+  <text x="184" y="522" font-family="Arial, sans-serif" font-size="28" font-weight="800" fill="white">colar e revisar</text>
+</svg>

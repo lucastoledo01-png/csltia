@@ -1,0 +1,9 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="720" rx="56" fill="#ffe9df"/>
+  <rect x="150" y="130" width="900" height="460" rx="42" fill="#050505"/>
+  <rect x="210" y="190" width="780" height="300" rx="24" fill="#f5f5f7"/>
+  <text x="258" y="288" font-family="Arial, sans-serif" font-size="76" font-weight="900" letter-spacing="-5" fill="#050505">lan house da IA</text>
+  <text x="262" y="368" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="34" font-weight="800" fill="#FF4A1C">abrir todo dia as 06:06</text>
+  <rect x="460" y="520" width="280" height="34" rx="17" fill="#FF4A1C"/>
+  <circle cx="930" cy="232" r="38" fill="#FF7A1A"/>
+</svg>
