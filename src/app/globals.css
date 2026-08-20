@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #050505;
+  --casaloti-yellow: #ffc400;
+  --casaloti-orange: #ff7a45;
+  --casaloti-black: #050505;
+  --casaloti-muted: #667085;
+  --casaloti-line: #e5e7eb;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-inter);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+::selection {
+  background: #050505;
+  color: #ffc400;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.the-news-shell {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: #ffffff;
+  color: #050505;
+}
+
+.article-title-hover {
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  transition: color 200ms ease-in-out, text-decoration-color 150ms ease-in-out;
+}
+
+.group:hover .article-title-hover {
+  text-decoration-line: underline;
+  text-decoration-color: currentColor;
+}
+
+.smooth-link {
+  transition: color 200ms ease-in-out, background-color 200ms ease-in-out, border-color 200ms ease-in-out;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
