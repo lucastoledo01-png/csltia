@@ -20,10 +20,11 @@ describe("Casaloti home", () => {
     expect(screen.queryByRole("link", { name: /streak/i })).not.toBeInTheDocument();
   });
 
-  it("remove a dash extra do logo do topo", () => {
+  it("usa apenas a imagem do logo no topo", () => {
     render(<Home />);
 
-    expect(screen.queryByTestId("brand-dash-top")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("brand-dot")).not.toBeInTheDocument();
+    expect(screen.getAllByAltText(/Casaloti IA/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it("troca a headline por um loop com cara de programação", () => {
