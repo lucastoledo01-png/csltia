@@ -11,5 +11,8 @@ describe("Admin dashboard", () => {
     expect(screen.getByText(/dashboard de dados/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Supabase/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Listmonk/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/SEO, AEO e AGE/i)).toBeInTheDocument();
+    expect(screen.getByText(/revisão humana/i)).toBeInTheDocument();
+    expect(screen.getByText(/entregabilidade/i)).toBeInTheDocument();
   });
 });

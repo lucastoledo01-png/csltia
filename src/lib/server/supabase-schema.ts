@@ -5,6 +5,9 @@ export const casalotiSchemaTables = [
   "newsletter_leads",
   "email_campaigns",
   "email_events",
+  "content_sources",
+  "editorial_reviews",
+  "listmonk_sync_logs",
   "platform_events",
   "pageviews",
 ] as const;
