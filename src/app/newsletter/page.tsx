@@ -19,7 +19,7 @@ export default function NewsletterPage() {
 
         <form className="mx-auto mt-10 flex w-full max-w-[520px] items-center gap-2 rounded-full border border-black bg-white p-1.5">
           <input aria-label="Email para newsletter" className="min-w-0 flex-1 bg-transparent px-4 py-3 text-base outline-none" placeholder="seu@email.com" type="email" />
-          <button className="rounded-full bg-[var(--casaloti-gradient)] px-6 py-3 text-base font-medium text-white" type="button">inscreva-se</button>
+          <button className="cta-gradient rounded-full px-6 py-3 text-base font-medium text-white" type="button">inscreva-se</button>
         </form>
 
         <section className="mt-16 border-y border-black py-8 text-left">
