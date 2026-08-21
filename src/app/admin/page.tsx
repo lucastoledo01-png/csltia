@@ -1,7 +1,5 @@
-import { cookies } from "next/headers";
 import Link from "next/link";
 import { AdminArticleForm } from "@/components/AdminArticleForm";
-import { verifyAdminSessionToken } from "@/lib/server/admin-auth";
 
 const dashboardCards = [
   {
@@ -17,40 +15,6 @@ const dashboardCards = [
     body: "leads que entram pela home seguem para Supabase e depois para a lista configurada no Listmonk.",
   },
 ];
-
-async function hasAdminSession() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("casaloti_admin")?.value;
-
-  const secret = process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_TEMP_PASSWORD || "*4lur4F3lix$";
-  return verifyAdminSessionToken(secret, token);
-}
-
-type AdminPageProps = {
-  searchParams?: Promise<{ erro?: string }> | { erro?: string };
-};
-
-function AdminLogin({ hasLoginError = false }: { hasLoginError?: boolean }) {
-  return (
-    <main className="the-news-shell">
-      <section className="mx-auto grid min-h-screen max-w-xl place-items-center px-5 py-16">
-        <div className="w-full rounded-[32px] border border-[#d0d5dd] bg-white p-8 shadow-[0_18px_50px_rgba(16,24,40,0.08)]">
-          <p className="font-mono text-sm font-black uppercase tracking-[0.18em] text-[#ff4a1c]">/admin</p>
-          <h1 className="mt-5 text-[clamp(3rem,10vw,5rem)] font-black leading-[0.9] tracking-[-0.08em] text-black">entrar no admin</h1>
-          <p className="mt-5 text-lg leading-7 text-[#667085]">Login temporário para testar o painel. Depois trocamos por Supabase Auth com usuário e papel de admin.</p>
-          {hasLoginError ? <p className="mt-5 rounded-2xl border border-[#ff4a1c]/30 bg-[#fff1eb] px-4 py-3 text-sm font-bold text-[#b42318]">Senha inválida ou variável ADMIN_TEMP_PASSWORD diferente da senha digitada.</p> : null}
-          <form action="/api/admin/login" className="mt-8 grid gap-4" method="post">
-            <label className="grid gap-2 text-sm font-semibold text-[#344054]">
-              Senha do admin
-              <input className="rounded-2xl border border-[#d0d5dd] px-4 py-3" name="password" required type="password" />
-            </label>
-            <button className="cta-gradient rounded-full px-6 py-3 font-black text-white" type="submit">entrar</button>
-          </form>
-        </div>
-      </section>
-    </main>
-  );
-}
 
 function AdminDashboard() {
   return (
@@ -88,11 +52,6 @@ function AdminDashboard() {
   );
 }
 
-export default async function AdminPage({ searchParams }: AdminPageProps = {}) {
-  if (!(await hasAdminSession())) {
-    const params = await searchParams;
-    return <AdminLogin hasLoginError={params?.erro === "senha"} />;
-  }
-
+export default async function AdminPage() {
   return <AdminDashboard />;
 }

@@ -17,32 +17,7 @@ function mockCookieStore(token?: string) {
 }
 
 describe("Admin dashboard", () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-    process.env.ADMIN_SESSION_SECRET = "segredo-do-admin";
-  });
-
-  it("mostra login temporario quando nao existe sessao admin valida", async () => {
-    mockCookieStore();
-
-    render(await AdminPage());
-
-    expect(screen.getByRole("heading", { name: /entrar no admin/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/senha do admin/i)).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: /gestao de artigos/i })).not.toBeInTheDocument();
-  });
-
-  it("explica falha de senha sem mostrar JSON cru", async () => {
-    mockCookieStore();
-
-    render(await AdminPage({ searchParams: Promise.resolve({ erro: "senha" }) }));
-
-    expect(screen.getByText(/senha inválida/i)).toBeInTheDocument();
-  });
-
-  it("mostra painel simples de artigos quando a sessao e valida", async () => {
-    mockCookieStore(signAdminSession("segredo-do-admin", 123));
-
+  it("mostra o painel de gestao de artigos diretamente", async () => {
     render(await AdminPage());
 
     expect(screen.getByRole("heading", { name: /gestao de artigos/i })).toBeInTheDocument();
