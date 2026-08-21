@@ -25,7 +25,11 @@ async function hasAdminSession() {
   return verifyAdminSessionToken(process.env.ADMIN_SESSION_SECRET, token);
 }
 
-function AdminLogin() {
+type AdminPageProps = {
+  searchParams?: Promise<{ erro?: string }> | { erro?: string };
+};
+
+function AdminLogin({ hasLoginError = false }: { hasLoginError?: boolean }) {
   return (
     <main className="the-news-shell">
       <section className="mx-auto grid min-h-screen max-w-xl place-items-center px-5 py-16">
@@ -33,6 +37,7 @@ function AdminLogin() {
           <p className="font-mono text-sm font-black uppercase tracking-[0.18em] text-[#ff4a1c]">/admin</p>
           <h1 className="mt-5 text-[clamp(3rem,10vw,5rem)] font-black leading-[0.9] tracking-[-0.08em] text-black">entrar no admin</h1>
           <p className="mt-5 text-lg leading-7 text-[#667085]">Login temporário para testar o painel. Depois trocamos por Supabase Auth com usuário e papel de admin.</p>
+          {hasLoginError ? <p className="mt-5 rounded-2xl border border-[#ff4a1c]/30 bg-[#fff1eb] px-4 py-3 text-sm font-bold text-[#b42318]">Senha inválida ou variável ADMIN_TEMP_PASSWORD diferente da senha digitada.</p> : null}
           <form action="/api/admin/login" className="mt-8 grid gap-4" method="post">
             <label className="grid gap-2 text-sm font-semibold text-[#344054]">
               Senha do admin
@@ -82,9 +87,10 @@ function AdminDashboard() {
   );
 }
 
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }: AdminPageProps = {}) {
   if (!(await hasAdminSession())) {
-    return <AdminLogin />;
+    const params = await searchParams;
+    return <AdminLogin hasLoginError={params?.erro === "senha"} />;
   }
 
   return <AdminDashboard />;

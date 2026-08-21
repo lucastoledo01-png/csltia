@@ -16,8 +16,13 @@ async function getPassword(request: Request) {
 
 export async function POST(request: Request) {
   const password = await getPassword(request);
+  const acceptsHtml = (request.headers.get("accept") ?? "").includes("text/html");
 
   if (!verifyAdminPassword(process.env.ADMIN_TEMP_PASSWORD, password)) {
+    if (acceptsHtml) {
+      return NextResponse.redirect(new URL("/admin?erro=senha", request.url), { status: 303 });
+    }
+
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
@@ -28,8 +33,7 @@ export async function POST(request: Request) {
   }
 
   const token = signAdminSession(sessionSecret);
-  const accept = request.headers.get("accept") ?? "";
-  const response = accept.includes("text/html")
+  const response = acceptsHtml
     ? NextResponse.redirect(new URL("/admin", request.url), { status: 303 })
     : NextResponse.json({ ok: true });
   response.headers.set("Set-Cookie", createAdminSessionCookie(token));

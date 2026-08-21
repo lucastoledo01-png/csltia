@@ -32,6 +32,14 @@ describe("Admin dashboard", () => {
     expect(screen.queryByRole("heading", { name: /gestao de artigos/i })).not.toBeInTheDocument();
   });
 
+  it("explica falha de senha sem mostrar JSON cru", async () => {
+    mockCookieStore();
+
+    render(await AdminPage({ searchParams: Promise.resolve({ erro: "senha" }) }));
+
+    expect(screen.getByText(/senha inválida/i)).toBeInTheDocument();
+  });
+
   it("mostra painel simples de artigos quando a sessao e valida", async () => {
     mockCookieStore(signAdminSession("segredo-do-admin", 123));
 
