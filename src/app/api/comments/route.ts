@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("article_comments")
-    .select("id, user_name, content, created_at, status")
+    .select("id, user_name, content, created_at, status, likes, dislikes")
     .eq("article_slug", slug)
     .eq("status", "approved")
     .order("created_at", { ascending: false });
@@ -23,7 +23,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, comments: [] });
   }
 
-  return NextResponse.json({ ok: true, comments: data ?? [] });
+  // Ordenar pelo saldo de votos (likes - dislikes), mantendo os mais populares no topo
+  const sorted = (data ?? []).sort((a: any, b: any) => {
+    const scoreA = (a.likes || 0) - (a.dislikes || 0);
+    const scoreB = (b.likes || 0) - (b.dislikes || 0);
+    return scoreB - scoreA;
+  });
+
+  return NextResponse.json({ ok: true, comments: sorted });
 }
 
 export async function POST(request: Request) {
@@ -45,8 +52,10 @@ export async function POST(request: Request) {
       user_email: userEmail.trim().toLowerCase(),
       content: content.trim(),
       status,
+      likes: 0,
+      dislikes: 0,
     })
-    .select("id, user_name, content, status, created_at")
+    .select("id, user_name, content, status, likes, dislikes, created_at")
     .single();
 
   if (error || !data) {
