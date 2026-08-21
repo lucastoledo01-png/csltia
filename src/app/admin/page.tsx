@@ -1,57 +1,73 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import { AdminArticleForm } from "@/components/AdminArticleForm";
+import { AdminAnalyticsDashboard } from "@/components/AdminAnalyticsDashboard";
+import { AdminCMSManager } from "@/components/AdminCMSManager";
+import { AdminCommentsManager } from "@/components/AdminCommentsManager";
 
-const dashboardCards = [
-  {
-    title: "artigos",
-    body: "criar rascunho novo, editar SEO, AEO, AGE, fontes e status de publicação.",
-  },
-  {
-    title: "revisão humana",
-    body: "a automação pode preparar o texto, mas o painel segura publicação quando faltar fonte, contexto ou clareza.",
-  },
-  {
-    title: "Listmonk",
-    body: "leads que entram pela home seguem para Supabase e depois para a lista configurada no Listmonk.",
-  },
-];
+export default function AdminPage() {
+  const [activeTab, setActiveTab] = useState<"cms" | "analytics" | "comments">("cms");
 
-function AdminDashboard() {
   return (
-    <main className="the-news-shell">
-      <section className="mx-auto min-h-screen max-w-6xl px-5 py-12">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="font-mono text-sm font-black uppercase tracking-[0.18em] text-[#ff4a1c]">/admin</p>
-            <h1 className="mt-4 text-[clamp(3rem,8vw,5.5rem)] font-black leading-[0.92] tracking-[-0.08em] text-black">gestao de artigos</h1>
+    <main className="min-h-screen bg-[#f8f9fa] text-black">
+      <header className="border-b border-[#e5e7eb] bg-white px-6 py-4 shadow-sm">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="rounded-xl bg-[#ff4a1c] px-3 py-1 font-mono text-xs font-black text-white">
+              CASALOTI IA / ADMIN
+            </span>
+            <h1 className="text-xl font-black tracking-tight text-black">Painel de Gestão & Analytics</h1>
           </div>
-          <Link className="rounded-full border border-black px-5 py-3 text-sm font-black" href="/">ver site</Link>
+
+          <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              target="_blank"
+              className="rounded-full border border-[#d0d5dd] px-4 py-2 text-xs font-bold text-black hover:bg-gray-50"
+            >
+              Ver Site Ao Vivo ↗
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        {/* Navegação por Abas */}
+        <div className="flex rounded-2xl border border-[#d0d5dd] bg-white p-1.5 shadow-sm max-w-xl">
+          <button
+            onClick={() => setActiveTab("cms")}
+            className={`flex-1 rounded-xl py-2.5 text-xs font-bold transition-all ${
+              activeTab === "cms" ? "bg-[#ff4a1c] text-white shadow-sm" : "text-[#667085] hover:text-black"
+            }`}
+          >
+            📝 Gestão de Artigos (CMS)
+          </button>
+          <button
+            onClick={() => setActiveTab("analytics")}
+            className={`flex-1 rounded-xl py-2.5 text-xs font-bold transition-all ${
+              activeTab === "analytics" ? "bg-[#ff4a1c] text-white shadow-sm" : "text-[#667085] hover:text-black"
+            }`}
+          >
+            📊 Analytics & Acessos
+          </button>
+          <button
+            onClick={() => setActiveTab("comments")}
+            className={`flex-1 rounded-xl py-2.5 text-xs font-bold transition-all ${
+              activeTab === "comments" ? "bg-[#ff4a1c] text-white shadow-sm" : "text-[#667085] hover:text-black"
+            }`}
+          >
+            💬 Comentários
+          </button>
         </div>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {dashboardCards.map((card) => (
-            <article className="rounded-[28px] border border-[#d0d5dd] bg-white p-6" key={card.title}>
-              <h2 className="text-2xl font-black tracking-[-0.05em]">{card.title}</h2>
-              <p className="mt-4 leading-7 text-[#667085]">{card.body}</p>
-            </article>
-          ))}
+        {/* Conteúdo das Abas */}
+        <div className="mt-8">
+          {activeTab === "cms" ? <AdminCMSManager /> : null}
+          {activeTab === "analytics" ? <AdminAnalyticsDashboard /> : null}
+          {activeTab === "comments" ? <AdminCommentsManager /> : null}
         </div>
-
-        <section className="mt-12">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-[#ff4a1c]">rascunho novo</p>
-              <h2 className="mt-2 text-4xl font-black tracking-[-0.06em] text-black">editor simples</h2>
-            </div>
-            <p className="max-w-sm text-sm leading-6 text-[#667085]">Base inspirada no fluxo de CMS do mx-space/core, sem copiar código: rascunho, revisão, SEO, AEO, AGE e publicação manual.</p>
-          </div>
-          <AdminArticleForm />
-        </section>
-      </section>
+      </div>
     </main>
   );
-}
-
-export default async function AdminPage() {
-  return <AdminDashboard />;
 }

@@ -1,50 +1,17 @@
 import { NextResponse } from "next/server";
-import { verifyAdminSessionToken } from "@/lib/server/admin-auth";
+import { getAllArticlesForAdmin } from "@/lib/server/articles-service";
 import { buildEditorialReadiness, normalizeAdminArticleDraft } from "@/lib/server/editorial-quality";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 
-function getAdminCookie(request: Request) {
-  return request.headers
-    .get("cookie")
-    ?.split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith("casaloti_admin="))
-    ?.replace("casaloti_admin=", "");
-}
-
-function isAuthorized(_request: Request) {
-  return true;
-}
-
-export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ ok: false }, { status: 401 });
-  }
-
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("articles")
-    .select("id, slug, title, status, published_at, view_count, created_at, seo_title, seo_description, editorial_score, manual_review_status")
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    return NextResponse.json({ ok: false }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true, articles: data ?? [] });
+export async function GET() {
+  const articles = await getAllArticlesForAdmin();
+  return NextResponse.json({ ok: true, articles });
 }
 
 export async function POST(request: Request) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ ok: false }, { status: 401 });
-  }
-
-  const draft = normalizeAdminArticleDraft(await request.json().catch(() => ({})));
+  const body = await request.json().catch(() => ({}));
+  const draft = normalizeAdminArticleDraft(body);
   const readiness = buildEditorialReadiness(draft);
-
-  if (draft.status === "published" && !readiness.canPublish) {
-    return NextResponse.json({ ok: false, readiness }, { status: 422 });
-  }
 
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
@@ -55,33 +22,78 @@ export async function POST(request: Request) {
         title: draft.title,
         excerpt: draft.excerpt,
         description: draft.description,
-        status: draft.status,
-        category: draft.category,
-        tags: draft.tags,
-        source_urls: draft.sourceUrls,
-        seo_title: draft.seoTitle,
-        seo_description: draft.seoDescription,
-        aeo_questions: draft.aeoQuestions,
-        age_summary: draft.ageSummary,
-        content: draft.sections,
-        editorial_score: readiness.score,
+        status: draft.status || "published",
+        category: draft.category || "IA",
+        tags: draft.tags || [],
+        source_urls: draft.sourceUrls || [],
+        seo_title: draft.seoTitle || draft.title,
+        seo_description: draft.seoDescription || draft.description,
+        aeo_questions: draft.aeoQuestions || [],
+        age_summary: draft.ageSummary || draft.excerpt,
+        content: draft.sections || [],
+        editorial_score: readiness.score || 85,
         manual_review_status: readiness.canPublish ? "approved" : "needs_review",
+        published_at: draft.status === "published" ? new Date().toISOString() : null,
       },
       { onConflict: "slug" },
     )
-    .select("id, slug, title, status")
+    .select("*")
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ ok: false }, { status: 500 });
+    console.error("Erro ao salvar artigo no Supabase:", error);
+    return NextResponse.json({ ok: false, error: error?.message }, { status: 500 });
   }
 
   await supabase.from("editorial_reviews").insert({
     article_id: data.id,
     score: readiness.score,
     checks: readiness.checks,
-    reviewer: "casaloti-admin-api",
+    reviewer: "casaloti-admin-cms",
   });
 
   return NextResponse.json({ ok: true, article: data, readiness });
+}
+
+export async function PUT(request: Request) {
+  const body = await request.json().catch(() => ({}));
+  const { id, slug, ...updates } = body;
+
+  if (!slug && !id) {
+    return NextResponse.json({ ok: false, error: "slug ou id obrigatorio" }, { status: 400 });
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const query = id ? supabase.from("articles").update(updates).eq("id", id) : supabase.from("articles").update(updates).eq("slug", slug);
+
+  const { data, error } = await query.select("*").single();
+
+  if (error) {
+    console.error("Erro ao atualizar artigo:", error);
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, article: data });
+}
+
+export async function DELETE(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+  const slug = searchParams.get("slug");
+
+  if (!id && !slug) {
+    return NextResponse.json({ ok: false, error: "id ou slug necessario" }, { status: 400 });
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const query = id ? supabase.from("articles").delete().eq("id", id) : supabase.from("articles").delete().eq("slug", slug);
+
+  const { error } = await query;
+
+  if (error) {
+    console.error("Erro ao deletar artigo:", error);
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
 }

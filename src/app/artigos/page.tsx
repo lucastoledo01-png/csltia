@@ -1,17 +1,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
-import { articles } from "@/lib/editorial";
+import { Article } from "@/lib/editorial";
+import { getPublishedArticles } from "@/lib/server/articles-service";
 
-function ArticleCard({ article, featured = false }: { article: (typeof articles)[number]; featured?: boolean }) {
+function ArticleCard({ article, featured = false }: { article: Article; featured?: boolean }) {
   return (
     <article className={featured ? "glass-panel grid gap-6 p-5 sm:p-7 lg:grid-cols-[1fr_1fr] lg:p-8" : "group rounded-[28px] bg-white p-5 ring-1 ring-[#e5e7eb] transition-transform duration-200 hover:-translate-y-1 sm:p-6"}>
       <Link aria-label={`Abrir capa de ${article.title}`} className="block overflow-hidden rounded-[24px]" href={`/artigos/${article.slug}`}>
         <Image
-          alt={article.imageAlt}
+          alt={article.imageAlt || article.title}
           className="aspect-[5/3] h-auto w-full object-cover"
           height={720}
-          src={article.image}
+          src={article.image || "/articles/radar-semana.svg"}
           width={1200}
         />
       </Link>
@@ -32,16 +33,19 @@ function ArticleCard({ article, featured = false }: { article: (typeof articles)
   );
 }
 
-export default function ArticlesPage() {
-  const [featured, ...rest] = articles;
+export default async function ArticlesPage() {
+  const publishedArticles = await getPublishedArticles();
+  const [featured, ...rest] = publishedArticles;
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#f5f5f7] text-black">
       <SiteHeader ctaHref="#inscrever" />
       <section aria-label="lista editorial de artigos" className="mx-auto grid max-w-6xl gap-5 px-4 pb-20 pt-6 sm:px-5 md:grid-cols-2 md:pt-10 lg:grid-cols-3" id="inscrever">
-        <div className="md:col-span-2 lg:col-span-3">
-          <ArticleCard article={featured} featured />
-        </div>
+        {featured ? (
+          <div className="md:col-span-2 lg:col-span-3">
+            <ArticleCard article={featured} featured />
+          </div>
+        ) : null}
         {rest.map((article) => (
           <ArticleCard article={article} key={article.slug} />
         ))}

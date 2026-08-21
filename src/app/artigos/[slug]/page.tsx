@@ -1,16 +1,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArticleComments } from "@/components/ArticleComments";
 import { SiteHeader } from "@/components/SiteHeader";
-import { articles, getArticle } from "@/lib/editorial";
+import { articles as staticArticles } from "@/lib/editorial";
+import { getArticleBySlug } from "@/lib/server/articles-service";
 
 export function generateStaticParams() {
-  return articles.map((article) => ({ slug: article.slug }));
+  return staticArticles.map((article) => ({ slug: article.slug }));
 }
 
 export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const article = getArticle(slug);
+  const article = await getArticleBySlug(slug);
 
   if (!article) {
     notFound();
@@ -31,11 +33,11 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         </h1>
         <p className="mt-6 text-xl leading-8 text-[#4b5563] md:text-2xl md:leading-9">{article.description}</p>
         <Image
-          alt={article.imageAlt}
+          alt={article.imageAlt || article.title}
           className="mt-10 aspect-[5/3] h-auto w-full rounded-[32px] object-cover ring-1 ring-[#e5e7eb]"
           height={720}
           priority
-          src={article.image}
+          src={article.image || "/articles/radar-semana.svg"}
           width={1200}
         />
         <blockquote className="my-12 border-l-4 border-[#ff4a1c] pl-6 text-2xl font-black leading-8 tracking-[-0.04em] text-black">
@@ -43,17 +45,20 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           <footer className="mt-4 text-sm font-semibold uppercase tracking-[0.14em] text-[#667085]">{article.quoteBy}</footer>
         </blockquote>
         <div className="space-y-12">
-          {article.sections.map((section) => (
-            <section key={section.heading}>
+          {article.sections.map((section, idx) => (
+            <section key={section.heading || idx}>
               <h2 className="text-3xl font-black tracking-[-0.05em] text-black">{section.heading}</h2>
               <div className="mt-5 space-y-5 text-lg leading-8 text-[#344054]">
-                {section.paragraphs.map((paragraph) => (
-                  <p key={paragraph}>{paragraph}</p>
+                {section.paragraphs.map((paragraph, pIdx) => (
+                  <p key={pIdx}>{paragraph}</p>
                 ))}
               </div>
             </section>
           ))}
         </div>
+
+        {/* Seção de Comentários dos Leitores */}
+        <ArticleComments articleSlug={slug} />
       </article>
     </main>
   );

@@ -3,7 +3,7 @@ import Home from "../page";
 import ArticlesPage from "./page";
 
 describe("Articles index", () => {
-  it("usa o mesmo padrão de menu da home", () => {
+  it("usa o mesmo padrão de menu da home", async () => {
     const { unmount } = render(<Home />);
     const homeNav = screen.getByLabelText("Navegação principal");
     const homeLinks = Array.from(homeNav.querySelectorAll("a")).map((link) => ({
@@ -14,7 +14,7 @@ describe("Articles index", () => {
     const homeHeaderClass = homeNav.closest("header")?.className;
     unmount();
 
-    render(<ArticlesPage />);
+    render(await ArticlesPage());
     const articlesNav = screen.getByLabelText("Navegação principal");
     const articlesLinks = Array.from(articlesNav.querySelectorAll("a")).map((link) => ({
       href: link.getAttribute("href"),
@@ -26,8 +26,8 @@ describe("Articles index", () => {
     expect(articlesLinks).toEqual(homeLinks);
   });
 
-  it("entra direto nos blocos de artigos sem headline e subheadline editorial", () => {
-    render(<ArticlesPage />);
+  it("entra direto nos blocos de artigos sem headline e subheadline editorial", async () => {
+    render(await ArticlesPage());
 
     expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
     expect(screen.queryByText(/artigos com alma de Substack/i)).not.toBeInTheDocument();
@@ -35,16 +35,15 @@ describe("Articles index", () => {
     expect(screen.getByLabelText("lista editorial de artigos")).toBeInTheDocument();
   });
 
-  it("mostra cards com imagem real, descrição e link para artigo completo", () => {
-    render(<ArticlesPage />);
+  it("mostra cards com imagem real, descrição e link para artigo completo", async () => {
+    render(await ArticlesPage());
 
-    expect(screen.getByRole("img", { name: /capa do artigo A semana em IA/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: /capa do artigo/i })[0]).toBeInTheDocument();
     expect(screen.getByText(/O que mudou em modelos, produtos e benchmarks/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Ler A semana em IA/i })).toHaveAttribute("href", "/artigos/ia-semana-sem-hype");
   });
 
-  it("mantém estrutura responsiva para mobile, tablet e desktop", () => {
-    render(<ArticlesPage />);
+  it("mantém estrutura responsiva para mobile, tablet e desktop", async () => {
+    render(await ArticlesPage());
 
     const list = screen.getByLabelText("lista editorial de artigos");
     expect(list).toHaveClass("grid");

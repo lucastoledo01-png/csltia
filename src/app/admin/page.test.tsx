@@ -17,14 +17,12 @@ function mockCookieStore(token?: string) {
 }
 
 describe("Admin dashboard", () => {
-  it("mostra o painel de gestao de artigos diretamente", async () => {
-    render(await AdminPage());
+  it("mostra o painel de gestao de artigos e abas diretamente", () => {
+    render(<AdminPage />);
 
-    expect(screen.getByRole("heading", { name: /gestao de artigos/i })).toBeInTheDocument();
-    expect(screen.getAllByText(/rascunho novo/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByLabelText(/^titulo$/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/resumo age/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /salvar artigo/i })).toBeInTheDocument();
-    expect(screen.getAllByText(/Listmonk/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("heading", { name: /Painel de Gestão & Analytics/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Gestão de Artigos/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Analytics/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Comentários/i })).toBeInTheDocument();
   });
 });
