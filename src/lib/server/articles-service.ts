@@ -31,9 +31,9 @@ function sectionsToHtml(title: string, sections: Array<{ heading: string; paragr
   return sections
     .map(
       (sec) => `
-      <section class="mb-8">
-        <h2 class="text-2xl md:text-3xl font-black text-black tracking-tight mb-4">${sec.heading}</h2>
-        <div class="space-y-4 text-base md:text-lg leading-relaxed text-[#344054]">
+      <section class="mb-6">
+        <h2 class="font-serif text-2xl font-bold text-[#111827] tracking-tight mb-3">${sec.heading}</h2>
+        <div class="space-y-4 text-base leading-relaxed text-[#374151]">
           ${sec.paragraphs.map((p) => `<p>${p}</p>`).join("")}
         </div>
       </section>
@@ -68,7 +68,7 @@ export async function getAllArticlesForAdmin(): Promise<AdminArticleRecord[]> {
           cover_image: row.cover_image,
           status: row.status || "published",
           category: row.category || "IA",
-          author: row.author || "Casaloti IA",
+          author: row.author || "Casaloti",
           reading_minutes: row.reading_minutes || 5,
           view_count: Number(row.view_count || 0),
           published_at: row.published_at,
@@ -89,7 +89,7 @@ export async function getAllArticlesForAdmin(): Promise<AdminArticleRecord[]> {
     console.error("Erro ao buscar artigos do Supabase:", err);
   }
 
-  // Fallback estático caso o banco ainda não possua registros
+  // Fallback estático sem valores fictícios (view_count 0 por padrão se ainda não registrado)
   return staticArticles.map((art) => ({
     slug: art.slug,
     title: art.title,
@@ -98,9 +98,9 @@ export async function getAllArticlesForAdmin(): Promise<AdminArticleRecord[]> {
     cover_image: art.image,
     status: "published",
     category: art.category,
-    author: "Casaloti IA",
+    author: "Casaloti",
     reading_minutes: parseInt(art.readTime, 10) || 5,
-    view_count: 142,
+    view_count: 0,
     published_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
     content: art.sections,
@@ -124,12 +124,12 @@ export async function getPublishedArticles(): Promise<Article[]> {
     title: art.title,
     excerpt: art.excerpt,
     description: art.description,
-    date: art.published_at ? new Date(art.published_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase() : "20 AGO 2026",
+    date: art.published_at ? new Date(art.published_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "20 Ago 2026",
     readTime: `${art.reading_minutes || 5} min`,
-    image: art.cover_image || "/articles/radar-semana.svg",
+    image: art.cover_image || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
     imageAlt: `capa do artigo ${art.title}`,
-    quote: art.age_summary || art.excerpt || "IA em evolução contínua.",
-    quoteBy: art.author || "Casaloti IA",
+    quote: art.age_summary || art.excerpt || "Curadoria diária de inteligência artificial.",
+    quoteBy: art.author || "Casaloti",
     sections: art.content || [],
   }));
 }
@@ -150,9 +150,9 @@ export async function getArticleBySlug(slug: string) {
     cover_image: staticArt.image,
     status: "published" as const,
     category: staticArt.category,
-    author: "Casaloti IA",
+    author: "Casaloti",
     reading_minutes: parseInt(staticArt.readTime, 10) || 5,
-    view_count: 142,
+    view_count: 0,
     published_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
     content: staticArt.sections,
