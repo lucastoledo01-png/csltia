@@ -1,13 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildListmonkSubscriberPayload, createListmonkClient, getListmonkConfig } from "./listmonk";
+import { buildListmonkFormPayload, buildListmonkSubscriberPayload, createListmonkClient, getListmonkConfig } from "./listmonk";
+
+const homesiteListUuid = "7c3535ab-988f-4c98-88c0-b73be3b9a90b";
 
 describe("listmonk integration", () => {
-  it("monta cadastro de lead com lista, atributos e consentimento", () => {
+  it("monta payload do formulario publico com lista homesite e somente email", () => {
+    const payload = buildListmonkFormPayload({ email: "  Pessoa@Exemplo.com ", source: "newsletter-home" }, homesiteListUuid);
+
+    expect(payload.get("email")).toBe("pessoa@exemplo.com");
+    expect(payload.get("l")).toBe(homesiteListUuid);
+    expect(payload.get("nonce")).toBe("");
+    expect(payload.has("name")).toBe(false);
+  });
+
+  it("monta cadastro via API sem nome quando a API for usada como fallback", () => {
     expect(
       buildListmonkSubscriberPayload({ email: "  Pessoa@Exemplo.com ", source: "newsletter-home" }, [7]),
     ).toEqual({
       email: "pessoa@exemplo.com",
-      name: "",
       status: "enabled",
       lists: [7],
       preconfirm_subscriptions: false,
@@ -22,12 +32,13 @@ describe("listmonk integration", () => {
     expect(getListmonkConfig({})).toEqual({ enabled: false });
   });
 
-  it("envia subscriber via API com token sem expor segredo no payload", async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: { id: 123 } }), { status: 200 }));
+  it("prioriza o formulario publico do Listmonk com o UUID da lista homesite", async () => {
+    const fetchMock = vi.fn(async () => new Response("ok", { status: 200 }));
     const client = createListmonkClient(
       {
-        LISTMONK_URL: "https://mail.casaloti.ia.br",
-        LISTMONK_API_TOKEN: "token-secreto",
+        LISTMONK_URL: "https://listmonk.casaloti.ia.br",
+        LISTMONK_FORM_LIST_UUID: homesiteListUuid,
+        LISTMONK_API_TOKEN: "token-nao-usado",
         LISTMONK_DEFAULT_LIST_ID: "7",
       },
       fetchMock,
@@ -35,14 +46,16 @@ describe("listmonk integration", () => {
 
     const result = await client.upsertSubscriber({ email: "lead@casaloti.ia.br", source: "newsletter" });
 
-    expect(result).toEqual({ ok: true, id: 123 });
+    expect(result).toEqual({ ok: true, id: undefined });
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://mail.casaloti.ia.br/api/subscribers",
+      "https://listmonk.casaloti.ia.br/subscription/form",
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ Authorization: "token token-secreto" }),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
       }),
     );
-    expect(JSON.stringify(fetchMock.mock.calls[0][1]?.body)).not.toContain("token-secreto");
+    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain(`l=${encodeURIComponent(homesiteListUuid)}`);
+    expect(String(fetchMock.mock.calls[0][1]?.body)).not.toContain("name=");
+    expect(JSON.stringify(fetchMock.mock.calls[0][1])).not.toContain("token-nao-usado");
   });
 });

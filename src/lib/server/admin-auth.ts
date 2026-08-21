@@ -39,6 +39,7 @@ export function verifyAdminSessionToken(secret: string | undefined, token: strin
   return timingSafeEqual(expectedBuffer, tokenBuffer);
 }
 
-export function createAdminSessionCookie(token: string) {
-  return `casaloti_admin=${token}; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=28800`;
+export function createAdminSessionCookie(token: string, options: { secure?: boolean } = {}) {
+  const secure = options.secure ?? process.env.NODE_ENV === "production";
+  return [`casaloti_admin=${token}`, "HttpOnly", secure ? "Secure" : "", "SameSite=Lax", "Path=/", "Max-Age=28800"].filter(Boolean).join("; ");
 }

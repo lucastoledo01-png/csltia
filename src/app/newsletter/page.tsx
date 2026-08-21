@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { newsletterBenefits } from "@/lib/editorial";
 
 export default function NewsletterPage() {
@@ -17,10 +18,9 @@ export default function NewsletterPage() {
           </p>
         </header>
 
-        <form className="mx-auto mt-10 flex w-full max-w-[520px] items-center gap-2 rounded-full border border-black bg-white p-1.5">
-          <input aria-label="Email para newsletter" className="min-w-0 flex-1 bg-transparent px-4 py-3 text-base outline-none" placeholder="seu@email.com" type="email" />
-          <button className="cta-gradient rounded-full px-6 py-3 text-base font-medium text-white" type="button">inscreva-se</button>
-        </form>
+        <div className="mx-auto mt-10 max-w-[520px]">
+          <NewsletterSignup source="newsletter-page" />
+        </div>
 
         <section className="mt-16 border-y border-black py-8 text-left">
           <h2 className="text-3xl font-black tracking-[-0.05em]">o que vem na edição</h2>

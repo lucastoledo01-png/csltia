@@ -8,13 +8,14 @@ describe("admin auth", () => {
     expect(verifyAdminPassword(undefined, "abc123")).toBe(false);
   });
 
-  it("gera cookie httpOnly para sessao temporaria", () => {
-    const cookie = createAdminSessionCookie("token-assinado");
+  it("gera cookie httpOnly para sessao temporaria e APIs admin", () => {
+    const cookie = createAdminSessionCookie("token-assinado", { secure: false });
 
     expect(cookie).toContain("casaloti_admin=token-assinado");
     expect(cookie).toContain("HttpOnly");
     expect(cookie).toContain("SameSite=Lax");
-    expect(cookie).toContain("Path=/admin");
+    expect(cookie).toContain("Path=/");
+    expect(cookie).not.toContain("Secure");
   });
 
   it("verifica token assinado antes de liberar admin", () => {

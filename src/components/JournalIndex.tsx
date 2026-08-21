@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FooterBrandMark, SiteHeader } from "@/components/SiteHeader";
+import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { articles } from "@/lib/editorial";
 
 const rotatingWords = ["aprende", "cria", "vende"];
@@ -12,22 +13,6 @@ const faqs = [
   "Posso mandar para os amigos do grupo?",
   "Que horas chega?",
 ];
-
-function SignupForm({ compact = false }: { compact?: boolean }) {
-  return (
-    <form className={`mx-auto flex w-full max-w-[520px] items-center gap-2 rounded-full border border-black bg-white p-1.5 ${compact ? "mx-0" : ""}`}>
-      <label className="sr-only" htmlFor={compact ? "footer-email" : "hero-email"}>Email para newsletter</label>
-      <svg aria-hidden="true" className="ml-3 size-5 shrink-0 text-black" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24">
-        <rect height="16" rx="2" width="20" x="2" y="4" />
-        <path d="m22 7-10 6L2 7" />
-      </svg>
-      <input className="min-w-0 flex-1 bg-transparent px-1 py-2 text-base outline-none placeholder:text-[#6b7280]" id={compact ? "footer-email" : "hero-email"} placeholder="coloque seu email" type="email" />
-      <button className="cta-gradient rounded-full px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(255,74,28,0.26)] transition-transform duration-200 ease-in-out hover:-translate-y-0.5 sm:px-6 sm:text-base" type="button">
-        inscreva-se
-      </button>
-    </form>
-  );
-}
 
 function Hero() {
   return (
@@ -46,7 +31,7 @@ function Hero() {
         todo dia, um resumo esperto sobre IA no seu email. Sem palestra de LinkedIn. Sem robô falando bonito. Coisa útil para abrir junto com o café.
       </p>
       <div className="mt-9">
-        <SignupForm />
+        <NewsletterSignup source="newsletter-home" />
       </div>
       <div className="glass-strip mx-auto mt-4 grid min-h-14 w-full max-w-[320px] place-items-center px-4 text-sm text-[#111827]">
         <span><span className="mr-2 inline-grid size-7 place-items-center rounded-full bg-[#22a05a] text-white">✓</span> anti-spam entra aqui</span>
@@ -146,7 +131,7 @@ function BottomCta() {
           <p className="mt-5 text-xl leading-8 text-[#667085] md:text-2xl">
             IA relevante, direto no email, <strong className="text-black">todo dia às 06:06</strong>. Igual abrir o MSN de manhã, só que sem nudges.
           </p>
-          <div className="mt-8"><SignupForm compact /></div>
+          <div className="mt-8"><NewsletterSignup compact source="newsletter-footer" /></div>
         </div>
         <div className="relative min-h-[360px] sm:min-h-[420px]">
           <div className="absolute bottom-0 right-2 h-[360px] w-[280px] rounded-t-full bg-[#ffe1d8] sm:h-[430px] sm:w-[360px]" />

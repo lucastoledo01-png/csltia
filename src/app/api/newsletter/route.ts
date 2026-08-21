@@ -2,9 +2,23 @@ import { NextResponse } from "next/server";
 import { createListmonkClient } from "@/lib/server/listmonk";
 import { normalizeSignupEvent } from "@/lib/server/platform-events";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
+import { verifyTurnstileToken } from "@/lib/server/turnstile";
 
 export async function POST(request: Request) {
-  const payload = normalizeSignupEvent(await request.json().catch(() => ({})));
+  const body = await request.json().catch(() => ({}));
+  const requestUrl = new URL(request.url);
+  const turnstile = await verifyTurnstileToken({
+    token: typeof body.turnstileToken === "string" ? body.turnstileToken : body["cf-turnstile-response"],
+    expectedAction: "newsletter_signup",
+    requestHostname: requestUrl.hostname,
+    remoteIp: request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+  });
+
+  if (!turnstile.ok) {
+    return NextResponse.json({ ok: false, reason: "turnstile_failed" }, { status: 403 });
+  }
+
+  const payload = normalizeSignupEvent(body);
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("newsletter_leads")
