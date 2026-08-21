@@ -39,8 +39,8 @@ export const articles: Article[] = [
       "O que mudou em modelos, produtos e benchmarks, direto ao ponto. Um filtro simples para separar notícia útil de espuma antes do café esfriar.",
     date: "20 AGO 2026",
     readTime: "5 min",
-    image: "/articles/radar-semana.svg",
-    imageAlt: "capa do artigo A semana em IA sem hype",
+    image: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
+    imageAlt: "Mesa de trabalho moderna com café e notebook exibindo gráficos",
     quote: "Se a notícia não muda sua rotina, ela ainda pode ser interessante. Só não merece virar prioridade.",
     quoteBy: "Casaloti",
     sections: [
@@ -77,8 +77,8 @@ export const articles: Article[] = [
       "Um mini processo para sair do link cru e chegar em um post que explica, opina e entrega alguma coisa para quem segue você.",
     date: "19 AGO 2026",
     readTime: "4 min",
-    image: "/articles/prompt-bolso.svg",
-    imageAlt: "capa do artigo Guarda esse CTRL+C",
+    image: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=1200&q=80",
+    imageAlt: "Smartphone com anotações de trabalho sobre mesa de madeira",
     quote: "Post bom não repete a notícia. Ele traduz o que a pessoa faz com aquilo na segunda-feira.",
     quoteBy: "Casaloti",
     sections: [
@@ -115,15 +115,15 @@ export const articles: Article[] = [
       "Um artigo sobre como testar modelos de escrita sem cair no placar bonito que não diz nada sobre voz, ritmo e revisão.",
     date: "18 AGO 2026",
     readTime: "8 min",
-    image: "/articles/benchmark-escrita.svg",
-    imageAlt: "capa do artigo Qual IA escreve melhor",
+    image: "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1200&q=80",
+    imageAlt: "Caderno com anotações e teclado de computador em estilo editorial",
     quote: "Texto bom não parece que venceu uma rubrica. Parece que alguém pensou antes de publicar.",
     quoteBy: "Casaloti",
     sections: [
       {
         heading: "O placar engana",
         paragraphs: [
-          "Benchmark ajuda, mas não decide sozinho. Um modelo pode ir bem em teste geral e ainda escrever como manual de micro-ondas quando você pede um artigo com voz. Escrita boa depende de ritmo, opinião, corte e coragem de apagar frase bonita que não diz nada.",
+          "Benchmark ajuda, mas não meço por notas frias. Um modelo pode ir bem em teste geral e ainda escrever como manual de micro-ondas quando você pede um artigo com voz. Escrita boa depende de ritmo, opinião, corte e coragem de apagar frase bonita que não diz nada.",
           "O teste certo usa material real. Pegue um tema, uma fonte e um objetivo. Peça versões para newsletter, post e roteiro curto. Depois compare retrabalho, não só a primeira resposta.",
         ],
       },
@@ -148,14 +148,14 @@ export const articles: Article[] = [
     category: "Mercado",
     title: "Os sinais pequenos da corrida de IA",
     excerpt:
-      "Preço, velocidade, memória, agentes e distribuição. Às vezes a notícia pequena é o print do MSN que entrega tudo.",
+      "Preço, velocidade, memória, agentes e distribuição. Às vezes a notícia pequena entrega o mercado inteiro.",
     description:
       "Uma leitura prática dos sinais que importam mais do que anúncio gigante: preço, limite, integração, memória e onde o botão aparece.",
     date: "17 AGO 2026",
     readTime: "6 min",
-    image: "/articles/sinais-mercado.svg",
-    imageAlt: "capa do artigo Os sinais pequenos da corrida de IA",
-    quote: "Na guerra de IA, o detalhe pequeno costuma mostrar para onde o produto está indo antes do palco confirmar.",
+    image: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80",
+    imageAlt: "Telas de dados de tecnologia e códigos em alta definição",
+    quote: "Na evolução de IA, o detalhe pequeno costuma mostrar para onde o produto está indo antes do palco confirmar.",
     quoteBy: "Casaloti",
     sections: [
       {
@@ -191,8 +191,8 @@ export const articles: Article[] = [
       "Um manual curto para ler notícia de IA com curiosidade, mas sem comprar toda promessa que aparece com fundo gradiente.",
     date: "16 AGO 2026",
     readTime: "7 min",
-    image: "/articles/manual-curioso.svg",
-    imageAlt: "capa do artigo Manual do curioso",
+    image: "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=1200&q=80",
+    imageAlt: "Biblioteca moderna com revistas e relatórios de pesquisa",
     quote: "Curiosidade boa não acredita em tudo. Ela testa pequeno antes de mudar a rotina inteira.",
     quoteBy: "Casaloti",
     sections: [
@@ -222,30 +222,30 @@ export const articles: Article[] = [
   {
     slug: "lan-house-da-ia",
     category: "Cultura",
-    title: "A lan house da IA: por que todo mundo precisa de uma rotina de descoberta",
+    title: "A rotina de descoberta: por que todo mundo precisa de curadoria",
     excerpt:
-      "O portal nasce para virar hábito. Um canto pequeno e confiável para abrir quando o feed parece Orkut em dia de depoimento coletivo.",
+      "O portal nasce para virar hábito. Um canto pequeno e confiável para abrir quando o feed parece uma enxurrada de ruído.",
     description:
       "Um texto sobre ritual, curadoria e por que aprender IA fica mais fácil quando existe um lugar fixo para voltar.",
     date: "15 AGO 2026",
     readTime: "5 min",
-    image: "/articles/lan-house.svg",
-    imageAlt: "capa do artigo A lan house da IA",
-    quote: "A internet boa tinha lugar para voltar. IA também precisa disso.",
+    image: "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1200&q=80",
+    imageAlt: "Pessoa lendo conteúdo em notebook com xícara de café",
+    quote: "A internet boa tinha lugar para voltar. Conteúdo útil também precisa disso.",
     quoteBy: "Casaloti",
     sections: [
       {
         heading: "Ritual vence ansiedade",
         paragraphs: [
-          "A sensação de estar atrasado em IA vem muito da falta de ritual. Você abre rede social, vê vinte novidades, salva dez e usa nenhuma. No dia seguinte, começa tudo de novo. É o MSN piscando sem parar, mas ninguém chama para uma conversa boa.",
+          "A sensação de estar atrasado em IA vem muito da falta de ritual. Você abre rede social, vê vinte novidades, salva dez e usa nenhuma. No dia seguinte, começa tudo de novo. É uma tempestade de notificações sem parar.",
           "Um ritual pequeno resolve parte disso. Cinco minutos por dia. Uma notícia, um prompt, uma decisão. Parece pouco, mas composto por semanas vira repertório.",
         ],
       },
       {
-        heading: "A lan house como metáfora",
+        heading: "Curadoria e Foco",
         paragraphs: [
-          "Lan house era ponto de acesso e ponto de encontro. Tinha jogo, pesquisa de escola, conversa, descoberta e alguém do lado mostrando um atalho. O Casaloti IA quer pegar esse espírito sem trazer o cheiro de gabinete quente.",
-          "A ideia é simples: um lugar para descobrir ferramenta, entender notícia e sair com algo testável. Sem virar curso infinito a cada clique.",
+          "Curadoria é o filtro que transforma excesso de informação em plano de ação real.",
+          "A ideia é simples: um lugar para descobrir ferramentas, entender notícias e sair com algo testável sem virar curso infinito a cada clique.",
         ],
       },
       {
