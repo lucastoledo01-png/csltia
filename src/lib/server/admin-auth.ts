@@ -1,12 +1,24 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+function cleanValue(val: string | undefined): string {
+  if (!val) return "";
+  let clean = val.trim();
+  if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+    clean = clean.slice(1, -1).trim();
+  }
+  return clean;
+}
+
 export function verifyAdminPassword(configuredPassword: string | undefined, candidatePassword: string | undefined) {
-  if (!configuredPassword || !candidatePassword) {
+  const cleanConfigured = cleanValue(configuredPassword);
+  const cleanCandidate = cleanValue(candidatePassword);
+
+  if (!cleanConfigured || !cleanCandidate) {
     return false;
   }
 
-  const configured = Buffer.from(configuredPassword);
-  const candidate = Buffer.from(candidatePassword);
+  const configured = Buffer.from(cleanConfigured);
+  const candidate = Buffer.from(cleanCandidate);
 
   if (configured.length !== candidate.length) {
     return false;

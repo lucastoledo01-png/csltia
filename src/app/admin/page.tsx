@@ -22,7 +22,8 @@ async function hasAdminSession() {
   const cookieStore = await cookies();
   const token = cookieStore.get("casaloti_admin")?.value;
 
-  return verifyAdminSessionToken(process.env.ADMIN_SESSION_SECRET, token);
+  const secret = process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_TEMP_PASSWORD || "casaloti_admin_session_secret_fallback";
+  return verifyAdminSessionToken(secret, token);
 }
 
 type AdminPageProps = {
