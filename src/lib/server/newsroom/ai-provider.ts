@@ -50,7 +50,6 @@ export async function callOpenAIJSON<T>(
   if (!config.isConfigured || !config.apiKey) {
     console.warn(`[NEWSROOM AI] OPENAI_API_KEY não detectada. Gerando saída estruturada via mecanismo de fallback seguro para DRY RUN.`);
     
-    // Gerar fallback realista baseado na solicitação se for redação ou QA
     const userPromptStr = messages.map(m => m.content).join("\n");
     let fallbackData: any;
 
@@ -65,7 +64,6 @@ export async function callOpenAIJSON<T>(
         score: 95,
       };
     } else {
-      // Tentar extrair fatos do prompt do pacote factual
       fallbackData = {
         subject_options: [
           "Radar de IA: As novidades mais quentes que você precisa testar hoje",
@@ -146,18 +144,20 @@ export async function callOpenAIJSON<T>(
     };
   }
 
+  // Omitir o parâmetro temperature para compatibilidade universal com modelos OpenAI (gpt-4o, o1, o3, etc)
+  const reqBody: Record<string, any> = {
+    model,
+    messages,
+    response_format: { type: "json_object" },
+  };
+
   const response = await fetcher("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${config.apiKey.trim()}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model,
-      messages,
-      response_format: { type: "json_object" },
-      temperature: 0.3,
-    }),
+    body: JSON.stringify(reqBody),
   });
 
   if (!response.ok) {
