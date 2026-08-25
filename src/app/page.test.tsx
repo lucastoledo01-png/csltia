@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import Home from "./page";
 
-describe("Casaloti home", () => {
+describe("desbuguei.ia home", () => {
   it("exibe o formulário de inscrição na newsletter", () => {
     render(<Home />);
 
@@ -17,16 +17,16 @@ describe("Casaloti home", () => {
     expect(screen.getAllByRole("link", { name: /formações/i })[0]).toHaveAttribute("href", "/formacoes");
   });
 
-  it("exibe a logo no topo", () => {
+  it("exibe a logo desbuguei.ia no topo", () => {
     render(<Home />);
 
-    expect(screen.getAllByAltText(/Casaloti IA/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole("link", { name: /desbuguei.ia/i }).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("exibe a headline clean e institucional", () => {
+  it("exibe a headline principal desbugada", () => {
     render(<Home />);
 
-    expect(screen.getByRole("heading", { level: 1, name: /Inteligência Artificial explicada de forma clara/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /Inteligência artificial desbugada/i })).toBeInTheDocument();
   });
 
   it("exibe a seção de dúvidas frequentes", () => {

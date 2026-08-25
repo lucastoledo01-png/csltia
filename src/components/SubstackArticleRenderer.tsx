@@ -20,20 +20,20 @@ type SubstackArticleRendererProps = {
 export function SubstackArticleRenderer({
   title,
   subtitle,
-  date = "20 de Agosto de 2026",
+  date = "25 de Agosto de 2026",
   category = "Radar",
   readTime = "5 min",
   coverImage,
   contentHtml,
   sections,
   quote,
-  quoteBy = "Casaloti",
-  author = "Casaloti Editorial",
+  quoteBy = "desbuguei.ia",
+  author = "desbuguei.ia Editorial",
 }: SubstackArticleRendererProps) {
   const [pollVoted, setPollVoted] = useState<string | null>(null);
 
   const whatsappShareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(
-    `Confira esta leitura no Casaloti IA: ${title}`
+    `Confira esta leitura no desbuguei.ia: ${title}`
   )}`;
 
   return (
@@ -59,8 +59,8 @@ export function SubstackArticleRenderer({
         {/* Avatar e Meta do Autor */}
         <div className="mt-6 flex items-center justify-between border-t border-[#f3f4f6] pt-4 text-xs">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ff4a1c] font-mono text-sm font-bold text-white shadow-sm">
-              C
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ff4a1c] font-mono text-sm font-black text-white shadow-sm">
+              b.
             </div>
             <div>
               <p className="font-semibold text-[#111827]">{author}</p>

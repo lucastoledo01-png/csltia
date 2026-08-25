@@ -131,8 +131,9 @@ export default function AdminPage() {
       <header className="border-b border-[#e5e7eb] bg-white px-6 py-4 shadow-sm">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="rounded-xl bg-[#ff4a1c] px-3 py-1 font-mono text-xs font-bold text-white">
-              CASALOTI IA / ADMIN
+            <span className="rounded-xl bg-[#ff4a1c] px-3 py-1 font-mono text-xs font-bold text-white flex items-center gap-1.5">
+              <span className="flex h-3.5 w-3.5 items-center justify-center rounded-sm bg-white text-[9px] font-black text-[#ff4a1c]">b.</span>
+              DESBUGUEI.IA / ADMIN
             </span>
             <h1 className="text-lg font-bold tracking-tight text-[#111827]">Gestão & Analytics</h1>
           </div>

@@ -8,7 +8,7 @@ export default function NewsletterPage() {
       <div className="mx-auto min-h-screen max-w-3xl px-5 py-16 text-center">
         <header>
           <div className="mb-16 flex items-center justify-between text-sm">
-            <Link className="font-black tracking-[-0.05em] text-black" href="/">Casaloti IA</Link>
+            <Link className="font-bold tracking-[-0.03em] font-sans text-xl text-black" href="/">desbuguei.ia</Link>
             <Link className="font-medium hover:text-[#ff4a1c]" href="/artigos">Artigos</Link>
           </div>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#ff4a1c]">Newsletter</p>

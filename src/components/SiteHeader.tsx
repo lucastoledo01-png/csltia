@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 
 const navItems = [
@@ -9,15 +8,13 @@ const navItems = [
 
 export function BrandMark({ dark = false }: { dark?: boolean }) {
   return (
-    <Link aria-label="Casaloti IA" className="flex items-center" href="/">
-      <Image
-        alt="Casaloti IA"
-        className={dark ? "h-9 w-auto object-contain brightness-0 invert" : "h-9 w-auto object-contain"}
-        height={72}
-        priority
-        src="/brand/casaloti-logo-original.png"
-        width={210}
-      />
+    <Link aria-label="desbuguei.ia" className="flex items-center gap-2.5 group" href="/">
+      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#ff4a1c] font-mono text-sm font-black text-white shadow-sm transition-transform group-hover:scale-105">
+        b.
+      </span>
+      <span className={`font-sans text-xl font-bold tracking-tight ${dark ? "text-white" : "text-[#111827]"}`}>
+        desbuguei<span className="text-[#ff4a1c]">.ia</span>
+      </span>
     </Link>
   );
 }

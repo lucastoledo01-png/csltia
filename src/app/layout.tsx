@@ -20,9 +20,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Casaloti IA | sem hype, só o fio",
+  title: "desbuguei.ia | inteligência artificial desbugada",
   description:
-    "Portal brasileiro de IA com radar de novidades, prompts de bolso e guias práticos para usar inteligência artificial no dia a dia.",
+    "Portal e newsletter diária com novidades de IA, automação e ferramentas úteis desbugadas, sem ruído e sem enrolação.",
 };
 
 export default function RootLayout({

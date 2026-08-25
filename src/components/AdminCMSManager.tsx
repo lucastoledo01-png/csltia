@@ -115,7 +115,7 @@ export function AdminCMSManager() {
       excerpt: "Resumo em destaque para a edição...",
       description: "Descrição completa...",
       category: "Radar",
-      author: "Casaloti IA",
+      author: "desbuguei.ia",
       reading_minutes: 5,
       view_count: 0,
       status: "draft",

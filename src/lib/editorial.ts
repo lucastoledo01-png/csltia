@@ -19,12 +19,12 @@ export type Article = {
 };
 
 export const featuredIssue = {
-  eyebrow: "Jornal de IA para gente curiosa",
-  title: "while IA atualiza() você aprende",
+  eyebrow: "Publicação sobre IA e automação",
+  title: "inteligência artificial desbugada",
   subtitle:
-    "Todo dia, um resumo esperto sobre IA no seu email. Sem palestra de LinkedIn. Sem robô falando bonito.",
-  author: "Casaloti",
-  date: "20 AGO 2026",
+    "Todo dia, um resumo esperto sobre IA no seu email. Sem ruído e sem enrolação.",
+  author: "desbuguei.ia",
+  date: "25 AGO 2026",
   readTime: "7 min",
 };
 
@@ -42,7 +42,7 @@ export const articles: Article[] = [
     image: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
     imageAlt: "Mesa de trabalho moderna com café e notebook exibindo gráficos",
     quote: "Se a notícia não muda sua rotina, ela ainda pode ser interessante. Só não merece virar prioridade.",
-    quoteBy: "Casaloti",
+    quoteBy: "desbuguei.ia",
     sections: [
       {
         heading: "O teste do café",
@@ -80,7 +80,7 @@ export const articles: Article[] = [
     image: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=1200&q=80",
     imageAlt: "Smartphone com anotações de trabalho sobre mesa de madeira",
     quote: "Post bom não repete a notícia. Ele traduz o que a pessoa faz com aquilo na segunda-feira.",
-    quoteBy: "Casaloti",
+    quoteBy: "desbuguei.ia",
     sections: [
       {
         heading: "Primeiro, leia como humano",
@@ -118,7 +118,7 @@ export const articles: Article[] = [
     image: "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1200&q=80",
     imageAlt: "Caderno com anotações e teclado de computador em estilo editorial",
     quote: "Texto bom não parece que venceu uma rubrica. Parece que alguém pensou antes de publicar.",
-    quoteBy: "Casaloti",
+    quoteBy: "desbuguei.ia",
     sections: [
       {
         heading: "O placar engana",
@@ -156,7 +156,7 @@ export const articles: Article[] = [
     image: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80",
     imageAlt: "Telas de dados de tecnologia e códigos em alta definição",
     quote: "Na evolução de IA, o detalhe pequeno costuma mostrar para onde o produto está indo antes do palco confirmar.",
-    quoteBy: "Casaloti",
+    quoteBy: "desbuguei.ia",
     sections: [
       {
         heading: "Olhe para o botão",
@@ -194,7 +194,7 @@ export const articles: Article[] = [
     image: "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=1200&q=80",
     imageAlt: "Biblioteca moderna com revistas e relatórios de pesquisa",
     quote: "Curiosidade boa não acredita em tudo. Ela testa pequeno antes de mudar a rotina inteira.",
-    quoteBy: "Casaloti",
+    quoteBy: "desbuguei.ia",
     sections: [
       {
         heading: "Separe anúncio de uso",
@@ -232,7 +232,7 @@ export const articles: Article[] = [
     image: "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1200&q=80",
     imageAlt: "Pessoa lendo conteúdo em notebook com xícara de café",
     quote: "A internet boa tinha lugar para voltar. Conteúdo útil também precisa disso.",
-    quoteBy: "Casaloti",
+    quoteBy: "desbuguei.ia",
     sections: [
       {
         heading: "Ritual vence ansiedade",

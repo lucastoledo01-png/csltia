@@ -5,7 +5,7 @@ describe("Automation structure", () => {
   it("documenta a esteira de conteúdo autônoma", () => {
     render(<AutomationPage />);
 
-    expect(screen.getByRole("heading", { name: /esteira autônoma casaloti/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /esteira autônoma desbuguei.ia/i })).toBeInTheDocument();
     expect(screen.getByText(/hacker news/i)).toBeInTheDocument();
     expect(screen.getByText(/rss de blogs/i)).toBeInTheDocument();
     expect(screen.getByText(/arxiv/i)).toBeInTheDocument();
