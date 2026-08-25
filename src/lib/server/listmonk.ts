@@ -46,7 +46,8 @@ export function getListmonkConfig(env: EnvLike = process.env): ListmonkConfig {
   const formListUuid = env.LISTMONK_FORM_LIST_UUID || homesiteListUuid;
   const token = env.LISTMONK_API_TOKEN || env.LISTMONK_PASSWORD;
   const user = env.LISTMONK_API_USER || env.LISTMONK_KEY_ID || env.LISTMONK_USERNAME || "apiuser";
-  const listIds = String(env.LISTMONK_DEFAULT_LIST_ID ?? "")
+  const rawListIds = env.LISTMONK_DEFAULT_LIST_ID ?? "4,1";
+  const listIds = String(rawListIds)
     .split(",")
     .map((item) => Number(item.trim()))
     .filter((item) => Number.isInteger(item) && item > 0);
@@ -59,7 +60,7 @@ export function getListmonkConfig(env: EnvLike = process.env): ListmonkConfig {
       formListUuid,
       token,
       user,
-      listIds: listIds.length > 0 ? listIds : [1],
+      listIds: listIds.length > 0 ? listIds : [4, 1],
     };
   }
 
@@ -71,11 +72,11 @@ export function getListmonkConfig(env: EnvLike = process.env): ListmonkConfig {
       formListUuid,
       token,
       user,
-      listIds: listIds.length > 0 ? listIds : [1],
+      listIds: listIds.length > 0 ? listIds : [4, 1],
     };
   }
 
-  return { enabled: true, mode: "api", url, token, user, listIds: listIds.length > 0 ? listIds : [1] };
+  return { enabled: true, mode: "api", url, token, user, listIds: listIds.length > 0 ? listIds : [4, 1] };
 }
 
 export function buildListmonkFormPayload(lead: NewsletterLead, formListUuid = homesiteListUuid) {
@@ -87,12 +88,12 @@ export function buildListmonkFormPayload(lead: NewsletterLead, formListUuid = ho
   return payload;
 }
 
-export function buildListmonkSubscriberPayload(lead: NewsletterLead, listIds: number[]) {
+export function buildListmonkSubscriberPayload(lead: NewsletterLead, listIds: number[], preconfirm = false) {
   return {
     email: lead.email.trim().toLowerCase(),
     status: "enabled",
     lists: listIds,
-    preconfirm_subscriptions: false,
+    preconfirm_subscriptions: preconfirm,
     attribs: {
       source: lead.source,
       consent: "site_opt_in",
@@ -147,7 +148,7 @@ export function createListmonkClient(env: EnvLike = process.env, fetcher: typeof
               Authorization: authHeader,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify(buildListmonkSubscriberPayload(lead, config.listIds)),
+            body: JSON.stringify(buildListmonkSubscriberPayload(lead, config.listIds, true)),
           });
 
           if (response.ok || response.status === 409) {
