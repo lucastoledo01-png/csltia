@@ -50,14 +50,14 @@ export async function POST(request: Request) {
   const password = await getPassword(request);
   const acceptsHtml = (request.headers.get("accept") ?? "").includes("text/html");
 
-  const configuredPassword = process.env.ADMIN_TEMP_PASSWORD || "*4lur4F3lix$";
+  const configuredPassword = process.env.ADMIN_TEMP_PASSWORD || process.env.ADMIN_PASSWORD || "*4lur4F3lix$";
 
   if (!verifyAdminPassword(configuredPassword, password)) {
     if (acceptsHtml) {
       return NextResponse.redirect(getTargetUrl("/admin?erro=senha", request), { status: 303 });
     }
 
-    return NextResponse.json({ ok: false }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "Senha incorreta" }, { status: 401 });
   }
 
   const sessionSecret = process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_TEMP_PASSWORD || "casaloti_admin_session_secret_fallback";
@@ -70,4 +70,3 @@ export async function POST(request: Request) {
 
   return response;
 }
-
