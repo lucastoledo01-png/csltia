@@ -1,0 +1,45 @@
+import { z } from "zod";
+
+export const InstagramSlideTypeSchema = z.enum([
+  "cover",
+  "intro",
+  "content",
+  "quote_highlight",
+  "practical_impact",
+  "cta",
+]);
+
+export const InstagramSlideSchema = z.object({
+  index: z.number().min(1).max(10),
+  type: InstagramSlideTypeSchema,
+  eyebrow: z.string().optional().default(""),
+  title: z.string().min(5).max(90),
+  body: z.string().max(350).optional().default(""),
+  bullet_points: z.array(z.string()).optional().default([]),
+  highlight_text: z.string().optional().default(""),
+  cover_image_prompt: z.string().optional().default(""),
+  cta_text: z.string().optional().default(""),
+});
+
+export const InstagramCaptionSchema = z.object({
+  headline: z.string().min(10).max(100),
+  intro_summary: z.string().min(20).max(300),
+  key_takeaways: z.array(z.string()).min(2).max(5),
+  cta_call: z.string().min(10).max(150),
+  hashtags: z.array(z.string()).min(3).max(12),
+  full_caption: z.string().min(50).max(2000),
+});
+
+export const InstagramCarouselSchema = z.object({
+  title: z.string().min(10).max(100),
+  edition_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  primary_topic: z.string().min(3),
+  target_audience_focus: z.string().default("Criadores, Vendedores & Empreendedores"),
+  slides: z.array(InstagramSlideSchema).min(5).max(10),
+  caption: InstagramCaptionSchema,
+});
+
+export type InstagramSlide = z.infer<typeof InstagramSlideSchema>;
+export type InstagramSlideType = z.infer<typeof InstagramSlideTypeSchema>;
+export type InstagramCaption = z.infer<typeof InstagramCaptionSchema>;
+export type InstagramCarouselContent = z.infer<typeof InstagramCarouselSchema>;

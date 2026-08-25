@@ -63,6 +63,65 @@ export async function callOpenAIJSON<T>(
         issues: [],
         score: 95,
       };
+    } else if (userPromptStr.includes("INSTAGRAM") || userPromptStr.includes("CARROSSEL")) {
+      fallbackData = {
+        title: "Instagram lança assistente de IA para criadores e marcas",
+        edition_date: "2026-08-25",
+        primary_topic: "Redes Sociais",
+        target_audience_focus: "Criadores, Vendedores & Empreendedores",
+        slides: [
+          {
+            index: 1,
+            type: "cover",
+            eyebrow: "UPDATE DE IA",
+            title: "A nova ferramenta do Instagram que vai mudar seus posts",
+            body: "Veja o que mudou hoje no app e como usar no seu perfil",
+            cover_image_prompt: "Minimalist futuristic 3D render of artificial intelligence smartphone, orange and dark gray theme, glowing neon accents, clean background, no text"
+          },
+          {
+            index: 2,
+            type: "intro",
+            title: "O que aconteceu?",
+            body: "A Meta liberou novos recursos de IA que geram roteiros e editam vídeos diretamente no aplicativo do Instagram."
+          },
+          {
+            index: 3,
+            type: "content",
+            title: "Por que isso importa de verdade",
+            body: "Criadores de conteúdo e negócios locais podem economizar até 3 horas por semana na produção de Reels e carrosséis.",
+            bullet_points: [
+              "Sugestão de legendas automáticas",
+              "Criação de variações de roteiro em segundos",
+              "Edição rápida direto no celular"
+            ]
+          },
+          {
+            index: 4,
+            type: "practical_impact",
+            title: "Como usar hoje no seu perfil",
+            body: "Abra a aba de criação do Instagram, ative as sugestões de roteiro com IA e escolha a melhor opção para a sua audiência."
+          },
+          {
+            index: 5,
+            type: "cta",
+            title: "Curtiu este desbug?",
+            body: "Salve este post para consultar quando for criar conteúdo e compartilhe com um amigo no WhatsApp!",
+            cta_text: "Siga a @desbuguei.ia para ficar por dentro de todas as novidades"
+          }
+        ],
+        caption: {
+          headline: "A nova IA do Instagram acabou de sair! Veja o que muda na sua rotina ⬇️",
+          intro_summary: "Se você cria conteúdo ou vende pelo Instagram, essa novidade vai te economizar horas de trabalho.",
+          key_takeaways: [
+            "📌 Roteiros de vídeos gerados em segundos",
+            "💡 Edição direta e simples no app",
+            "⚡ Mais tempo livre para focar no seu negócio"
+          ],
+          cta_call: "Você já testou essa ferramenta no seu app? Comente aqui embaixo!",
+          hashtags: ["#inteligenciaartificial", "#redessociais", "#marketingdigital", "#desbuguei", "#criadoresdeconteudo"],
+          full_caption: "A nova IA do Instagram acabou de sair! ⬇️\n\nSe você cria conteúdo ou vende pela internet, veja o que mudou:\n\n📌 Roteiros de vídeos gerados em segundos\n💡 Edição direta no app\n⚡ Economia de tempo para o seu negócio\n\nQual recurso você vai testar primeiro? Comente aqui!\n\nAgora você está desbugado. 🚀\n\n#inteligenciaartificial #redessociais #marketingdigital #desbuguei"
+        }
+      };
     } else {
       fallbackData = {
         subject_options: [
@@ -144,7 +203,6 @@ export async function callOpenAIJSON<T>(
     };
   }
 
-  // Omitir o parâmetro temperature para compatibilidade universal com modelos OpenAI (gpt-4o, o1, o3, etc)
   const reqBody: Record<string, any> = {
     model,
     messages,
