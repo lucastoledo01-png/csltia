@@ -5,13 +5,14 @@ import Link from "next/link";
 import { AdminAnalyticsDashboard } from "@/components/AdminAnalyticsDashboard";
 import { AdminCMSManager } from "@/components/AdminCMSManager";
 import { AdminCommentsManager } from "@/components/AdminCommentsManager";
+import { AdminNewsroomManager } from "@/components/AdminNewsroomManager";
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"cms" | "analytics" | "comments">("cms");
+  const [activeTab, setActiveTab] = useState<"newsroom" | "cms" | "analytics" | "comments">("newsroom");
 
   useEffect(() => {
     // Verificar se já possui sessão autorizada no navegador
@@ -158,14 +159,22 @@ export default function AdminPage() {
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {/* Navegação por Abas */}
-        <div className="flex rounded-xl border border-[#e5e7eb] bg-white p-1 shadow-sm max-w-md">
+        <div className="flex flex-wrap rounded-xl border border-[#e5e7eb] bg-white p-1 shadow-sm max-w-xl">
+          <button
+            onClick={() => setActiveTab("newsroom")}
+            className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${
+              activeTab === "newsroom" ? "bg-[#ff4a1c] text-white shadow-sm" : "text-[#6b7280] hover:text-[#111827]"
+            }`}
+          >
+            ⚡ Redação (IA)
+          </button>
           <button
             onClick={() => setActiveTab("cms")}
             className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${
               activeTab === "cms" ? "bg-[#ff4a1c] text-white shadow-sm" : "text-[#6b7280] hover:text-[#111827]"
             }`}
           >
-            📝 Gestão (CMS)
+            📝 CMS Artigos
           </button>
           <button
             onClick={() => setActiveTab("analytics")}
@@ -187,6 +196,7 @@ export default function AdminPage() {
 
         {/* Conteúdo das Abas */}
         <div className="mt-8">
+          {activeTab === "newsroom" ? <AdminNewsroomManager /> : null}
           {activeTab === "cms" ? <AdminCMSManager /> : null}
           {activeTab === "analytics" ? <AdminAnalyticsDashboard /> : null}
           {activeTab === "comments" ? <AdminCommentsManager /> : null}

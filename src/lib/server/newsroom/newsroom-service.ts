@@ -1,3 +1,4 @@
+import { createListmonkClient } from "../listmonk";
 import { getSupabaseAdminClient } from "../supabase-admin";
 import { collectAllNews } from "./collector";
 import { deduplicateCandidates } from "./deduplicator";
@@ -10,6 +11,8 @@ export type RunNewsroomOptions = {
   dryRun?: boolean;
   timeWindowHours?: number;
   idempotencyKey?: string;
+  publishToPortal?: boolean;
+  createNewsletterCampaign?: boolean;
 };
 
 export function renderEditionToHtml(edition: EditionContent): string {
@@ -95,6 +98,9 @@ export async function runNewsroom(
   fetcher: typeof fetch = fetch
 ) {
   const dryRun = options.dryRun ?? (env.DRY_RUN === "true" || env.DRY_RUN === undefined ? true : false);
+  const publishToPortal = options.publishToPortal ?? !dryRun;
+  const createNewsletterCampaign = options.createNewsletterCampaign ?? !dryRun;
+
   const todayStr = new Date().toISOString().split("T")[0];
   const idempotencyKey = options.idempotencyKey || `daily-edition-${todayStr}`;
 
@@ -148,7 +154,75 @@ export async function runNewsroom(
 
   console.log(`[NEWSROOM] Pipeline concluído com sucesso em ${executionTimeMs}ms! (QA score: ${pipelineResult.qaResult.score}/100, Palavras: ${wordCount})`);
 
-  // Salvar registro de run se não for dryRun
+  let createdArticleSlug: string | undefined;
+  let createdCampaignId: number | undefined;
+
+  // FASE 2: Publicação no Portal se solicitado ou não for dryRun
+  if (publishToPortal) {
+    try {
+      const supabase = getSupabaseAdminClient();
+      const articleSlug = `edicao-${todayStr}`;
+
+      // Inserir ou atualizar artigo no Supabase
+      const { data: articleData, error: articleErr } = await supabase
+        .from("articles")
+        .upsert(
+          {
+            slug: articleSlug,
+            title: pipelineResult.edition.headline,
+            excerpt: pipelineResult.edition.preheader,
+            description: pipelineResult.edition.intro,
+            cover_image: pipelineResult.selectedCandidates[0]?.url || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
+            status: "published",
+            category: "Edição Diária",
+            author: "desbuguei.ia",
+            reading_minutes: Math.ceil(wordCount / 200),
+            published_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "slug" }
+        )
+        .select("id, slug")
+        .single();
+
+      if (!articleErr && articleData) {
+        createdArticleSlug = articleData.slug;
+        console.log(`[NEWSROOM PORTAL] Edição publicada no portal com sucesso em /artigos/${createdArticleSlug}`);
+
+        // Gravar revisão do artigo
+        await supabase.from("article_revisions").insert({
+          article_id: articleData.id,
+          title: pipelineResult.edition.headline,
+          body: pipelineResult.edition as any,
+          created_by: "newsroom_bot",
+        });
+      }
+    } catch (pubErr) {
+      console.error("[NEWSROOM PORTAL ERROR] Falha ao publicar edição no portal:", pubErr);
+    }
+  }
+
+  // FASE 3: Criação de Campanha no Listmonk
+  if (createNewsletterCampaign) {
+    try {
+      const listmonk = createListmonkClient(env, fetcher);
+      const campaignName = `desbuguei.ia — Edição ${todayStr}`;
+      const campaignResult = await listmonk.createCampaign({
+        name: campaignName,
+        subject: pipelineResult.edition.subject,
+        body: htmlContent,
+      });
+
+      if (campaignResult.ok && campaignResult.id) {
+        createdCampaignId = campaignResult.id;
+        console.log(`[NEWSROOM LISTMONK] Campanha criada no Listmonk em modo RASCUNHO com ID #${createdCampaignId}`);
+      }
+    } catch (lmErr) {
+      console.error("[NEWSROOM LISTMONK ERROR] Falha ao criar campanha no Listmonk:", lmErr);
+    }
+  }
+
+  // FASE 4: Salvar registro de run no Supabase
   if (!dryRun) {
     try {
       const supabase = getSupabaseAdminClient();
@@ -175,6 +249,9 @@ export async function runNewsroom(
   return {
     ok: true,
     dryRun,
+    publishedToPortal: Boolean(createdArticleSlug),
+    articleSlug: createdArticleSlug,
+    listmonkCampaignId: createdCampaignId,
     idempotencyKey,
     executionTimeMs,
     sourcesAttempted: collectionResult.sourcesAttempted,

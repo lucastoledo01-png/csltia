@@ -20,7 +20,8 @@ describe("Admin dashboard", () => {
     render(<AdminPage />);
 
     expect(screen.getByRole("heading", { name: /Gestão & Analytics/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Gestão \(CMS\)/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Redação \(IA\)/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /CMS Artigos/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Analytics/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Comentários/i })).toBeInTheDocument();
   });
