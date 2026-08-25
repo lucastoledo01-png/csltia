@@ -16,8 +16,15 @@ export type RunNewsroomOptions = {
   autoSend?: boolean;
 };
 
-export function renderEditionToHtml(edition: EditionContent, coverImage?: string): string {
-  const defaultBanner = coverImage || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80";
+const fallbackImages = [
+  "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=1200&q=80",
+];
+
+export function renderEditionToHtml(edition: EditionContent, coverImages: string[] = []): string {
   const todayStr = new Date().toISOString().split("T")[0];
 
   const now = new Date();
@@ -53,14 +60,14 @@ export function renderEditionToHtml(edition: EditionContent, coverImage?: string
       );
       const whatsappShareUrl = `https://api.whatsapp.com/send?text=${whatsappText}`;
 
-      // Inserir link da fonte inline nas palavras-chave do resumo
       const sourceCreditName = s.source_name || "Fonte Original";
       const summaryWithInlineLink = s.summary.replace(
         /(notícia|estudo|pesquisa|anúncio|ferramenta|plataforma|novo modelo|atualização)/i,
         `<a href="${s.source_url}" target="_blank" style="color: #374151; font-weight: 600; text-decoration: underline;">$1</a>`
       );
 
-      const storyImage = index === 0 ? defaultBanner : undefined;
+      // Imagem dedicada em CADA bloco de notícia (estilo The News)
+      const storyImage = coverImages[index] || fallbackImages[index % fallbackImages.length];
 
       return `
       <section style="margin-bottom: 36px; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb;">
@@ -76,17 +83,13 @@ export function renderEditionToHtml(edition: EditionContent, coverImage?: string
           ${s.title}
         </h2>
 
-        <!-- Imagem da Notícia com Legenda de Reprodução -->
-        ${
-          storyImage
-            ? `<div style="margin-bottom: 8px; border-radius: 12px; overflow: hidden;">
-                <img src="${storyImage}" alt="${s.title}" style="width: 100%; height: auto; max-height: 340px; object-fit: cover; border-radius: 12px; display: block;" />
-              </div>
-              <div style="text-align: center; font-size: 11px; color: #9ca3af; margin-bottom: 18px;">
-                (Imagem: ${sourceCreditName} | Reprodução)
-              </div>`
-            : ""
-        }
+        <!-- Imagem da Notícia com atributos de tag inline anti-download -->
+        <div style="margin-bottom: 8px; border-radius: 12px; overflow: hidden; background-color: #f3f4f6;">
+          <img src="${storyImage}" alt="${s.title}" border="0" loading="eager" decoding="async" style="display: block; width: 100%; height: auto; max-height: 340px; object-fit: cover; border-radius: 12px; margin: 0 auto;" />
+        </div>
+        <div style="text-align: center; font-size: 11px; color: #9ca3af; margin-bottom: 18px;">
+          (Imagem: ${sourceCreditName} | Reprodução)
+        </div>
 
         <!-- Conteúdo Completo com Link da Fonte Embutido no Texto -->
         <div style="font-size: 15px; line-height: 1.7; color: #374151; margin-bottom: 16px;">
@@ -175,32 +178,70 @@ export function renderEditionToHtml(edition: EditionContent, coverImage?: string
         ${tocHtml}
       </div>
 
-      <!-- Histórias Principais com Link Inline da Fonte & Compartilhar no WhatsApp -->
+      <!-- Histórias Principais com Imagem em CADA bloco -->
       ${storiesHtml}
 
       <!-- Giro Rápido -->
       ${quickBitsHtml}
 
-      <!-- Rodapé de Engajamento Estilo The News -->
-      <footer style="margin-top: 40px; padding-top: 24px; border-top: 2px solid #ff4a1c; text-align: center;">
-        <div style="background-color: #fff0c2; border-radius: 12px; padding: 18px; margin-bottom: 24px; border: 1px solid #fde047;">
-          <p style="font-size: 15px; font-weight: 800; color: #854d0e; margin: 0 0 6px 0;">
-            🤝 Curtiu a edição de hoje?
+      <!-- Caixa de Recomendação -->
+      <div style="background-color: #fff0c2; border-radius: 12px; padding: 18px; margin: 32px 0; border: 1px solid #fde047; text-align: center;">
+        <p style="font-size: 15px; font-weight: 800; color: #854d0e; margin: 0 0 6px 0;">
+          🤝 Curtiu a edição de hoje?
+        </p>
+        <p style="font-size: 13px; color: #713f12; margin: 0; line-height: 1.5;">
+          Encaminhe esse e-mail para um amigo que quer aprender IA para crescer nas redes sociais ou vender mais!
+        </p>
+      </div>
+
+      <!-- Rodapé QUEM SOMOS Formatado Idêntico ao The News -->
+      <footer style="margin-top: 40px; padding-top: 24px; border-top: 2px solid #e5e7eb;">
+        
+        <div style="text-align: left; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb; margin-bottom: 28px;">
+          <div style="font-size: 11px; font-weight: 900; color: #d97706; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;">
+            QUEM SOMOS
+          </div>
+          <h3 style="font-size: 26px; font-weight: 900; color: #111827; margin: 0 0 14px 0; letter-spacing: -0.02em;">
+            desbuguei.ia
+          </h3>
+          <p style="font-size: 14px; line-height: 1.6; color: #374151; margin-bottom: 12px;">
+            Mais inteligente em 5 minutos. Somos um jornal gratuito e diário, que tem por objetivo te trazer tudo o que você precisa saber para começar o seu dia bem e informado sobre Inteligência Artificial, redes sociais, vendas e produtividade.
           </p>
-          <p style="font-size: 13px; color: #713f12; margin: 0; line-height: 1.5;">
-            Encaminhe esse e-mail para um amigo que quer aprender IA para crescer nas redes sociais ou vender mais!
+          <p style="font-size: 14px; line-height: 1.6; color: #374151; margin-bottom: 12px;">
+            Notícias, de fato, relevantes sobre as principais atualidades de IA no mundo e no Brasil, sempre simplificadas para o seu perfil e para o seu negócio.
+          </p>
+          <p style="font-size: 14px; line-height: 1.6; color: #374151; margin-bottom: 16px;">
+            Direto na sua caixa de entrada do e-mail favorito, sempre às 06:03 AM. É gratuito, mas pode viciar.
+          </p>
+          <p style="font-size: 18px; font-weight: 900; color: #111827; margin: 0;">
+            até amanhã!
           </p>
         </div>
 
-        <p style="font-size: 14px; color: #374151; font-weight: 500; margin-bottom: 8px;">
-          ${edition.closing}
-        </p>
-        <p style="font-weight: 900; color: #ff4a1c; font-size: 16px; margin: 8px 0 16px 0;">
-          ${edition.final_line}
-        </p>
-        <p style="font-size: 11px; color: #9ca3af; margin: 20px 0 0 0;">
-          © 2026 desbuguei.ia. Todos os direitos reservados.
-        </p>
+        <!-- Seção Powered By & Links de Redes / Inscrição -->
+        <div style="text-align: center; margin-bottom: 24px;">
+          <div style="font-size: 12px; font-style: italic; color: #6b7280; margin-bottom: 8px;">
+            powered by
+          </div>
+          <div style="display: inline-block; background-color: #ff4a1c; color: #ffffff; font-weight: 900; font-family: monospace; font-size: 16px; padding: 6px 14px; border-radius: 8px; margin-bottom: 16px;">
+            b. / desbuguei.ia
+          </div>
+
+          <div style="margin: 16px 0; font-size: 13px; font-weight: 700; color: #111827;">
+            <a href="https://instagram.com" target="_blank" style="margin: 0 8px; text-decoration: none; color: #111827;">Instagram</a> •
+            <a href="https://linkedin.com" target="_blank" style="margin: 0 8px; text-decoration: none; color: #111827;">LinkedIn</a> •
+            <a href="https://youtube.com" target="_blank" style="margin: 0 8px; text-decoration: none; color: #111827;">YouTube</a>
+          </div>
+
+          <div style="font-size: 12px; color: #6b7280; margin-top: 20px;">
+            Atualize suas <a href="{{ UnsubscribeURL }}" target="_blank" style="color: #374151; text-decoration: underline;">preferências de e-mail</a> ou cancele a assinatura <a href="{{ UnsubscribeURL }}" target="_blank" style="color: #374151; text-decoration: underline;">aqui</a>
+          </div>
+
+          <div style="font-size: 11px; color: #9ca3af; margin-top: 10px;">
+            © 2026 desbuguei.ia. Todos os direitos reservados.
+          </div>
+        </div>
+
       </footer>
     </div>
   `;
@@ -258,8 +299,8 @@ export async function runNewsroom(
   console.log("[NEWSROOM] Executando pipeline editorial da OpenAI...");
   const pipelineResult = await runNewsroomPipeline(ranked, env, fetcher);
 
-  const primaryCoverImage = pipelineResult.selectedCandidates[0]?.image_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80";
-  const htmlContent = renderEditionToHtml(pipelineResult.edition, primaryCoverImage);
+  const coverImages = pipelineResult.selectedCandidates.map((c) => c.image_url).filter(Boolean) as string[];
+  const htmlContent = renderEditionToHtml(pipelineResult.edition, coverImages);
   const wordCount = htmlContent.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
   const executionTimeMs = Date.now() - startTime;
 
@@ -273,6 +314,7 @@ export async function runNewsroom(
     try {
       const supabase = getSupabaseAdminClient();
       const articleSlug = `edicao-${todayStr}`;
+      const primaryCoverImage = coverImages[0] || fallbackImages[0];
 
       const { data: articleData, error: articleErr } = await supabase
         .from("articles")
