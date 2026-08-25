@@ -18,6 +18,7 @@ export type RunNewsroomOptions = {
 
 export function renderEditionToHtml(edition: EditionContent, coverImage?: string): string {
   const defaultBanner = coverImage || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80";
+  const todayStr = new Date().toISOString().split("T")[0];
 
   const now = new Date();
   const dateFormatted = now
@@ -46,61 +47,83 @@ export function renderEditionToHtml(edition: EditionContent, coverImage?: string
     .join("");
 
   const storiesHtml = edition.stories
-    .map(
-      (s, index) => `
-      <section style="margin-bottom: 36px; padding-bottom: 28px; border-bottom: 1px solid #e5e7eb;">
-        <div style="margin-bottom: 8px;">
-          <span style="display: inline-block; background-color: #ffb800; color: #111827; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; padding: 3px 8px; border-radius: 4px;">
+    .map((s, index) => {
+      const whatsappText = encodeURIComponent(
+        `Olha essa novidade de IA sobre ${s.title}: \n\n"${s.summary.slice(0, 150)}..." \n\nVeja a edição completa na desbuguei.ia: https://desbuguei.ia/artigos/edicao-${todayStr}`
+      );
+      const whatsappShareUrl = `https://api.whatsapp.com/send?text=${whatsappText}`;
+
+      // Inserir link da fonte inline nas palavras-chave do resumo
+      const sourceCreditName = s.source_name || "Fonte Original";
+      const summaryWithInlineLink = s.summary.replace(
+        /(notícia|estudo|pesquisa|anúncio|ferramenta|plataforma|novo modelo|atualização)/i,
+        `<a href="${s.source_url}" target="_blank" style="color: #374151; font-weight: 600; text-decoration: underline;">$1</a>`
+      );
+
+      const storyImage = index === 0 ? defaultBanner : undefined;
+
+      return `
+      <section style="margin-bottom: 36px; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb;">
+        <!-- Tag de Categoria Estilo The News -->
+        <div style="margin-bottom: 6px;">
+          <span style="display: inline-block; color: #d97706; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em;">
             ${s.category}
           </span>
         </div>
 
-        <h2 style="font-size: 22px; font-weight: 800; color: #111827; margin: 8px 0 14px 0; line-height: 1.3;">
+        <!-- Título da Pauta -->
+        <h2 style="font-size: 24px; font-weight: 900; color: #111827; margin: 4px 0 16px 0; line-height: 1.25;">
           ${s.title}
         </h2>
 
+        <!-- Imagem da Notícia com Legenda de Reprodução -->
         ${
-          index === 0 && defaultBanner
-            ? `<div style="margin-bottom: 18px; border-radius: 12px; overflow: hidden;">
-                <img src="${defaultBanner}" alt="${s.title}" style="width: 100%; height: auto; max-height: 320px; object-fit: cover; border-radius: 12px; display: block;" />
+          storyImage
+            ? `<div style="margin-bottom: 8px; border-radius: 12px; overflow: hidden;">
+                <img src="${storyImage}" alt="${s.title}" style="width: 100%; height: auto; max-height: 340px; object-fit: cover; border-radius: 12px; display: block;" />
+              </div>
+              <div style="text-align: center; font-size: 11px; color: #9ca3af; margin-bottom: 18px;">
+                (Imagem: ${sourceCreditName} | Reprodução)
               </div>`
             : ""
         }
 
-        <!-- Resumo Completo e Aprofundado (sem cortar a informação) -->
-        <div style="font-size: 15px; line-height: 1.65; color: #374151; margin-bottom: 16px;">
-          ${s.summary}
+        <!-- Conteúdo Completo com Link da Fonte Embutido no Texto -->
+        <div style="font-size: 15px; line-height: 1.7; color: #374151; margin-bottom: 16px;">
+          ${summaryWithInlineLink.includes("href=") ? summaryWithInlineLink : `${summaryWithInlineLink} (<a href="${s.source_url}" target="_blank" style="color: #374151; text-decoration: underline;">fonte original: ${sourceCreditName}</a>)`}
         </div>
 
-        <!-- Aplicação Prática para Redes Sociais & Vendas -->
-        <div style="background-color: #fffbeb; border-left: 4px solid #ffb800; padding: 14px 16px; border-radius: 0 8px 8px 0; margin: 18px 0;">
-          <p style="font-size: 14px; font-weight: 700; color: #92400e; margin: 0 0 6px 0;">
-            💡 Como usar isso no seu perfil ou vendas hoje:
+        <!-- Caixa Amarela Prática estilo The News -->
+        <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 14px 16px; border-radius: 0 8px 8px 0; margin: 18px 0;">
+          <p style="font-size: 14px; font-weight: 800; color: #92400e; margin: 0 0 6px 0;">
+            💡 Como aplicar isso no seu perfil ou vendas:
           </p>
           <p style="font-size: 14px; line-height: 1.6; color: #1f2937; margin: 0;">
             ${s.practical_impact}
           </p>
         </div>
 
-        <p style="font-size: 14px; line-height: 1.6; color: #4b5563; margin-bottom: 10px;">
-          <strong>Por que você deve ficar de olho:</strong> ${s.why_it_matters}
+        <p style="font-size: 14px; line-height: 1.6; color: #4b5563; margin-bottom: 12px;">
+          <strong>Por que olhar de perto:</strong> ${s.why_it_matters}
         </p>
 
         ${
           s.humor_line
-            ? `<p style="font-size: 13px; font-style: italic; color: #6b7280; margin: 10px 0 0 0;">
+            ? `<p style="font-size: 13px; font-style: italic; color: #6b7280; margin: 8px 0 16px 0;">
                 💬 "${s.humor_line}"
                </p>`
             : ""
         }
 
-        <!-- Crédito de fonte discreto (rodaapé técnico, sem chamada para clicar) -->
-        <div style="margin-top: 14px; font-size: 11px; color: #9ca3af;">
-          Fonte original: <span style="color: #6b7280;">${s.source_name}</span>
+        <!-- Link Verde de Compartilhamento pelo WhatsApp ao Final de CADA Notícia -->
+        <div style="text-align: right; margin-top: 18px;">
+          <a href="${whatsappShareUrl}" target="_blank" style="color: #15803d; font-size: 13px; font-weight: 800; text-decoration: underline;">
+            Compartilhe essa notícia pelo WhatsApp
+          </a>
         </div>
       </section>
-    `
-    )
+    `;
+    })
     .join("");
 
   const quickBitsHtml =
@@ -152,7 +175,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImage?: string
         ${tocHtml}
       </div>
 
-      <!-- Histórias Principais (100% Autossuficientes no E-mail) -->
+      <!-- Histórias Principais com Link Inline da Fonte & Compartilhar no WhatsApp -->
       ${storiesHtml}
 
       <!-- Giro Rápido -->
@@ -312,21 +335,22 @@ export async function runNewsroom(
   if (!dryRun) {
     try {
       const supabase = getSupabaseAdminClient();
-      await supabase.from("newsroom_runs").insert({
-        started_at: new Date(startTime).toISOString(),
-        finished_at: new Date().toISOString(),
-        status: "success",
-        sources_count: collectionResult.sourcesAttempted,
-        candidates_found: collectionResult.candidates.length,
-        candidates_filtered: collectionResult.candidates.length - uniqueGroups.length,
-        duplicates_count: duplicatesCount,
-        stories_selected: pipelineResult.selectedCandidates.length,
-        tokens_input: pipelineResult.totalUsage.promptTokens,
-        tokens_output: pipelineResult.totalUsage.completionTokens,
-        cost_estimate_usd: pipelineResult.totalUsage.estimatedCostUsd,
-        dry_run: false,
-        idempotency_key: idempotencyKey,
-      });
+      await supabase.from("newsroom_runs")
+        .insert({
+          started_at: new Date(startTime).toISOString(),
+          finished_at: new Date().toISOString(),
+          status: "success",
+          sources_count: collectionResult.sourcesAttempted,
+          candidates_found: collectionResult.candidates.length,
+          candidates_filtered: collectionResult.candidates.length - uniqueGroups.length,
+          duplicates_count: duplicatesCount,
+          stories_selected: pipelineResult.selectedCandidates.length,
+          tokens_input: pipelineResult.totalUsage.promptTokens,
+          tokens_output: pipelineResult.totalUsage.completionTokens,
+          cost_estimate_usd: pipelineResult.totalUsage.estimatedCostUsd,
+          dry_run: false,
+          idempotency_key: idempotencyKey,
+        });
     } catch (dbErr) {
       console.error("[NEWSROOM DB] Erro ao gravar histórico no Supabase:", dbErr);
     }
