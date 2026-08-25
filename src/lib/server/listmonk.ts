@@ -45,13 +45,13 @@ export function getListmonkConfig(env: EnvLike = process.env): ListmonkConfig {
   const url = rawUrl.replace(/\/$/, "");
   const formListUuid = env.LISTMONK_FORM_LIST_UUID || homesiteListUuid;
   const token = env.LISTMONK_API_TOKEN || env.LISTMONK_PASSWORD;
-  const user = env.LISTMONK_API_USER || env.LISTMONK_KEY_ID || env.LISTMONK_USERNAME || "admin";
+  const user = env.LISTMONK_API_USER || env.LISTMONK_KEY_ID || env.LISTMONK_USERNAME || "apiuser";
   const listIds = String(env.LISTMONK_DEFAULT_LIST_ID ?? "")
     .split(",")
     .map((item) => Number(item.trim()))
     .filter((item) => Number.isInteger(item) && item > 0);
 
-  if (env.LISTMONK_FORM_LIST_UUID && !env.LISTMONK_FORCE_API) {
+  if (Boolean(env.LISTMONK_FORM_LIST_UUID) && env.LISTMONK_FORCE_API !== "true") {
     return {
       enabled: true,
       mode: "form",
@@ -107,13 +107,12 @@ export function createListmonkClient(env: EnvLike = process.env, fetcher: typeof
     if (!config.enabled || !config.token) return [];
 
     const token = config.token.trim();
-    const user = (config.user || "admin").trim();
+    const user = (config.user || "apiuser").trim();
 
     return [
       `token ${user}:${token}`,
-      `token ${token}`,
       `Basic ${Buffer.from(`${user}:${token}`).toString("base64")}`,
-      `Bearer ${token}`,
+      `token ${token}`,
     ];
   }
 
@@ -141,21 +140,25 @@ export function createListmonkClient(env: EnvLike = process.env, fetcher: typeof
       let lastErr = "";
 
       for (const authHeader of authHeaders) {
-        const response = await fetcher(`${config.url}/api/subscribers`, {
-          method: "POST",
-          headers: {
-            Authorization: authHeader,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(buildListmonkSubscriberPayload(lead, config.listIds)),
-        });
+        try {
+          const response = await fetcher(`${config.url}/api/subscribers`, {
+            method: "POST",
+            headers: {
+              Authorization: authHeader,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(buildListmonkSubscriberPayload(lead, config.listIds)),
+          });
 
-        if (response.ok) {
-          const body = (await response.json().catch(() => ({}))) as { data?: { id?: number } };
-          return { ok: true as const, id: body.data?.id };
+          if (response.ok || response.status === 409) {
+            const body = (await response.json().catch(() => ({}))) as { data?: { id?: number } };
+            return { ok: true as const, id: body.data?.id };
+          }
+
+          lastErr = await response.text().catch(() => "");
+        } catch (err: any) {
+          lastErr = err?.message || String(err);
         }
-
-        lastErr = await response.text().catch(() => "");
       }
 
       return { ok: false as const, skipped: false as const, reason: `listmonk_request_failed: ${lastErr}` };
