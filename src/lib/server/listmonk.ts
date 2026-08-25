@@ -37,20 +37,21 @@ export type ListmonkConfig =
     };
 
 export function getListmonkConfig(env: EnvLike = process.env): ListmonkConfig {
-  const url = env.LISTMONK_URL?.replace(/\/$/, "");
+  const rawUrl = env.LISTMONK_URL;
+  if (!rawUrl || rawUrl.trim().length === 0) {
+    return { enabled: false };
+  }
+
+  const url = rawUrl.replace(/\/$/, "");
   const formListUuid = env.LISTMONK_FORM_LIST_UUID || homesiteListUuid;
-  const token = env.LISTMONK_API_TOKEN;
-  const user = env.LISTMONK_API_USER;
+  const token = env.LISTMONK_API_TOKEN || env.LISTMONK_PASSWORD;
+  const user = env.LISTMONK_API_USER || env.LISTMONK_KEY_ID || env.LISTMONK_USERNAME || "admin";
   const listIds = String(env.LISTMONK_DEFAULT_LIST_ID ?? "")
     .split(",")
     .map((item) => Number(item.trim()))
     .filter((item) => Number.isInteger(item) && item > 0);
 
-  if (!url) {
-    return { enabled: false };
-  }
-
-  if (formListUuid) {
+  if (env.LISTMONK_FORM_LIST_UUID && !env.LISTMONK_FORCE_API) {
     return {
       enabled: true,
       mode: "form",
@@ -62,11 +63,19 @@ export function getListmonkConfig(env: EnvLike = process.env): ListmonkConfig {
     };
   }
 
-  if (!token || listIds.length === 0) {
-    return { enabled: false };
+  if (!token) {
+    return {
+      enabled: true,
+      mode: "form",
+      url,
+      formListUuid,
+      token,
+      user,
+      listIds: listIds.length > 0 ? listIds : [1],
+    };
   }
 
-  return { enabled: true, mode: "api", url, token, user, listIds };
+  return { enabled: true, mode: "api", url, token, user, listIds: listIds.length > 0 ? listIds : [1] };
 }
 
 export function buildListmonkFormPayload(lead: NewsletterLead, formListUuid = homesiteListUuid) {
@@ -94,15 +103,18 @@ export function buildListmonkSubscriberPayload(lead: NewsletterLead, listIds: nu
 export function createListmonkClient(env: EnvLike = process.env, fetcher: typeof fetch = fetch) {
   const config = getListmonkConfig(env);
 
-  function getAuthHeader(): string {
-    if (config.enabled && config.token) {
-      if (config.user) {
-        const credentials = Buffer.from(`${config.user}:${config.token}`).toString("base64");
-        return `Basic ${credentials}`;
-      }
-      return `token ${config.token}`;
-    }
-    return "";
+  function getAuthHeaders(): string[] {
+    if (!config.enabled || !config.token) return [];
+
+    const token = config.token.trim();
+    const user = (config.user || "admin").trim();
+
+    return [
+      `token ${user}:${token}`,
+      `token ${token}`,
+      `Basic ${Buffer.from(`${user}:${token}`).toString("base64")}`,
+      `Bearer ${token}`,
+    ];
   }
 
   return {
@@ -125,73 +137,95 @@ export function createListmonkClient(env: EnvLike = process.env, fetcher: typeof
         return { ok: true as const, id: undefined };
       }
 
-      const response = await fetcher(`${config.url}/api/subscribers`, {
-        method: "POST",
-        headers: {
-          Authorization: getAuthHeader(),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(buildListmonkSubscriberPayload(lead, config.listIds)),
-      });
+      const authHeaders = getAuthHeaders();
+      let lastErr = "";
 
-      if (!response.ok) {
-        return { ok: false as const, skipped: false as const, reason: "listmonk_request_failed" };
+      for (const authHeader of authHeaders) {
+        const response = await fetcher(`${config.url}/api/subscribers`, {
+          method: "POST",
+          headers: {
+            Authorization: authHeader,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(buildListmonkSubscriberPayload(lead, config.listIds)),
+        });
+
+        if (response.ok) {
+          const body = (await response.json().catch(() => ({}))) as { data?: { id?: number } };
+          return { ok: true as const, id: body.data?.id };
+        }
+
+        lastErr = await response.text().catch(() => "");
       }
 
-      const body = (await response.json().catch(() => ({}))) as { data?: { id?: number } };
-      return { ok: true as const, id: body.data?.id };
+      return { ok: false as const, skipped: false as const, reason: `listmonk_request_failed: ${lastErr}` };
     },
 
     async createCampaign(campaign: ListmonkCampaignPayload) {
       if (!config.enabled || !config.token) {
-        console.warn("[LISTMONK] API Token do Listmonk não configurado para criação de campanhas.");
+        console.warn("[LISTMONK] API Token/Senha do Listmonk não configurado em LISTMONK_API_TOKEN ou LISTMONK_PASSWORD.");
         return { ok: false as const, skipped: true as const, reason: "listmonk_api_not_configured" };
       }
 
-      try {
-        const response = await fetcher(`${config.url}/api/campaigns`, {
-          method: "POST",
-          headers: {
-            Authorization: getAuthHeader(),
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: campaign.name,
-            subject: campaign.subject,
-            lists: campaign.listIds || config.listIds,
-            type: "regular",
-            content_type: "html",
-            body: campaign.body,
-            send_at: campaign.sendAt || null,
-          }),
-        });
+      const authHeaders = getAuthHeaders();
+      let lastStatus = 0;
+      let lastErrText = "";
 
-        if (!response.ok) {
-          const errText = await response.text().catch(() => "");
-          console.error(`[LISTMONK CAMPAIGN ERROR] ${response.status}: ${errText}`);
-          return { ok: false as const, skipped: false as const, reason: "listmonk_campaign_creation_failed" };
-        }
-
-        const body = (await response.json().catch(() => ({}))) as { data?: { id?: number } };
-        const campaignId = body.data?.id;
-
-        if (campaign.autoSend && campaignId) {
-          await fetcher(`${config.url}/api/campaigns/${campaignId}/status`, {
-            method: "PUT",
+      for (const authHeader of authHeaders) {
+        try {
+          console.log(`[LISTMONK] Tentando criar campanha em ${config.url}/api/campaigns com header '${authHeader.slice(0, 20)}...'`);
+          const response = await fetcher(`${config.url}/api/campaigns`, {
+            method: "POST",
             headers: {
-              Authorization: getAuthHeader(),
+              Authorization: authHeader,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ status: "running" }),
-          }).catch((err) => console.error("[LISTMONK AUTO SEND ERROR]", err));
-          console.log(`[LISTMONK AUTO SEND] Campanha #${campaignId} disparada automaticamente!`);
-        }
+            body: JSON.stringify({
+              name: campaign.name,
+              subject: campaign.subject,
+              lists: campaign.listIds || config.listIds,
+              type: "regular",
+              content_type: "html",
+              body: campaign.body,
+              send_at: campaign.sendAt || null,
+            }),
+          });
 
-        return { ok: true as const, id: campaignId, status: campaign.autoSend ? "running" : "draft" };
-      } catch (err: any) {
-        console.error("[LISTMONK CAMPAIGN FETCH ERROR]", err);
-        return { ok: false as const, skipped: false as const, reason: "listmonk_campaign_request_exception" };
+          if (response.ok) {
+            const body = (await response.json().catch(() => ({}))) as { data?: { id?: number } };
+            const campaignId = body.data?.id;
+
+            if (campaign.autoSend && campaignId) {
+              const statusRes = await fetcher(`${config.url}/api/campaigns/${campaignId}/status`, {
+                method: "PUT",
+                headers: {
+                  Authorization: authHeader,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ status: "running" }),
+              });
+
+              if (!statusRes.ok) {
+                const statusErr = await statusRes.text().catch(() => "");
+                console.error(`[LISTMONK AUTO SEND ERROR] ${statusRes.status}: ${statusErr}`);
+              } else {
+                console.log(`[LISTMONK AUTO SEND] Campanha #${campaignId} disparada automaticamente com sucesso!`);
+              }
+            }
+
+            return { ok: true as const, id: campaignId, status: campaign.autoSend ? "running" : "draft" };
+          }
+
+          lastStatus = response.status;
+          lastErrText = await response.text().catch(() => "");
+          console.warn(`[LISTMONK AUTH TRY FAILED] ${response.status}: ${lastErrText}`);
+        } catch (err: any) {
+          console.error("[LISTMONK CAMPAIGN FETCH ERROR]", err);
+          lastErrText = err?.message || String(err);
+        }
       }
+
+      return { ok: false as const, skipped: false as const, reason: `listmonk_campaign_failed_${lastStatus}: ${lastErrText}` };
     },
   };
 }
