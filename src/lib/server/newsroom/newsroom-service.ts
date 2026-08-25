@@ -16,7 +16,9 @@ export type RunNewsroomOptions = {
   autoSend?: boolean;
 };
 
-export function renderEditionToHtml(edition: EditionContent): string {
+export function renderEditionToHtml(edition: EditionContent, coverImage?: string): string {
+  const defaultBanner = coverImage || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80";
+
   const storiesHtml = edition.stories
     .map(
       (s) => `
@@ -77,6 +79,10 @@ export function renderEditionToHtml(edition: EditionContent): string {
         <p style="font-size: 14px; color: #6b7280; margin: 0;">${edition.preheader}</p>
       </header>
 
+      <div style="margin-bottom: 28px; border-radius: 16px; overflow: hidden;">
+        <img src="${defaultBanner}" alt="${edition.headline}" style="width: 100%; height: auto; max-height: 320px; object-fit: cover; border-radius: 16px; display: block;" />
+      </div>
+
       <div style="font-size: 16px; line-height: 1.6; color: #374151; margin-bottom: 28px;">
         ${edition.intro}
       </div>
@@ -108,7 +114,6 @@ export async function runNewsroom(
 
   console.log(`[NEWSROOM] Iniciando run da redação (dry_run: ${dryRun}, auto_send: ${autoSend}, key: ${idempotencyKey})...`);
 
-  // Check de Idempotência no banco de dados se não for dry-run
   if (!dryRun) {
     try {
       const supabase = getSupabaseAdminClient();
@@ -129,16 +134,13 @@ export async function runNewsroom(
 
   const startTime = Date.now();
 
-  // 1. Coleta de fontes (Globais + Brasil)
   console.log("[NEWSROOM] Coletando notícias das fontes confiáveis brasileiras e globais...");
   const collectionResult = await collectAllNews(defaultNewsSources, fetcher);
   console.log(`[NEWSROOM] ${collectionResult.candidates.length} candidatas encontradas na janela de ${collectionResult.windowHours}h em ${collectionResult.sourcesAttempted} fontes.`);
 
-  // 2. Deduplicação
   const { uniqueGroups, duplicatesCount } = deduplicateCandidates(collectionResult.candidates);
   console.log(`[NEWSROOM] ${uniqueGroups.length} grupos únicos após deduplicação (${duplicatesCount} duplicatas removidas).`);
 
-  // 3. Ranking Editorial
   const ranked = rankAndFilterCandidates(uniqueGroups);
   console.log(`[NEWSROOM] ${ranked.length} pautas classificadas por relevância e limite de marca.`);
 
@@ -146,11 +148,11 @@ export async function runNewsroom(
     throw new Error(`Número insuficiente de notícias qualificadas coletadas (${ranked.length}, mínimo 4).`);
   }
 
-  // 4. Execução do Pipeline AI (Triagem, Redação e QA)
   console.log("[NEWSROOM] Executando pipeline editorial da OpenAI...");
   const pipelineResult = await runNewsroomPipeline(ranked, env, fetcher);
 
-  const htmlContent = renderEditionToHtml(pipelineResult.edition);
+  const primaryCoverImage = pipelineResult.selectedCandidates[0]?.image_url || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80";
+  const htmlContent = renderEditionToHtml(pipelineResult.edition, primaryCoverImage);
   const wordCount = htmlContent.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
   const executionTimeMs = Date.now() - startTime;
 
@@ -160,7 +162,6 @@ export async function runNewsroom(
   let createdCampaignId: number | undefined;
   let campaignStatus: string = "draft";
 
-  // FASE 2: Publicação no Portal se solicitado ou não for dryRun
   if (publishToPortal) {
     try {
       const supabase = getSupabaseAdminClient();
@@ -174,7 +175,7 @@ export async function runNewsroom(
             title: pipelineResult.edition.headline,
             excerpt: pipelineResult.edition.preheader,
             description: pipelineResult.edition.intro,
-            cover_image: pipelineResult.selectedCandidates[0]?.url || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
+            cover_image: primaryCoverImage,
             status: "published",
             category: "Edição Diária",
             author: "desbuguei.ia",
@@ -203,7 +204,6 @@ export async function runNewsroom(
     }
   }
 
-  // FASE 3: Criação & Disparo da Campanha no Listmonk
   if (createNewsletterCampaign) {
     try {
       const listmonk = createListmonkClient(env, fetcher);
@@ -225,7 +225,6 @@ export async function runNewsroom(
     }
   }
 
-  // FASE 4: Salvar registro de run no Supabase
   if (!dryRun) {
     try {
       const supabase = getSupabaseAdminClient();

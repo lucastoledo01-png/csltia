@@ -12,10 +12,29 @@ export type NewsCandidate = {
   description: string;
   content: string;
   category: string;
+  image_url?: string;
   score: number;
   dedupe_key: string;
   window_hours: number;
 };
+
+const DEFAULT_EDITORIAL_IMAGES = [
+  "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1200&q=80",
+];
+
+function getRandomFallbackImage(seedStr: string): string {
+  let hash = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % DEFAULT_EDITORIAL_IMAGES.length;
+  return DEFAULT_EDITORIAL_IMAGES[index];
+}
 
 function cleanText(html: string): string {
   if (!html) return "";
@@ -45,10 +64,12 @@ function generateDedupeKey(title: string, url: string): string {
   }
 }
 
-function parseRSSItems(xml: string, source: NewsSourceConfig): Array<{ title: string; url: string; publishedAt: string; description: string; content: string; author?: string }> {
-  const items: Array<{ title: string; url: string; publishedAt: string; description: string; content: string; author?: string }> = [];
+function parseRSSItems(
+  xml: string,
+  source: NewsSourceConfig
+): Array<{ title: string; url: string; publishedAt: string; description: string; content: string; author?: string; imageUrl?: string }> {
+  const items: Array<{ title: string; url: string; publishedAt: string; description: string; content: string; author?: string; imageUrl?: string }> = [];
 
-  // Match <item> ou <entry>
   const itemMatches = xml.match(/<(?:item|entry)[\s\S]*?<\/(?:item|entry)>/gi) || [];
 
   for (const rawItem of itemMatches) {
@@ -67,6 +88,15 @@ function parseRSSItems(xml: string, source: NewsSourceConfig): Array<{ title: st
     const authorMatch = rawItem.match(/<(?:dc:creator|author|name)[^>]*>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/(?:dc:creator|author|name)>/i);
     const rawAuthor = authorMatch ? (authorMatch[1] || authorMatch[2] || "").trim() : undefined;
 
+    // Extração de imagem oficial (media:content, enclosure, og:image ou img src)
+    const mediaMatch = rawItem.match(/<(?:media:content|enclosure)[^>]*url=["']([^"']+)["'][^>]*>/i);
+    const imgMatch = rawItem.match(/<img[^>]+src=["']([^"']+\.(?:jpg|jpeg|png|webp|avif)[^"']*)["']/i);
+    let extractedImgUrl = mediaMatch ? mediaMatch[1] : imgMatch ? imgMatch[1] : undefined;
+
+    if (extractedImgUrl && !extractedImgUrl.startsWith("http")) {
+      extractedImgUrl = undefined;
+    }
+
     if (rawTitle && rawLink) {
       const pubDate = rawDate ? new Date(rawDate) : new Date();
       const validDate = isNaN(pubDate.getTime()) ? new Date() : pubDate;
@@ -78,6 +108,7 @@ function parseRSSItems(xml: string, source: NewsSourceConfig): Array<{ title: st
         description: cleanText(rawDesc).slice(0, 600),
         content: cleanText(rawDesc).slice(0, 1500),
         author: rawAuthor ? cleanText(rawAuthor) : undefined,
+        imageUrl: extractedImgUrl || getRandomFallbackImage(rawTitle),
       });
     }
   }
@@ -120,6 +151,7 @@ export async function collectFromSource(
       description: item.description,
       content: item.content,
       category: source.category,
+      image_url: item.imageUrl,
       score: source.priority === 1 ? 75 : 60,
       dedupe_key: generateDedupeKey(item.title, item.url),
       window_hours: 24,
@@ -140,17 +172,14 @@ export async function collectAllNews(
   const allCollected = results.flat();
   const now = Date.now();
 
-  // Testar janela de 24 horas primeiro
   let windowHours = 24;
   let filtered = filterByWindow(allCollected, now, windowHours);
 
-  // Se houver menos de 4 notícias elegíveis, expandir para 36h
   if (filtered.length < 4) {
     windowHours = 36;
     filtered = filterByWindow(allCollected, now, windowHours);
   }
 
-  // Se ainda houver menos de 4 notícias elegíveis, expandir para 48h
   if (filtered.length < 4) {
     windowHours = 48;
     filtered = filterByWindow(allCollected, now, windowHours);
