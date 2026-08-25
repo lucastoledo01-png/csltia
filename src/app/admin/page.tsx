@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AdminAnalyticsDashboard } from "@/components/AdminAnalyticsDashboard";
 import { AdminCMSManager } from "@/components/AdminCMSManager";
 import { AdminCommentsManager } from "@/components/AdminCommentsManager";
+import { AdminLogsManager } from "@/components/AdminLogsManager";
 import { AdminNewsroomManager } from "@/components/AdminNewsroomManager";
 
 export default function AdminPage() {
@@ -12,10 +13,9 @@ export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"newsroom" | "cms" | "analytics" | "comments">("newsroom");
+  const [activeTab, setActiveTab] = useState<"newsroom" | "cms" | "logs" | "analytics" | "comments">("newsroom");
 
   useEffect(() => {
-    // Verificar se já possui sessão autorizada no navegador
     const authStatus = sessionStorage.getItem("casaloti_admin_authed");
     if (authStatus === "true") {
       setIsAuthenticated(true);
@@ -59,7 +59,6 @@ export default function AdminPage() {
     setIsAuthenticated(false);
   }
 
-  // Estado inicial de carregamento da checagem de sessão
   if (isAuthenticated === null) {
     return (
       <main className="min-h-screen grid place-items-center bg-[#fafafa]">
@@ -68,7 +67,6 @@ export default function AdminPage() {
     );
   }
 
-  // Se NÃO estiver autenticado, exibe a tela de login protegida
   if (!isAuthenticated) {
     return (
       <main className="min-h-screen grid place-items-center bg-[#fafafa] p-4 text-[#111827]">
@@ -126,7 +124,6 @@ export default function AdminPage() {
     );
   }
 
-  // Se ESTIVER autenticado, exibe o painel de administração completo
   return (
     <main className="min-h-screen bg-[#fafafa] text-[#111827]">
       <header className="border-b border-[#e5e7eb] bg-white px-6 py-4 shadow-sm">
@@ -159,7 +156,7 @@ export default function AdminPage() {
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {/* Navegação por Abas */}
-        <div className="flex flex-wrap rounded-xl border border-[#e5e7eb] bg-white p-1 shadow-sm max-w-xl">
+        <div className="flex flex-wrap rounded-xl border border-[#e5e7eb] bg-white p-1 shadow-sm max-w-2xl">
           <button
             onClick={() => setActiveTab("newsroom")}
             className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${
@@ -167,6 +164,14 @@ export default function AdminPage() {
             }`}
           >
             ⚡ Redação (IA)
+          </button>
+          <button
+            onClick={() => setActiveTab("logs")}
+            className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${
+              activeTab === "logs" ? "bg-[#ff4a1c] text-white shadow-sm" : "text-[#6b7280] hover:text-[#111827]"
+            }`}
+          >
+            📋 Logs & Auditoria
           </button>
           <button
             onClick={() => setActiveTab("cms")}
@@ -197,6 +202,7 @@ export default function AdminPage() {
         {/* Conteúdo das Abas */}
         <div className="mt-8">
           {activeTab === "newsroom" ? <AdminNewsroomManager /> : null}
+          {activeTab === "logs" ? <AdminLogsManager /> : null}
           {activeTab === "cms" ? <AdminCMSManager /> : null}
           {activeTab === "analytics" ? <AdminAnalyticsDashboard /> : null}
           {activeTab === "comments" ? <AdminCommentsManager /> : null}
