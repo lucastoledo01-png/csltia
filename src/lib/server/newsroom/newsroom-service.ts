@@ -19,7 +19,6 @@ export type RunNewsroomOptions = {
 export function renderEditionToHtml(edition: EditionContent, coverImage?: string): string {
   const defaultBanner = coverImage || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80";
 
-  // Data por extenso formatada em português (ex: TERÇA-FEIRA, 25 DE AGOSTO DE 2026)
   const now = new Date();
   const dateFormatted = now
     .toLocaleDateString("pt-BR", {
@@ -30,9 +29,8 @@ export function renderEditionToHtml(edition: EditionContent, coverImage?: string
     })
     .toUpperCase();
 
-  // Índice de Destaques Rápido estilo The News
   const tocHtml = edition.stories
-    .map((s, idx) => {
+    .map((s) => {
       const emojiMap: Record<string, string> = {
         "Redes Sociais": "📲",
         Vendas: "💼",
@@ -69,11 +67,13 @@ export function renderEditionToHtml(edition: EditionContent, coverImage?: string
             : ""
         }
 
-        <p style="font-size: 15px; line-height: 1.65; color: #374151; margin-bottom: 14px;">
+        <!-- Resumo Completo e Aprofundado (sem cortar a informação) -->
+        <div style="font-size: 15px; line-height: 1.65; color: #374151; margin-bottom: 16px;">
           ${s.summary}
-        </p>
+        </div>
 
-        <div style="background-color: #fffbeb; border-left: 4px solid #ffb800; padding: 14px 16px; border-radius: 0 8px 8px 0; margin: 16px 0;">
+        <!-- Aplicação Prática para Redes Sociais & Vendas -->
+        <div style="background-color: #fffbeb; border-left: 4px solid #ffb800; padding: 14px 16px; border-radius: 0 8px 8px 0; margin: 18px 0;">
           <p style="font-size: 14px; font-weight: 700; color: #92400e; margin: 0 0 6px 0;">
             💡 Como usar isso no seu perfil ou vendas hoje:
           </p>
@@ -94,10 +94,9 @@ export function renderEditionToHtml(edition: EditionContent, coverImage?: string
             : ""
         }
 
-        <div style="margin-top: 14px;">
-          <a href="${s.source_url}" target="_blank" style="font-size: 12px; font-weight: 700; color: #ff4a1c; text-decoration: none;">
-            Ler matéria completa ↗
-          </a>
+        <!-- Crédito de fonte discreto (rodaapé técnico, sem chamada para clicar) -->
+        <div style="margin-top: 14px; font-size: 11px; color: #9ca3af;">
+          Fonte original: <span style="color: #6b7280;">${s.source_name}</span>
         </div>
       </section>
     `
@@ -153,7 +152,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImage?: string
         ${tocHtml}
       </div>
 
-      <!-- Histórias Principais -->
+      <!-- Histórias Principais (100% Autossuficientes no E-mail) -->
       ${storiesHtml}
 
       <!-- Giro Rápido -->
