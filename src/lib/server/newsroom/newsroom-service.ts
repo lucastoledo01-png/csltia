@@ -17,37 +17,86 @@ export type RunNewsroomOptions = {
 };
 
 export function renderEditionToHtml(edition: EditionContent, coverImage?: string): string {
-  const defaultBanner = coverImage || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80";
+  const defaultBanner = coverImage || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80";
+
+  // Data por extenso formatada em português (ex: TERÇA-FEIRA, 25 DE AGOSTO DE 2026)
+  const now = new Date();
+  const dateFormatted = now
+    .toLocaleDateString("pt-BR", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    })
+    .toUpperCase();
+
+  // Índice de Destaques Rápido estilo The News
+  const tocHtml = edition.stories
+    .map((s, idx) => {
+      const emojiMap: Record<string, string> = {
+        "Redes Sociais": "📲",
+        Vendas: "💼",
+        Produtividade: "💡",
+        Ferramentas: "🤖",
+        Tendências: "🚀",
+      };
+      const emoji = emojiMap[s.category] || "⚡";
+      return `<div style="margin-bottom: 6px; font-size: 13px; color: #374151;">
+        <span style="font-weight: 700; color: #111827;">${emoji} ${s.category.toUpperCase()}:</span> ${s.title}
+      </div>`;
+    })
+    .join("");
 
   const storiesHtml = edition.stories
     .map(
-      (s) => `
-      <section style="margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid #eaecf0;">
-        <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #ff4a1c;">
-          ${s.category}
-        </span>
-        <h2 style="font-size: 22px; font-weight: 800; color: #111827; margin: 8px 0 12px 0; line-height: 1.3;">
+      (s, index) => `
+      <section style="margin-bottom: 36px; padding-bottom: 28px; border-bottom: 1px solid #e5e7eb;">
+        <div style="margin-bottom: 8px;">
+          <span style="display: inline-block; background-color: #ffb800; color: #111827; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; padding: 3px 8px; border-radius: 4px;">
+            ${s.category}
+          </span>
+        </div>
+
+        <h2 style="font-size: 22px; font-weight: 800; color: #111827; margin: 8px 0 14px 0; line-height: 1.3;">
           ${s.title}
         </h2>
-        <p style="font-size: 15px; line-height: 1.6; color: #374151; margin-bottom: 12px;">
-          ${s.summary}
-        </p>
-        <p style="font-size: 15px; line-height: 1.6; color: #374151; margin-bottom: 12px;">
-          <strong>Por que importa:</strong> ${s.why_it_matters}
-        </p>
-        <p style="font-size: 15px; line-height: 1.6; color: #374151; margin-bottom: 12px;">
-          <strong>Na prática:</strong> ${s.practical_impact}
-        </p>
+
         ${
-          s.humor_line
-            ? `<div style="background-color: #fafafa; border-left: 3px solid #ff4a1c; padding: 10px 14px; font-style: italic; font-size: 14px; color: #1f2937; margin: 12px 0;">
-                "${s.humor_line}"
-               </div>`
+          index === 0 && defaultBanner
+            ? `<div style="margin-bottom: 18px; border-radius: 12px; overflow: hidden;">
+                <img src="${defaultBanner}" alt="${s.title}" style="width: 100%; height: auto; max-height: 320px; object-fit: cover; border-radius: 12px; display: block;" />
+              </div>`
             : ""
         }
-        <div style="margin-top: 10px;">
-          <a href="${s.source_url}" target="_blank" style="font-size: 12px; font-weight: 600; color: #ff4a1c; text-decoration: none;">
-            Fonte: ${s.source_name} ↗
+
+        <p style="font-size: 15px; line-height: 1.65; color: #374151; margin-bottom: 14px;">
+          ${s.summary}
+        </p>
+
+        <div style="background-color: #fffbeb; border-left: 4px solid #ffb800; padding: 14px 16px; border-radius: 0 8px 8px 0; margin: 16px 0;">
+          <p style="font-size: 14px; font-weight: 700; color: #92400e; margin: 0 0 6px 0;">
+            💡 Como usar isso no seu perfil ou vendas hoje:
+          </p>
+          <p style="font-size: 14px; line-height: 1.6; color: #1f2937; margin: 0;">
+            ${s.practical_impact}
+          </p>
+        </div>
+
+        <p style="font-size: 14px; line-height: 1.6; color: #4b5563; margin-bottom: 10px;">
+          <strong>Por que você deve ficar de olho:</strong> ${s.why_it_matters}
+        </p>
+
+        ${
+          s.humor_line
+            ? `<p style="font-size: 13px; font-style: italic; color: #6b7280; margin: 10px 0 0 0;">
+                💬 "${s.humor_line}"
+               </p>`
+            : ""
+        }
+
+        <div style="margin-top: 14px;">
+          <a href="${s.source_url}" target="_blank" style="font-size: 12px; font-weight: 700; color: #ff4a1c; text-decoration: none;">
+            Ler matéria completa ↗
           </a>
         </div>
       </section>
@@ -58,42 +107,78 @@ export function renderEditionToHtml(edition: EditionContent, coverImage?: string
   const quickBitsHtml =
     edition.quick_bits && edition.quick_bits.length > 0
       ? `
-      <section style="background-color: #fafafa; border: 1px solid #e5e7eb; border-radius: 16px; padding: 20px; margin: 28px 0;">
-        <h3 style="font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #854d0e; margin-top: 0; margin-bottom: 12px;">
-          🐛 Enquanto isso no modo debug...
+      <section style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 14px; padding: 20px; margin: 32px 0;">
+        <h3 style="font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; color: #111827; margin: 0 0 14px 0;">
+          ⚡ Giro Rápido & Outras Sacadas
         </h3>
-        <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #374151; line-height: 1.6;">
-          ${edition.quick_bits.map((b) => `<li style="margin-bottom: 8px;"><strong>${b.title}:</strong> ${b.text}</li>`).join("")}
+        <ul style="margin: 0; padding-left: 18px; font-size: 14px; color: #374151; line-height: 1.65;">
+          ${edition.quick_bits.map((b) => `<li style="margin-bottom: 10px;"><strong>${b.title}:</strong> ${b.text}</li>`).join("")}
         </ul>
       </section>
     `
       : "";
 
   return `
-    <div style="max-width: 640px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #111827; background-color: #ffffff; padding: 20px;">
-      <header style="text-align: center; border-bottom: 2px solid #ff4a1c; padding-bottom: 20px; margin-bottom: 28px;">
-        <div style="display: inline-block; background-color: #ff4a1c; color: #ffffff; font-weight: 900; font-family: monospace; font-size: 14px; padding: 4px 12px; border-radius: 8px; margin-bottom: 12px;">
+    <div style="max-width: 640px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; background-color: #ffffff; padding: 20px;">
+      
+      <!-- Cabeçalho Estilo The News -->
+      <header style="text-align: center; border-bottom: 3px solid #ff4a1c; padding-bottom: 18px; margin-bottom: 24px;">
+        <div style="font-size: 11px; font-weight: 800; color: #6b7280; letter-spacing: 0.1em; margin-bottom: 8px;">
+          ${dateFormatted}
+        </div>
+        <div style="display: inline-block; background-color: #ff4a1c; color: #ffffff; font-weight: 900; font-family: monospace; font-size: 18px; padding: 6px 16px; border-radius: 8px; margin-bottom: 12px; letter-spacing: 0.05em;">
           b. / desbuguei.ia
         </div>
-        <h1 style="font-size: 28px; font-weight: 900; margin: 8px 0; color: #111827;">${edition.headline}</h1>
-        <p style="font-size: 14px; color: #6b7280; margin: 0;">${edition.preheader}</p>
+        <h1 style="font-size: 26px; font-weight: 900; margin: 10px 0 6px 0; color: #111827; line-height: 1.25;">
+          ${edition.headline}
+        </h1>
+        <p style="font-size: 14px; color: #4b5563; margin: 0; font-weight: 500;">
+          ${edition.preheader}
+        </p>
       </header>
 
-      <div style="margin-bottom: 28px; border-radius: 16px; overflow: hidden;">
-        <img src="${defaultBanner}" alt="${edition.headline}" style="width: 100%; height: auto; max-height: 320px; object-fit: cover; border-radius: 16px; display: block;" />
-      </div>
-
-      <div style="font-size: 16px; line-height: 1.6; color: #374151; margin-bottom: 28px;">
+      <!-- Saudação & Abertura -->
+      <div style="font-size: 16px; line-height: 1.65; color: #1f2937; margin-bottom: 24px; background-color: #fafafa; padding: 16px 18px; border-radius: 12px; border: 1px solid #f3f4f6;">
+        <p style="margin: 0 0 10px 0; font-weight: 800; color: #ff4a1c; text-transform: uppercase; font-size: 13px; letter-spacing: 0.08em;">
+          ☕ Bom dia!
+        </p>
         ${edition.intro}
       </div>
 
+      <!-- Resumo Rápido (TOC) -->
+      <div style="background-color: #f3f4f6; border-radius: 12px; padding: 14px 18px; margin-bottom: 32px;">
+        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b7280; letter-spacing: 0.1em; margin-bottom: 8px;">
+          Nesta edição:
+        </div>
+        ${tocHtml}
+      </div>
+
+      <!-- Histórias Principais -->
       ${storiesHtml}
+
+      <!-- Giro Rápido -->
       ${quickBitsHtml}
 
-      <footer style="margin-top: 36px; padding-top: 20px; border-top: 1px solid #eaecf0; text-align: center; font-size: 14px; color: #6b7280;">
-        <p style="margin-bottom: 12px; color: #111827; font-weight: 500;">${edition.closing}</p>
-        <p style="font-weight: 800; color: #ff4a1c; font-size: 15px; margin: 12px 0;">${edition.final_line}</p>
-        <p style="font-size: 12px; color: #9ca3af; margin-top: 16px;">© 2026 desbuguei.ia. Todos os direitos reservados.</p>
+      <!-- Rodapé de Engajamento Estilo The News -->
+      <footer style="margin-top: 40px; padding-top: 24px; border-top: 2px solid #ff4a1c; text-align: center;">
+        <div style="background-color: #fff0c2; border-radius: 12px; padding: 18px; margin-bottom: 24px; border: 1px solid #fde047;">
+          <p style="font-size: 15px; font-weight: 800; color: #854d0e; margin: 0 0 6px 0;">
+            🤝 Curtiu a edição de hoje?
+          </p>
+          <p style="font-size: 13px; color: #713f12; margin: 0; line-height: 1.5;">
+            Encaminhe esse e-mail para um amigo que quer aprender IA para crescer nas redes sociais ou vender mais!
+          </p>
+        </div>
+
+        <p style="font-size: 14px; color: #374151; font-weight: 500; margin-bottom: 8px;">
+          ${edition.closing}
+        </p>
+        <p style="font-weight: 900; color: #ff4a1c; font-size: 16px; margin: 8px 0 16px 0;">
+          ${edition.final_line}
+        </p>
+        <p style="font-size: 11px; color: #9ca3af; margin: 20px 0 0 0;">
+          © 2026 desbuguei.ia. Todos os direitos reservados.
+        </p>
       </footer>
     </div>
   `;
@@ -151,7 +236,7 @@ export async function runNewsroom(
   console.log("[NEWSROOM] Executando pipeline editorial da OpenAI...");
   const pipelineResult = await runNewsroomPipeline(ranked, env, fetcher);
 
-  const primaryCoverImage = pipelineResult.selectedCandidates[0]?.image_url || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80";
+  const primaryCoverImage = pipelineResult.selectedCandidates[0]?.image_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80";
   const htmlContent = renderEditionToHtml(pipelineResult.edition, primaryCoverImage);
   const wordCount = htmlContent.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
   const executionTimeMs = Date.now() - startTime;

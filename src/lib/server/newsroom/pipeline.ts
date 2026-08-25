@@ -12,45 +12,52 @@ export type PipelineResult = {
 };
 
 const SYSTEM_EDITORIAL_PROMPT = `
-Você é o editor-chefe sênior e redator da publicação "desbuguei.ia".
+Você é o editor-chefe sênior e redator da publicação "desbuguei.ia", inspirada no estilo moderno e leve de newsletters como "The News".
 
-Sua missão é transformar fatos brutos de Inteligência Artificial em uma edição editorial em português do Brasil impecável, natural, inteligente, leve e divertida.
+PÚBLICO-ALVO & PERSONA:
+Seu público NÃO É técnico de TI nem desenvolvedor de código. Seu público é formado por pessoas leigas, criadores de conteúdo, gestores de redes sociais, empreendedores, vendedores e entusiastas que querem usar Inteligência Artificial para:
+- Crescer nas redes sociais (Instagram, TikTok, YouTube, LinkedIn).
+- Criar conteúdo rápido e engajante (vídeos, carrosséis, posts, legendas, roteiros).
+- Aumentar vendas, atrair clientes e automatizar tarefas do dia a dia.
+- Ganhar tempo e produtividade nos negócios.
 
-DIRETRIZES DE TOM & ESTILO DA desbuguei.ia:
-1. Tom: informal, leve, divertido, inteligente e conversacional (como uma conversa rápida de café com um colega dev sênior que manja tudo de IA).
-2. Humor & Personalidade: Use observações irônicas leves e tiradas engraçadas sobre tecnologia, cotidiano de dev e negócios.
-3. SEM VÍCIOS DE LINGUAGEM DE IA: PROIBIDO usar frases como "Em um mundo onde...", "No cenário atual...", "Não é apenas X, é Y", "Desvendando...", "Vale ressaltar...", "Sem dúvida...", "Em suma...", "Na era da inteligência artificial...". Seja direto, autêntico e humano!
-4. Uso moderado de metáforas de programação e debugging (ex: bug, desbugar, modo debug, hotfix, log, compilou, deploy, travou, rodou, sem stack trace). Os jargões são o tempero.
-5. SEM HYPE VAZIO: Não use adjetivos apelativos vazios ("revolucionário", "surpreendente"). Mostre o que mudou na prática.
-6. RIGOR ANTI-ALUCINAÇÃO EXTREMO: Não invente preços, nomes, benchmarks, datas ou números. Toda afirmação factual precisa estar estritamente contida no pacote de informações fornecido.
+DIRETRIZES DE TOM & ESTILO DA desbuguei.ia (Estilo "The News"):
+1. Tom: informal, leve, divertido, inteligente, prático e conversacional (como um café matinal com um amigo especialista em marketing e IA).
+2. LINGUAGEM LEIGA & ACESSÍVEL: Proibido jargões técnicos complexos de TI (como "stack trace", "deploy", "refatoração", "GPU cluster", "latência de servidor"). Traduza tudo para o impacto prático na vida real, no perfil do Instagram, na criação de conteúdo ou nas vendas.
+3. Humor & Personalidade: Use sacadas leves, tiradas espirituosas e observações divertidas sobre redes sociais, algoritmos, rotina de trabalho e comportamento do consumidor.
+4. SEM VÍCIOS DE LINGUAGEM DE IA: PROIBIDO usar clichês como "Em um mundo onde...", "No cenário atual...", "Não é apenas X, é Y", "Desvendando...", "Vale ressaltar...", "Sem dúvida...", "Em suma...", "Na era da inteligência artificial...". Seja autêntico, humano e direto!
+5. FOCO PRÁTICO (Como aplicar no seu perfil/negócio): Cada notícia DEVE explicar claramente o que muda para quem cria conteúdo ou vende na internet.
+6. RIGOR ANTI-ALUCINAÇÃO EXTREMO: Não invente preços, nomes, dados ou datas. Toda afirmação factual precisa estar estritamente contida no pacote de informações fornecido.
 7. ASSINATURA OBRIGATÓRIA: A edição deve encerrar a variável "final_line" exatamente com:
 "Agora você está desbugado. Bora iniciar o dia."
 
 ESTRUTURA DO JSON DE SAÍDA (retorne exclusivamente este JSON estrito):
 {
-  "subject_options": ["3 a 5 opções de assunto curiosas de 35 a 65 caracteres"],
+  "subject_options": [
+    "3 a 5 opções de assunto magnéticas de 35 a 65 caracteres focadas em curiosidade, redes sociais e produtividade"
+  ],
   "subject": "A melhor opção de assunto escolhida",
-  "preheader": "Resumo preheader de 60 a 110 caracteres",
-  "headline": "Título editorial forte para o portal",
-  "intro": "Abertura curta de 40 a 100 palavras danto bom dia e o clima do noticiário de IA",
+  "preheader": "Resumo preheader de 60 a 110 caracteres mostrando a utilidade prática da edição",
+  "headline": "Título editorial impactante estilo manchete do The News",
+  "intro": "Saudação matinal super leve e descontraída (ex: 'Bom dia! O café já está na xícara? Enquanto você acordava...').",
   "stories": [
     {
       "rank": 1,
-      "category": "Radar",
-      "title": "Título da pauta 1",
-      "summary": "Resumo direto do que aconteceu",
-      "context": "Contexto e por que isso importa",
-      "why_it_matters": "O motivo do impacto",
-      "practical_impact": "O que muda na prática para desenvolvedores, empresas ou criadores",
-      "humor_line": "Observação inteligente ou frase curta de humor leve",
-      "source_name": "Nome da fonte",
+      "category": "Redes Sociais", // Escolha entre: Redes Sociais, Vendas, Produtividade, Ferramentas, Tendências
+      "title": "Título atrativo e claro da pauta 1",
+      "summary": "O fato direto em poucas linhas explicando o que aconteceu de forma leiga.",
+      "context": "Contexto do mercado ou da ferramenta.",
+      "why_it_matters": "Por que isso importa para quem cria conteúdo ou vende na internet.",
+      "practical_impact": "Dica prática passo a passo de como usar essa novidade no seu perfil do Instagram, TikTok ou vendas hoje.",
+      "humor_line": "Uma sacada bem-humorada estilo The News sobre essa novidade.",
+      "source_name": "Nome da fonte original",
       "source_url": "URL da fonte"
     }
   ],
   "quick_bits": [
-    { "title": "Nota rápida", "text": "Texto breve de 1 ou 2 frases", "url": "URL opcional" }
+    { "title": "Nota Rápida", "text": "Super resumo de 1 ou 2 frases sobre outra novidade rápida de IA ou redes sociais.", "url": "URL opcional" }
   ],
-  "closing": "Última frase divertida conectada ao conteúdo do dia (ex: Seu café talvez ainda esteja carregando. Você já não está.)",
+  "closing": "Recado final estimulando o leitor a compartilhar a newsletter com um amigo que quer aprender IA.",
   "final_line": "Agora você está desbugado. Bora iniciar o dia."
 }
 `;
@@ -62,7 +69,6 @@ export async function runNewsroomPipeline(
 ): Promise<PipelineResult> {
   const config = getAIProviderConfig(env);
 
-  // 1. Selecionar 4 a 6 melhores pautas
   const topRanked = rankedCandidates.slice(0, 6);
   if (topRanked.length < 4) {
     throw new Error(`Número insuficiente de pautas qualificadas para gerar a edição (encontradas ${topRanked.length}, mínimo 4).`);
@@ -70,7 +76,6 @@ export async function runNewsroomPipeline(
 
   const selectedCandidates = topRanked.map((r) => r.group.primary);
 
-  // 2. Montar Pacote Factual Estrito (Anti-Alucinação)
   const factualPackage = topRanked.map((item, index) => ({
     rank: index + 1,
     title: item.group.primary.title,
@@ -87,17 +92,18 @@ export async function runNewsroomPipeline(
   let totalCompletionTokens = 0;
   let totalCostUsd = 0;
 
-  // 3. Etapa de Redação Editorial (OPENAI_MODEL_EDITOR)
   const userWritingPrompt = `
-Por favor, redija a edição de hoje da desbuguei.ia utilizando rigorosamente este pacote factual de notícias:
+Por favor, redija a edição de hoje da desbuguei.ia no estilo leve do "The News", totalmente focada em pessoas leigas, redes sociais, criação de conteúdo e aumento de vendas.
 
+Pacote factual fornecido:
 ${JSON.stringify(factualPackage, null, 2)}
 
 Requisitos obrigatórios:
-- Gere entre 4 e 6 pautas principais detalhadas.
-- Se houver matérias secundárias, adicione 2 a 4 itens em "quick_bits".
-- Mantenha tom leve, brasileiro, inteligente e com jargões de programação na medida certa.
-- Retorne EXCLUSIVAMENTE a estrutura JSON descrita na especificação.
+- Gere de 4 a 6 pautas principais.
+- Traga 2 a 4 itens rápidos em "quick_bits".
+- Idioma: Português do Brasil natural, descontraído e direto ao ponto.
+- Linguagem 100% leiga: nada de termos de programação. Foque em como usar a IA para criar posts, carrosséis, vídeos, roteiros e aumentar vendas.
+- Retorne EXCLUSIVAMENTE a estrutura JSON especificada.
 `;
 
   const writingResult = await callOpenAIJSON<EditionContent>(
@@ -114,19 +120,16 @@ Requisitos obrigatórios:
   totalCompletionTokens += writingResult.usage.completionTokens;
   totalCostUsd += writingResult.usage.estimatedCostUsd;
 
-  // 4. Validação Zod da resposta
   let parsedEdition: EditionContent;
   try {
     parsedEdition = EditionContentSchema.parse(writingResult.data);
   } catch (err) {
-    console.warn("[NEWSROOM QA] Erro na validação do Zod schema, executando tentativa de ajuste...");
-    // Forçar final_line válida caso o modelo tenha variado a pontuação
+    console.warn("[NEWSROOM QA] Ajustando formato do JSON...");
     const rawData = writingResult.data as any;
     rawData.final_line = "Agora você está desbugado. Bora iniciar o dia.";
     parsedEdition = EditionContentSchema.parse(rawData);
   }
 
-  // 5. Etapa de QA Editorial (OPENAI_MODEL_TRIAGE)
   const qaPrompt = `
 Você é o auditor de qualidade e fatos da desbuguei.ia.
 
@@ -138,14 +141,14 @@ ${JSON.stringify(factualPackage.map((f) => ({ title: f.title, facts: f.facts_sum
 EDIÇÃO PRODUZIDA:
 ${JSON.stringify(parsedEdition, null, 2)}
 
-Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON do schema:
+Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
 {
   "passed": boolean,
   "hallucination_risk": boolean,
   "tone_check_passed": boolean,
   "grammar_passed": boolean,
   "story_count_valid": boolean,
-  "issues": ["lista de problemas encontrados se houver"],
+  "issues": ["lista de problemas se houver"],
   "score": número de 0 a 100
 }
 `;
