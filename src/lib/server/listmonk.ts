@@ -11,6 +11,7 @@ export type ListmonkCampaignPayload = {
   body: string;
   listIds?: number[];
   sendAt?: string | null;
+  autoSend?: boolean;
 };
 
 const homesiteListUuid = "7c3535ab-988f-4c98-88c0-b73be3b9a90b";
@@ -172,7 +173,21 @@ export function createListmonkClient(env: EnvLike = process.env, fetcher: typeof
         }
 
         const body = (await response.json().catch(() => ({}))) as { data?: { id?: number } };
-        return { ok: true as const, id: body.data?.id };
+        const campaignId = body.data?.id;
+
+        if (campaign.autoSend && campaignId) {
+          await fetcher(`${config.url}/api/campaigns/${campaignId}/status`, {
+            method: "PUT",
+            headers: {
+              Authorization: getAuthHeader(),
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ status: "running" }),
+          }).catch((err) => console.error("[LISTMONK AUTO SEND ERROR]", err));
+          console.log(`[LISTMONK AUTO SEND] Campanha #${campaignId} disparada automaticamente!`);
+        }
+
+        return { ok: true as const, id: campaignId, status: campaign.autoSend ? "running" : "draft" };
       } catch (err: any) {
         console.error("[LISTMONK CAMPAIGN FETCH ERROR]", err);
         return { ok: false as const, skipped: false as const, reason: "listmonk_campaign_request_exception" };

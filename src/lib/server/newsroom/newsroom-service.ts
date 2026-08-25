@@ -13,6 +13,7 @@ export type RunNewsroomOptions = {
   idempotencyKey?: string;
   publishToPortal?: boolean;
   createNewsletterCampaign?: boolean;
+  autoSend?: boolean;
 };
 
 export function renderEditionToHtml(edition: EditionContent): string {
@@ -100,11 +101,12 @@ export async function runNewsroom(
   const dryRun = options.dryRun ?? (env.DRY_RUN === "true" || env.DRY_RUN === undefined ? true : false);
   const publishToPortal = options.publishToPortal ?? !dryRun;
   const createNewsletterCampaign = options.createNewsletterCampaign ?? !dryRun;
+  const autoSend = options.autoSend ?? (env.NEWSLETTER_AUTO_SEND === "true" || (!dryRun && env.NEWSLETTER_AUTO_SEND !== "false"));
 
   const todayStr = new Date().toISOString().split("T")[0];
   const idempotencyKey = options.idempotencyKey || `daily-edition-${todayStr}`;
 
-  console.log(`[NEWSROOM] Iniciando run da redação (dry_run: ${dryRun}, key: ${idempotencyKey})...`);
+  console.log(`[NEWSROOM] Iniciando run da redação (dry_run: ${dryRun}, auto_send: ${autoSend}, key: ${idempotencyKey})...`);
 
   // Check de Idempotência no banco de dados se não for dry-run
   if (!dryRun) {
@@ -127,8 +129,8 @@ export async function runNewsroom(
 
   const startTime = Date.now();
 
-  // 1. Coleta de fontes
-  console.log("[NEWSROOM] Coletando notícias das fontes confiáveis...");
+  // 1. Coleta de fontes (Globais + Brasil)
+  console.log("[NEWSROOM] Coletando notícias das fontes confiáveis brasileiras e globais...");
   const collectionResult = await collectAllNews(defaultNewsSources, fetcher);
   console.log(`[NEWSROOM] ${collectionResult.candidates.length} candidatas encontradas na janela de ${collectionResult.windowHours}h em ${collectionResult.sourcesAttempted} fontes.`);
 
@@ -156,6 +158,7 @@ export async function runNewsroom(
 
   let createdArticleSlug: string | undefined;
   let createdCampaignId: number | undefined;
+  let campaignStatus: string = "draft";
 
   // FASE 2: Publicação no Portal se solicitado ou não for dryRun
   if (publishToPortal) {
@@ -163,7 +166,6 @@ export async function runNewsroom(
       const supabase = getSupabaseAdminClient();
       const articleSlug = `edicao-${todayStr}`;
 
-      // Inserir ou atualizar artigo no Supabase
       const { data: articleData, error: articleErr } = await supabase
         .from("articles")
         .upsert(
@@ -189,7 +191,6 @@ export async function runNewsroom(
         createdArticleSlug = articleData.slug;
         console.log(`[NEWSROOM PORTAL] Edição publicada no portal com sucesso em /artigos/${createdArticleSlug}`);
 
-        // Gravar revisão do artigo
         await supabase.from("article_revisions").insert({
           article_id: articleData.id,
           title: pipelineResult.edition.headline,
@@ -202,7 +203,7 @@ export async function runNewsroom(
     }
   }
 
-  // FASE 3: Criação de Campanha no Listmonk
+  // FASE 3: Criação & Disparo da Campanha no Listmonk
   if (createNewsletterCampaign) {
     try {
       const listmonk = createListmonkClient(env, fetcher);
@@ -211,11 +212,13 @@ export async function runNewsroom(
         name: campaignName,
         subject: pipelineResult.edition.subject,
         body: htmlContent,
+        autoSend: autoSend && pipelineResult.qaResult.passed,
       });
 
       if (campaignResult.ok && campaignResult.id) {
         createdCampaignId = campaignResult.id;
-        console.log(`[NEWSROOM LISTMONK] Campanha criada no Listmonk em modo RASCUNHO com ID #${createdCampaignId}`);
+        campaignStatus = campaignResult.status || (autoSend ? "running" : "draft");
+        console.log(`[NEWSROOM LISTMONK] Campanha criada no Listmonk ID #${createdCampaignId} (status: ${campaignStatus})`);
       }
     } catch (lmErr) {
       console.error("[NEWSROOM LISTMONK ERROR] Falha ao criar campanha no Listmonk:", lmErr);
@@ -252,6 +255,7 @@ export async function runNewsroom(
     publishedToPortal: Boolean(createdArticleSlug),
     articleSlug: createdArticleSlug,
     listmonkCampaignId: createdCampaignId,
+    campaignStatus,
     idempotencyKey,
     executionTimeMs,
     sourcesAttempted: collectionResult.sourcesAttempted,

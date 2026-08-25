@@ -8,11 +8,12 @@ export type NewsSourceConfig = {
   url: string;
   enabled: boolean;
   priority: 1 | 2;
-  category: "lab" | "tech_media" | "research" | "general_ai";
+  category: "lab" | "tech_media" | "research" | "general_ai" | "br_media";
+  region?: "global" | "br";
 };
 
 export const defaultNewsSources: NewsSourceConfig[] = [
-  // Prioridade 1: Laboratórios e Empresas de IA Oficiais
+  // Prioridade 1: Laboratórios e Empresas de IA Oficiais Globais
   {
     id: "openai-blog",
     name: "OpenAI Official Blog",
@@ -22,6 +23,7 @@ export const defaultNewsSources: NewsSourceConfig[] = [
     enabled: true,
     priority: 1,
     category: "lab",
+    region: "global",
   },
   {
     id: "anthropic-news",
@@ -32,6 +34,7 @@ export const defaultNewsSources: NewsSourceConfig[] = [
     enabled: true,
     priority: 1,
     category: "lab",
+    region: "global",
   },
   {
     id: "google-deepmind",
@@ -42,6 +45,7 @@ export const defaultNewsSources: NewsSourceConfig[] = [
     enabled: true,
     priority: 1,
     category: "lab",
+    region: "global",
   },
   {
     id: "meta-ai-blog",
@@ -52,6 +56,7 @@ export const defaultNewsSources: NewsSourceConfig[] = [
     enabled: true,
     priority: 1,
     category: "lab",
+    region: "global",
   },
   {
     id: "microsoft-ai-blog",
@@ -62,6 +67,7 @@ export const defaultNewsSources: NewsSourceConfig[] = [
     enabled: true,
     priority: 1,
     category: "lab",
+    region: "global",
   },
   {
     id: "huggingface-blog",
@@ -72,6 +78,7 @@ export const defaultNewsSources: NewsSourceConfig[] = [
     enabled: true,
     priority: 1,
     category: "lab",
+    region: "global",
   },
   {
     id: "github-blog-ai",
@@ -82,6 +89,7 @@ export const defaultNewsSources: NewsSourceConfig[] = [
     enabled: true,
     priority: 1,
     category: "lab",
+    region: "global",
   },
   {
     id: "aws-ai-blog",
@@ -92,9 +100,72 @@ export const defaultNewsSources: NewsSourceConfig[] = [
     enabled: true,
     priority: 1,
     category: "lab",
+    region: "global",
   },
 
-  // Prioridade 2: Mídia e Veículos de Tecnologia de Alta Credibilidade
+  // Fontes do Brasil (Prioridade 1 & 2 - Tecnologia, IA e Inovação BR)
+  {
+    id: "canaltech-rss",
+    name: "Canaltech (Tecnologia & IA BR)",
+    type: "rss",
+    url: "https://canaltech.com.br/rss/",
+    enabled: true,
+    priority: 1,
+    category: "br_media",
+    region: "br",
+  },
+  {
+    id: "tecnoblog-rss",
+    name: "Tecnoblog",
+    type: "rss",
+    url: "https://tecnoblog.net/feed/",
+    enabled: true,
+    priority: 1,
+    category: "br_media",
+    region: "br",
+  },
+  {
+    id: "manual-do-usuario",
+    name: "Manual do Usuário",
+    type: "rss",
+    url: "https://manualdousuario.net/feed/",
+    enabled: true,
+    priority: 1,
+    category: "br_media",
+    region: "br",
+  },
+  {
+    id: "startse-feed",
+    name: "StartSe Inovação & IA",
+    type: "rss",
+    url: "https://www.startse.com/feed/",
+    enabled: true,
+    priority: 2,
+    category: "br_media",
+    region: "br",
+  },
+  {
+    id: "baguete-diario",
+    name: "Baguete Diário de TI",
+    type: "rss",
+    url: "https://www.baguete.com.br/feed",
+    enabled: true,
+    priority: 2,
+    category: "br_media",
+    region: "br",
+  },
+  {
+    id: "ti-inside",
+    name: "TI Inside Brasil",
+    type: "rss",
+    url: "https://tiinside.com.br/feed/",
+    enabled: true,
+    priority: 2,
+    category: "br_media",
+    region: "br",
+  },
+
+  // Mídia Internacional de Tecnologia
   {
     id: "techcrunch-ai",
     name: "TechCrunch AI",
@@ -103,6 +174,7 @@ export const defaultNewsSources: NewsSourceConfig[] = [
     enabled: true,
     priority: 2,
     category: "tech_media",
+    region: "global",
   },
   {
     id: "arstechnica-ai",
@@ -112,6 +184,7 @@ export const defaultNewsSources: NewsSourceConfig[] = [
     enabled: true,
     priority: 2,
     category: "tech_media",
+    region: "global",
   },
   {
     id: "venturebeat-ai",
@@ -121,6 +194,7 @@ export const defaultNewsSources: NewsSourceConfig[] = [
     enabled: true,
     priority: 2,
     category: "tech_media",
+    region: "global",
   },
   {
     id: "mit-tech-review",
@@ -130,6 +204,7 @@ export const defaultNewsSources: NewsSourceConfig[] = [
     enabled: true,
     priority: 2,
     category: "tech_media",
+    region: "global",
   },
   {
     id: "theverge-ai",
@@ -139,5 +214,6 @@ export const defaultNewsSources: NewsSourceConfig[] = [
     enabled: true,
     priority: 2,
     category: "tech_media",
+    region: "global",
   },
 ];
