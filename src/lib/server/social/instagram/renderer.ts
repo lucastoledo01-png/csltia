@@ -1,175 +1,239 @@
+import sharp from "sharp";
 import { InstagramCarouselContent, InstagramSlide } from "./schemas";
+import { getSupabaseAdminClient } from "../../supabase-admin";
 
 export type RenderedSlideAsset = {
   index: number;
   type: string;
   filename: string;
-  dataUrl: string;
   svgContent: string;
+  pngBuffer: Buffer;
+  publicUrl?: string;
 };
 
-export function renderSlideToSvg(slide: InstagramSlide, totalSlides: number, primaryTopic = "TECNOLOGIA & IA"): string {
+export function renderSlideToSvg(slide: InstagramSlide, totalSlides: number, primaryTopic = "INTELIGÊNCIA ARTIFICIAL"): string {
   const width = 1080;
   const height = 1350;
 
-  // Escape de caracteres especiais para SVG
   const escapeXml = (str: string) =>
-    str
+    (str || "")
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&apos;");
 
-  const eyebrow = escapeXml(slide.eyebrow || primaryTopic.toUpperCase());
+  const eyebrow = escapeXml((slide.eyebrow || primaryTopic).toUpperCase());
   const title = escapeXml(slide.title);
   const body = escapeXml(slide.body || "");
-  const ctaText = escapeXml(slide.cta_text || "Siga a @desbuguei.ia");
+  const ctaText = escapeXml(slide.cta_text || "Comente NEWS para receber no Direct");
+  const slideIndexStr = String(slide.index).padStart(2, "0");
+  const totalSlidesStr = String(totalSlides).padStart(2, "0");
 
   let contentBodySvg = "";
 
   if (slide.type === "cover") {
     contentBodySvg = `
-      <!-- Cover Slide Special Layout -->
-      <rect x="90" y="260" width="160" height="38" rx="19" fill="#ffb800" />
-      <text x="170" y="285" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="900" fill="#111827" text-anchor="middle" letter-spacing="2">${eyebrow}</text>
+      <!-- Top Tag Badge -->
+      <g transform="translate(90, 240)">
+        <rect width="240" height="42" rx="21" fill="#E8E2D6" />
+        <text x="120" y="27" font-family="'Georgia', 'Playfair Display', serif" font-size="14" font-weight="700" fill="#4A453E" text-anchor="middle" letter-spacing="2">${eyebrow}</text>
+      </g>
 
-      <text x="90" y="380" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="64" font-weight="900" fill="#ffffff" width="900" line-height="1.2">
-        <tspan x="90" dy="0">${title.slice(0, 32)}</tspan>
-        ${title.length > 32 ? `<tspan x="90" dy="76">${title.slice(32, 70)}</tspan>` : ""}
-        ${title.length > 70 ? `<tspan x="90" dy="76">${title.slice(70, 110)}</tspan>` : ""}
+      <!-- Main Title (Editorial Serif) -->
+      <text x="90" y="390" font-family="'Playfair Display', 'Georgia', serif" font-size="58" font-weight="900" fill="#1A1816" letter-spacing="-0.5">
+        <tspan x="90" dy="0">${title.slice(0, 28)}</tspan>
+        ${title.length > 28 ? `<tspan x="90" dy="72">${title.slice(28, 58)}</tspan>` : ""}
+        ${title.length > 58 ? `<tspan x="90" dy="72">${title.slice(58, 90)}</tspan>` : ""}
       </text>
 
-      <text x="90" y="720" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="28" font-weight="500" fill="#9ca3af">
-        <tspan x="90" dy="0">${body.slice(0, 50)}</tspan>
-        ${body.length > 50 ? `<tspan x="90" dy="42">${body.slice(50, 110)}</tspan>` : ""}
+      <!-- Subtitle -->
+      <text x="90" y="650" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="26" font-weight="400" fill="#57524A" line-height="1.5">
+        <tspan x="90" dy="0">${body.slice(0, 52)}</tspan>
+        ${body.length > 52 ? `<tspan x="90" dy="44">${body.slice(52, 110)}</tspan>` : ""}
       </text>
 
-      <!-- Hero Visual Element -->
-      <rect x="90" y="860" width="900" height="220" rx="24" fill="#1e293b" stroke="#ff4a1c" stroke-width="2" />
-      <text x="130" y="930" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="20" font-weight="700" fill="#ff4a1c">⚡ DESBUGUEI.IA — EDICAO DIARIA</text>
-      <text x="130" y="980" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="600" fill="#f8fafc">Arraste para o lado para entender tudo em 1 minuto ➔</text>
+      <!-- Elegant Dark UI Card Prototype (Claude / Desbuguei Style) -->
+      <g transform="translate(90, 780)">
+        <rect width="900" height="300" rx="28" fill="#1C1A17" filter="drop-shadow(0px 20px 30px rgba(0,0,0,0.15))" />
+        
+        <!-- UI Header Bar -->
+        <circle cx="50" cy="45" r="7" fill="#FF5F56" />
+        <circle cx="75" cy="45" r="7" fill="#FFBD2E" />
+        <circle cx="100" cy="45" r="7" fill="#27C93F" />
+        <line x1="30" y1="75" x2="870" y2="75" stroke="#2D2A26" stroke-width="1.5" />
+
+        <!-- UI Content inside Card -->
+        <text x="50" y="130" font-family="monospace" font-size="16" font-weight="700" fill="#FF4A1C">⚡ DESBUGUEI.IA • GUIA PRÁTICO</text>
+        <text x="50" y="185" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="28" font-weight="700" fill="#F4F0EA">Desbugamos tudo em 1 minuto para você</text>
+        <text x="50" y="235" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="20" font-weight="400" fill="#9E988E">Arraste para o lado para ver o passo a passo ➔</text>
+      </g>
     `;
   } else if (slide.type === "practical_impact") {
     contentBodySvg = `
-      <!-- Practical Impact Slide Layout -->
-      <rect x="90" y="240" width="260" height="38" rx="19" fill="#f59e0b" />
-      <text x="220" y="265" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="15" font-weight="900" fill="#111827" text-anchor="middle" letter-spacing="2">💡 APLICACAO PRATICA</text>
-
-      <text x="90" y="350" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="46" font-weight="900" fill="#ffffff">
-        <tspan x="90" dy="0">${title.slice(0, 38)}</tspan>
-        ${title.length > 38 ? `<tspan x="90" dy="60">${title.slice(38, 80)}</tspan>` : ""}
+      <!-- Practical Impact Title -->
+      <text x="90" y="260" font-family="'Playfair Display', 'Georgia', serif" font-size="48" font-weight="900" fill="#1A1816">
+        <tspan x="90" dy="0">${title.slice(0, 32)}</tspan>
+        ${title.length > 32 ? `<tspan x="90" dy="62">${title.slice(32, 70)}</tspan>` : ""}
       </text>
 
-      <!-- Golden Practical Box -->
-      <rect x="90" y="500" width="900" height="460" rx="24" fill="#fffbeb" stroke="#f59e0b" stroke-width="3" />
-      <text x="140" y="570" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="900" fill="#92400e">PASSO A PASSO NO SEU PERFIL OU VENDAS:</text>
+      <!-- Light Elegant Card (Gio Explica Style) -->
+      <g transform="translate(90, 420)">
+        <rect width="900" height="660" rx="32" fill="#FFFFFF" stroke="#E3DDD3" stroke-width="2" />
+        
+        <!-- Header inside Card -->
+        <rect x="50" y="45" width="280" height="38" rx="19" fill="#FFF3E0" />
+        <text x="190" y="70" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="800" fill="#D97706" text-anchor="middle" letter-spacing="1">💡 APLICAÇÃO NO SEU PERFIL</text>
 
-      <text x="140" y="640" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="26" font-weight="600" fill="#1f2937">
-        <tspan x="140" dy="0">${body.slice(0, 60)}</tspan>
-        ${body.length > 60 ? `<tspan x="140" dy="45">${body.slice(60, 120)}</tspan>` : ""}
-        ${body.length > 120 ? `<tspan x="140" dy="45">${body.slice(120, 180)}</tspan>` : ""}
-        ${body.length > 180 ? `<tspan x="140" dy="45">${body.slice(180, 250)}</tspan>` : ""}
-      </text>
+        <!-- Card Body Content -->
+        <text x="50" y="160" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="26" font-weight="600" fill="#2C2925">
+          <tspan x="50" dy="0">${body.slice(0, 52)}</tspan>
+          ${body.length > 52 ? `<tspan x="50" dy="46">${body.slice(52, 110)}</tspan>` : ""}
+          ${body.length > 110 ? `<tspan x="50" dy="46">${body.slice(110, 170)}</tspan>` : ""}
+          ${body.length > 170 ? `<tspan x="50" dy="46">${body.slice(170, 240)}</tspan>` : ""}
+        </text>
+
+        <!-- Mini Inner Action UI Mockup -->
+        <g transform="translate(50, 420)">
+          <rect width="800" height="170" rx="20" fill="#1C1A17" />
+          <text x="40" y="65" font-family="'Playfair Display', serif" font-size="22" font-weight="700" fill="#F4F0EA">Como executar em 30 segundos:</text>
+          <text x="40" y="115" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="400" fill="#B5AEA3">Ative a ferramenta e aplique a sugestão no seu próximo post.</text>
+        </g>
+      </g>
     `;
   } else if (slide.type === "cta") {
     contentBodySvg = `
-      <!-- CTA Slide Layout -->
-      <circle cx="540" cy="360" r="80" fill="#ff4a1c" opacity="0.2" />
-      <text x="540" y="380" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="70" text-anchor="middle">🚀</text>
+      <!-- CTA Slide Design -->
+      <g transform="translate(90, 280)">
+        <rect width="900" height="800" rx="36" fill="#1C1A17" />
+        
+        <circle cx="450" cy="180" r="60" fill="#FF4A1C" opacity="0.15" />
+        <text x="450" y="198" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="60" text-anchor="middle">📩</text>
 
-      <text x="540" y="520" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="52" font-weight="900" fill="#ffffff" text-anchor="middle">
-        <tspan x="540" dy="0">${title}</tspan>
-      </text>
+        <text x="450" y="320" font-family="'Playfair Display', 'Georgia', serif" font-size="46" font-weight="900" fill="#F4F0EA" text-anchor="middle">
+          <tspan x="450" dy="0">${title.slice(0, 32)}</tspan>
+          ${title.length > 32 ? `<tspan x="450" dy="58">${title.slice(32, 70)}</tspan>` : ""}
+        </text>
 
-      <text x="540" y="630" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="26" font-weight="500" fill="#cbd5e1" text-anchor="middle">
-        <tspan x="540" dy="0">${body.slice(0, 60)}</tspan>
-        ${body.length > 60 ? `<tspan x="540" dy="42">${body.slice(60, 120)}</tspan>` : ""}
-      </text>
+        <text x="450" y="470" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="400" fill="#B5AEA3" text-anchor="middle">
+          <tspan x="450" dy="0">${body.slice(0, 52)}</tspan>
+          ${body.length > 52 ? `<tspan x="450" dy="42">${body.slice(52, 110)}</tspan>` : ""}
+        </text>
 
-      <rect x="180" y="780" width="720" height="90" rx="45" fill="#ff4a1c" />
-      <text x="540" y="835" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="26" font-weight="900" fill="#ffffff" text-anchor="middle">${ctaText}</text>
+        <!-- CTA Highlight Button -->
+        <g transform="translate(150, 590)">
+          <rect width="600" height="96" rx="48" fill="#FF4A1C" />
+          <text x="300" y="58" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="900" fill="#FFFFFF" text-anchor="middle">${ctaText}</text>
+        </g>
+      </g>
     `;
   } else {
-    // Standard Content / Intro Slide
+    // Standard Content Slide (Claude / Gio Explica Style)
     const bulletsSvg = (slide.bullet_points || [])
       .map(
         (bp, idx) => `
-        <g transform="translate(90, ${620 + idx * 90})">
-          <circle cx="20" cy="-10" r="14" fill="#ff4a1c" />
-          <text x="20" y="-4" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="900" fill="#ffffff" text-anchor="middle">✓</text>
-          <text x="50" y="0" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="600" fill="#e2e8f0">${escapeXml(bp.slice(0, 65))}</text>
+        <g transform="translate(50, ${280 + idx * 105})">
+          <rect width="700" height="85" rx="18" fill="#FFFFFF" stroke="#E8E2D6" stroke-width="1.5" />
+          <circle cx="45" cy="42" r="16" fill="#FF4A1C" />
+          <text x="45" y="48" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="900" fill="#FFFFFF" text-anchor="middle">✓</text>
+          <text x="80" y="49" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="20" font-weight="600" fill="#2C2925">${escapeXml(bp.slice(0, 50))}</text>
         </g>
       `
       )
       .join("");
 
     contentBodySvg = `
-      <!-- Content / Intro Layout -->
-      <rect x="90" y="240" width="200" height="36" rx="18" fill="#334155" />
-      <text x="190" y="263" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="800" fill="#ffb800" text-anchor="middle" letter-spacing="1.5">${eyebrow}</text>
-
-      <text x="90" y="350" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="48" font-weight="900" fill="#ffffff">
-        <tspan x="90" dy="0">${title.slice(0, 35)}</tspan>
-        ${title.length > 35 ? `<tspan x="90" dy="60">${title.slice(35, 75)}</tspan>` : ""}
+      <!-- Editorial Title -->
+      <text x="90" y="250" font-family="'Playfair Display', 'Georgia', serif" font-size="48" font-weight="900" fill="#1A1816">
+        <tspan x="90" dy="0">${title.slice(0, 32)}</tspan>
+        ${title.length > 32 ? `<tspan x="90" dy="60">${title.slice(32, 70)}</tspan>` : ""}
       </text>
 
-      <text x="90" y="490" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="26" font-weight="500" fill="#cbd5e1">
-        <tspan x="90" dy="0">${body.slice(0, 65)}</tspan>
-        ${body.length > 65 ? `<tspan x="90" dy="42">${body.slice(65, 130)}</tspan>` : ""}
+      <text x="90" y="380" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="400" fill="#57524A">
+        <tspan x="90" dy="0">${body.slice(0, 58)}</tspan>
+        ${body.length > 58 ? `<tspan x="90" dy="40">${body.slice(58, 120)}</tspan>` : ""}
       </text>
 
-      ${bulletsSvg}
+      <!-- Main UI Container Card -->
+      <g transform="translate(90, 480)">
+        <rect width="900" height="600" rx="32" fill="#F4F0EA" stroke="#E3DDD3" stroke-width="2" />
+        ${bulletsSvg}
+      </g>
     `;
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bg-gradient" x1="0" y1="0" x2="1080" y2="1350" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#090d16" />
-      <stop offset="50%" stop-color="#0f172a" />
-      <stop offset="100%" stop-color="#18181b" />
-    </linearGradient>
-  </defs>
+  <!-- Background Warm Off-White / Beige (Claude & Gio Explica Style) -->
+  <rect width="${width}" height="${height}" fill="#FAF7F2" />
 
-  <!-- Background -->
-  <rect width="${width}" height="${height}" fill="url(#bg-gradient)" />
-  <circle cx="980" cy="100" r="300" fill="#ff4a1c" opacity="0.08" />
-  <circle cx="100" cy="1200" r="250" fill="#ffb800" opacity="0.05" />
-
-  <!-- Top Header Branding -->
-  <g transform="translate(90, 90)">
-    <rect width="64" height="34" rx="8" fill="#ff4a1c" />
-    <text x="32" y="23" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="900" fill="#ffffff" text-anchor="middle">b.</text>
-    <text x="80" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="22" font-weight="900" fill="#ffffff" letter-spacing="1">desbuguei.ia</text>
+  <!-- Top Header Navigation & Page Badge -->
+  <g transform="translate(90, 80)">
+    <rect width="180" height="38" rx="19" fill="#EFEAE1" />
+    <text x="90" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="800" fill="#6E675D" text-anchor="middle">${slideIndexStr} / ${totalSlidesStr} — CLAUDE &amp; IA</text>
   </g>
 
-  <!-- Slide Content Body -->
+  <!-- Slide Main Body Content -->
   ${contentBodySvg}
 
-  <!-- Footer Watermark & Page Counter -->
-  <line x1="90" y1="1240" x2="990" y2="1240" stroke="#334155" stroke-width="1.5" />
-  <text x="90" y="1285" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="700" fill="#64748b">desbuguei.ia • Inteligencia Artificial para Redes &amp; Vendas</text>
-  <text x="990" y="1285" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="900" fill="#ffb800" text-anchor="end">${slide.index} / ${totalSlides}</text>
+  <!-- Footer Watermark -->
+  <line x1="90" y1="1250" x2="990" y2="1250" stroke="#E8E2D6" stroke-width="1.5" />
+  <text x="90" y="1292" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="800" fill="#1A1816">@desbuguei.ia</text>
+  <text x="990" y="1292" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="600" fill="#8C857B" text-anchor="end">Desbugando IA para Redes &amp; Vendas</text>
 </svg>`;
 }
 
-export function renderCarouselSlides(carousel: InstagramCarouselContent): RenderedSlideAsset[] {
+export async function renderCarouselSlides(carousel: InstagramCarouselContent): Promise<RenderedSlideAsset[]> {
   const totalSlides = carousel.slides.length;
+  const assets: RenderedSlideAsset[] = [];
 
-  return carousel.slides.map((slide) => {
+  for (const slide of carousel.slides) {
     const svgContent = renderSlideToSvg(slide, totalSlides, carousel.primary_topic);
-    const base64Svg = Buffer.from(svgContent, "utf-8").toString("base64");
-    const dataUrl = `data:image/svg+xml;base64,${base64Svg}`;
-    const filename = `slide-${String(slide.index).padStart(2, "0")}.svg`;
 
-    return {
+    // Converter SVG para PNG de altíssima definição 1080x1350 via Sharp
+    const pngBuffer = await sharp(Buffer.from(svgContent))
+      .png({ quality: 100 })
+      .toBuffer();
+
+    const filename = `slide-${String(slide.index).padStart(2, "0")}.png`;
+
+    assets.push({
       index: slide.index,
       type: slide.type,
       filename,
-      dataUrl,
       svgContent,
-    };
-  });
+      pngBuffer,
+    });
+  }
+
+  return assets;
+}
+
+export async function uploadSlideToSupabaseStorage(
+  pngBuffer: Buffer,
+  filepath: string
+): Promise<string | null> {
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { error: uploadErr } = await supabase.storage
+      .from("public_assets")
+      .upload(filepath, pngBuffer, {
+        contentType: "image/png",
+        upsert: true,
+      });
+
+    if (uploadErr) {
+      console.warn("[STORAGE UPLOAD WARN]", uploadErr.message);
+      return null;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("public_assets")
+      .getPublicUrl(filepath);
+
+    return publicUrlData.publicUrl;
+  } catch (err) {
+    console.warn("[STORAGE UPLOAD EXCEPTION]", err);
+    return null;
+  }
 }

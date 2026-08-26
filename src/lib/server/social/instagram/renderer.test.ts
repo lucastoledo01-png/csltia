@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderCarouselSlides, renderSlideToSvg } from "./renderer";
 import { InstagramCarouselContent } from "./schemas";
 
-describe("Renderer de Slides 1080x1350 para Instagram (Fase 2)", () => {
+describe("Renderer de Slides 1080x1350 Elegante/Editorial para Instagram", () => {
   const mockCarousel: InstagramCarouselContent = {
     title: "Instagram lança IA de edição",
     edition_date: "2026-08-25",
@@ -54,19 +54,20 @@ describe("Renderer de Slides 1080x1350 para Instagram (Fase 2)", () => {
     },
   };
 
-  it("gera arquivo SVG 1080x1350 bem formatado com a marca desbuguei.ia", () => {
+  it("gera arquivo SVG 1080x1350 bem formatado no tom beige editorial desbuguei.ia", () => {
     const svg = renderSlideToSvg(mockCarousel.slides[0], 5, "Redes Sociais");
     expect(svg).toContain('width="1080"');
     expect(svg).toContain('height="1350"');
-    expect(svg).toContain("desbuguei.ia");
+    expect(svg).toContain("@desbuguei.ia");
     expect(svg).toContain("UPDATE DE IA");
+    expect(svg).toContain("#FAF7F2"); // fundo bege estético
   });
 
-  it("renderiza todos os slides do carrossel em dataUrls SVG", () => {
-    const rendered = renderCarouselSlides(mockCarousel);
+  it("renderiza todos os slides do carrossel em PNG via Sharp", async () => {
+    const rendered = await renderCarouselSlides(mockCarousel);
     expect(rendered.length).toBe(5);
-    expect(rendered[0].dataUrl).toContain("data:image/svg+xml;base64,");
-    expect(rendered[0].filename).toBe("slide-01.svg");
-    expect(rendered[4].filename).toBe("slide-05.svg");
+    expect(rendered[0].pngBuffer).toBeInstanceOf(Buffer);
+    expect(rendered[0].filename).toBe("slide-01.png");
+    expect(rendered[4].filename).toBe("slide-05.png");
   });
 });

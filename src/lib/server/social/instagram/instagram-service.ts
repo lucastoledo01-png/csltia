@@ -6,7 +6,7 @@ import {
   publishContainer,
 } from "./meta-client";
 import { generateInstagramCarouselPipeline } from "./pipeline";
-import { renderCarouselSlides } from "./renderer";
+import { renderCarouselSlides, uploadSlideToSupabaseStorage } from "./renderer";
 import { InstagramCarouselContent } from "./schemas";
 
 export type RunInstagramOptions = {
@@ -46,11 +46,10 @@ export async function runInstagramCarouselService(
   const todayStr = options.editionDateStr || new Date().toISOString().split("T")[0];
   const idempotencyKey = options.idempotencyKey || `instagram-carousel-${todayStr}`;
 
-  // 100% Automatizado: dryRun = false por padrão, autoPost = true por padrão
   const dryRun = options.dryRun ?? (env.INSTAGRAM_DRY_RUN === "true" ? true : false);
   const autoPost = options.autoPost ?? (env.INSTAGRAM_AUTO_POST === "false" ? false : true);
 
-  console.log(`[INSTAGRAM SERVICE] Iniciando pipeline 100% automatizado (dryRun: ${dryRun}, autoPost: ${autoPost}, key: ${idempotencyKey})...`);
+  console.log(`[INSTAGRAM SERVICE] Iniciando pipeline de carrosséis estilizados (dryRun: ${dryRun}, autoPost: ${autoPost}, key: ${idempotencyKey})...`);
 
   // 1. Verificar Idempotência no Supabase
   try {
@@ -80,7 +79,7 @@ export async function runInstagramCarouselService(
     // Continua para nova geração
   }
 
-  // 2. Buscar Conteúdo da Edição Diária se não fornecido diretamente
+  // 2. Buscar Conteúdo da Edição Diária
   let edition: EditionContent | undefined = options.editionContent;
   let articleSlug = options.articleSlug || `edicao-${todayStr}`;
 
@@ -159,19 +158,6 @@ export async function runInstagramCarouselService(
           source_url: "https://venturebeat.com",
           secondary_urls: [],
         },
-        {
-          rank: 4,
-          category: "Ferramentas",
-          title: "Gerador de imagens por IA ganha controle fino de tipografia e textos",
-          summary: "Novas atualizações corrigem o antigo problema de letras borradas em banners e peças publicitárias.",
-          context: "Designers e profissionais de marketing agora criam peças publicitárias prontas sem arte-final pesada.",
-          why_it_matters: "Permite criar anúncios de alta conversão sem precisar de software de edição complexo.",
-          practical_impact: "Gere imagens com títulos nítidos para stories e anúncios de feed em menos de 1 minuto.",
-          humor_line: "O texto borrado por IA oficialmente virou coisa do passado.",
-          source_name: "AI Trends",
-          source_url: "https://aitrends.com",
-          secondary_urls: [],
-        },
       ],
       quick_bits: [
         { title: "ChatGPT Update", text: "OpenAI lança nova interface mais rápida no celular.", url: "https://openai.com" },
@@ -181,38 +167,50 @@ export async function runInstagramCarouselService(
     };
   }
 
-  // 3. Transformar Edição em Roteiro de Carrossel + Caption via OpenAI
-  console.log(`[INSTAGRAM SERVICE] Gerando roteiro de carrossel via OpenAI...`);
+  // 3. Transformar Edição em Roteiro Editorial de Carrossel via OpenAI
+  console.log(`[INSTAGRAM SERVICE] Gerando roteiro editorial estilizado via OpenAI...`);
   const pipelineResult = await generateInstagramCarouselPipeline(edition, todayStr, env, fetcher);
 
-  // 4. Renderizar os Slides 1080x1350
-  const renderedSlides = renderCarouselSlides(pipelineResult.carousel);
-  const slidesManifest = renderedSlides.map((s) => ({
-    index: s.index,
-    type: s.type,
-    filename: s.filename,
-    dataUrl: s.dataUrl,
-  }));
+  // 4. Renderizar os Slides PNG 1080x1350 via Sharp & Fazer Upload para o Supabase Storage
+  console.log(`[INSTAGRAM RENDER] Renderizando ${pipelineResult.carousel.slides.length} slides em PNG 1080x1350 estéticos (estilo Claude / Gio Explica)...`);
+  const renderedSlides = await renderCarouselSlides(pipelineResult.carousel);
+
+  const slidesManifest = [];
+  const publicImageUrls: string[] = [];
+
+  for (const slide of renderedSlides) {
+    const storagePath = `instagram_carousels/${todayStr}/${idempotencyKey}_slide_${slide.index}.png`;
+    const publicUrl = await uploadSlideToSupabaseStorage(slide.pngBuffer, storagePath);
+
+    const imageUrlToUse = publicUrl || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080";
+    publicImageUrls.push(imageUrlToUse);
+
+    slidesManifest.push({
+      index: slide.index,
+      type: slide.type,
+      filename: slide.filename,
+      publicUrl: imageUrlToUse,
+    });
+  }
 
   let finalStatus = dryRun ? "draft" : "generated";
   let providerPostId: string | undefined;
   let socialPostId: string | undefined;
 
-  // 5. Se autoPost === true e não for dryRun, Publicar via Meta Graph API
+  // 5. Se autoPost === true e não for dryRun, Publicar Mídia Real via Meta Graph API
   if (autoPost && !dryRun) {
     try {
-      console.log(`[INSTAGRAM AUTO POST] Iniciando publicação via Meta Graph API...`);
+      console.log(`[INSTAGRAM AUTO POST] Publicando os ${publicImageUrls.length} slides PNG reais na Meta Graph API...`);
       const itemContainerIds: string[] = [];
 
-      for (const slide of renderedSlides) {
-        // Usar imagem fallback acessível publicamente ou upload para container de carrossel
-        const samplePublicImageUrl = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1080&q=80";
-        const itemRes = await createCarouselItemContainer(samplePublicImageUrl, env, fetcher);
+      for (let i = 0; i < publicImageUrls.length; i++) {
+        const itemRes = await createCarouselItemContainer(publicImageUrls[i], env, fetcher);
 
         if (itemRes.ok && itemRes.creationId) {
+          console.log(`   - Slide ${i + 1}/${publicImageUrls.length} container criado: ${itemRes.creationId}`);
           itemContainerIds.push(itemRes.creationId);
         } else {
-          console.warn(`[INSTAGRAM ITEM ERROR] Falha ao criar item de carrossel:`, itemRes.error);
+          console.warn(`[INSTAGRAM ITEM ERROR] Falha ao criar slide ${i + 1}:`, itemRes.error);
         }
       }
 
@@ -230,7 +228,7 @@ export async function runInstagramCarouselService(
           if (publishRes.ok && publishRes.mediaId) {
             providerPostId = publishRes.mediaId;
             finalStatus = "published";
-            console.log(`[INSTAGRAM AUTO POST SUCCESS] Post publicado no Instagram com ID: ${providerPostId}`);
+            console.log(`[INSTAGRAM AUTO POST SUCCESS] Post carrossel escrito publicado com SUCESSO! Media ID: ${providerPostId}`);
           } else {
             console.error(`[INSTAGRAM PUBLISH ERROR] Erro na publicação final:`, publishRes.error);
           }
@@ -269,7 +267,7 @@ export async function runInstagramCarouselService(
 
     if (!dbError && inserted) {
       socialPostId = inserted.id;
-      console.log(`[INSTAGRAM SERVICE] Carrossel salvo no banco de dados (ID: ${socialPostId}, status: ${finalStatus})`);
+      console.log(`[INSTAGRAM SERVICE] Registro gravado no Supabase com ID: ${socialPostId}`);
     }
   } catch (err) {
     console.warn(`[INSTAGRAM SERVICE] Exceção ao gravar no banco:`, err);
