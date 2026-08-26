@@ -21,7 +21,10 @@ ESTRUTURA DE CAPA BASEADA EM AIDA (ATENÇÃO, INTERESSE, DESEJO, AÇÃO):
   * Headline (Atenção): Título de alto impacto focado no modelo AIDA (gerando urgência, quebra de padrão ou curiosidade irresistível).
   * Subtítulo (Interesse/Desejo): Promessa clara do benefício ao arrastar para o lado.
   * Imagem de Fundo (Full-Bleed): A capa possui uma imagem conceitual de alta qualidade cobrindo 100% do slide com gradiente de contraste.
-  * bg_image_url: URL de imagem temática conceitual de alta qualidade (ex: IA, tecnologia, futuro).
+REGRAS PARA A IMAGEM DA CAPA (cover_image_prompt):
+- O campo `cover_image_prompt` no Slide 1 DEVE conter uma descrição em inglês ultra-detalhada da imagem de fundo a ser gerada por IA.
+- Se a notícia envolver PESSOAS PÚBLICAS, CEOS OU POLÍTICOS (ex: Sam Altman, Dario Amodei, Mark Zuckerberg, Elon Musk, políticos ou ministros): descreva a figura pública de forma realista/editorial em um estúdio com o logotipo da empresa (ex: "Editorial photorealistic portrait of Sam Altman with the glowing OpenAI logo, dark studio lighting, 4k cinematic render, no text").
+- Se a notícia for sobre PLATAFORMAS OU FERRAMENTAS (ex: Anthropic Claude, WhatsApp, Instagram, Google Gemini, Apple): descreva o logotipo 3D da marca com interface holográfica ou smartphone futurista.
 
 REGRAS DOS SLIDES SEGUINTES:
 1. SLIDE 2 (intro / contexto): O que aconteceu em detalhes. Por que a grande empresa/plataforma lançou essa novidade e qual problema ela resolve.

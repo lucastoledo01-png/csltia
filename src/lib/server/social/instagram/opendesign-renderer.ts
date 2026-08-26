@@ -25,6 +25,38 @@ export async function fetchImageAsBase64(url: string): Promise<string> {
   }
 }
 
+export async function generateCoverImageWithAI(title: string, coverPrompt?: string, primaryTopic?: string): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return "";
+
+  const subject = coverPrompt || `${title} (${primaryTopic || "Inteligência Artificial"})`;
+  const finalPrompt = `High impact Instagram news carousel cover background image. Subject: ${subject}. Style: Photorealistic editorial news portrait or 3D render with dramatic lighting, tech journalism aesthetic, rich dark bottom contrast for text legibility, 4k resolution. ABSOLUTELY NO TEXT, NO WORDS, NO TYPOGRAPHY IN THE IMAGE.`;
+
+  try {
+    const res = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "dall-e-3",
+        prompt: finalPrompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "standard",
+        response_format: "url"
+      }),
+    });
+
+    if (!res.ok) return "";
+    const data = await res.json();
+    return data?.data?.[0]?.url || "";
+  } catch {
+    return "";
+  }
+}
+
 export function getContextualBrandImage(title: string, primaryTopic: string, providedUrl?: string): string {
   if (providedUrl && providedUrl.startsWith("http") && !providedUrl.includes("photo-1618005182384")) {
     return providedUrl;
@@ -105,7 +137,7 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
   if (slide.type === "cover") {
     const coverTag = "BUGNEWS";
     const brand = getBrandHeroVisual(title, primaryTopic);
-    const hasCustomImage = slide.bg_image_url && slide.bg_image_url.startsWith("data:");
+    const hasCustomImage = Boolean(slide.bg_image_url && (slide.bg_image_url.startsWith("data:") || slide.bg_image_url.startsWith("http")));
 
     if (hasCustomImage) {
       slideBodyHtml = `
@@ -842,8 +874,21 @@ export async function renderOpenDesignSlides(carousel: InstagramCarouselContent)
 
     for (const slide of carousel.slides) {
       if (slide.type === "cover") {
-        const rawUrl = getContextualBrandImage(slide.title, carousel.primary_topic, slide.bg_image_url);
-        slide.bg_image_url = await fetchImageAsBase64(rawUrl);
+        let imageUrl = slide.bg_image_url;
+
+        // Tentar gerar imagem customizada via DALL-E 3 com base no tema e personagens (ex: Sam Altman, Dario Amodei, Elon Musk, etc.)
+        if (!imageUrl || imageUrl.includes("unsplash")) {
+          const aiUrl = await generateCoverImageWithAI(slide.title, slide.cover_image_prompt, carousel.primary_topic);
+          if (aiUrl) {
+            imageUrl = aiUrl;
+          }
+        }
+
+        if (!imageUrl) {
+          imageUrl = getContextualBrandImage(slide.title, carousel.primary_topic, slide.bg_image_url);
+        }
+
+        slide.bg_image_url = await fetchImageAsBase64(imageUrl);
       }
       const htmlContent = buildSlideHtml(slide, totalSlides, carousel.primary_topic);
       await page.setContent(htmlContent, { waitUntil: "networkidle" });
