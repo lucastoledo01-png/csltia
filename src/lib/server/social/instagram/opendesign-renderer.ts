@@ -139,6 +139,40 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
     const brand = getBrandHeroVisual(title, primaryTopic);
     const hasCustomImage = Boolean(slide.bg_image_url && (slide.bg_image_url.startsWith("data:") || slide.bg_image_url.startsWith("http")));
 
+    const headlineStyle = slide.headline_style || "clean";
+    const highlightTarget = slide.highlight_text || "";
+
+    let formattedTitle = title;
+    if (headlineStyle === "underline_stroke") {
+      if (highlightTarget && title.includes(highlightTarget)) {
+        formattedTitle = title.replace(
+          highlightTarget,
+          `<span class="underline-stroke-wrapper">${highlightTarget}<svg class="brush-stroke-svg" viewBox="0 0 200 20" preserveAspectRatio="none"><path d="M 5,14 Q 100,2 195,14 Q 100,18 5,14" fill="#FF4A1C"/></svg></span>`
+        );
+      } else {
+        const words = title.split(" ");
+        if (words.length > 3) {
+          const lastWords = words.slice(-3).join(" ");
+          const firstPart = words.slice(0, -3).join(" ");
+          formattedTitle = `${firstPart} <span class="underline-stroke-wrapper">${lastWords}<svg class="brush-stroke-svg" viewBox="0 0 200 20" preserveAspectRatio="none"><path d="M 5,14 Q 100,2 195,14 Q 100,18 5,14" fill="#FF4A1C"/></svg></span>`;
+        }
+      }
+    } else if (headlineStyle === "pen_highlight") {
+      if (highlightTarget && title.includes(highlightTarget)) {
+        formattedTitle = title.replace(
+          highlightTarget,
+          `<span class="pen-highlight-tag">${highlightTarget}</span>`
+        );
+      } else {
+        const words = title.split(" ");
+        if (words.length > 3) {
+          const lastWords = words.slice(-3).join(" ");
+          const firstPart = words.slice(0, -3).join(" ");
+          formattedTitle = `${firstPart} <span class="pen-highlight-tag">${lastWords}</span>`;
+        }
+      }
+    }
+
     const variant = slide.cover_variant || "dark_speaker";
 
     if (variant === "clean_editorial") {
@@ -151,7 +185,7 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
           </div>
 
           <h1 class="slide-title-clean-editorial">
-            ${title.replace(/("(.*?)")|(’(.*?)’)|(Claude)|(OpenAI)|(one person business)/gi, (match) => `<span class="serif-italic-accent">${match}</span>`)}
+            ${formattedTitle}
           </h1>
 
           <div class="editorial-hero-frame">
@@ -176,7 +210,7 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
         <div class="cover-cutout-container">
           <div class="cutout-header">
             <h1 class="slide-title-cutout">
-              ${title.replace(/(automações)|(Claude)|(OpenAI)|(arsenal)/gi, (match) => `<span class="serif-italic-accent">${match}</span>`)}
+              ${formattedTitle}
             </h1>
           </div>
 
@@ -211,7 +245,7 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
               </div>
             </div>
 
-            <h1 class="slide-title-cover-minimal">${title}</h1>
+            <h1 class="slide-title-cover-minimal">${formattedTitle}</h1>
           </div>
           <div class="cover-bottom-bar">
             <span class="swipe-indicator">Arrasta que eu te atualizo em 1 minuto ➔</span>
@@ -569,6 +603,35 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
       font-size: 16px;
       color: rgba(255,255,255,0.8);
       font-weight: 500;
+    }
+
+    /* Headline Style: Underline Brush Stroke */
+    .underline-stroke-wrapper {
+      position: relative;
+      display: inline-block;
+      white-space: normal;
+    }
+
+    .brush-stroke-svg {
+      position: absolute;
+      bottom: -12px;
+      left: 0;
+      width: 100%;
+      height: 18px;
+      z-index: 2;
+      overflow: visible;
+    }
+
+    /* Headline Style: Pen Highlight Marker */
+    .pen-highlight-tag {
+      background: #FF4A1C;
+      color: #FFFFFF !important;
+      padding: 4px 16px;
+      border-radius: 12px;
+      display: inline-block;
+      transform: rotate(-1.5deg);
+      box-shadow: 0 6px 20px rgba(255, 74, 28, 0.45);
+      margin: 0 4px;
     }
 
     .slide-title-cover-minimal {

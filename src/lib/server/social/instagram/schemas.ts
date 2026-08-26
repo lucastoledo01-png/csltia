@@ -18,6 +18,7 @@ export const InstagramSlideSchema = z.object({
   bullet_points: z.array(z.string()).optional().default([]),
   highlight_text: z.string().optional().default(""),
   cover_variant: z.enum(["dark_speaker", "clean_editorial", "brand_cutout"]).optional().default("dark_speaker"),
+  headline_style: z.enum(["clean", "underline_stroke", "pen_highlight"]).optional().default("clean"),
   cover_image_prompt: z.string().optional().default(""),
   bg_image_url: z.string().optional().default(""),
   cta_text: z.string().optional().default(""),
