@@ -139,10 +139,63 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
     const brand = getBrandHeroVisual(title, primaryTopic);
     const hasCustomImage = Boolean(slide.bg_image_url && (slide.bg_image_url.startsWith("data:") || slide.bg_image_url.startsWith("http")));
 
-    if (hasCustomImage) {
+    const variant = slide.cover_variant || "dark_speaker";
+
+    if (variant === "clean_editorial" || (!hasCustomImage && variant !== "brand_cutout")) {
+      // CAPA TIPO 2: Editorial Papel Claro com Destaque em Serif Italic e Ícone da Marca
+      slideBodyHtml = `
+        <div class="cover-editorial-container">
+          <div class="editorial-top-icon">
+            <div class="asterisk-badge">✳</div>
+          </div>
+
+          <h1 class="slide-title-clean-editorial">
+            ${title.replace(/("(.*?)")|(’(.*?)’)/g, '<span class="serif-italic-accent">$1$3</span>')}
+          </h1>
+
+          ${slide.bg_image_url ? `<img src="${slide.bg_image_url}" class="editorial-hero-img" alt="Hero" />` : `
+            <div class="brand-hero-card ${brand.brandClass}">
+              <div class="brand-card-top">
+                <div class="brand-icon-wrapper">${brand.iconSvg}</div>
+                <div class="brand-status-badge">⚡ NOVIDADE</div>
+              </div>
+              <div class="brand-title">${brand.brandName}</div>
+            </div>
+          `}
+
+          <div class="cover-bottom-bar-light">
+            <span class="swipe-indicator-dark">Arrasta que eu te atualizo em 1 minuto ➔</span>
+          </div>
+        </div>
+      `;
+    } else if (variant === "brand_cutout") {
+      // CAPA TIPO 3: Recorte de Pessoas / CEOs / Especialista + Sticker do Logo
+      slideBodyHtml = `
+        <div class="cover-cutout-container">
+          <div class="cutout-header">
+            <h1 class="slide-title-cutout">${title}</h1>
+          </div>
+
+          <div class="cutout-visual-stage">
+            ${slide.bg_image_url ? `<img src="${slide.bg_image_url}" class="cutout-person-img" alt="Cutout" />` : `
+              <div class="cutout-sticker-badge">
+                <div class="sticker-icon">✳</div>
+                <div class="sticker-text">${primaryTopic}</div>
+              </div>
+            `}
+            <div class="cutout-arrow-annotation">⤵</div>
+          </div>
+
+          <div class="cover-bottom-bar-light">
+            <span class="swipe-indicator-dark">Arrasta que eu te atualizo em 1 minuto ➔</span>
+          </div>
+        </div>
+      `;
+    } else {
+      // CAPA TIPO 1: Speaker / Retrato Dark Full Bleed + Avatar de Perfil Social
       slideBodyHtml = `
         <div class="cover-full-bleed-wrapper">
-          <img src="${slide.bg_image_url}" class="cover-bg-img" alt="Cover Image" />
+          <img src="${slide.bg_image_url || 'https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=1080&q=80'}" class="cover-bg-img" alt="Cover Image" />
           <div class="cover-gradient-overlay"></div>
           <div class="cover-minimal-inner">
             <div class="social-profile-card">
@@ -157,27 +210,6 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
           </div>
           <div class="cover-bottom-bar">
             <span class="swipe-indicator">Arrasta que eu te atualizo em 1 minuto ➔</span>
-          </div>
-        </div>
-      `;
-    } else {
-      slideBodyHtml = `
-        <div class="cover-brand-container">
-          <div class="tag-bugnews">${coverTag}</div>
-
-          <!-- 3D Glassmorphic Brand Hero Card -->
-          <div class="brand-hero-card ${brand.brandClass}">
-            <div class="brand-card-top">
-              <div class="brand-icon-wrapper">${brand.iconSvg}</div>
-              <div class="brand-status-badge">⚡ NOVIDADE OFICIAL</div>
-            </div>
-            <div class="brand-title">${brand.brandName}</div>
-          </div>
-
-          <h1 class="slide-title-cover-brand">${title}</h1>
-
-          <div class="cover-bottom-bar-light">
-            <span class="swipe-indicator-dark">Arrasta que eu te atualizo em 1 minuto ➔</span>
           </div>
         </div>
       `;
@@ -575,6 +607,93 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
       box-shadow: 0 4px 15px rgba(255, 74, 28, 0.4);
     }
 
+    /* CAPA TIPO 2: Editorial Papel Claro */
+    .cover-editorial-container {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .editorial-top-icon {
+      margin-bottom: 20px;
+    }
+
+    .asterisk-badge {
+      font-size: 32px;
+      color: #FF4A1C;
+      font-weight: 900;
+    }
+
+    .slide-title-clean-editorial {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 56px;
+      line-height: 1.25;
+      font-weight: 700;
+      color: #18181B;
+      letter-spacing: -0.5px;
+      margin-bottom: 30px;
+    }
+
+    .serif-italic-accent {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-style: italic;
+      color: #FF4A1C;
+      font-weight: 600;
+    }
+
+    .editorial-hero-img {
+      width: 100%;
+      height: 480px;
+      object-fit: cover;
+      border-radius: 24px;
+      box-shadow: 0 12px 35px rgba(0,0,0,0.08);
+      margin-bottom: 24px;
+    }
+
+    /* CAPA TIPO 3: Recorte / Montage de Figuras */
+    .cover-cutout-container {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .slide-title-cutout {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 52px;
+      line-height: 1.25;
+      font-weight: 800;
+      color: #18181B;
+      letter-spacing: -0.5px;
+    }
+
+    .cutout-visual-stage {
+      position: relative;
+      width: 100%;
+      height: 680px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .cutout-person-img {
+      max-width: 100%;
+      max-height: 680px;
+      object-fit: contain;
+      filter: drop-shadow(0 15px 30px rgba(0,0,0,0.15));
+    }
+
+    .cutout-arrow-annotation {
+      position: absolute;
+      top: 20px;
+      right: 40px;
+      font-size: 48px;
+      color: #18181B;
+      transform: rotate(45deg);
+      font-weight: 900;
+    }
+
     .slide-title-cover-dark {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 60px;
@@ -956,8 +1075,7 @@ export async function renderOpenDesignSlides(carousel: InstagramCarouselContent)
       if (slide.type === "cover") {
         let imageUrl = slide.bg_image_url;
 
-        // Tentar gerar imagem customizada via DALL-E 3 com base no tema e personagens (ex: Sam Altman, Dario Amodei, Elon Musk, etc.)
-        if (!imageUrl || imageUrl.includes("unsplash")) {
+        if (!imageUrl) {
           const aiUrl = await generateCoverImageWithAI(slide.title, slide.cover_image_prompt, carousel.primary_topic);
           if (aiUrl) {
             imageUrl = aiUrl;
@@ -968,7 +1086,12 @@ export async function renderOpenDesignSlides(carousel: InstagramCarouselContent)
           imageUrl = getContextualBrandImage(slide.title, carousel.primary_topic, slide.bg_image_url);
         }
 
-        slide.bg_image_url = await fetchImageAsBase64(imageUrl);
+        if (imageUrl && imageUrl.startsWith("http")) {
+          const b64 = await fetchImageAsBase64(imageUrl);
+          if (b64 && b64.startsWith("data:")) {
+            slide.bg_image_url = b64;
+          }
+        }
       }
       const htmlContent = buildSlideHtml(slide, totalSlides, carousel.primary_topic);
       await page.setContent(htmlContent, { waitUntil: "networkidle" });
