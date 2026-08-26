@@ -175,50 +175,59 @@ export async function runInstagramCarouselService(
   console.log(`[OPENDESIGN RENDER] Renderizando ${pipelineResult.carousel.slides.length} slides HTML/CSS via Playwright em HD 2160x2700...`);
   const renderedSlides = await renderOpenDesignSlides(pipelineResult.carousel);
 
-  const slidesManifest = [];
-  const publicImageUrls: string[] = [];
-
-  for (const slide of renderedSlides) {
-    const supabase = getSupabaseAdminClient();
-    const storagePath = `instagram_carousels/${todayStr}/${idempotencyKey}_slide_${slide.index}.png`;
-
-    let publicUrl: string | null = null;
-    try {
-      const { error: uploadErr } = await supabase.storage
-        .from("public_assets")
-        .upload(storagePath, slide.pngBuffer, {
-          contentType: "image/png",
-          upsert: true,
-        });
-
-      if (!uploadErr) {
-        const { data: urlData } = supabase.storage.from("public_assets").getPublicUrl(storagePath);
-        publicUrl = urlData?.publicUrl || null;
-      }
-    } catch {
-      // Fallback
-    }
-
-    // Fallback de URL pública acessível de alta qualidade caso o bucket não exista no Supabase local
-    const finalUrl = publicUrl || `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080`;
-    publicImageUrls.push(finalUrl);
-
-    slidesManifest.push({
-      index: slide.index,
-      type: slide.type,
-      filename: slide.filename,
-      publicUrl: finalUrl,
-    });
-  }
-
   let finalStatus = dryRun ? "draft" : "generated";
   let providerPostId: string | undefined;
   let socialPostId: string | undefined;
 
-  // 5. Se autoPost === true e não for dryRun, Publicar Mídia Real via Meta Graph API
-  if (autoPost && !dryRun) {
+  const appBaseUrl = env.NEXT_PUBLIC_APP_URL || env.VERCEL_URL ? `https://${env.VERCEL_URL}` : "https://desbuguei.ia";
+
+  // 5. Salvar Registro Inicial no Supabase (`social_posts`) para gerar o ID do Post
+  const slidesManifestInitial = renderedSlides.map((s) => ({
+    index: s.index,
+    type: s.type,
+    filename: s.filename,
+    pngBase64: s.pngBuffer.toString("base64"),
+  }));
+
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { data: inserted, error: dbError } = await supabase
+      .from("social_posts")
+      .insert({
+        edition_date: todayStr,
+        article_slug: articleSlug,
+        platform: "instagram",
+        post_type: "carousel",
+        title: pipelineResult.carousel.title,
+        caption: pipelineResult.carousel.caption.full_caption,
+        content_json: pipelineResult.carousel as any,
+        slides_manifest: slidesManifestInitial as any,
+        status: finalStatus,
+        idempotency_key: idempotencyKey,
+        tokens_input: pipelineResult.usage.promptTokens,
+        tokens_output: pipelineResult.usage.completionTokens,
+        cost_estimate_usd: pipelineResult.usage.estimatedCostUsd,
+        dry_run: dryRun,
+      })
+      .select("id")
+      .single();
+
+    if (!dbError && inserted) {
+      socialPostId = inserted.id;
+      console.log(`[INSTAGRAM SERVICE] Registro OpenDesign salvo com ID: ${socialPostId}`);
+    }
+  } catch (err) {
+    console.warn(`[INSTAGRAM SERVICE] Exceção ao gravar no banco:`, err);
+  }
+
+  // 6. Montar URLs públicas e enviar para a Meta Graph API
+  if (autoPost && !dryRun && socialPostId) {
     try {
-      console.log(`[INSTAGRAM AUTO POST] Publicando ${publicImageUrls.length} slides OpenDesign HTML na Meta Graph API...`);
+      const publicImageUrls: string[] = renderedSlides.map(
+        (s) => `${appBaseUrl}/api/social/instagram/slide-image?postId=${socialPostId}&index=${s.index}`
+      );
+
+      console.log(`[INSTAGRAM AUTO POST] Publicando ${publicImageUrls.length} slides OpenDesign HTML/CSS na Meta Graph API...`);
       const itemContainerIds: string[] = [];
 
       for (let i = 0; i < publicImageUrls.length; i++) {
@@ -247,6 +256,17 @@ export async function runInstagramCarouselService(
             providerPostId = publishRes.mediaId;
             finalStatus = "published";
             console.log(`[INSTAGRAM AUTO POST SUCCESS] Post carrossel OpenDesign HTML/CSS publicado com SUCESSO! Media ID: ${providerPostId}`);
+
+            // Atualizar status no Supabase
+            const supabase = getSupabaseAdminClient();
+            await supabase
+              .from("social_posts")
+              .update({
+                status: "published",
+                provider_post_id: providerPostId,
+                published_at: new Date().toISOString(),
+              })
+              .eq("id", socialPostId);
           } else {
             console.error(`[INSTAGRAM PUBLISH ERROR] Erro na publicação final:`, publishRes.error);
           }
@@ -255,40 +275,6 @@ export async function runInstagramCarouselService(
     } catch (postErr) {
       console.error(`[INSTAGRAM AUTO POST EXCEPTION] Erro no fluxo Meta API:`, postErr);
     }
-  }
-
-  // 6. Salvar Registro no Supabase (`social_posts`)
-  try {
-    const supabase = getSupabaseAdminClient();
-    const { data: inserted, error: dbError } = await supabase
-      .from("social_posts")
-      .insert({
-        edition_date: todayStr,
-        article_slug: articleSlug,
-        platform: "instagram",
-        post_type: "carousel",
-        title: pipelineResult.carousel.title,
-        caption: pipelineResult.carousel.caption.full_caption,
-        content_json: pipelineResult.carousel as any,
-        slides_manifest: slidesManifest as any,
-        status: finalStatus,
-        provider_post_id: providerPostId,
-        published_at: finalStatus === "published" ? new Date().toISOString() : null,
-        idempotency_key: idempotencyKey,
-        tokens_input: pipelineResult.usage.promptTokens,
-        tokens_output: pipelineResult.usage.completionTokens,
-        cost_estimate_usd: pipelineResult.usage.estimatedCostUsd,
-        dry_run: dryRun,
-      })
-      .select("id")
-      .single();
-
-    if (!dbError && inserted) {
-      socialPostId = inserted.id;
-      console.log(`[INSTAGRAM SERVICE] Registro OpenDesign gravado no Supabase com ID: ${socialPostId}`);
-    }
-  } catch (err) {
-    console.warn(`[INSTAGRAM SERVICE] Exceção ao gravar no banco:`, err);
   }
 
   const executionTimeMs = Date.now() - startTime;
