@@ -1,4 +1,5 @@
 import { createListmonkClient } from "../listmonk";
+import { runInstagramCarouselService } from "../social/instagram/instagram-service";
 import { getSupabaseAdminClient } from "../supabase-admin";
 import { collectAllNews } from "./collector";
 import { deduplicateCandidates } from "./deduplicator";
@@ -66,7 +67,6 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
         `<a href="${s.source_url}" target="_blank" style="color: #374151; font-weight: 600; text-decoration: underline;">$1</a>`
       );
 
-      // Imagem dedicada em CADA bloco de notícia (estilo The News)
       const storyImage = coverImages[index] || fallbackImages[index % fallbackImages.length];
 
       return `
@@ -223,7 +223,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
           <div style="font-size: 12px; font-style: italic; color: #6b7280; margin-bottom: 8px;">
             powered by
           </div>
-          <div style="display: inline-block; background-color: #ff4a1c; color: #ffffff; font-weight: 900; font-family: monospace; font-size: 16px; padding: 6px 14px; border-radius: 8px; margin-bottom: 16px;">
+          <div style="display: inline-block; background-color: #ff4a1c; color: #ffffff; font-weight: 900; font-family: monospace; font-size: 18px; padding: 6px 14px; border-radius: 8px; margin-bottom: 16px;">
             b. / desbuguei.ia
           </div>
 
@@ -371,6 +371,26 @@ export async function runNewsroom(
       }
     } catch (lmErr) {
       console.error("[NEWSROOM LISTMONK ERROR] Falha ao criar campanha no Listmonk:", lmErr);
+    }
+  }
+
+  // 100% Automação do Instagram: Dispara geração & postagem do carrossel automaticamente
+  if (!dryRun) {
+    try {
+      console.log("[NEWSROOM INSTAGRAM] Disparando criação e publicação 100% automática no Instagram...");
+      await runInstagramCarouselService(
+        {
+          dryRun: false,
+          autoPost: autoSend,
+          editionDateStr: todayStr,
+          editionContent: pipelineResult.edition,
+          articleSlug: createdArticleSlug || `edicao-${todayStr}`,
+        },
+        env,
+        fetcher
+      ).catch((instErr) => console.error("[NEWSROOM INSTAGRAM ERROR] Falha não-bloqueante no Instagram:", instErr));
+    } catch (instErr) {
+      console.error("[NEWSROOM INSTAGRAM ERROR] Falha no disparo do Instagram:", instErr);
     }
   }
 
