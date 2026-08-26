@@ -49,7 +49,7 @@ export async function callOpenAIJSON<T>(
 
   if (!config.isConfigured || !config.apiKey) {
     console.warn(`[NEWSROOM AI] OPENAI_API_KEY não detectada. Gerando saída estruturada via mecanismo de fallback seguro para DRY RUN.`);
-    
+
     const userPromptStr = messages.map(m => m.content).join("\n");
     let fallbackData: any;
 
@@ -104,9 +104,9 @@ export async function callOpenAIJSON<T>(
           {
             index: 5,
             type: "cta",
-            title: "Curtiu este desbug?",
-            body: "Salve este post para consultar quando for criar conteúdo e compartilhe com um amigo no WhatsApp!",
-            cta_text: "Siga a @desbuguei.ia para ficar por dentro de todas as novidades"
+            title: "Quer receber o resumo no seu Direct?",
+            body: "Comente 'NEWS' aqui embaixo que te enviamos o link exclusivo da nossa newsletter gratuita direto no seu Direct!",
+            cta_text: "Comente NEWS para receber no Direct"
           }
         ],
         caption: {
@@ -117,9 +117,9 @@ export async function callOpenAIJSON<T>(
             "💡 Edição direta e simples no app",
             "⚡ Mais tempo livre para focar no seu negócio"
           ],
-          cta_call: "Você já testou essa ferramenta no seu app? Comente aqui embaixo!",
-          hashtags: ["#inteligenciaartificial", "#redessociais", "#marketingdigital", "#desbuguei", "#criadoresdeconteudo"],
-          full_caption: "A nova IA do Instagram acabou de sair! ⬇️\n\nSe você cria conteúdo ou vende pela internet, veja o que mudou:\n\n📌 Roteiros de vídeos gerados em segundos\n💡 Edição direta no app\n⚡ Economia de tempo para o seu negócio\n\nQual recurso você vai testar primeiro? Comente aqui!\n\nAgora você está desbugado. 🚀\n\n#inteligenciaartificial #redessociais #marketingdigital #desbuguei"
+          cta_call: "👇 Comente NEWS nos comentários para receber a newsletter no seu Direct!",
+          hashtags: ["#inteligenciaartificial", "#redessociais", "#marketingdigital", "#desbuguei", "#vendascomia"],
+          full_caption: "A nova IA do Instagram acabou de sair! ⬇️\n\nSe você cria conteúdo ou vende pela internet, veja o que mudou:\n\n📌 Roteiros de vídeos gerados em segundos\n💡 Edição direta no app\n⚡ Economia de tempo para o seu negócio\n\n👇 Comente NEWS aqui nos comentários para receber o acesso exclusivo da nossa newsletter diária direto no seu Direct!\n\nAgora você está desbugado. 🚀\n\n#inteligenciaartificial #redessociais #marketingdigital #desbuguei #vendascomia"
         }
       };
     } else {

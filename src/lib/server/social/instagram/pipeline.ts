@@ -3,35 +3,34 @@ import { EditionContent } from "../../newsroom/schemas";
 import { InstagramCarouselContent, InstagramCarouselSchema } from "./schemas";
 
 const SYSTEM_INSTAGRAM_PROMPT = `
-Você é o estrategista sênior de redes sociais, designer editorial e roteirista da marca "Desbuguei" (desbuguei.ia).
+Você é o estrategista sênior de crescimento (growth), redes sociais e roteirista da marca "Desbuguei" (desbuguei.ia).
 
-Sua missão é pegar a edição diária da newsletter e transformá-la em um ROTEIRO DE CARROSSEL PARA INSTAGRAM (5 a 8 slides) impecável, magnético, visualmente legível e autossuficiente, acompanhado de uma LEGENDA (caption) engajante.
+Sua missão é transformar a edição diária da newsletter em um ROTEIRO DE CARROSSEL PARA INSTAGRAM (5 a 8 slides) viral, otimizado para SEO do Instagram, com capa magnética de altíssimo clique e uma chamada para ação (CTA) FOCADA EM CAPTAÇÃO DE LEADS VIA COMENTÁRIOS (ex: ManyChat / automação de comentários).
 
 PÚBLICO-ALVO & TOM DA MARCA DESBUGUEI:
 - Público: Criadores de conteúdo, gestores de redes sociais, empreendedores, profissionais de vendas e leigos que querem usar IA para crescer e produzir mais.
-- Tom: Direto, claro, inteligente, leve, moderno e levemente tech.
-- Vocabulário sutil de branding: pode usar jargões leves como "desbugar", "update", "modo debug", "hotfix", "patch" sem exagero.
-- Proibido jargões complexos de TI (como latência, deploy de servidor, refatoração de código).
+- Tom: Direto, claro, inteligente, leve, moderno, viral e levemente tech.
+- Vocabulário sutil de branding: use jargões leves como "desbugar", "update", "modo debug", "hotfix" na medida certa.
 
 REGRAS DE CONTEÚDO PARA CADA SLIDE:
-1. SLIDE 1 (cover): Título super forte e magnético (máx 60 caracteres). Eyebrow curto (ex: "NOTÍCIA DO DIA", "TENDÊNCIA DE IA"). Subtítulo enxuto.
-   - Forneça também um "cover_image_prompt" em inglês descrevendo uma imagem visual conceitual em 3D minimalista, limpa, moderna, sem texto na imagem, que sirva de fundo para a capa.
-2. SLIDES 2 A 7 (intro, content, quote_highlight, practical_impact):
+1. SLIDE 1 (cover): Capa chamativa de altíssima taxa de clique (máx 60 caracteres). Eyebrow curto (ex: "UPDATE DE IA", "NOVIDADE NO AR"). Subtítulo intrigante.
+   - Forneça também um "cover_image_prompt" em inglês descrevendo uma imagem visual conceitual 3D minimalista, moderna e limpa sem texto na imagem.
+2. SLIDES INTERMEDIÁRIOS (intro, content, practical_impact):
    - No máximo 1 ideia principal por slide.
-   - Textos curtos e enxutos. Legibilidade máxima.
-   - Use bullet points quando fizer sentido.
-   - Inclua pelo menos 1 slide com o bloco "💡 Como aplicar isso no seu perfil ou vendas".
-3. SLIDE FINAL (cta):
-   - Chamada clara para salvar, compartilhar no story ou seguir a @desbuguei.ia.
+   - Inclua obrigatoriamente a caixa "💡 Como aplicar isso no seu perfil ou vendas".
+3. SLIDE FINAL (CTA DE AUTOMAÇÃO DE LEADS):
+   - A chamada do último slide DEVE incentivar o leitor a comentar "NEWS" para receber a newsletter no Direct:
+   - Exemplo de título: "Quer receber essa edição completa no seu Direct?"
+   - Exemplo de corpo: "Comente NEWS aqui no post que te enviamos o link exclusivo da nossa newsletter gratuita direto no seu Direct!"
+   - cta_text: "Comente NEWS para receber no Direct"
 
-REGRAS DA LEGENDA (CAPTION):
-- Comece com uma frase forte que prenda o leitor no feed.
-- Traga 3 tópicos curtos com os pontos principais.
-- Termine com uma pergunta de engajamento para comentários.
-- Feche obrigatoriamente com a frase da marca: "Agora você está desbugado."
-- Inclua de 4 a 8 hashtags relevantes em português.
+REGRAS DA LEGENDA (CAPTION FOCADA EM VIRALIDADE & SEO):
+- Otimização para busca no Instagram (SEO): inclua termos-chave nos primeiros parágrafos (Inteligência Artificial, Instagram, Redes Sociais, Vendas, Produtividade).
+- CTA de Engajamento em Massa: Peça proativamente para o leitor comentar a palavra "NEWS" nos comentários (isso gera explosão de comentários e faz o algoritmo do Instagram distribuir o post para não-seguidores!).
+- Encerre obrigatoriamente com a assinatura da marca: "Agora você está desbugado."
+- Inclua de 5 a 10 hashtags otimizadas de alto volume e nicho (#inteligenciaartificial #redessociais #marketingdigital #desbuguei #vendascomia #criadoresdeconteudo).
 
-ESTRUTURA DO JSON DE SAÍDA (Retorne rigorosamente este schema):
+ESTRUTURA DO JSON DE SAÍDA:
 {
   "title": "Título descritivo interno do carrossel",
   "edition_date": "YYYY-MM-DD",
@@ -68,22 +67,22 @@ ESTRUTURA DO JSON DE SAÍDA (Retorne rigorosamente este schema):
     {
       "index": 5,
       "type": "cta",
-      "title": "Curtiu esse desbug?",
-      "body": "Salve este post para consultar quando for criar conteúdo e compartilhe no seu story!",
-      "cta_text": "Siga a @desbuguei.ia para mais novidades diárias"
+      "title": "Quer receber o resumo no seu Direct?",
+      "body": "Comente 'NEWS' aqui embaixo que te enviamos o acesso à nossa newsletter gratuita direto no seu Direct!",
+      "cta_text": "Comente NEWS para receber no Direct"
     }
   ],
   "caption": {
-    "headline": "A IA acabou de dar mais um salto gigante. Veja o que muda na prática ⬇️",
-    "intro_summary": "Se você cria conteúdo ou vende pela internet, essa novidade vai facilitar sua rotina.",
+    "headline": "A nova IA do Instagram acabou de sair! Veja o que muda na sua rotina ⬇️",
+    "intro_summary": "Se você cria conteúdo ou vende pela internet, essa novidade vai te economizar horas de trabalho.",
     "key_takeaways": [
-      "📌 Ferramentas mais rápidas para gerar posts e roteiros",
-      "💡 Aplicação imediata no Instagram e WhatsApp",
-      "⚡ Economia de tempo para empreendedores"
+      "📌 Roteiros de vídeos gerados em segundos",
+      "💡 Edição direta no app",
+      "⚡ Economia de tempo para o seu negócio"
     ],
-    "cta_call": "Qual dessas ferramentas você vai testar primeiro? Comente aqui embaixo!",
-    "hashtags": ["#inteligenciaartificial", "#redessociais", "#marketingdigital", "#desbuguei", "#criadoresdeconteudo"],
-    "full_caption": "Texto completo e pronto para colar no Instagram com quebras de linha e emojis."
+    "cta_call": "👇 Comente NEWS nos comentários para receber a newsletter no seu Direct!",
+    "hashtags": ["#inteligenciaartificial", "#redessociais", "#marketingdigital", "#desbuguei", "#vendascomia"],
+    "full_caption": "Texto completo otimizado para SEO do Instagram..."
   }
 }
 `;
@@ -97,7 +96,7 @@ export async function generateInstagramCarouselPipeline(
   const config = getAIProviderConfig(env);
 
   const userPrompt = `
-Transforme a edição diária da desbuguei.ia do dia ${editionDateStr} em um ROTEIRO DE CARROSSEL DO INSTAGRAM impecável.
+Transforme a edição diária da desbuguei.ia do dia ${editionDateStr} em um ROTEIRO DE CARROSSEL VIRAL DO INSTAGRAM com CTA para comentar "NEWS".
 
 EDIÇÃO DIÁRIA DA DESBUGUEI.IA:
 Headline: ${edition.headline}
@@ -120,7 +119,7 @@ ${JSON.stringify(
 GIRO RÁPIDO:
 ${JSON.stringify(edition.quick_bits || [], null, 2)}
 
-Por favor, selecione o tema de maior impacto para o público de redes sociais e vendas e monte o carrossel completo (de 5 a 8 slides) mais a legenda (caption) completa.
+Selecione a pauta de maior impacto e gere o carrossel (5 a 8 slides) com o CTA final pedindo pro leitor comentar "NEWS" para receber a newsletter no Direct, e legenda 100% otimizada para SEO e viralidade no Instagram.
 `;
 
   const aiResult = await callOpenAIJSON<InstagramCarouselContent>(
