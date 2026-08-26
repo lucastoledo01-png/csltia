@@ -214,17 +214,28 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
       )
       .join("");
 
-    slideBodyHtml = `
-      <div class="slide-step-badge">${eyebrow}</div>
-      <h2 class="slide-title-content">${title}</h2>
-      <p class="slide-body-intro">${body}</p>
+    if (bulletPoints.length > 0) {
+      slideBodyHtml = `
+        <div class="slide-step-badge">${eyebrow}</div>
+        <h2 class="slide-title-content">${title}</h2>
+        <p class="slide-body-intro">${body}</p>
 
-      <div class="kami-card-main">
-        <div class="bullets-wrapper">
-          ${bulletsHtml || `<div class="bullet-row-card"><span class="bullet-text">${body}</span></div>`}
+        <div class="kami-card-main">
+          <div class="bullets-wrapper">
+            ${bulletsHtml}
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    } else {
+      slideBodyHtml = `
+        <div class="slide-step-badge">${eyebrow}</div>
+        <h2 class="slide-title-content">${title}</h2>
+
+        <div class="kami-card-main">
+          <div class="card-body-text-highlight">${body}</div>
+        </div>
+      `;
+    }
   }
 
   return `<!DOCTYPE html>
@@ -586,6 +597,15 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
       border-radius: 14px;
       margin-bottom: 20px;
       width: fit-content;
+    }
+
+    .card-body-text-highlight {
+      font-size: 26px;
+      line-height: 1.65;
+      color: #27272A;
+      font-weight: 500;
+      letter-spacing: -0.2px;
+      padding: 10px 4px;
     }
 
     .slide-title-cover {
