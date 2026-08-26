@@ -18,6 +18,7 @@ export const InstagramSlideSchema = z.object({
   bullet_points: z.array(z.string()).optional().default([]),
   highlight_text: z.string().optional().default(""),
   cover_image_prompt: z.string().optional().default(""),
+  bg_image_url: z.string().optional().default(""),
   cta_text: z.string().optional().default(""),
 });
 

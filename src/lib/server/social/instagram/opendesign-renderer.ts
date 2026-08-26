@@ -24,25 +24,32 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
   let slideBodyHtml = "";
 
   if (slide.type === "cover") {
-    slideBodyHtml = `
-      <div class="tag-eyebrow">${eyebrow}</div>
-      <h1 class="slide-title-cover">${title}</h1>
-      <p class="slide-subtitle">${body}</p>
+    const coverTag = "BUGNEWS";
+    const bgImage = slide.bg_image_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1080&q=80";
 
-      <!-- UI Card Container Inspirado no Claude / OpenDesign Kami -->
-      <div class="ui-hero-card">
-        <div class="ui-card-header">
-          <span class="dot red"></span>
-          <span class="dot yellow"></span>
-          <span class="dot green"></span>
-          <span class="card-brand-tag">⚡ DESBUGUEI.IA • PASSO A PASSO</span>
-        </div>
-        <div class="ui-card-body">
-          <div class="ui-section-title">Desbugamos tudo em 1 minuto para você</div>
-          <div class="ui-code-box">
-            <span class="code-keyword">Selecione o modelo</span> e ative as ferramentas de IA que você já usa no dia a dia.
+    slideBodyHtml = `
+      <div class="cover-full-bleed-wrapper" style="background-image: linear-gradient(180deg, rgba(12,12,14,0.35) 0%, rgba(12,12,14,0.82) 55%, rgba(12,12,14,0.96) 100%), url('${bgImage}');">
+        <div class="cover-content-inner">
+          <div class="tag-bugnews">${coverTag}</div>
+          <h1 class="slide-title-cover-dark">${title}</h1>
+          <p class="slide-subtitle-dark">${body}</p>
+
+          <!-- UI Card Glassmorphic Inspirado no Claude / OpenDesign -->
+          <div class="ui-hero-card-dark">
+            <div class="ui-card-header">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+              <span class="card-brand-tag">⚡ DESBUGUEI.IA • PASSO A PASSO</span>
+            </div>
+            <div class="ui-card-body">
+              <div class="ui-section-title-dark">Desbugamos tudo em 1 minuto para você</div>
+              <div class="ui-code-box-dark">
+                <span class="code-keyword">Selecione o modelo</span> e ative as ferramentas de IA que você já usa no dia a dia.
+              </div>
+              <div class="ui-swipe-hint-dark">Arraste para o lado para ler a explicação completa ➔</div>
+            </div>
           </div>
-          <div class="ui-swipe-hint">Arraste para o lado para ler a explicação completa ➔</div>
         </div>
       </div>
     `;
@@ -188,6 +195,98 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
       flex-direction: column;
       justify-content: center;
       margin: 36px 0;
+    }
+
+    /* Full-Bleed Cover Slide Styling */
+    .cover-full-bleed-wrapper {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      padding: 80px 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      z-index: 10;
+    }
+
+    .cover-content-inner {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      margin: 80px 0 40px 0;
+    }
+
+    .tag-bugnews {
+      display: inline-block;
+      background: #FF4A1C;
+      color: #FFFFFF;
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 8px 22px;
+      border-radius: 20px;
+      margin-bottom: 24px;
+      width: fit-content;
+      box-shadow: 0 4px 15px rgba(255, 74, 28, 0.4);
+    }
+
+    .slide-title-cover-dark {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 60px;
+      line-height: 1.2;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 20px;
+      letter-spacing: -0.5px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
+
+    .slide-subtitle-dark {
+      font-size: 24px;
+      line-height: 1.6;
+      color: #E4E4E7;
+      margin-bottom: 36px;
+      font-weight: 500;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+
+    .ui-hero-card-dark {
+      background: rgba(24, 24, 27, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      color: #FAFAFA;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 20px 45px rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .ui-section-title-dark {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 28px;
+      margin-bottom: 14px;
+      color: #FAFAFA;
+      font-weight: 600;
+    }
+
+    .ui-code-box-dark {
+      background: rgba(39, 39, 42, 0.9);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      padding: 18px;
+      font-size: 19px;
+      line-height: 1.6;
+      color: #E4E4E7;
+      margin-bottom: 18px;
+    }
+
+    .ui-swipe-hint-dark {
+      font-size: 16px;
+      color: #A1A1AA;
+      font-weight: 600;
     }
 
     .tag-eyebrow {

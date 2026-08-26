@@ -15,12 +15,19 @@ PÚBLICO-ALVO & TOM DA MARCA DESBUGUEI:
 REGRA DE OURO (1 CARROSSEL = 1 ÚNICA NOTÍCIA):
 - NUNCA misture múltiplos assuntos em um mesmo carrossel. Escolha a NOTÍCIA DE MAIOR IMPACTO da edição diária e aprofunde exclusivamente nela durante todos os slides do carrossel.
 
-REGRAS DE CONTEÚDO PARA CADA SLIDE:
-1. SLIDE 1 (cover): Capa chamativa de altíssima taxa de clique focada no gancho da notícia (máx 60 caracteres). Eyebrow curto (ex: "FERRAMENTA DE IA", "NOVIDADE NO AR"). Subtítulo intrigante.
-2. SLIDE 2 (intro / contexto): O que aconteceu em detalhes. Por que a grande empresa/plataforma lançou essa novidade e qual problema ela resolve.
-3. SLIDE 3 (content / detalhes): Como a ferramenta/novidade funciona na prática. 3 a 4 bullet points explicando as funções principais e o diferencial.
-4. SLIDE 4 (practical_impact): Como aplicar isso HOJE no seu perfil, conteúdo ou vendas. Passo a passo prático, direto e acionável.
-5. SLIDE 5 (cta / automação): Chamada forte para o leitor comentar "NEWS" e receber a edição completa com todas as notícias no Direct:
+ESTRUTURA DE CAPA BASEADA EM AIDA (ATENÇÃO, INTERESSE, DESEJO, AÇÃO):
+- SLIDE 1 (cover):
+  * Tag/Eyebrow: Sempre "BUGNEWS" por padrão.
+  * Headline (Atenção): Título de alto impacto focado no modelo AIDA (gerando urgência, quebra de padrão ou curiosidade irresistível).
+  * Subtítulo (Interesse/Desejo): Promessa clara do benefício ao arrastar para o lado.
+  * Imagem de Fundo (Full-Bleed): A capa possui uma imagem conceitual de alta qualidade cobrindo 100% do slide com gradiente de contraste.
+  * bg_image_url: URL de imagem temática conceitual de alta qualidade (ex: IA, tecnologia, futuro).
+
+REGRAS DOS SLIDES SEGUINTES:
+1. SLIDE 2 (intro / contexto): O que aconteceu em detalhes. Por que a grande empresa/plataforma lançou essa novidade e qual problema ela resolve.
+2. SLIDE 3 (content / detalhes): Como a ferramenta/novidade funciona na prática. 3 a 4 bullet points explicando as funções principais e o diferencial.
+3. SLIDE 4 (practical_impact): Como aplicar isso HOJE no seu perfil, conteúdo ou vendas. Passo a passo prático, direto e acionável.
+4. SLIDE 5 (cta / automação): Chamada forte para o leitor comentar "NEWS" e receber a edição completa com todas as notícias no Direct:
    - cta_text: "Comente NEWS para receber no Direct"
 
 REGRAS DA LEGENDA (CAPTION FOCADA EM VIRALIDADE & SEO):
