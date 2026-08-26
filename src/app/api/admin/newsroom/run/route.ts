@@ -1,23 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyAdminSessionToken } from "@/lib/server/admin-auth";
 import { runNewsroom } from "@/lib/server/newsroom/newsroom-service";
 
-export async function POST(req: NextRequest) {
+async function handleRun(req: NextRequest) {
   try {
     const authHeader = req.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
+    const cronSecret = process.env.CRON_SECRET || process.env.ADMIN_SECRET || "casaloti_admin_secret_key";
+    const urlSecret = req.nextUrl.searchParams.get("secret");
 
-    // Verificar se a requisição tem a autorização do CRON ou sessão de admin
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      const adminCookie = req.cookies.get("casaloti_admin");
-      if (!adminCookie) {
-        return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-      }
+    const isAuthorizedCron =
+      (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
+      (cronSecret && urlSecret === cronSecret);
+
+    const adminCookie = req.cookies.get("casaloti_admin")?.value;
+    const isAuthenticatedAdmin = verifyAdminSessionToken(cronSecret, adminCookie);
+
+    if (!isAuthorizedCron && !isAuthenticatedAdmin && process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const body = await req.json().catch(() => ({}));
-    const dryRun = typeof body.dryRun === "boolean" ? body.dryRun : process.env.DRY_RUN !== "false";
+    let body: any = {};
+    if (req.method === "POST") {
+      body = await req.json().catch(() => ({}));
+    }
 
-    const result = await runNewsroom({ dryRun });
+    // Se dryRun for false ou se for chamado pelo Cron/Admin para publicação real
+    const dryRun = typeof body.dryRun === "boolean" ? body.dryRun : (process.env.DRY_RUN === "true");
+    const publishToPortal = typeof body.publishToPortal === "boolean" ? body.publishToPortal : !dryRun;
+    const createNewsletterCampaign = typeof body.createNewsletterCampaign === "boolean" ? body.createNewsletterCampaign : !dryRun;
+    const autoSend = typeof body.autoSend === "boolean" ? body.autoSend : (process.env.NEWSLETTER_AUTO_SEND !== "false");
+
+    console.log(`[NEWSROOM API RUN] Executando redação (dryRun: ${dryRun}, publishPortal: ${publishToPortal}, campaign: ${createNewsletterCampaign}, autoSend: ${autoSend})...`);
+
+    const result = await runNewsroom({
+      dryRun,
+      publishToPortal,
+      createNewsletterCampaign,
+      autoSend,
+    });
 
     return NextResponse.json(result);
   } catch (err: any) {
@@ -27,4 +47,12 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function GET(req: NextRequest) {
+  return handleRun(req);
+}
+
+export async function POST(req: NextRequest) {
+  return handleRun(req);
 }
