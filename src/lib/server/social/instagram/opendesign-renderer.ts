@@ -145,11 +145,18 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
           <img src="${slide.bg_image_url}" class="cover-bg-img" alt="Cover Image" />
           <div class="cover-gradient-overlay"></div>
           <div class="cover-minimal-inner">
-            <div class="tag-bugnews">${coverTag}</div>
+            <div class="social-profile-card">
+              <div class="profile-avatar">b.</div>
+              <div class="profile-meta">
+                <div class="profile-name">Desbuguei IA <span class="blue-check">✓</span></div>
+                <div class="profile-handle">@desbuguei.ia</div>
+              </div>
+            </div>
+
             <h1 class="slide-title-cover-minimal">${title}</h1>
           </div>
           <div class="cover-bottom-bar">
-            <span class="swipe-indicator">Arraste para ler ➔</span>
+            <span class="swipe-indicator">Arrasta que eu te atualizo em 1 minuto ➔</span>
           </div>
         </div>
       `;
@@ -170,7 +177,7 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
           <h1 class="slide-title-cover-brand">${title}</h1>
 
           <div class="cover-bottom-bar-light">
-            <span class="swipe-indicator-dark">Arraste para ler ➔</span>
+            <span class="swipe-indicator-dark">Arrasta que eu te atualizo em 1 minuto ➔</span>
           </div>
         </div>
       `;
@@ -470,6 +477,59 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
       flex-direction: column;
       justify-content: flex-end;
       margin-bottom: 40px;
+    .social-profile-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .profile-avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #FF4A1C;
+      color: #FFFFFF;
+      font-weight: 900;
+      font-size: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid rgba(255,255,255,0.8);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+
+    .profile-meta {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .profile-name {
+      font-size: 20px;
+      font-weight: 800;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .blue-check {
+      background: #3B82F6;
+      color: #FFFFFF;
+      font-size: 11px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+    }
+
+    .profile-handle {
+      font-size: 16px;
+      color: rgba(255,255,255,0.8);
+      font-weight: 500;
     }
 
     .slide-title-cover-minimal {
