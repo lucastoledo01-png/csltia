@@ -5,8 +5,8 @@ import {
   createCarouselItemContainer,
   publishContainer,
 } from "./meta-client";
+import { renderOpenDesignSlides } from "./opendesign-renderer";
 import { generateInstagramCarouselPipeline } from "./pipeline";
-import { renderCarouselSlides, uploadSlideToSupabaseStorage } from "./renderer";
 import { InstagramCarouselContent } from "./schemas";
 
 export type RunInstagramOptions = {
@@ -49,7 +49,7 @@ export async function runInstagramCarouselService(
   const dryRun = options.dryRun ?? (env.INSTAGRAM_DRY_RUN === "true" ? true : false);
   const autoPost = options.autoPost ?? (env.INSTAGRAM_AUTO_POST === "false" ? false : true);
 
-  console.log(`[INSTAGRAM SERVICE] Iniciando pipeline de carrosséis estilizados (dryRun: ${dryRun}, autoPost: ${autoPost}, key: ${idempotencyKey})...`);
+  console.log(`[INSTAGRAM OPENDESIGN SERVICE] Iniciando motor OpenDesign HTML/CSS 1080x1350 (dryRun: ${dryRun}, autoPost: ${autoPost}, key: ${idempotencyKey})...`);
 
   // 1. Verificar Idempotência no Supabase
   try {
@@ -171,25 +171,43 @@ export async function runInstagramCarouselService(
   console.log(`[INSTAGRAM SERVICE] Gerando roteiro editorial estilizado via OpenAI...`);
   const pipelineResult = await generateInstagramCarouselPipeline(edition, todayStr, env, fetcher);
 
-  // 4. Renderizar os Slides PNG 1080x1350 via Sharp & Fazer Upload para o Supabase Storage
-  console.log(`[INSTAGRAM RENDER] Renderizando ${pipelineResult.carousel.slides.length} slides em PNG 1080x1350 estéticos (estilo Claude / Gio Explica)...`);
-  const renderedSlides = await renderCarouselSlides(pipelineResult.carousel);
+  // 4. Renderizar os Slides 1080x1350 em HD usando o Playwright + OpenDesign HTML/CSS Engine
+  console.log(`[OPENDESIGN RENDER] Renderizando ${pipelineResult.carousel.slides.length} slides HTML/CSS via Playwright em HD 2160x2700...`);
+  const renderedSlides = await renderOpenDesignSlides(pipelineResult.carousel);
 
   const slidesManifest = [];
   const publicImageUrls: string[] = [];
 
   for (const slide of renderedSlides) {
+    const supabase = getSupabaseAdminClient();
     const storagePath = `instagram_carousels/${todayStr}/${idempotencyKey}_slide_${slide.index}.png`;
-    const publicUrl = await uploadSlideToSupabaseStorage(slide.pngBuffer, storagePath);
 
-    const imageUrlToUse = publicUrl || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080";
-    publicImageUrls.push(imageUrlToUse);
+    let publicUrl: string | null = null;
+    try {
+      const { error: uploadErr } = await supabase.storage
+        .from("public_assets")
+        .upload(storagePath, slide.pngBuffer, {
+          contentType: "image/png",
+          upsert: true,
+        });
+
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from("public_assets").getPublicUrl(storagePath);
+        publicUrl = urlData?.publicUrl || null;
+      }
+    } catch {
+      // Fallback
+    }
+
+    // Fallback de URL pública acessível de alta qualidade caso o bucket não exista no Supabase local
+    const finalUrl = publicUrl || `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080`;
+    publicImageUrls.push(finalUrl);
 
     slidesManifest.push({
       index: slide.index,
       type: slide.type,
       filename: slide.filename,
-      publicUrl: imageUrlToUse,
+      publicUrl: finalUrl,
     });
   }
 
@@ -200,14 +218,14 @@ export async function runInstagramCarouselService(
   // 5. Se autoPost === true e não for dryRun, Publicar Mídia Real via Meta Graph API
   if (autoPost && !dryRun) {
     try {
-      console.log(`[INSTAGRAM AUTO POST] Publicando os ${publicImageUrls.length} slides PNG reais na Meta Graph API...`);
+      console.log(`[INSTAGRAM AUTO POST] Publicando ${publicImageUrls.length} slides OpenDesign HTML na Meta Graph API...`);
       const itemContainerIds: string[] = [];
 
       for (let i = 0; i < publicImageUrls.length; i++) {
         const itemRes = await createCarouselItemContainer(publicImageUrls[i], env, fetcher);
 
         if (itemRes.ok && itemRes.creationId) {
-          console.log(`   - Slide ${i + 1}/${publicImageUrls.length} container criado: ${itemRes.creationId}`);
+          console.log(`   - Slide OpenDesign ${i + 1}/${publicImageUrls.length} container criado: ${itemRes.creationId}`);
           itemContainerIds.push(itemRes.creationId);
         } else {
           console.warn(`[INSTAGRAM ITEM ERROR] Falha ao criar slide ${i + 1}:`, itemRes.error);
@@ -228,7 +246,7 @@ export async function runInstagramCarouselService(
           if (publishRes.ok && publishRes.mediaId) {
             providerPostId = publishRes.mediaId;
             finalStatus = "published";
-            console.log(`[INSTAGRAM AUTO POST SUCCESS] Post carrossel escrito publicado com SUCESSO! Media ID: ${providerPostId}`);
+            console.log(`[INSTAGRAM AUTO POST SUCCESS] Post carrossel OpenDesign HTML/CSS publicado com SUCESSO! Media ID: ${providerPostId}`);
           } else {
             console.error(`[INSTAGRAM PUBLISH ERROR] Erro na publicação final:`, publishRes.error);
           }
@@ -267,7 +285,7 @@ export async function runInstagramCarouselService(
 
     if (!dbError && inserted) {
       socialPostId = inserted.id;
-      console.log(`[INSTAGRAM SERVICE] Registro gravado no Supabase com ID: ${socialPostId}`);
+      console.log(`[INSTAGRAM SERVICE] Registro OpenDesign gravado no Supabase com ID: ${socialPostId}`);
     }
   } catch (err) {
     console.warn(`[INSTAGRAM SERVICE] Exceção ao gravar no banco:`, err);
