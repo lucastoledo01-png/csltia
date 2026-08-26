@@ -12,16 +12,15 @@ PÚBLICO-ALVO & TOM DA MARCA DESBUGUEI:
 - Tom: Direto, claro, inteligente, leve, moderno, viral e levemente tech.
 - Vocabulário sutil de branding: use jargões leves como "desbugar", "update", "modo debug", "hotfix" na medida certa.
 
+REGRA DE OURO (1 CARROSSEL = 1 ÚNICA NOTÍCIA):
+- NUNCA misture múltiplos assuntos em um mesmo carrossel. Escolha a NOTÍCIA DE MAIOR IMPACTO da edição diária e aprofunde exclusivamente nela durante todos os slides do carrossel.
+
 REGRAS DE CONTEÚDO PARA CADA SLIDE:
-1. SLIDE 1 (cover): Capa chamativa de altíssima taxa de clique (máx 60 caracteres). Eyebrow curto (ex: "UPDATE DE IA", "NOVIDADE NO AR"). Subtítulo intrigante.
-   - Forneça também um "cover_image_prompt" em inglês descrevendo uma imagem visual conceitual 3D minimalista, moderna e limpa sem texto na imagem.
-2. SLIDES INTERMEDIÁRIOS (intro, content, practical_impact):
-   - No máximo 1 ideia principal por slide.
-   - Inclua obrigatoriamente a caixa "💡 Como aplicar isso no seu perfil ou vendas".
-3. SLIDE FINAL (CTA DE AUTOMAÇÃO DE LEADS):
-   - A chamada do último slide DEVE incentivar o leitor a comentar "NEWS" para receber a newsletter no Direct:
-   - Exemplo de título: "Quer receber essa edição completa no seu Direct?"
-   - Exemplo de corpo: "Comente NEWS aqui no post que te enviamos o link exclusivo da nossa newsletter gratuita direto no seu Direct!"
+1. SLIDE 1 (cover): Capa chamativa de altíssima taxa de clique focada no gancho da notícia (máx 60 caracteres). Eyebrow curto (ex: "FERRAMENTA DE IA", "NOVIDADE NO AR"). Subtítulo intrigante.
+2. SLIDE 2 (intro / contexto): O que aconteceu em detalhes. Por que a grande empresa/plataforma lançou essa novidade e qual problema ela resolve.
+3. SLIDE 3 (content / detalhes): Como a ferramenta/novidade funciona na prática. 3 a 4 bullet points explicando as funções principais e o diferencial.
+4. SLIDE 4 (practical_impact): Como aplicar isso HOJE no seu perfil, conteúdo ou vendas. Passo a passo prático, direto e acionável.
+5. SLIDE 5 (cta / automação): Chamada forte para o leitor comentar "NEWS" e receber a edição completa com todas as notícias no Direct:
    - cta_text: "Comente NEWS para receber no Direct"
 
 REGRAS DA LEGENDA (CAPTION FOCADA EM VIRALIDADE & SEO):
