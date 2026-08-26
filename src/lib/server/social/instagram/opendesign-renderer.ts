@@ -141,8 +141,9 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
 
     const variant = slide.cover_variant || "dark_speaker";
 
-    if (variant === "clean_editorial" || (!hasCustomImage && variant !== "brand_cutout")) {
-      // CAPA TIPO 2: Editorial Papel Claro com Destaque em Serif Italic e Ícone da Marca
+    if (variant === "clean_editorial") {
+      // CAPA TIPO 2: Editorial Papel Claro com Retrato de CEO Famoso + Destaque Serif Italic + Adesivo Flutuante
+      const bgImg = slide.bg_image_url || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=1080&q=80';
       slideBodyHtml = `
         <div class="cover-editorial-container">
           <div class="editorial-top-icon">
@@ -150,18 +151,18 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
           </div>
 
           <h1 class="slide-title-clean-editorial">
-            ${title.replace(/("(.*?)")|(’(.*?)’)/g, '<span class="serif-italic-accent">$1$3</span>')}
+            ${title.replace(/("(.*?)")|(’(.*?)’)|(Claude)|(OpenAI)|(one person business)/gi, (match) => `<span class="serif-italic-accent">${match}</span>`)}
           </h1>
 
-          ${slide.bg_image_url ? `<img src="${slide.bg_image_url}" class="editorial-hero-img" alt="Hero" />` : `
-            <div class="brand-hero-card ${brand.brandClass}">
-              <div class="brand-card-top">
-                <div class="brand-icon-wrapper">${brand.iconSvg}</div>
-                <div class="brand-status-badge">⚡ NOVIDADE</div>
-              </div>
-              <div class="brand-title">${brand.brandName}</div>
+          <div class="editorial-hero-frame">
+            <img src="${bgImg}" alt="Tech CEO Portrait" class="editorial-hero-photo" />
+            
+            <div class="floating-brand-sticker">
+              <span class="sticker-icon">${brand.iconSvg}</span>
+              <span class="sticker-text">${brand.brandName}</span>
             </div>
-          `}
+            <div class="hero-arrow-annotation">⤵</div>
+          </div>
 
           <div class="cover-bottom-bar-light">
             <span class="swipe-indicator-dark">Arrasta que eu te atualizo em 1 minuto ➔</span>
@@ -169,21 +170,24 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
         </div>
       `;
     } else if (variant === "brand_cutout") {
-      // CAPA TIPO 3: Recorte de Pessoas / CEOs / Especialista + Sticker do Logo
+      // CAPA TIPO 3: Retrato de Especialista/Criador com Badge 3D Glassmorphic da Marca
+      const bgImg = slide.bg_image_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1080&q=80';
       slideBodyHtml = `
         <div class="cover-cutout-container">
           <div class="cutout-header">
-            <h1 class="slide-title-cutout">${title}</h1>
+            <h1 class="slide-title-cutout">
+              ${title.replace(/(automações)|(Claude)|(OpenAI)|(arsenal)/gi, (match) => `<span class="serif-italic-accent">${match}</span>`)}
+            </h1>
           </div>
 
-          <div class="cutout-visual-stage">
-            ${slide.bg_image_url ? `<img src="${slide.bg_image_url}" class="cutout-person-img" alt="Cutout" />` : `
-              <div class="cutout-sticker-badge">
-                <div class="sticker-icon">✳</div>
-                <div class="sticker-text">${primaryTopic}</div>
-              </div>
-            `}
-            <div class="cutout-arrow-annotation">⤵</div>
+          <div class="cutout-hero-frame">
+            <img src="${bgImg}" class="cutout-hero-photo" alt="Creator Portrait" />
+            
+            <div class="hero-3d-badge ${brand.brandClass}">
+              <div class="badge-3d-icon">${brand.iconSvg}</div>
+              <div class="badge-3d-label">⚡ ${brand.brandName} 3D</div>
+            </div>
+            <div class="hero-arrow-annotation">⤵</div>
           </div>
 
           <div class="cover-bottom-bar-light">
@@ -192,10 +196,11 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
         </div>
       `;
     } else {
-      // CAPA TIPO 1: Speaker / Retrato Dark Full Bleed + Avatar de Perfil Social
+      // CAPA TIPO 1: Retrato Escuro Cinematográfico do Palestrante/CEO + Card Perfil Social (@desbuguei.ia)
+      const bgImg = slide.bg_image_url || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1080&q=80';
       slideBodyHtml = `
         <div class="cover-full-bleed-wrapper">
-          <img src="${slide.bg_image_url || 'https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=1080&q=80'}" class="cover-bg-img" alt="Cover Image" />
+          <img src="${bgImg}" class="cover-bg-img" alt="Speaker Portrait" />
           <div class="cover-gradient-overlay"></div>
           <div class="cover-minimal-inner">
             <div class="social-profile-card">
@@ -509,6 +514,8 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
       flex-direction: column;
       justify-content: flex-end;
       margin-bottom: 40px;
+    }
+
     .social-profile-card {
       display: flex;
       align-items: center;
@@ -642,54 +649,110 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
       font-weight: 600;
     }
 
-    .editorial-hero-img {
+    /* CAPA TIPO 2: Editorial Papel Claro */
+    .editorial-hero-frame {
+      position: relative;
       width: 100%;
-      height: 480px;
-      object-fit: cover;
-      border-radius: 24px;
-      box-shadow: 0 12px 35px rgba(0,0,0,0.08);
+      height: 600px;
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.12);
       margin-bottom: 24px;
     }
 
-    /* CAPA TIPO 3: Recorte / Montage de Figuras */
-    .cover-cutout-container {
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-
-    .slide-title-cutout {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      font-size: 52px;
-      line-height: 1.25;
-      font-weight: 800;
-      color: #18181B;
-      letter-spacing: -0.5px;
-    }
-
-    .cutout-visual-stage {
-      position: relative;
+    .editorial-hero-photo {
       width: 100%;
-      height: 680px;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+    }
+
+    .floating-brand-sticker {
+      position: absolute;
+      top: 24px;
+      right: 28px;
+      z-index: 5;
+      background: #FFFFFF;
+      border: 2px solid #E4E4E7;
+      padding: 12px 20px;
+      border-radius: 22px;
       display: flex;
-      align-items: flex-end;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+      transform: rotate(6deg);
+    }
+
+    .floating-brand-sticker .sticker-icon {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
       justify-content: center;
     }
 
-    .cutout-person-img {
-      max-width: 100%;
-      max-height: 680px;
-      object-fit: contain;
-      filter: drop-shadow(0 15px 30px rgba(0,0,0,0.15));
+    .floating-brand-sticker .sticker-text {
+      font-size: 16px;
+      font-weight: 800;
+      color: #18181B;
     }
 
-    .cutout-arrow-annotation {
+    .hero-arrow-annotation {
       position: absolute;
-      top: 20px;
-      right: 40px;
-      font-size: 48px;
-      color: #18181B;
+      bottom: 24px;
+      left: 28px;
+      font-size: 56px;
+      color: #FF4A1C;
+      font-weight: 900;
+      transform: rotate(-15deg);
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.3));
+    }
+
+    /* CAPA TIPO 3: Recorte / Criador + Badge 3D */
+    .cutout-hero-frame {
+      position: relative;
+      width: 100%;
+      height: 620px;
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.15);
+      margin-bottom: 24px;
+    }
+
+    .cutout-hero-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+    }
+
+    .hero-3d-badge {
+      position: absolute;
+      bottom: 30px;
+      right: 30px;
+      background: rgba(18, 18, 20, 0.9);
+      backdrop-filter: blur(16px);
+      color: #FFFFFF;
+      padding: 16px 26px;
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border: 1px solid rgba(255,255,255,0.25);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      z-index: 5;
+    }
+
+    .hero-3d-badge .badge-3d-icon {
+      width: 36px;
+      height: 36px;
+    }
+
+    .hero-3d-badge .badge-3d-label {
+      font-size: 18px;
+      font-weight: 800;
+      color: #FFFFFF;
+    }
       transform: rotate(45deg);
       font-weight: 900;
     }
