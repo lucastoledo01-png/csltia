@@ -11,6 +11,85 @@ export type OpenDesignSlideAsset = {
   publicUrl?: string;
 };
 
+export async function fetchImageAsBase64(url: string): Promise<string> {
+  if (!url || !url.startsWith("http")) return url;
+  try {
+    const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+    if (!response.ok) return url;
+    const buffer = await response.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString("base64");
+    const mime = response.headers.get("content-type") || "image/jpeg";
+    return `data:${mime};base64,${base64}`;
+  } catch {
+    return url;
+  }
+}
+
+export function getContextualBrandImage(title: string, primaryTopic: string, providedUrl?: string): string {
+  if (providedUrl && providedUrl.startsWith("http") && !providedUrl.includes("photo-1618005182384")) {
+    return providedUrl;
+  }
+
+  const text = (title + " " + primaryTopic).toLowerCase();
+
+  if (text.includes("whatsapp") || text.includes("zap")) {
+    return "https://images.unsplash.com/photo-1614680376593-902f749f7b2c?auto=format&fit=crop&w=1080&q=80";
+  }
+  if (text.includes("instagram") || text.includes("reels") || text.includes("meta")) {
+    return "https://images.unsplash.com/photo-1611262588024-d12430b98920?auto=format&fit=crop&w=1080&q=80";
+  }
+  if (text.includes("chatgpt") || text.includes("openai") || text.includes("gpt")) {
+    return "https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=1080&q=80";
+  }
+  if (text.includes("google") || text.includes("gemini") || text.includes("busca")) {
+    return "https://images.unsplash.com/photo-1573804633927-bfcbcd909acd?auto=format&fit=crop&w=1080&q=80";
+  }
+  if (text.includes("apple") || text.includes("iphone") || text.includes("mac")) {
+    return "https://images.unsplash.com/photo-1616469829941-c7200edec809?auto=format&fit=crop&w=1080&q=80";
+  }
+
+  return "https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=1080&q=80";
+}
+
+export function getBrandHeroVisual(title: string, primaryTopic: string): { brandName: string; brandClass: string; iconSvg: string } {
+  const text = (title + " " + primaryTopic).toLowerCase();
+
+  if (text.includes("whatsapp") || text.includes("zap")) {
+    return {
+      brandName: "WhatsApp AI",
+      brandClass: "brand-whatsapp",
+      iconSvg: `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#25D366" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`
+    };
+  }
+  if (text.includes("chatgpt") || text.includes("openai") || text.includes("gpt")) {
+    return {
+      brandName: "OpenAI / ChatGPT",
+      brandClass: "brand-openai",
+      iconSvg: `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10A37F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6v12M6 12h12"/></svg>`
+    };
+  }
+  if (text.includes("instagram") || text.includes("reels") || text.includes("meta")) {
+    return {
+      brandName: "Instagram & Meta AI",
+      brandClass: "brand-instagram",
+      iconSvg: `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#E1306C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>`
+    };
+  }
+  if (text.includes("google") || text.includes("gemini") || text.includes("busca")) {
+    return {
+      brandName: "Google Gemini",
+      brandClass: "brand-google",
+      iconSvg: `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4285F4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`
+    };
+  }
+
+  return {
+    brandName: "Desbuguei.ia Intel",
+    brandClass: "brand-default",
+    iconSvg: `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#FF4A1C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`
+  };
+}
+
 export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, primaryTopic = "INTELIGÊNCIA ARTIFICIAL"): string {
   const slideIndexStr = String(slide.index).padStart(2, "0");
   const totalSlidesStr = String(totalSlides).padStart(2, "0");
@@ -25,19 +104,45 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
 
   if (slide.type === "cover") {
     const coverTag = "BUGNEWS";
-    const bgImage = slide.bg_image_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1080&q=80";
+    const brand = getBrandHeroVisual(title, primaryTopic);
+    const hasCustomImage = slide.bg_image_url && slide.bg_image_url.startsWith("data:");
 
-    slideBodyHtml = `
-      <div class="cover-full-bleed-wrapper" style="background-image: linear-gradient(180deg, rgba(10,10,12,0.45) 0%, rgba(10,10,12,0.6) 40%, rgba(10,10,12,0.95) 90%), url('${bgImage}');">
-        <div class="cover-minimal-inner">
+    if (hasCustomImage) {
+      slideBodyHtml = `
+        <div class="cover-full-bleed-wrapper">
+          <img src="${slide.bg_image_url}" class="cover-bg-img" alt="Cover Image" />
+          <div class="cover-gradient-overlay"></div>
+          <div class="cover-minimal-inner">
+            <div class="tag-bugnews">${coverTag}</div>
+            <h1 class="slide-title-cover-minimal">${title}</h1>
+          </div>
+          <div class="cover-bottom-bar">
+            <span class="swipe-indicator">Arraste para ler ➔</span>
+          </div>
+        </div>
+      `;
+    } else {
+      slideBodyHtml = `
+        <div class="cover-brand-container">
           <div class="tag-bugnews">${coverTag}</div>
-          <h1 class="slide-title-cover-minimal">${title}</h1>
+
+          <!-- 3D Glassmorphic Brand Hero Card -->
+          <div class="brand-hero-card ${brand.brandClass}">
+            <div class="brand-card-top">
+              <div class="brand-icon-wrapper">${brand.iconSvg}</div>
+              <div class="brand-status-badge">⚡ NOVIDADE OFICIAL</div>
+            </div>
+            <div class="brand-title">${brand.brandName}</div>
+          </div>
+
+          <h1 class="slide-title-cover-brand">${title}</h1>
+
+          <div class="cover-bottom-bar-light">
+            <span class="swipe-indicator-dark">Arraste para ler ➔</span>
+          </div>
         </div>
-        <div class="cover-bottom-bar">
-          <span class="swipe-indicator">Arraste para ler ➔</span>
-        </div>
-      </div>
-    `;
+      `;
+    }
   } else if (slide.type === "practical_impact") {
     slideBodyHtml = `
       <div class="slide-step-badge">PASSO ${slideIndexStr} DE ${totalSlidesStr}</div>
@@ -173,21 +278,123 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
       border-radius: 20px;
     }
 
-    /* Main Slide Body */
-    .main-body {
-      flex: 1;
+    /* 3D Brand Hero Card Cover Layout */
+    .cover-brand-container {
       display: flex;
       flex-direction: column;
+      height: 100%;
+      justify-content: space-between;
+      margin: 20px 0;
+    }
+
+    .brand-hero-card {
+      position: relative;
+      width: 100%;
+      height: 380px;
+      border-radius: 28px;
+      padding: 36px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+      border: 1px solid rgba(0,0,0,0.06);
+      margin: 24px 0;
+    }
+
+    .brand-whatsapp {
+      background: linear-gradient(135deg, #075E54 0%, #128C7E 50%, #25D366 100%);
+      color: #FFFFFF;
+    }
+
+    .brand-openai {
+      background: linear-gradient(135deg, #052e16 0%, #064e3b 50%, #10b981 100%);
+      color: #FFFFFF;
+    }
+
+    .brand-instagram {
+      background: linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%);
+      color: #FFFFFF;
+    }
+
+    .brand-google {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
+      color: #FFFFFF;
+    }
+
+    .brand-default {
+      background: linear-gradient(135deg, #18181b 0%, #27272a 50%, #3f3f46 100%);
+      color: #FFFFFF;
+    }
+
+    .brand-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand-icon-wrapper {
+      width: 76px;
+      height: 76px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.95);
+      display: flex;
+      align-items: center;
       justify-content: center;
-      margin: 36px 0;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+
+    .brand-status-badge {
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      color: #FFFFFF;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      padding: 8px 18px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .brand-title {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 42px;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: -0.5px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+
+    .slide-title-cover-brand {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 54px;
+      line-height: 1.25;
+      font-weight: 800;
+      color: var(--fg);
+      margin-bottom: 24px;
+      letter-spacing: -0.5px;
+    }
+
+    .cover-bottom-bar-light {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+    }
+
+    .swipe-indicator-dark {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--stone);
+      letter-spacing: 1px;
     }
 
     /* Full-Bleed Cover Slide Styling */
     .cover-full-bleed-wrapper {
       position: absolute;
       inset: 0;
-      background-size: cover;
-      background-position: center;
+      overflow: hidden;
       padding: 80px 80px;
       display: flex;
       flex-direction: column;
@@ -195,7 +402,26 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
       z-index: 10;
     }
 
+    .cover-bg-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      z-index: 1;
+    }
+
+    .cover-gradient-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(10,10,12,0.45) 0%, rgba(10,10,12,0.65) 45%, rgba(10,10,12,0.96) 90%);
+      z-index: 2;
+    }
+
     .cover-minimal-inner {
+      position: relative;
+      z-index: 3;
       flex: 1;
       display: flex;
       flex-direction: column;
@@ -615,12 +841,28 @@ export async function renderOpenDesignSlides(carousel: InstagramCarouselContent)
     });
 
     for (const slide of carousel.slides) {
+      if (slide.type === "cover") {
+        const rawUrl = getContextualBrandImage(slide.title, carousel.primary_topic, slide.bg_image_url);
+        slide.bg_image_url = await fetchImageAsBase64(rawUrl);
+      }
       const htmlContent = buildSlideHtml(slide, totalSlides, carousel.primary_topic);
       await page.setContent(htmlContent, { waitUntil: "networkidle" });
 
-      // Aguardar explicitamente o carregamento completo das fontes do Google Fonts
+      // Aguardar explicitamente o carregamento completo das fontes e imagens
       await page.evaluate(() => document.fonts.ready);
-      await page.waitForTimeout(200);
+      await page.evaluate(() =>
+        Promise.all(
+          Array.from(document.images)
+            .filter((img) => !img.complete)
+            .map(
+              (img) =>
+                new Promise((resolve) => {
+                  img.onload = img.onerror = resolve;
+                })
+            )
+        )
+      );
+      await page.waitForTimeout(300);
 
       const pngBuffer = await page.screenshot({
         type: "png",
