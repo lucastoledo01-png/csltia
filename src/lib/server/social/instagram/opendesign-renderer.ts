@@ -28,28 +28,13 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
     const bgImage = slide.bg_image_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1080&q=80";
 
     slideBodyHtml = `
-      <div class="cover-full-bleed-wrapper" style="background-image: linear-gradient(180deg, rgba(12,12,14,0.35) 0%, rgba(12,12,14,0.82) 55%, rgba(12,12,14,0.96) 100%), url('${bgImage}');">
-        <div class="cover-content-inner">
+      <div class="cover-full-bleed-wrapper" style="background-image: linear-gradient(180deg, rgba(10,10,12,0.45) 0%, rgba(10,10,12,0.6) 40%, rgba(10,10,12,0.95) 90%), url('${bgImage}');">
+        <div class="cover-minimal-inner">
           <div class="tag-bugnews">${coverTag}</div>
-          <h1 class="slide-title-cover-dark">${title}</h1>
-          <p class="slide-subtitle-dark">${body}</p>
-
-          <!-- UI Card Glassmorphic Inspirado no Claude / OpenDesign -->
-          <div class="ui-hero-card-dark">
-            <div class="ui-card-header">
-              <span class="dot red"></span>
-              <span class="dot yellow"></span>
-              <span class="dot green"></span>
-              <span class="card-brand-tag">⚡ DESBUGUEI.IA • PASSO A PASSO</span>
-            </div>
-            <div class="ui-card-body">
-              <div class="ui-section-title-dark">Desbugamos tudo em 1 minuto para você</div>
-              <div class="ui-code-box-dark">
-                <span class="code-keyword">Selecione o modelo</span> e ative as ferramentas de IA que você já usa no dia a dia.
-              </div>
-              <div class="ui-swipe-hint-dark">Arraste para o lado para ler a explicação completa ➔</div>
-            </div>
-          </div>
+          <h1 class="slide-title-cover-minimal">${title}</h1>
+        </div>
+        <div class="cover-bottom-bar">
+          <span class="swipe-indicator">Arraste para ler ➔</span>
         </div>
       </div>
     `;
@@ -210,12 +195,40 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
       z-index: 10;
     }
 
-    .cover-content-inner {
+    .cover-minimal-inner {
       flex: 1;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      margin: 80px 0 40px 0;
+      justify-content: flex-end;
+      margin-bottom: 40px;
+    }
+
+    .slide-title-cover-minimal {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 64px;
+      line-height: 1.2;
+      font-weight: 800;
+      color: #FFFFFF;
+      margin-top: 16px;
+      letter-spacing: -0.5px;
+      text-shadow: 0 4px 20px rgba(0,0,0,0.8);
+      max-width: 920px;
+    }
+
+    .cover-bottom-bar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      border-top: 1px solid rgba(255,255,255,0.2);
+      padding-top: 20px;
+    }
+
+    .swipe-indicator {
+      font-size: 18px;
+      font-weight: 700;
+      color: #E4E4E7;
+      letter-spacing: 1px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.6);
     }
 
     .tag-bugnews {
