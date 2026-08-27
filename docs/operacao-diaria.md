@@ -96,7 +96,15 @@ Crie o `.env.local` com as mesmas variáveis do Supabase e da OpenAI, mais:
 INSTAGRAM_ACCOUNT_ID
 INSTAGRAM_ACCESS_TOKEN
 INSTAGRAM_AUTO_POST=true
+
+# Opcional: só se o Chromium não estiver no registro do Playwright
+# (imagem de contêiner, pacote do sistema).
+# PLAYWRIGHT_CHROMIUM_EXECUTABLE=/caminho/para/chrome
 ```
+
+Medido em teste: **5 slides levam cerca de 75 segundos** para renderizar. Um
+carrossel de 8 slides passa de dois minutos, e o worker processa até 5 vagas
+por giro — dimensione o intervalo do cron com folga.
 
 Cron do worker:
 
