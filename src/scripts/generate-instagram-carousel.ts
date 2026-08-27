@@ -1,64 +1,93 @@
-import { runInstagramCarouselService } from "../lib/server/social/instagram/instagram-service";
+/**
+ * Prévia do roteiro de um carrossel, sem renderizar imagem nem publicar.
+ *
+ * A pauta vem da edição gravada em news_editions — não existe conteúdo de
+ * exemplo embutido.
+ *
+ * Uso:
+ *   npx tsx src/scripts/generate-instagram-carousel.ts [AAAA-MM-DD] [posicaoDaPauta]
+ */
+
+import { DEFAULT_PROJECT_ID, projectToday, requireActiveProject } from "../lib/server/projects";
+import { generateInstagramCarouselPipeline } from "../lib/server/social/instagram/pipeline";
+import { getSupabaseAdminClient } from "../lib/server/supabase-admin";
+import type { EditionContent } from "../lib/server/newsroom/schemas";
+import { loadEnvLocal } from "./load-env";
 
 async function main() {
-  console.log("=== DESBUGUEI.IA — TESTE DO GERADOR DE CARROSSEL DO INSTAGRAM (FASE 1) ===\n");
+  loadEnvLocal();
 
-  const todayStr = new Date().toISOString().split("T")[0];
-  const testIdempotencyKey = `instagram-carousel-test-${Date.now()}`;
+  const project = await requireActiveProject(process.env.PROJECT_ID || DEFAULT_PROJECT_ID);
+  const editionDate = process.argv[2] || projectToday(project);
+  const storyIndex = Number(process.argv[3] ?? 0);
 
-  console.log(`[FASE 1] Executando pipeline em modo DRY RUN para o dia: ${todayStr}...`);
+  console.log(`=== PRÉVIA DO CARROSSEL — ${project.slug} — ${editionDate} — pauta ${storyIndex + 1} ===\n`);
 
-  const result = await runInstagramCarouselService({
-    dryRun: true,
-    autoPost: false,
-    editionDateStr: todayStr,
-    idempotencyKey: testIdempotencyKey,
-  });
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("news_editions")
+    .select("stories, headline, subject, subject_options, preheader, intro, quick_bits, closing, final_line")
+    .eq("project_id", project.id)
+    .eq("edition_date", editionDate)
+    .maybeSingle();
 
-  console.log("\n=======================================================");
-  console.log("              RELATÓRIO DO CARROSSEL DO INSTAGRAM      ");
-  console.log("=======================================================");
-  console.log(`- Status: ${result.status}`);
-  console.log(`- Modo Dry Run: ${result.dryRun ? "ATIVADO (Nenhuma postagem enviada)" : "DESATIVADO"}`);
-  console.log(`- Post ID no Supabase: ${result.socialPostId || "N/A"}`);
-  console.log(`- Tempo de Execução: ${result.executionTimeMs}ms`);
-  if (result.tokens) {
-    console.log(`- Consumo de Tokens: ${result.tokens.totalTokens} (Input: ${result.tokens.promptTokens}, Output: ${result.tokens.completionTokens})`);
-    console.log(`- Custo Estimado USD: $${result.tokens.estimatedCostUsd.toFixed(5)}`);
+  if (error) throw new Error(error.message);
+  if (!data) {
+    console.error(`Não há edição gravada para ${editionDate}. Rode a redação antes.`);
+    process.exit(1);
   }
-  console.log("=======================================================\n");
 
-  if (result.carousel) {
-    console.log("-------------------------------------------------------");
-    console.log(`📌 TÍTULO DO CARROSSEL: ${result.carousel.title}`);
-    console.log(`🎯 PÚBLICO ALVO: ${result.carousel.target_audience_focus}`);
-    console.log(`📅 DATA DA EDIÇÃO: ${result.carousel.edition_date}`);
-    console.log("-------------------------------------------------------\n");
+  const edition = {
+    subject_options: (data.subject_options as string[]) ?? [data.subject as string],
+    subject: data.subject as string,
+    preheader: data.preheader as string,
+    headline: data.headline as string,
+    intro: data.intro as string,
+    stories: data.stories as EditionContent["stories"],
+    quick_bits: (data.quick_bits as EditionContent["quick_bits"]) ?? [],
+    closing: data.closing as string,
+    final_line: data.final_line as string,
+  };
 
-    console.log("🖼️ ROTEIRO DOS SLIDES (JSON MANIFEST):\n");
-    result.carousel.slides.forEach((slide) => {
-      console.log(`[Slide ${slide.index} - Tipo: ${slide.type.toUpperCase()}]`);
-      if (slide.eyebrow) console.log(`   Eyebrow: ${slide.eyebrow}`);
-      console.log(`   Título:  ${slide.title}`);
-      if (slide.body) console.log(`   Corpo:   ${slide.body}`);
-      if (slide.bullet_points && slide.bullet_points.length > 0) {
-        console.log(`   Bullets: ${slide.bullet_points.join(" | ")}`);
-      }
-      if (slide.cover_image_prompt) console.log(`   Prompt de Imagem de Capa: "${slide.cover_image_prompt}"`);
-      if (slide.cta_text) console.log(`   CTA Text: ${slide.cta_text}`);
-      console.log("");
-    });
-
-    console.log("-------------------------------------------------------");
-    console.log("💬 LEGENDA GERADA (CAPTION PARA INSTAGRAM):\n");
-    console.log(result.carousel.caption.full_caption);
-    console.log("-------------------------------------------------------\n");
-  } else {
-    console.warn("⚠️ Nenhum carrossel gerado.");
+  const story = edition.stories[storyIndex];
+  if (!story) {
+    console.error(`A edição tem ${edition.stories.length} pautas; a posição ${storyIndex} não existe.`);
+    process.exit(1);
   }
+
+  console.log(`Pauta: ${story.title}\n`);
+
+  const { carousel, usage } = await generateInstagramCarouselPipeline(
+    edition,
+    editionDate,
+    process.env,
+    fetch,
+    story,
+  );
+
+  console.log("-------------------------------------------------------");
+  console.log(`TÍTULO: ${carousel.title}`);
+  console.log(`PÚBLICO: ${carousel.target_audience_focus}`);
+  console.log(`TOKENS: ${usage.totalTokens} — custo estimado US$ ${usage.estimatedCostUsd.toFixed(5)}`);
+  console.log("-------------------------------------------------------\n");
+
+  for (const slide of carousel.slides) {
+    console.log(`[Slide ${slide.index} — ${slide.type.toUpperCase()}]`);
+    if (slide.eyebrow) console.log(`   Eyebrow: ${slide.eyebrow}`);
+    console.log(`   Título:  ${slide.title}`);
+    if (slide.body) console.log(`   Corpo:   ${slide.body}`);
+    if (slide.bullet_points?.length) console.log(`   Bullets: ${slide.bullet_points.join(" | ")}`);
+    if (slide.cta_text) console.log(`   CTA:     ${slide.cta_text}`);
+    console.log("");
+  }
+
+  console.log("-------------------------------------------------------");
+  console.log("LEGENDA:\n");
+  console.log(carousel.caption.full_caption);
+  console.log("-------------------------------------------------------\n");
 }
 
 main().catch((err) => {
-  console.error("❌ Erro ao executar script de teste de carrossel:", err);
+  console.error("Erro ao gerar prévia:", err);
   process.exit(1);
 });

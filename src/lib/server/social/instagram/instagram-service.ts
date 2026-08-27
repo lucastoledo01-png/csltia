@@ -1,309 +1,340 @@
+import type { EditionContent } from "../../newsroom/schemas";
 import {
   DEFAULT_PROJECT_ID,
+  type Project,
   projectToday,
   requireActiveProject,
 } from "../../projects";
 import { getSupabaseAdminClient } from "../../supabase-admin";
-import { EditionContent } from "../../newsroom/schemas";
 import {
   createCarouselContainer,
   createCarouselItemContainer,
   publishContainer,
+  waitForContainerReady,
 } from "./meta-client";
-import { renderOpenDesignSlides } from "./opendesign-renderer";
 import { generateInstagramCarouselPipeline } from "./pipeline";
-import { InstagramCarouselContent } from "./schemas";
-
-export type RunInstagramOptions = {
-  /** Projeto dono do post. Sem valor, usa o projeto semente. */
-  projectId?: string;
-  dryRun?: boolean;
-  autoPost?: boolean;
-  editionDateStr?: string;
-  editionContent?: EditionContent;
-  idempotencyKey?: string;
-  articleSlug?: string;
-};
+import { markPostFailed } from "./scheduler";
+import type { InstagramCarouselContent } from "./schemas";
 
 export type InstagramRunResult = {
   ok: boolean;
   projectId: string;
-  reason?: string;
-  dryRun: boolean;
-  autoPost: boolean;
-  idempotencyKey: string;
-  socialPostId?: string;
+  socialPostId: string;
+  status: string;
   providerPostId?: string;
   carousel?: InstagramCarouselContent;
-  status: string;
+  slideUrls?: string[];
   executionTimeMs: number;
-  tokens?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-    estimatedCostUsd: number;
-  };
+  error?: string;
 };
 
-export async function runInstagramCarouselService(
-  options: RunInstagramOptions = {},
+/**
+ * Edição do dia gravada em `news_editions`.
+ *
+ * Não existe conteúdo de reserva aqui. O código anterior, ao não encontrar a
+ * edição, seguia com um objeto de notícias fictícias escrito no próprio arquivo
+ * — e publicava isso no perfil real.
+ */
+async function loadEdition(project: Project, editionDate: string): Promise<EditionContent> {
+  const supabase = getSupabaseAdminClient();
+
+  const { data, error } = await supabase
+    .from("news_editions")
+    .select("stories, headline, subject, subject_options, preheader, intro, quick_bits, closing, final_line")
+    .eq("project_id", project.id)
+    .eq("edition_date", editionDate)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Falha ao carregar a edição de ${editionDate}: ${error.message}`);
+  }
+  if (!data) {
+    throw new Error(
+      `Não há edição gravada para ${project.slug} em ${editionDate}. O post não pode ser gerado sem a pauta real.`,
+    );
+  }
+
+  return {
+    subject_options: (data.subject_options as string[]) ?? [data.subject as string],
+    subject: data.subject as string,
+    preheader: data.preheader as string,
+    headline: data.headline as string,
+    intro: data.intro as string,
+    stories: data.stories as EditionContent["stories"],
+    quick_bits: (data.quick_bits as EditionContent["quick_bits"]) ?? [],
+    closing: data.closing as string,
+    final_line: data.final_line as string,
+  };
+}
+
+/**
+ * Renderiza os slides e sobe para o Storage, devolvendo as URLs públicas.
+ *
+ * Os PNGs eram gravados em base64 dentro da coluna jsonb de `social_posts`:
+ * uma linha passava de 20 MB e a rota que servia uma imagem carregava o
+ * manifesto inteiro do banco. A função de upload já existia no renderer e não
+ * era chamada por ninguém.
+ *
+ * O import do renderer é dinâmico de propósito: ele carrega o Playwright, que
+ * só existe na máquina do worker. A aplicação web nunca executa este caminho.
+ */
+async function renderAndUploadSlides(
+  project: Project,
+  carousel: InstagramCarouselContent,
+  editionDate: string,
+  socialPostId: string,
+): Promise<Array<{ index: number; url: string; filename: string }>> {
+  const { renderOpenDesignSlides, uploadOpenDesignSlideToStorage } = await import("./opendesign-renderer");
+
+  const rendered = await renderOpenDesignSlides(carousel);
+  const uploaded: Array<{ index: number; url: string; filename: string }> = [];
+
+  for (const slide of rendered) {
+    const filepath = `${project.slug}/${editionDate}/${socialPostId}/${slide.filename}`;
+    const url = await uploadOpenDesignSlideToStorage(slide.pngBuffer, filepath);
+
+    if (!url) {
+      throw new Error(`Falha ao subir o slide ${slide.index} para o Storage.`);
+    }
+
+    uploaded.push({ index: slide.index, url, filename: slide.filename });
+  }
+
+  return uploaded;
+}
+
+/** Publica o carrossel, aguardando cada container ficar pronto. */
+async function publishCarousel(
+  imageUrls: string[],
+  caption: string,
+  env: Record<string, string | undefined>,
+  fetcher: typeof fetch,
+): Promise<string> {
+  if (imageUrls.length < 2) {
+    throw new Error(`Um carrossel precisa de ao menos 2 slides; foram gerados ${imageUrls.length}.`);
+  }
+
+  const containerIds: string[] = [];
+
+  for (const [i, url] of imageUrls.entries()) {
+    const item = await createCarouselItemContainer(url, env, fetcher);
+    if (!item.ok || !item.creationId) {
+      throw new Error(`Falha ao criar o container do slide ${i + 1}: ${item.error}`);
+    }
+    containerIds.push(item.creationId);
+  }
+
+  const carouselContainer = await createCarouselContainer(containerIds, caption, env, fetcher);
+  if (!carouselContainer.ok || !carouselContainer.creationId) {
+    throw new Error(`Falha ao criar o container do carrossel: ${carouselContainer.error}`);
+  }
+
+  const pronto = await waitForContainerReady(carouselContainer.creationId, env, fetcher);
+  if (!pronto.ok) {
+    throw new Error(`Container não ficou pronto para publicação: ${pronto.error}`);
+  }
+
+  const publicado = await publishContainer(carouselContainer.creationId, env, fetcher);
+  if (!publicado.ok || !publicado.mediaId) {
+    throw new Error(`Falha na publicação final: ${publicado.error}`);
+  }
+
+  return publicado.mediaId;
+}
+
+/**
+ * Processa uma vaga agendada: gera o roteiro da pauta, renderiza, sobe as
+ * imagens e publica. É o que o worker executa.
+ */
+export async function processScheduledPost(
+  socialPostId: string,
+  options: { autoPost?: boolean } = {},
   env: Record<string, string | undefined> = process.env,
-  fetcher: typeof fetch = fetch
+  fetcher: typeof fetch = fetch,
 ): Promise<InstagramRunResult> {
   const startTime = Date.now();
+  const supabase = getSupabaseAdminClient();
 
-  const project = await requireActiveProject(options.projectId ?? DEFAULT_PROJECT_ID);
-  const todayStr = options.editionDateStr || projectToday(project);
-  const idempotencyKey = options.idempotencyKey || `instagram-carousel-${todayStr}`;
+  const { data: post, error: postErr } = await supabase
+    .from("social_posts")
+    .select("id, project_id, edition_date, status, content_json")
+    .eq("id", socialPostId)
+    .maybeSingle();
 
-  const dryRun = options.dryRun ?? (env.INSTAGRAM_DRY_RUN === "true" ? true : false);
-  const autoPost = options.autoPost ?? (env.INSTAGRAM_AUTO_POST === "false" ? false : true);
+  if (postErr || !post) {
+    throw new Error(`Post ${socialPostId} não encontrado.`);
+  }
 
-  console.log(`[INSTAGRAM OPENDESIGN SERVICE] Iniciando motor OpenDesign HTML/CSS 1080x1350 (dryRun: ${dryRun}, autoPost: ${autoPost}, key: ${idempotencyKey})...`);
+  const projectId = post.project_id as string;
 
-  // 1. Verificar Idempotência no Supabase
   try {
-    const supabase = getSupabaseAdminClient();
-    const { data: existingPost } = await supabase
-      .from("social_posts")
-      .select("id, status, title, content_json, caption, provider_post_id")
-      .eq("project_id", project.id)
-      .eq("idempotency_key", idempotencyKey)
-      .single();
-
-    if (existingPost) {
-      console.log(`[INSTAGRAM SERVICE] Carrossel já existente no banco para a chave (${idempotencyKey}). Status: ${existingPost.status}`);
+    if (post.status === "published") {
       return {
         ok: true,
-        projectId: project.id,
-        reason: "already_exists",
-        dryRun,
-        autoPost,
-        idempotencyKey,
-        socialPostId: existingPost.id,
-        providerPostId: existingPost.provider_post_id,
-        carousel: existingPost.content_json as InstagramCarouselContent,
-        status: existingPost.status,
+        projectId,
+        socialPostId,
+        status: "published",
         executionTimeMs: Date.now() - startTime,
       };
     }
-  } catch {
-    // Continua para nova geração
-  }
 
-  // 2. Buscar Conteúdo da Edição Diária
-  let edition: EditionContent | undefined = options.editionContent;
-  let articleSlug = options.articleSlug || `edicao-${todayStr}`;
+    const project = await requireActiveProject(projectId);
+    const editionDate = post.edition_date as string;
+    const storyIndex = Number((post.content_json as { story_index?: number })?.story_index ?? 0);
 
-  if (!edition) {
-    try {
-      const supabase = getSupabaseAdminClient();
-      const { data: editionRow } = await supabase
-        .from("news_editions")
-        .select("stories, headline, subject, preheader, intro, quick_bits, closing, final_line, slug")
-        .eq("project_id", project.id)
-        .eq("edition_date", todayStr)
-        .single();
+    const edition = await loadEdition(project, editionDate);
+    const story = edition.stories[storyIndex];
 
-      if (editionRow) {
-        edition = {
-          subject_options: [editionRow.subject],
-          subject: editionRow.subject,
-          preheader: editionRow.preheader,
-          headline: editionRow.headline,
-          intro: editionRow.intro,
-          stories: editionRow.stories,
-          quick_bits: editionRow.quick_bits || [],
-          closing: editionRow.closing,
-          final_line: editionRow.final_line || "Agora você está desbugado. Bora iniciar o dia.",
-        };
-        articleSlug = editionRow.slug || articleSlug;
-      }
-    } catch {
-      console.warn(`[INSTAGRAM SERVICE] Nenhuma edição prévia salva no banco para ${todayStr}. Usando modelo de dados em fallback...`);
+    if (!story) {
+      throw new Error(
+        `A edição de ${editionDate} tem ${edition.stories.length} pautas; a posição ${storyIndex} não existe.`,
+      );
     }
-  }
 
-  if (!edition) {
-    edition = {
-      subject_options: ["Radar de IA: As novidades mais quentes que você precisa testar hoje"],
-      subject: "Radar de IA: As novidades mais quentes que você precisa testar hoje",
-      preheader: "Resumo matinal com o que realmente importa sobre modelos, ferramentas e automação.",
-      headline: "Edição Diária: Inteligência artificial desbugada e sem fumaça",
-      intro: "Bom dia! O café já está na xícara? Hoje trouxemos novidades essenciais de IA e redes sociais.",
-      stories: [
-        {
-          rank: 1,
-          category: "Redes Sociais",
-          title: "Instagram libera novas ferramentas de IA para criadores de conteúdo",
-          summary: "A Meta lançou atualizações automáticas que permitem editar vídeos e gerar roteiros diretamente no app do Instagram.",
-          context: "O mercado de criação de conteúdo está cada vez mais focado em agilidade.",
-          why_it_matters: "Criadores e marcas podem economizar até 3 horas por semana na edição de Reels e carrosséis.",
-          practical_impact: "Abra a aba de criação do Instagram, ative a sugestão de roteiros e gere 3 variações de ideias de posts em segundos.",
-          humor_line: "O algoritmo agora quer ser seu co-roteirista de café.",
-          source_name: "Meta AI News",
-          source_url: "https://about.instagram.com/blog",
-          secondary_urls: [],
-        },
-        {
-          rank: 2,
-          category: "Vendas",
-          title: "WhatsApp lança assistente de IA para responder clientes e fechar vendas",
-          summary: "Novo recurso de IA responde dúvidas de produtos e sugere links de checkout diretamente nas conversas comerciais.",
-          context: "Empresas locais e e-commerces estão automatizando o atendimento de primeiro nível.",
-          why_it_matters: "Aumenta a taxa de conversão ao reduzir o tempo de resposta de minutos para segundos.",
-          practical_impact: "Configure respostas automáticas de catálogo no WhatsApp Business para capturar leads enquanto você dorme.",
-          humor_line: "Seu atendimento ao cliente agora roda 24/7 sem pedir folga.",
-          source_name: "TechCrunch",
-          source_url: "https://techcrunch.com",
-          secondary_urls: [],
-        },
-        {
-          rank: 3,
-          category: "Produtividade",
-          title: "Novo modelo de IA transforma reuniões gravadas em tarefas acionáveis",
-          summary: "Plataformas de IA passam a gerar resumos de áudio e listas de afazeres automaticamente ao final de cada call.",
-          context: "Menos tempo em reuniões longas e mais foco na execução.",
-          why_it_matters: "Elimina a necessidade de fazer atas de reunião manuais.",
-          practical_impact: "Grave o áudio da reunião no celular e peça para a IA extrair os 3 próximos passos de cada membro da equipe.",
-          humor_line: "Acabou a desculpa do 'esqueci o que ficou combinado'.",
-          source_name: "VentureBeat",
-          source_url: "https://venturebeat.com",
-          secondary_urls: [],
-        },
-      ],
-      quick_bits: [
-        { title: "ChatGPT Update", text: "OpenAI lança nova interface mais rápida no celular.", url: "https://openai.com" },
-      ],
-      closing: "Encaminhe esta edição para aquele amigo que quer aprender IA para crescer nas redes!",
-      final_line: "Agora você está desbugado. Bora iniciar o dia.",
-    };
-  }
+    console.log(`[INSTAGRAM WORKER] ${project.slug} ${editionDate} pauta ${storyIndex + 1}: ${story.title}`);
 
-  // 3. Transformar Edição em Roteiro Editorial de Carrossel via OpenAI
-  console.log(`[INSTAGRAM SERVICE] Gerando roteiro editorial estilizado via OpenAI...`);
-  const pipelineResult = await generateInstagramCarouselPipeline(edition, todayStr, env, fetcher);
+    const pipelineResult = await generateInstagramCarouselPipeline(
+      edition,
+      editionDate,
+      env,
+      fetcher,
+      story,
+    );
 
-  // 4. Renderizar os Slides 1080x1350 em HD usando o Playwright + OpenDesign HTML/CSS Engine
-  console.log(`[OPENDESIGN RENDER] Renderizando ${pipelineResult.carousel.slides.length} slides HTML/CSS via Playwright em HD 2160x2700...`);
-  const renderedSlides = await renderOpenDesignSlides(pipelineResult.carousel);
-
-  let finalStatus = dryRun ? "draft" : "generated";
-  let providerPostId: string | undefined;
-  let socialPostId: string | undefined;
-
-  const appBaseUrl = env.NEXT_PUBLIC_APP_URL || env.VERCEL_URL ? `https://${env.VERCEL_URL}` : "https://desbuguei.ia";
-
-  // 5. Salvar Registro Inicial no Supabase (`social_posts`) para gerar o ID do Post
-  const slidesManifestInitial = renderedSlides.map((s) => ({
-    index: s.index,
-    type: s.type,
-    filename: s.filename,
-    pngBase64: s.pngBuffer.toString("base64"),
-  }));
-
-  try {
-    const supabase = getSupabaseAdminClient();
-    const { data: inserted, error: dbError } = await supabase
+    await supabase
       .from("social_posts")
-      .insert({
-        project_id: project.id,
-        edition_date: todayStr,
-        article_slug: articleSlug,
-        platform: "instagram",
-        post_type: "carousel",
+      .update({
         title: pipelineResult.carousel.title,
         caption: pipelineResult.carousel.caption.full_caption,
-        content_json: pipelineResult.carousel as any,
-        slides_manifest: slidesManifestInitial as any,
-        status: finalStatus,
-        idempotency_key: idempotencyKey,
+        content_json: { ...pipelineResult.carousel, story_index: storyIndex },
         tokens_input: pipelineResult.usage.promptTokens,
         tokens_output: pipelineResult.usage.completionTokens,
         cost_estimate_usd: pipelineResult.usage.estimatedCostUsd,
-        dry_run: dryRun,
+        status: "generated",
+        updated_at: new Date().toISOString(),
       })
-      .select("id")
-      .single();
+      .eq("id", socialPostId);
 
-    if (!dbError && inserted) {
-      socialPostId = inserted.id;
-      console.log(`[INSTAGRAM SERVICE] Registro OpenDesign salvo com ID: ${socialPostId}`);
+    const slides = await renderAndUploadSlides(project, pipelineResult.carousel, editionDate, socialPostId);
+
+    await supabase
+      .from("social_posts")
+      .update({
+        slides_manifest: slides,
+        asset_paths: slides.map((s) => s.url),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", socialPostId);
+
+    const autoPost = options.autoPost ?? env.INSTAGRAM_AUTO_POST !== "false";
+
+    if (!autoPost) {
+      return {
+        ok: true,
+        projectId,
+        socialPostId,
+        status: "generated",
+        carousel: pipelineResult.carousel,
+        slideUrls: slides.map((s) => s.url),
+        executionTimeMs: Date.now() - startTime,
+      };
     }
+
+    const mediaId = await publishCarousel(
+      slides.map((s) => s.url),
+      pipelineResult.carousel.caption.full_caption,
+      env,
+      fetcher,
+    );
+
+    await supabase
+      .from("social_posts")
+      .update({
+        status: "published",
+        provider_post_id: mediaId,
+        published_at: new Date().toISOString(),
+        error_message: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", socialPostId);
+
+    console.log(`[INSTAGRAM WORKER] Publicado com sucesso. Media ID: ${mediaId}`);
+
+    return {
+      ok: true,
+      projectId,
+      socialPostId,
+      status: "published",
+      providerPostId: mediaId,
+      carousel: pipelineResult.carousel,
+      slideUrls: slides.map((s) => s.url),
+      executionTimeMs: Date.now() - startTime,
+    };
   } catch (err) {
-    console.warn(`[INSTAGRAM SERVICE] Exceção ao gravar no banco:`, err);
+    // O motivo fica gravado: as colunas error_message existiam e nunca eram
+    // preenchidas, então uma falha só era descoberta olhando o Instagram.
+    const message = err instanceof Error ? err.message : String(err);
+    await markPostFailed(socialPostId, message);
+    console.error(`[INSTAGRAM WORKER] Post ${socialPostId} falhou: ${message}`);
+
+    return {
+      ok: false,
+      projectId,
+      socialPostId,
+      status: "failed",
+      error: message,
+      executionTimeMs: Date.now() - startTime,
+    };
+  }
+}
+
+/**
+ * Cria uma vaga com horário imediato, para o worker processar no próximo giro.
+ * É o que o painel aciona: a aplicação web não renderiza imagem.
+ */
+export async function requestInstagramPost(options: {
+  projectId?: string;
+  editionDateStr?: string;
+  storyIndex?: number;
+}): Promise<{ socialPostId: string; scheduledAt: string; storyIndex: number }> {
+  const project = await requireActiveProject(options.projectId ?? DEFAULT_PROJECT_ID);
+  const editionDate = options.editionDateStr || projectToday(project);
+  const storyIndex = options.storyIndex ?? 0;
+
+  const edition = await loadEdition(project, editionDate);
+  const story = edition.stories[storyIndex];
+  if (!story) {
+    throw new Error(`A edição de ${editionDate} não tem pauta na posição ${storyIndex}.`);
   }
 
-  // 6. Montar URLs públicas e enviar para a Meta Graph API
-  if (autoPost && !dryRun && socialPostId) {
-    try {
-      const publicImageUrls: string[] = renderedSlides.map(
-        (s) => `${appBaseUrl}/api/social/instagram/slide-image?postId=${socialPostId}&index=${s.index}`
-      );
+  const supabase = getSupabaseAdminClient();
+  const agora = new Date().toISOString();
 
-      console.log(`[INSTAGRAM AUTO POST] Publicando ${publicImageUrls.length} slides OpenDesign HTML/CSS na Meta Graph API...`);
-      const itemContainerIds: string[] = [];
+  const { data, error } = await supabase
+    .from("social_posts")
+    .upsert(
+      {
+        project_id: project.id,
+        edition_date: editionDate,
+        article_slug: `edicao-${editionDate}`,
+        platform: "instagram",
+        post_type: "carousel",
+        title: story.title,
+        status: "scheduled",
+        scheduled_at: agora,
+        idempotency_key: `instagram-${editionDate}-manual-${String(storyIndex + 1).padStart(2, "0")}`,
+        content_json: { story_index: storyIndex, story_title: story.title },
+        dry_run: false,
+        updated_at: agora,
+      },
+      { onConflict: "project_id,idempotency_key" },
+    )
+    .select("id")
+    .single();
 
-      for (let i = 0; i < publicImageUrls.length; i++) {
-        const itemRes = await createCarouselItemContainer(publicImageUrls[i], env, fetcher);
-
-        if (itemRes.ok && itemRes.creationId) {
-          console.log(`   - Slide OpenDesign ${i + 1}/${publicImageUrls.length} container criado: ${itemRes.creationId}`);
-          itemContainerIds.push(itemRes.creationId);
-        } else {
-          console.warn(`[INSTAGRAM ITEM ERROR] Falha ao criar slide ${i + 1}:`, itemRes.error);
-        }
-      }
-
-      if (itemContainerIds.length >= 2) {
-        const carouselRes = await createCarouselContainer(
-          itemContainerIds,
-          pipelineResult.carousel.caption.full_caption,
-          env,
-          fetcher
-        );
-
-        if (carouselRes.ok && carouselRes.creationId) {
-          const publishRes = await publishContainer(carouselRes.creationId, env, fetcher);
-
-          if (publishRes.ok && publishRes.mediaId) {
-            providerPostId = publishRes.mediaId;
-            finalStatus = "published";
-            console.log(`[INSTAGRAM AUTO POST SUCCESS] Post carrossel OpenDesign HTML/CSS publicado com SUCESSO! Media ID: ${providerPostId}`);
-
-            // Atualizar status no Supabase
-            const supabase = getSupabaseAdminClient();
-            await supabase
-              .from("social_posts")
-              .update({
-                status: "published",
-                provider_post_id: providerPostId,
-                published_at: new Date().toISOString(),
-              })
-              .eq("id", socialPostId);
-          } else {
-            console.error(`[INSTAGRAM PUBLISH ERROR] Erro na publicação final:`, publishRes.error);
-          }
-        }
-      }
-    } catch (postErr) {
-      console.error(`[INSTAGRAM AUTO POST EXCEPTION] Erro no fluxo Meta API:`, postErr);
-    }
+  if (error) {
+    throw new Error(`Falha ao enfileirar o post: ${error.message}`);
   }
 
-  const executionTimeMs = Date.now() - startTime;
-
-  return {
-    ok: true,
-    projectId: project.id,
-    dryRun,
-    autoPost,
-    idempotencyKey,
-    socialPostId,
-    providerPostId,
-    carousel: pipelineResult.carousel,
-    status: finalStatus,
-    executionTimeMs,
-    tokens: pipelineResult.usage,
-  };
+  return { socialPostId: data.id, scheduledAt: agora, storyIndex };
 }

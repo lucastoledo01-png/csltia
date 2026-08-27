@@ -1,0 +1,154 @@
+# Operação diária: newsletter e posts
+
+Como o disparo roda todo dia, e o que precisa estar configurado em cada
+máquina.
+
+## Por que duas máquinas
+
+A renderização dos slides usa Chromium. Hospedagem compartilhada não roda
+Chromium: não há root para instalar as bibliotecas do sistema, não há Docker e
+a memória disponível não comporta o navegador.
+
+| Máquina | Papel |
+|---|---|
+| Hostinger (Next.js) | Site, painel, redação e newsletter. Agenda os posts do dia. |
+| VPS | Worker: gera o roteiro, renderiza os slides, sobe as imagens e publica. |
+
+As duas falam com o mesmo Supabase. A comunicação entre elas é a tabela
+`social_posts`: a Hostinger cria as vagas, a VPS as consome.
+
+## Fluxo do dia
+
+```
+06:03 (Hostinger)   cron -> /api/cron/newsroom
+                    coleta -> pipeline editorial -> grava news_editions
+                    -> publica no portal -> cria campanha no Listmonk
+                    -> agenda N posts em social_posts (status scheduled)
+
+a cada 15 min (VPS) worker -> busca vagas vencidas
+                    -> gera roteiro da pauta -> renderiza slides
+                    -> sobe para o Storage -> publica na Meta
+                    -> status published (ou failed, com o motivo gravado)
+```
+
+Uma pauta por post. A edição de 5 notícias vira o e-mail com o resumo de todas
+e 4 posts que aprofundam uma cada.
+
+## Horários
+
+Os horários são locais ao fuso do projeto (`projects.timezone`). Os padrões são
+09:30, 12:30, 16:00 e 19:00, ajustáveis por projeto:
+
+```sql
+update public.projects
+set settings = jsonb_set(settings, '{instagram_post_times}',
+  '["09:30","12:30","16:00","19:00"]'::jsonb)
+where slug = 'desbuguei';
+```
+
+## Configuração na Hostinger
+
+**1. Aplicar as migrações no Supabase** (SQL Editor, na ordem):
+
+```
+supabase/migrations/20260827020000_fix_public_assets_upload_policy.sql
+supabase/migrations/20260827030000_multi_project_base.sql
+```
+
+**2. Variáveis de ambiente.** Sem elas as rotas respondem 500, não liberam:
+
+```
+NEXT_PUBLIC_SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY   (ou SUPABASE_SECRET_KEY)
+ADMIN_PASSWORD
+ADMIN_SESSION_SECRET
+CRON_SECRET
+OPENAI_API_KEY
+LISTMONK_URL / LISTMONK_API_USER / LISTMONK_API_TOKEN / LISTMONK_DEFAULT_LIST_ID
+```
+
+**3. Cron em hPanel → Avançado → Trabalhos Cron:**
+
+```
+3 9 * * *   curl -fsS -m 60 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" https://SEU_DOMINIO/api/cron/newsroom
+```
+
+O agendamento é **UTC**: `3 9` equivale a 06:03 em Brasília. Confira o fuso do
+servidor em hPanel → Avançado → Informações do servidor antes de fixar.
+
+A rota responde 202 em segundos e continua trabalhando em segundo plano, então
+o `-m 60` não corta a execução — ele só limita a espera pela resposta. O
+resultado é acompanhado em `newsroom_runs` e no painel de logs.
+
+Para aguardar o fim numa execução manual, acrescente `?wait=1`.
+
+## Configuração na VPS
+
+```bash
+git clone <repo> csltia && cd csltia
+npm ci                                   # inclui devDependencies
+npx playwright install --with-deps chromium
+```
+
+Crie o `.env.local` com as mesmas variáveis do Supabase e da OpenAI, mais:
+
+```
+INSTAGRAM_ACCOUNT_ID
+INSTAGRAM_ACCESS_TOKEN
+INSTAGRAM_AUTO_POST=true
+```
+
+Cron do worker:
+
+```
+*/15 * * * * cd /caminho/csltia && /usr/bin/npm run worker:instagram >> /var/log/csltia-worker.log 2>&1
+```
+
+O worker processa até 5 vagas vencidas por giro e encerra. Falha numa vaga não
+interrompe as demais: o motivo fica em `social_posts.error_message`.
+
+## Verificação antes do primeiro disparo
+
+```bash
+# 1. Credenciais do Instagram válidas
+npm run instagram:verify
+
+# 2. Redação completa sem publicar (na VPS ou local)
+npm run newsroom:dry
+
+# 3. Disparo real da redação, aguardando o fim
+curl -fsS -X POST -H "Authorization: Bearer SEU_CRON_SECRET" \
+  "https://SEU_DOMINIO/api/cron/newsroom?wait=1"
+
+# 4. Prévia do roteiro de um post, sem renderizar nem publicar
+npm run instagram:preview -- 2026-08-28 0
+
+# 5. Um giro do worker
+npm run worker:instagram
+```
+
+## Diagnóstico
+
+```sql
+-- Execuções da redação
+select started_at, status, stories_selected, cost_estimate_usd, error_message
+from newsroom_runs order by started_at desc limit 10;
+
+-- Posts do dia e seu estado
+select scheduled_at, status, title, provider_post_id, error_message
+from social_posts where edition_date = current_date order by scheduled_at;
+
+-- Reprocessar uma vaga que falhou
+update social_posts set status = 'scheduled', error_message = null
+where id = '<id>';
+```
+
+## Limites conhecidos
+
+- **Token da Meta vence em 60 dias.** Não há rotina de renovação; a publicação
+  para até que o token seja trocado. Anote a data.
+- **Credenciais ainda vêm do ambiente**, não de `project_credentials`. Com um
+  projeto só isso funciona; o segundo projeto exige a ligação da tabela.
+- **A execução em segundo plano não sobrevive a reinício do processo.** Se a
+  Hostinger reiniciar o Node no meio da redação, a execução se perde e não há
+  retomada automática — rode o passo 3 da verificação manualmente.

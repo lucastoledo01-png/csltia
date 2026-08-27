@@ -1,6 +1,33 @@
 import { render, screen } from "@testing-library/react";
+import { vi } from "vitest";
 import Home from "../page";
-import ArticlesPage from "./page";
+
+/**
+ * A página busca os artigos publicados no Supabase. Sem este mock o teste
+ * depende do conteúdo real do banco: ele passava ou falhava conforme o que
+ * estivesse publicado em produção naquele momento.
+ */
+const artigoDeTeste = {
+  slug: "ia-semana-sem-hype",
+  category: "Radar",
+  title: "A semana em IA sem aquele cheiro de palestra de LinkedIn",
+  excerpt: "O que mudou em modelos, produtos e benchmarks, direto ao ponto.",
+  description:
+    "O que mudou em modelos, produtos e benchmarks, direto ao ponto. Um filtro simples para separar notícia útil de espuma antes do café esfriar.",
+  date: "20 AGO 2026",
+  readTime: "5 min",
+  image: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
+  imageAlt: "Mesa de trabalho moderna com café e notebook exibindo gráficos",
+  quote: "Se a notícia não muda sua rotina, ela ainda pode ser interessante.",
+  quoteBy: "desbuguei.ia",
+  sections: [],
+};
+
+vi.mock("@/lib/server/articles-service", () => ({
+  getPublishedArticles: async () => [artigoDeTeste],
+}));
+
+const { default: ArticlesPage } = await import("./page");
 
 describe("Articles index", () => {
   it("usa o mesmo padrão de menu da home", async () => {

@@ -100,7 +100,13 @@ export async function generateInstagramCarouselPipeline(
   edition: EditionContent,
   editionDateStr: string = new Date().toISOString().split("T")[0],
   env: Record<string, string | undefined> = process.env,
-  fetcher: typeof fetch = fetch
+  fetcher: typeof fetch = fetch,
+  /**
+   * Pauta que o carrossel deve desenvolver. A edição vira vários posts, um por
+   * notícia, então quem chama escolhe qual — sem isso o modelo escolheria a de
+   * maior impacto toda vez e os posts do dia se repetiriam.
+   */
+  focusStory?: EditionContent["stories"][number],
 ): Promise<{ carousel: InstagramCarouselContent; usage: { promptTokens: number; completionTokens: number; totalTokens: number; estimatedCostUsd: number } }> {
   const config = getAIProviderConfig(env);
 
@@ -128,7 +134,28 @@ ${JSON.stringify(
 GIRO RÁPIDO:
 ${JSON.stringify(edition.quick_bits || [], null, 2)}
 
-Selecione a pauta de maior impacto e gere o carrossel (5 a 8 slides) com o CTA final pedindo pro leitor comentar "NEWS" para receber a newsletter no Direct, e legenda 100% otimizada para SEO e viralidade no Instagram.
+${
+  focusStory
+    ? `PAUTA OBRIGATORIA DESTE CARROSSEL (nao escolha outra, nao misture com as demais):
+${JSON.stringify(
+  {
+    category: focusStory.category,
+    title: focusStory.title,
+    summary: focusStory.summary,
+    context: focusStory.context,
+    practical_impact: focusStory.practical_impact,
+    why_it_matters: focusStory.why_it_matters,
+    source_name: focusStory.source_name,
+  },
+  null,
+  2,
+)}
+
+As demais pautas acima servem apenas de contexto do dia. Desenvolva exclusivamente a pauta obrigatoria.`
+    : "Selecione a pauta de maior impacto da edicao e aprofunde exclusivamente nela."
+}
+
+Gere o carrossel (5 a 8 slides) com o CTA final pedindo pro leitor comentar "NEWS" para receber a newsletter no Direct, e legenda 100% otimizada para SEO e viralidade no Instagram.
 `;
 
   const aiResult = await callOpenAIJSON<InstagramCarouselContent>(

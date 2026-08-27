@@ -1,6 +1,9 @@
 import { escapeHtml, safeHttpUrl } from "../html";
 import { createListmonkClient } from "../listmonk";
-import { runInstagramCarouselService } from "../social/instagram/instagram-service";
+import {
+  scheduleEditionPosts,
+  type ScheduledPostSlot,
+} from "../social/instagram/scheduler";
 import {
   DEFAULT_PROJECT_ID,
   getProjectNewsSources,
@@ -332,6 +335,61 @@ export async function runNewsroom(
   let createdArticleSlug: string | undefined;
   let createdCampaignId: number | undefined;
   let campaignStatus: string = "draft";
+  let editionId: string | undefined;
+
+  // A edição precisa ficar gravada antes de qualquer publicação: é dela que o
+  // pipeline do Instagram tira as pautas dos posts do dia. A tabela
+  // news_editions existia com 18 colunas e nenhum insert em todo o código, e o
+  // serviço do Instagram, ao não encontrar a edição, caía num conteúdo de
+  // demonstração escrito no próprio arquivo.
+  if (!dryRun) {
+    try {
+      const supabase = getSupabaseAdminClient();
+
+      const { count } = await supabase
+        .from("news_editions")
+        .select("id", { count: "exact", head: true })
+        .eq("project_id", project.id);
+
+      const { data: editionRow, error: editionErr } = await supabase
+        .from("news_editions")
+        .upsert(
+          {
+            project_id: project.id,
+            edition_date: todayStr,
+            edition_number: (count ?? 0) + 1,
+            slug: `edicao-${todayStr}`,
+            subject: pipelineResult.edition.subject,
+            subject_options: pipelineResult.edition.subject_options,
+            preheader: pipelineResult.edition.preheader,
+            headline: pipelineResult.edition.headline,
+            intro: pipelineResult.edition.intro,
+            stories: pipelineResult.edition.stories,
+            quick_bits: pipelineResult.edition.quick_bits ?? [],
+            closing: pipelineResult.edition.closing,
+            final_line: pipelineResult.edition.final_line,
+            content_html: htmlContent,
+            word_count: wordCount,
+            qa_passed: pipelineResult.qaResult.passed,
+            status: "published",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "project_id,edition_date" },
+        )
+        .select("id")
+        .single();
+
+      if (editionErr) throw new Error(editionErr.message);
+      editionId = editionRow?.id;
+      console.log(`[NEWSROOM] Edição ${todayStr} gravada em news_editions (${editionId}).`);
+    } catch (edErr) {
+      // Sem a edição gravada os posts do dia não têm de onde sair, então a
+      // falha interrompe em vez de seguir para a publicação.
+      throw new Error(
+        `Falha ao gravar a edição do dia: ${edErr instanceof Error ? edErr.message : String(edErr)}`,
+      );
+    }
+  }
 
   if (publishToPortal) {
     try {
@@ -349,6 +407,8 @@ export async function runNewsroom(
             excerpt: pipelineResult.edition.preheader,
             description: pipelineResult.edition.intro,
             cover_image: primaryCoverImage,
+            content_html: htmlContent,
+            content: pipelineResult.edition.stories,
             status: "published",
             category: "Edição Diária",
             author: "desbuguei.ia",
@@ -399,24 +459,24 @@ export async function runNewsroom(
     }
   }
 
-  // 100% Automação do Instagram: Dispara geração & postagem do carrossel automaticamente
+  // Os posts do dia são agendados aqui, não gerados. A edição vira várias
+  // vagas — uma pauta por post, espalhadas ao longo do dia — e o worker de
+  // renderização processa cada uma no horário. A geração exige Chromium, que
+  // não roda na hospedagem que serve o site.
+  let scheduledPosts: ScheduledPostSlot[] = [];
+
   if (!dryRun) {
     try {
-      console.log("[NEWSROOM INSTAGRAM] Disparando criação e publicação 100% automática no Instagram...");
-      await runInstagramCarouselService(
-        {
-          projectId: project.id,
-          dryRun: false,
-          autoPost: autoSend,
-          editionDateStr: todayStr,
-          editionContent: pipelineResult.edition,
-          articleSlug: createdArticleSlug || `edicao-${todayStr}`,
-        },
-        env,
-        fetcher
-      ).catch((instErr) => console.error("[NEWSROOM INSTAGRAM ERROR] Falha não-bloqueante no Instagram:", instErr));
-    } catch (instErr) {
-      console.error("[NEWSROOM INSTAGRAM ERROR] Falha no disparo do Instagram:", instErr);
+      scheduledPosts = await scheduleEditionPosts({
+        project,
+        editionId,
+        editionDate: todayStr,
+        articleSlug: createdArticleSlug || `edicao-${todayStr}`,
+        stories: pipelineResult.edition.stories,
+      });
+    } catch (agErr) {
+      // Falhar no agendamento não pode desfazer a newsletter que já saiu.
+      console.error("[NEWSROOM INSTAGRAM] Falha ao agendar os posts do dia:", agErr);
     }
   }
 
@@ -438,6 +498,7 @@ export async function runNewsroom(
           tokens_output: pipelineResult.totalUsage.completionTokens,
           cost_estimate_usd: pipelineResult.totalUsage.estimatedCostUsd,
           dry_run: false,
+          edition_id: editionId,
           idempotency_key: idempotencyKey,
         });
     } catch (dbErr) {
@@ -455,6 +516,8 @@ export async function runNewsroom(
     listmonkCampaignId: createdCampaignId,
     campaignStatus,
     idempotencyKey,
+    editionId,
+    scheduledPosts,
     executionTimeMs,
     sourcesAttempted: collectionResult.sourcesAttempted,
     candidatesFound: collectionResult.candidates.length,

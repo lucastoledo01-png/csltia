@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "worker:instagram": "tsx src/scripts/instagram-worker.ts",
+    "newsroom:dry": "tsx src/scripts/cli-newsroom-dryrun.ts",
+    "instagram:preview": "tsx src/scripts/generate-instagram-carousel.ts",
+    "instagram:verify": "tsx src/scripts/verify-instagram-token.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
@@ -27,6 +31,7 @@
     "jsdom": "^30.0.1",
     "playwright": "^1.62.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5",
     "vitest": "^4.1.10"
   },
