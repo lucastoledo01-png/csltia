@@ -1,17 +1,17 @@
 import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdminConfig } from "./env";
 
-const DEFAULT_SUPABASE_URL = "https://azqpdesusdzqndvsqmko.supabase.co";
-const DEFAULT_SUPABASE_KEY = "sb_publishable_W40ZpaoRMiB4AtoKygSOAQ_8C5NxeoG";
-
+/**
+ * Cliente Supabase com chave de serviço, exclusivo do servidor.
+ *
+ * A URL e a chave vinham com valores padrão escritos no código, o que fazia
+ * um ambiente mal configurado se conectar silenciosamente a um projeto fixo.
+ * Agora a falta de configuração interrompe a operação.
+ */
 export function getSupabaseAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-  const secretKey =
-    process.env.SUPABASE_SECRET_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    DEFAULT_SUPABASE_KEY;
+  const { url, key } = getSupabaseAdminConfig();
 
-  return createClient(url, secretKey, {
+  return createClient(url, key, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

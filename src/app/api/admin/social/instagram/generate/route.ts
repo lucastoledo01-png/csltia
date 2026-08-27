@@ -1,30 +1,38 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifyAdminSessionToken } from "@/lib/server/admin-auth";
-import { runInstagramCarouselService } from "@/lib/server/social/instagram/instagram-service";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { requireAdmin } from "@/lib/server/api-auth";
+import { requestInstagramPost } from "@/lib/server/social/instagram/instagram-service";
 
+/**
+ * Enfileira um post para o worker processar.
+ *
+ * A aplicação web não renderiza os slides: isso exige Chromium, que não roda na
+ * hospedagem que serve o site. A rota apenas cria a vaga com horário imediato;
+ * quem gera, renderiza e publica é o worker.
+ */
 export async function POST(req: NextRequest) {
-  const adminCookie = req.cookies.get("casaloti_admin")?.value;
-  const adminSecret = process.env.ADMIN_SECRET || "casaloti_admin_secret_key";
-  const authHeader = req.headers.get("Authorization");
-  const isSecretMatch = authHeader === `Bearer ${adminSecret}` || authHeader === `Bearer ${process.env.INTERNAL_API_SECRET || "internal_secret"}`;
-  const isAuthenticated = verifyAdminSessionToken(adminSecret, adminCookie) || isSecretMatch;
-
-  if (!isAuthenticated && process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-  }
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
 
   try {
     const body = await req.json().catch(() => ({}));
-    const result = await runInstagramCarouselService({
-      dryRun: body.dryRun,
-      autoPost: body.autoPost,
-      editionDateStr: body.editionDateStr,
-      idempotencyKey: body.idempotencyKey,
+
+    const resultado = await requestInstagramPost({
+      projectId: typeof body.projectId === "string" ? body.projectId : undefined,
+      editionDateStr: typeof body.editionDateStr === "string" ? body.editionDateStr : undefined,
+      storyIndex: typeof body.storyIndex === "number" ? body.storyIndex : undefined,
     });
 
-    return NextResponse.json(result);
-  } catch (err: any) {
+    return NextResponse.json({
+      ok: true,
+      ...resultado,
+      message: "Post enfileirado. O worker processa no próximo giro.",
+    });
+  } catch (err) {
     console.error("[API INSTAGRAM GENERATE ERROR]", err);
-    return NextResponse.json({ error: err?.message || String(err) }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: err instanceof Error ? err.message : String(err) },
+      { status: 500 },
+    );
   }
 }

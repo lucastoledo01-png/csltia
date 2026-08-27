@@ -1,14 +1,25 @@
+import { escapeHtml, safeHttpUrl } from "../html";
 import { createListmonkClient } from "../listmonk";
-import { runInstagramCarouselService } from "../social/instagram/instagram-service";
+import {
+  scheduleEditionPosts,
+  type ScheduledPostSlot,
+} from "../social/instagram/scheduler";
+import {
+  DEFAULT_PROJECT_ID,
+  getProjectNewsSources,
+  projectToday,
+  requireActiveProject,
+} from "../projects";
 import { getSupabaseAdminClient } from "../supabase-admin";
 import { collectAllNews } from "./collector";
 import { deduplicateCandidates } from "./deduplicator";
-import { defaultNewsSources } from "./news-sources";
 import { runNewsroomPipeline } from "./pipeline";
 import { rankAndFilterCandidates } from "./ranker";
 import { EditionContent } from "./schemas";
 
 export type RunNewsroomOptions = {
+  /** Projeto para o qual a edição é produzida. Sem valor, usa o projeto semente. */
+  projectId?: string;
   dryRun?: boolean;
   timeWindowHours?: number;
   idempotencyKey?: string;
@@ -49,7 +60,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
       };
       const emoji = emojiMap[s.category] || "⚡";
       return `<div style="margin-bottom: 6px; font-size: 13px; color: #374151;">
-        <span style="font-weight: 700; color: #111827;">${emoji} ${s.category.toUpperCase()}:</span> ${s.title}
+        <span style="font-weight: 700; color: #111827;">${emoji} ${escapeHtml(s.category.toUpperCase())}:</span> ${escapeHtml(s.title)}
       </div>`;
     })
     .join("");
@@ -61,31 +72,37 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
       );
       const whatsappShareUrl = `https://api.whatsapp.com/send?text=${whatsappText}`;
 
-      const sourceCreditName = s.source_name || "Fonte Original";
-      const summaryWithInlineLink = s.summary.replace(
+      const sourceCreditName = escapeHtml(s.source_name || "Fonte Original");
+      const sourceUrl = safeHttpUrl(s.source_url);
+      const safeTitle = escapeHtml(s.title);
+
+      // O resumo é escapado antes de receber o link para que a âncora seja o
+      // único HTML introduzido aqui.
+      const escapedSummary = escapeHtml(s.summary);
+      const summaryWithInlineLink = escapedSummary.replace(
         /(notícia|estudo|pesquisa|anúncio|ferramenta|plataforma|novo modelo|atualização)/i,
-        `<a href="${s.source_url}" target="_blank" style="color: #374151; font-weight: 600; text-decoration: underline;">$1</a>`
+        `<a href="${sourceUrl}" target="_blank" style="color: #374151; font-weight: 600; text-decoration: underline;">$1</a>`
       );
 
-      const storyImage = coverImages[index] || fallbackImages[index % fallbackImages.length];
+      const storyImage = safeHttpUrl(coverImages[index] || fallbackImages[index % fallbackImages.length]);
 
       return `
       <section style="margin-bottom: 36px; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb;">
         <!-- Tag de Categoria Estilo The News -->
         <div style="margin-bottom: 6px;">
           <span style="display: inline-block; color: #d97706; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em;">
-            ${s.category}
+            ${escapeHtml(s.category)}
           </span>
         </div>
 
         <!-- Título da Pauta -->
         <h2 style="font-size: 24px; font-weight: 900; color: #111827; margin: 4px 0 16px 0; line-height: 1.25;">
-          ${s.title}
+          ${safeTitle}
         </h2>
 
         <!-- Imagem da Notícia com atributos de tag inline anti-download -->
         <div style="margin-bottom: 8px; border-radius: 12px; overflow: hidden; background-color: #f3f4f6;">
-          <img src="${storyImage}" alt="${s.title}" border="0" loading="eager" decoding="async" style="display: block; width: 100%; height: auto; max-height: 340px; object-fit: cover; border-radius: 12px; margin: 0 auto;" />
+          <img src="${storyImage}" alt="${safeTitle}" border="0" loading="eager" decoding="async" style="display: block; width: 100%; height: auto; max-height: 340px; object-fit: cover; border-radius: 12px; margin: 0 auto;" />
         </div>
         <div style="text-align: center; font-size: 11px; color: #9ca3af; margin-bottom: 18px;">
           (Imagem: ${sourceCreditName} | Reprodução)
@@ -93,7 +110,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
 
         <!-- Conteúdo Completo com Link da Fonte Embutido no Texto -->
         <div style="font-size: 15px; line-height: 1.7; color: #374151; margin-bottom: 16px;">
-          ${summaryWithInlineLink.includes("href=") ? summaryWithInlineLink : `${summaryWithInlineLink} (<a href="${s.source_url}" target="_blank" style="color: #374151; text-decoration: underline;">fonte original: ${sourceCreditName}</a>)`}
+          ${summaryWithInlineLink.includes("href=") ? summaryWithInlineLink : `${summaryWithInlineLink} (<a href="${sourceUrl}" target="_blank" style="color: #374151; text-decoration: underline;">fonte original: ${sourceCreditName}</a>)`}
         </div>
 
         <!-- Caixa Amarela Prática estilo The News -->
@@ -102,18 +119,18 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
             💡 Como aplicar isso no seu perfil ou vendas:
           </p>
           <p style="font-size: 14px; line-height: 1.6; color: #1f2937; margin: 0;">
-            ${s.practical_impact}
+            ${escapeHtml(s.practical_impact)}
           </p>
         </div>
 
         <p style="font-size: 14px; line-height: 1.6; color: #4b5563; margin-bottom: 12px;">
-          <strong>Por que olhar de perto:</strong> ${s.why_it_matters}
+          <strong>Por que olhar de perto:</strong> ${escapeHtml(s.why_it_matters)}
         </p>
 
         ${
           s.humor_line
             ? `<p style="font-size: 13px; font-style: italic; color: #6b7280; margin: 8px 0 16px 0;">
-                💬 "${s.humor_line}"
+                💬 "${escapeHtml(s.humor_line)}"
                </p>`
             : ""
         }
@@ -137,7 +154,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
           ⚡ Giro Rápido & Outras Sacadas
         </h3>
         <ul style="margin: 0; padding-left: 18px; font-size: 14px; color: #374151; line-height: 1.65;">
-          ${edition.quick_bits.map((b) => `<li style="margin-bottom: 10px;"><strong>${b.title}:</strong> ${b.text}</li>`).join("")}
+          ${edition.quick_bits.map((b) => `<li style="margin-bottom: 10px;"><strong>${escapeHtml(b.title)}:</strong> ${escapeHtml(b.text)}</li>`).join("")}
         </ul>
       </section>
     `
@@ -149,16 +166,16 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
       <!-- Cabeçalho Estilo The News -->
       <header style="text-align: center; border-bottom: 3px solid #ff4a1c; padding-bottom: 18px; margin-bottom: 24px;">
         <div style="font-size: 11px; font-weight: 800; color: #6b7280; letter-spacing: 0.1em; margin-bottom: 8px;">
-          ${dateFormatted}
+          ${escapeHtml(dateFormatted)}
         </div>
         <div style="display: inline-block; background-color: #ff4a1c; color: #ffffff; font-weight: 900; font-family: monospace; font-size: 18px; padding: 6px 16px; border-radius: 8px; margin-bottom: 12px; letter-spacing: 0.05em;">
           b. / desbuguei.ia
         </div>
         <h1 style="font-size: 26px; font-weight: 900; margin: 10px 0 6px 0; color: #111827; line-height: 1.25;">
-          ${edition.headline}
+          ${escapeHtml(edition.headline)}
         </h1>
         <p style="font-size: 14px; color: #4b5563; margin: 0; font-weight: 500;">
-          ${edition.preheader}
+          ${escapeHtml(edition.preheader)}
         </p>
       </header>
 
@@ -167,7 +184,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
         <p style="margin: 0 0 10px 0; font-weight: 800; color: #ff4a1c; text-transform: uppercase; font-size: 13px; letter-spacing: 0.08em;">
           ☕ Bom dia!
         </p>
-        ${edition.intro}
+        ${escapeHtml(edition.intro)}
       </div>
 
       <!-- Resumo Rápido (TOC) -->
@@ -257,10 +274,14 @@ export async function runNewsroom(
   const createNewsletterCampaign = options.createNewsletterCampaign ?? !dryRun;
   const autoSend = options.autoSend ?? (env.NEWSLETTER_AUTO_SEND === "true" || (!dryRun && env.NEWSLETTER_AUTO_SEND !== "false"));
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const project = await requireActiveProject(options.projectId ?? DEFAULT_PROJECT_ID);
+
+  // A data vem do fuso do projeto. Com UTC, toda execução depois das 21h no
+  // Brasil era gravada com a data do dia seguinte.
+  const todayStr = projectToday(project);
   const idempotencyKey = options.idempotencyKey || `daily-edition-${todayStr}`;
 
-  console.log(`[NEWSROOM] Iniciando run da redação (dry_run: ${dryRun}, auto_send: ${autoSend}, key: ${idempotencyKey})...`);
+  console.log(`[NEWSROOM] Iniciando run da redação de ${project.slug} (dry_run: ${dryRun}, auto_send: ${autoSend}, key: ${idempotencyKey})...`);
 
   if (!dryRun) {
     try {
@@ -268,6 +289,7 @@ export async function runNewsroom(
       const { data: existingRun } = await supabase
         .from("newsroom_runs")
         .select("id, status, edition_id")
+        .eq("project_id", project.id)
         .eq("idempotency_key", idempotencyKey)
         .single();
 
@@ -282,8 +304,12 @@ export async function runNewsroom(
 
   const startTime = Date.now();
 
-  console.log("[NEWSROOM] Coletando notícias das fontes confiáveis brasileiras e globais...");
-  const collectionResult = await collectAllNews(defaultNewsSources, fetcher);
+  // As fontes vêm do banco, por projeto. Antes eram um array fixo no código,
+  // então um projeto de outro segmento exigiria editar o fonte e fazer deploy.
+  const sources = await getProjectNewsSources(project.id);
+
+  console.log(`[NEWSROOM] Coletando notícias de ${sources.length} fontes configuradas para ${project.slug}...`);
+  const collectionResult = await collectAllNews(sources, fetcher);
   console.log(`[NEWSROOM] ${collectionResult.candidates.length} candidatas encontradas na janela de ${collectionResult.windowHours}h em ${collectionResult.sourcesAttempted} fontes.`);
 
   const { uniqueGroups, duplicatesCount } = deduplicateCandidates(collectionResult.candidates);
@@ -309,6 +335,61 @@ export async function runNewsroom(
   let createdArticleSlug: string | undefined;
   let createdCampaignId: number | undefined;
   let campaignStatus: string = "draft";
+  let editionId: string | undefined;
+
+  // A edição precisa ficar gravada antes de qualquer publicação: é dela que o
+  // pipeline do Instagram tira as pautas dos posts do dia. A tabela
+  // news_editions existia com 18 colunas e nenhum insert em todo o código, e o
+  // serviço do Instagram, ao não encontrar a edição, caía num conteúdo de
+  // demonstração escrito no próprio arquivo.
+  if (!dryRun) {
+    try {
+      const supabase = getSupabaseAdminClient();
+
+      const { count } = await supabase
+        .from("news_editions")
+        .select("id", { count: "exact", head: true })
+        .eq("project_id", project.id);
+
+      const { data: editionRow, error: editionErr } = await supabase
+        .from("news_editions")
+        .upsert(
+          {
+            project_id: project.id,
+            edition_date: todayStr,
+            edition_number: (count ?? 0) + 1,
+            slug: `edicao-${todayStr}`,
+            subject: pipelineResult.edition.subject,
+            subject_options: pipelineResult.edition.subject_options,
+            preheader: pipelineResult.edition.preheader,
+            headline: pipelineResult.edition.headline,
+            intro: pipelineResult.edition.intro,
+            stories: pipelineResult.edition.stories,
+            quick_bits: pipelineResult.edition.quick_bits ?? [],
+            closing: pipelineResult.edition.closing,
+            final_line: pipelineResult.edition.final_line,
+            content_html: htmlContent,
+            word_count: wordCount,
+            qa_passed: pipelineResult.qaResult.passed,
+            status: "published",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "project_id,edition_date" },
+        )
+        .select("id")
+        .single();
+
+      if (editionErr) throw new Error(editionErr.message);
+      editionId = editionRow?.id;
+      console.log(`[NEWSROOM] Edição ${todayStr} gravada em news_editions (${editionId}).`);
+    } catch (edErr) {
+      // Sem a edição gravada os posts do dia não têm de onde sair, então a
+      // falha interrompe em vez de seguir para a publicação.
+      throw new Error(
+        `Falha ao gravar a edição do dia: ${edErr instanceof Error ? edErr.message : String(edErr)}`,
+      );
+    }
+  }
 
   if (publishToPortal) {
     try {
@@ -320,11 +401,14 @@ export async function runNewsroom(
         .from("articles")
         .upsert(
           {
+            project_id: project.id,
             slug: articleSlug,
             title: pipelineResult.edition.headline,
             excerpt: pipelineResult.edition.preheader,
             description: pipelineResult.edition.intro,
             cover_image: primaryCoverImage,
+            content_html: htmlContent,
+            content: pipelineResult.edition.stories,
             status: "published",
             category: "Edição Diária",
             author: "desbuguei.ia",
@@ -332,7 +416,7 @@ export async function runNewsroom(
             published_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
-          { onConflict: "slug" }
+          { onConflict: "project_id,slug" }
         )
         .select("id, slug")
         .single();
@@ -342,6 +426,7 @@ export async function runNewsroom(
         console.log(`[NEWSROOM PORTAL] Edição publicada no portal com sucesso em /artigos/${createdArticleSlug}`);
 
         await supabase.from("article_revisions").insert({
+          project_id: project.id,
           article_id: articleData.id,
           title: pipelineResult.edition.headline,
           body: pipelineResult.edition as any,
@@ -374,23 +459,24 @@ export async function runNewsroom(
     }
   }
 
-  // 100% Automação do Instagram: Dispara geração & postagem do carrossel automaticamente
+  // Os posts do dia são agendados aqui, não gerados. A edição vira várias
+  // vagas — uma pauta por post, espalhadas ao longo do dia — e o worker de
+  // renderização processa cada uma no horário. A geração exige Chromium, que
+  // não roda na hospedagem que serve o site.
+  let scheduledPosts: ScheduledPostSlot[] = [];
+
   if (!dryRun) {
     try {
-      console.log("[NEWSROOM INSTAGRAM] Disparando criação e publicação 100% automática no Instagram...");
-      await runInstagramCarouselService(
-        {
-          dryRun: false,
-          autoPost: autoSend,
-          editionDateStr: todayStr,
-          editionContent: pipelineResult.edition,
-          articleSlug: createdArticleSlug || `edicao-${todayStr}`,
-        },
-        env,
-        fetcher
-      ).catch((instErr) => console.error("[NEWSROOM INSTAGRAM ERROR] Falha não-bloqueante no Instagram:", instErr));
-    } catch (instErr) {
-      console.error("[NEWSROOM INSTAGRAM ERROR] Falha no disparo do Instagram:", instErr);
+      scheduledPosts = await scheduleEditionPosts({
+        project,
+        editionId,
+        editionDate: todayStr,
+        articleSlug: createdArticleSlug || `edicao-${todayStr}`,
+        stories: pipelineResult.edition.stories,
+      });
+    } catch (agErr) {
+      // Falhar no agendamento não pode desfazer a newsletter que já saiu.
+      console.error("[NEWSROOM INSTAGRAM] Falha ao agendar os posts do dia:", agErr);
     }
   }
 
@@ -399,6 +485,7 @@ export async function runNewsroom(
       const supabase = getSupabaseAdminClient();
       await supabase.from("newsroom_runs")
         .insert({
+          project_id: project.id,
           started_at: new Date(startTime).toISOString(),
           finished_at: new Date().toISOString(),
           status: "success",
@@ -411,6 +498,7 @@ export async function runNewsroom(
           tokens_output: pipelineResult.totalUsage.completionTokens,
           cost_estimate_usd: pipelineResult.totalUsage.estimatedCostUsd,
           dry_run: false,
+          edition_id: editionId,
           idempotency_key: idempotencyKey,
         });
     } catch (dbErr) {
@@ -420,12 +508,16 @@ export async function runNewsroom(
 
   return {
     ok: true,
+    projectId: project.id,
+    projectSlug: project.slug,
     dryRun,
     publishedToPortal: Boolean(createdArticleSlug),
     articleSlug: createdArticleSlug,
     listmonkCampaignId: createdCampaignId,
     campaignStatus,
     idempotencyKey,
+    editionId,
+    scheduledPosts,
     executionTimeMs,
     sourcesAttempted: collectionResult.sourcesAttempted,
     candidatesFound: collectionResult.candidates.length,

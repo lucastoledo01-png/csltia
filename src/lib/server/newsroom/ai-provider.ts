@@ -1,3 +1,5 @@
+import { getOpenAIKey } from "../env";
+
 type OpenAIResponse = {
   id: string;
   choices: Array<{
@@ -19,6 +21,8 @@ export type AITokenUsage = {
   estimatedCostUsd: number;
 };
 
+const REQUEST_TIMEOUT_MS = 120_000;
+
 export function calculateCost(model: string, promptTokens: number, completionTokens: number): number {
   if (model.includes("mini") || model.includes("3.5")) {
     return (promptTokens / 1_000_000) * 0.15 + (completionTokens / 1_000_000) * 0.60;
@@ -39,183 +43,38 @@ export function getAIProviderConfig(env: Record<string, string | undefined> = pr
   };
 }
 
+/**
+ * Chama o modelo e devolve JSON estruturado.
+ *
+ * Esta função existia com um caminho de contingência que, na ausência da chave
+ * da OpenAI, devolvia notícias escritas à mão dentro do próprio código como se
+ * fossem resposta do modelo — e, quando o prompt era o de auditoria editorial,
+ * devolvia aprovação com nota 95. O resultado era o sistema publicar conteúdo
+ * inventado no portal, na newsletter e no Instagram sem sinalizar erro algum.
+ *
+ * Falta de credencial agora interrompe o pipeline. Conteúdo fabricado nunca é
+ * um resultado aceitável.
+ */
 export async function callOpenAIJSON<T>(
   messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
   model: string,
   env: Record<string, string | undefined> = process.env,
   fetcher: typeof fetch = fetch
 ): Promise<{ data: T; usage: AITokenUsage }> {
-  const config = getAIProviderConfig(env);
-
-  if (!config.isConfigured || !config.apiKey) {
-    console.warn(`[NEWSROOM AI] OPENAI_API_KEY não detectada. Gerando saída estruturada via mecanismo de fallback seguro para DRY RUN.`);
-
-    const userPromptStr = messages.map(m => m.content).join("\n");
-    let fallbackData: any;
-
-    if (userPromptStr.includes("auditor de qualidade")) {
-      fallbackData = {
-        passed: true,
-        hallucination_risk: false,
-        tone_check_passed: true,
-        grammar_passed: true,
-        story_count_valid: true,
-        issues: [],
-        score: 95,
-      };
-    } else if (userPromptStr.includes("INSTAGRAM") || userPromptStr.includes("CARROSSEL")) {
-      fallbackData = {
-        title: "Instagram lança assistente de IA para criadores e marcas",
-        edition_date: "2026-08-25",
-        primary_topic: "Redes Sociais",
-        target_audience_focus: "Criadores, Vendedores & Empreendedores",
-        slides: [
-          {
-            index: 1,
-            type: "cover",
-            eyebrow: "UPDATE DE IA",
-            title: "A nova ferramenta do Instagram que vai mudar seus posts",
-            body: "Veja o que mudou hoje no app e como usar no seu perfil",
-            cover_image_prompt: "Minimalist futuristic 3D render of artificial intelligence smartphone, orange and dark gray theme, glowing neon accents, clean background, no text"
-          },
-          {
-            index: 2,
-            type: "intro",
-            title: "O que aconteceu?",
-            body: "A Meta liberou novos recursos de IA que geram roteiros e editam vídeos diretamente no aplicativo do Instagram."
-          },
-          {
-            index: 3,
-            type: "content",
-            title: "Por que isso importa de verdade",
-            body: "Criadores de conteúdo e negócios locais podem economizar até 3 horas por semana na produção de Reels e carrosséis.",
-            bullet_points: [
-              "Sugestão de legendas automáticas",
-              "Criação de variações de roteiro em segundos",
-              "Edição rápida direto no celular"
-            ]
-          },
-          {
-            index: 4,
-            type: "practical_impact",
-            title: "Como usar hoje no seu perfil",
-            body: "Abra a aba de criação do Instagram, ative as sugestões de roteiro com IA e escolha a melhor opção para a sua audiência."
-          },
-          {
-            index: 5,
-            type: "cta",
-            title: "Quer receber o resumo no seu Direct?",
-            body: "Comente 'NEWS' aqui embaixo que te enviamos o link exclusivo da nossa newsletter gratuita direto no seu Direct!",
-            cta_text: "Comente NEWS para receber no Direct"
-          }
-        ],
-        caption: {
-          headline: "A nova IA do Instagram acabou de sair! Veja o que muda na sua rotina ⬇️",
-          intro_summary: "Se você cria conteúdo ou vende pelo Instagram, essa novidade vai te economizar horas de trabalho.",
-          key_takeaways: [
-            "📌 Roteiros de vídeos gerados em segundos",
-            "💡 Edição direta e simples no app",
-            "⚡ Mais tempo livre para focar no seu negócio"
-          ],
-          cta_call: "👇 Comente NEWS nos comentários para receber a newsletter no seu Direct!",
-          hashtags: ["#inteligenciaartificial", "#redessociais", "#marketingdigital", "#desbuguei", "#vendascomia"],
-          full_caption: "A nova IA do Instagram acabou de sair! ⬇️\n\nSe você cria conteúdo ou vende pela internet, veja o que mudou:\n\n📌 Roteiros de vídeos gerados em segundos\n💡 Edição direta no app\n⚡ Economia de tempo para o seu negócio\n\n👇 Comente NEWS aqui nos comentários para receber o acesso exclusivo da nossa newsletter diária direto no seu Direct!\n\nAgora você está desbugado. 🚀\n\n#inteligenciaartificial #redessociais #marketingdigital #desbuguei #vendascomia"
-        }
-      };
-    } else {
-      fallbackData = {
-        subject_options: [
-          "Radar de IA: As novidades mais quentes que você precisa testar hoje",
-          "O modo debug da semana: Modelos novos, ferramentas e produtividade",
-          "IA desbugada: O que mudou no mercado e como aplicar na prática"
-        ],
-        subject: "Radar de IA: As novidades mais quentes que você precisa testar hoje",
-        preheader: "Resumo matinal com o que realmente importa sobre modelos, ferramentas e automação.",
-        headline: "Edição Diária: Inteligência artificial desbugada e sem fumaça",
-        intro: "Bom dia. Enquanto você carregava o seu café, o mercado de IA movimentou novas atualizações, lançamentos de modelos e ferramentas práticas. Bora debugar o que realmente interessa sem perder tempo.",
-        stories: [
-          {
-            rank: 1,
-            category: "Modelos",
-            title: "Novos avanços em modelos de linguagem e raciocínio avançado",
-            summary: "Laboratórios e empresas de ponta anunciam atualizações focadas em eficiência e redução de latência para desenvolvedores.",
-            context: "Com o aumento do uso corporativo, a demanda por modelos menores e mais rápidos cresceu significativamente.",
-            why_it_matters: "Permite executar tarefas de alta complexidade com menor custo computacional e resposta quase instantânea.",
-            practical_impact: "Desenvolvedores podem integrar chamadas de API mais baratas e responsivas em suas aplicações existentes.",
-            humor_line: "O seu código talvez não esteja compilando de primeira, mas a API pelo menos respondeu em milissegundos.",
-            source_name: "TechCrunch AI",
-            source_url: "https://techcrunch.com/category/artificial-intelligence/"
-          },
-          {
-            rank: 2,
-            category: "Ferramentas",
-            title: "Automação de workflows e assistentes de código ganham novas integrações",
-            summary: "Ferramentas de produtividade passam a oferecer suporte nativo para agentes autônomos e execução de scripts locais.",
-            context: "A transição de chat estático para fluxos de trabalho proativos é a principal tendência do mercado.",
-            why_it_matters: "Reduz trabalho manual repetitivo na gestão de projetos e refatoração de código.",
-            practical_impact: "Equipes de tecnologia ganham mais tempo para focar na arquitetura em vez de tarefas operacionais.",
-            humor_line: "É o fim do 'no meu computador funciona', agora é 'no meu agente funcionou'.",
-            source_name: "Ars Technica AI",
-            source_url: "https://feeds.arstechnica.com/arstechnica/technology-lab"
-          },
-          {
-            rank: 3,
-            category: "Mercado",
-            title: "Investimentos em infraestrutura de IA atingem novas marcas no setor",
-            summary: "Empresas de tecnologia expandem capacidade de data centers para suprir demanda crescente por inferência.",
-            context: "Infraestrutura continua sendo o principal gargalo para a expansão de IA em escala global.",
-            why_it_matters: "Garante estabilidade dos serviços e reduz probabilidade de instabilidades em horários de pico.",
-            practical_impact: "Maior disponibilidade de GPUs e menor risco de indisponibilidade em APIs em produção.",
-            humor_line: "Seus servidores continuam quentes, mas a infraestrutura global está aguentando o tranco.",
-            source_name: "VentureBeat AI",
-            source_url: "https://venturebeat.com/category/ai/"
-          },
-          {
-            rank: 4,
-            category: "Produtividade",
-            title: "Novos frameworks open-source para orquestração de dados e agentes",
-            summary: "Comunidade dev lança bibliotecas leves para integração de LLMs com bancos de dados relacionais e vetoriais.",
-            context: "Projetos de código aberto ganham tração pela transparência e controle sobre dados sensíveis.",
-            why_it_matters: "Facilita a implementação de busca semântica em ambientes on-premise e nuvem própria.",
-            practical_impact: "Menor dependência de ecossistemas fechados e maior liberdade para customização de prompts.",
-            humor_line: "Desbugar agente open-source no domingo à noite virou o novo hobby favorito do dev.",
-            source_name: "MIT Technology Review AI",
-            source_url: "https://www.technologyreview.com/topic/artificial-intelligence/"
-          }
-        ],
-        quick_bits: [
-          { title: "Hotfix de Segurança", text: "Atualização recomendada para dependências de bibliotecas de IA em Python." },
-          { title: "Nova Doc", text: "Guias práticos de otimização de prompts lançados pela comunidade dev." }
-        ],
-        closing: "Seu café já deve ter esfriado um pouco, mas a sua pilha de conhecimento está atualizada.",
-        final_line: "Agora você está desbugado. Bora iniciar o dia."
-      };
-    }
-
-    return {
-      data: fallbackData as T,
-      usage: {
-        promptTokens: 1250,
-        completionTokens: 850,
-        totalTokens: 2100,
-        estimatedCostUsd: calculateCost(model, 1250, 850),
-      },
-    };
-  }
-
-  const reqBody: Record<string, any> = {
-    model,
-    messages,
-    response_format: { type: "json_object" },
-  };
+  const apiKey = getOpenAIKey(env);
 
   const response = await fetcher("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${config.apiKey.trim()}`,
+      "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(reqBody),
+    body: JSON.stringify({
+      model,
+      messages,
+      response_format: { type: "json_object" },
+    }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -224,15 +83,22 @@ export async function callOpenAIJSON<T>(
   }
 
   const json = (await response.json()) as OpenAIResponse;
-  const contentStr = json.choices?.[0]?.message?.content ?? "{}";
+  const contentStr = json.choices?.[0]?.message?.content;
 
-  const parsedData = JSON.parse(contentStr) as T;
+  if (!contentStr) {
+    throw new Error("OpenAI devolveu resposta sem conteúdo utilizável.");
+  }
+
+  let parsedData: T;
+  try {
+    parsedData = JSON.parse(contentStr) as T;
+  } catch {
+    throw new Error("OpenAI devolveu conteúdo que não é JSON válido.");
+  }
 
   const promptTokens = json.usage?.prompt_tokens ?? 0;
   const completionTokens = json.usage?.completion_tokens ?? 0;
   const totalTokens = json.usage?.total_tokens ?? (promptTokens + completionTokens);
-
-  const cost = calculateCost(model, promptTokens, completionTokens);
 
   return {
     data: parsedData,
@@ -240,7 +106,7 @@ export async function callOpenAIJSON<T>(
       promptTokens,
       completionTokens,
       totalTokens,
-      estimatedCostUsd: cost,
+      estimatedCostUsd: calculateCost(model, promptTokens, completionTokens),
     },
   };
 }

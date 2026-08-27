@@ -136,6 +136,52 @@ export async function createCarouselContainer(
   }
 }
 
+/**
+ * Aguarda o container terminar de ser processado antes da publicacao.
+ *
+ * A Graph API processa midia de forma assincrona. O codigo publicava logo apos
+ * criar o container, o que produz falha intermitente sem causa aparente quando
+ * a Meta ainda nao terminou de baixar e validar as imagens.
+ */
+export async function waitForContainerReady(
+  creationId: string,
+  env: Record<string, string | undefined> = process.env,
+  fetcher: typeof fetch = fetch,
+  options: { timeoutMs?: number; intervalMs?: number } = {},
+): Promise<{ ok: boolean; error?: string }> {
+  const { accessToken, isConfigured } = getMetaConfig(env);
+  if (!isConfigured || !accessToken) {
+    return { ok: false, error: "Credenciais de Meta Instagram não configuradas." };
+  }
+
+  const timeoutMs = options.timeoutMs ?? 120_000;
+  const intervalMs = options.intervalMs ?? 3_000;
+  const limite = Date.now() + timeoutMs;
+
+  while (Date.now() < limite) {
+    const url = `https://graph.facebook.com/v22.0/${creationId}?fields=status_code,status&access_token=${encodeURIComponent(accessToken)}`;
+    const response = await fetcher(url);
+    const json = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return { ok: false, error: json.error?.message || `Falha ao consultar container (${response.status})` };
+    }
+
+    switch (json.status_code) {
+      case "FINISHED":
+        return { ok: true };
+      case "ERROR":
+        return { ok: false, error: json.status || "A Meta rejeitou a mídia do container." };
+      case "EXPIRED":
+        return { ok: false, error: "O container expirou antes da publicação." };
+      default:
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+
+  return { ok: false, error: `Container não ficou pronto em ${Math.round(timeoutMs / 1000)}s.` };
+}
+
 export async function publishContainer(
   creationId: string,
   env: Record<string, string | undefined> = process.env,

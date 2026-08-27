@@ -1,65 +1,48 @@
-import fs from "fs";
-import path from "path";
-import { runInstagramCarouselService } from "../lib/server/social/instagram/instagram-service";
+/**
+ * Publica ao vivo uma vaga já agendada, identificada pelo id.
+ *
+ * Substitui o script anterior, que trazia o token de acesso do Instagram
+ * escrito no fonte e gerava um carrossel avulso. As credenciais agora vêm do
+ * ambiente, e o conteúdo vem da edição gravada — nunca de um objeto de exemplo.
+ *
+ * Uso:
+ *   npx tsx src/scripts/publish-written-carousel-live.ts <socialPostId>
+ */
 
-function loadEnvLocal() {
-  const envPath = path.resolve(process.cwd(), ".env.local");
-  if (fs.existsSync(envPath)) {
-    const content = fs.readFileSync(envPath, "utf-8");
-    for (const line of content.split("\n")) {
-      const trimmed = line.trim();
-      if (trimmed && !trimmed.startsWith("#") && trimmed.includes("=")) {
-        const [key, ...valueParts] = trimmed.split("=");
-        const val = valueParts.join("=").trim().replace(/^["']|["']$/g, "");
-        if (key && !process.env[key.trim()]) {
-          process.env[key.trim()] = val;
-        }
-      }
-    }
-  }
-}
+import { processScheduledPost } from "../lib/server/social/instagram/worker-service";
+import { loadEnvLocal, requireInstagramEnv } from "./load-env";
 
 async function main() {
   loadEnvLocal();
+  requireInstagramEnv();
 
-  console.log("=== DESBUGUEI.IA — DISPARO AO VIVO DE CARROSSEL ESCRITO ELEGANTE (ESTILO CLAUDE & GIO EXPLICA) ===");
+  const socialPostId = process.argv[2];
 
-  const customEnv = {
-    ...process.env,
-    INSTAGRAM_ACCOUNT_ID: "17841465061867883",
-    INSTAGRAM_ACCESS_TOKEN:
-      "EAAcHmrXDrZBABSXp7azR23gQJRfCOgUfRvrxx14TUfb4OD3uMyh831iZBfcLbzOEY8vRjqfZCDKG5meSUj68QqR4ZCFGeZCVkCZCNwIe4NZAol62A7PGOlAO4ySixdZAKYhfW7pJjxJuv1uNTiXNZAIH3CaFRJz8YsKkqopU7QdPllS6OZBbuBc1Rfyz0RjfdI4gZDZD",
-    INSTAGRAM_DRY_RUN: "false",
-    INSTAGRAM_AUTO_POST: "true",
-  };
+  if (!socialPostId) {
+    console.error("Informe o id do post: npx tsx src/scripts/publish-written-carousel-live.ts <socialPostId>");
+    process.exit(1);
+  }
 
-  const timestamp = Date.now();
-  const idempotencyKey = `instagram-carousel-written-style-${timestamp}`;
+  console.log(`=== PUBLICAÇÃO AO VIVO DO POST ${socialPostId} ===\n`);
 
-  console.log(`[START] Gerando carrossel escrito de 5 slides com background estético e publicando no Instagram...`);
-
-  const result = await runInstagramCarouselService(
-    {
-      dryRun: false,
-      autoPost: true,
-      idempotencyKey,
-    },
-    customEnv
-  );
+  const result = await processScheduledPost(socialPostId, { autoPost: true });
 
   console.log("\n=======================================================");
-  console.log("      RESULTADO DA PUBLICAÇÃO DO CARROSSEL ESCRITO     ");
+  console.log("             RESULTADO DA PUBLICAÇÃO                   ");
   console.log("=======================================================");
   console.log(`- Sucesso: ${result.ok}`);
   console.log(`- Status: ${result.status}`);
   console.log(`- Media ID da Meta: ${result.providerPostId || "N/A"}`);
-  console.log(`- Título do Post: ${result.carousel?.title}`);
-  console.log(`- Slides Renderizados: ${result.carousel?.slides.length}`);
-  console.log(`- Custo Estimado USD: $${result.tokens?.estimatedCostUsd?.toFixed(4)} USD`);
+  console.log(`- Título do Post: ${result.carousel?.title || "N/A"}`);
+  console.log(`- Slides publicados: ${result.slideUrls?.length ?? 0}`);
+  console.log(`- Tempo: ${result.executionTimeMs}ms`);
+  if (result.error) console.log(`- Erro: ${result.error}`);
   console.log("=======================================================\n");
+
+  process.exit(result.ok ? 0 : 1);
 }
 
 main().catch((err) => {
-  console.error("❌ Erro ao publicar carrossel escrito:", err);
+  console.error("Erro ao publicar:", err);
   process.exit(1);
 });

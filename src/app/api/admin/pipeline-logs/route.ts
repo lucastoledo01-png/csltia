@@ -1,17 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifyAdminSessionToken } from "@/lib/server/admin-auth";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { requireAdmin } from "@/lib/server/api-auth";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 
 export async function GET(req: NextRequest) {
-  const adminCookie = req.cookies.get("casaloti_admin")?.value;
-  const adminSecret = process.env.ADMIN_SECRET || "casaloti_admin_secret_key";
-  const authHeader = req.headers.get("Authorization");
-  const isSecretMatch = authHeader === `Bearer ${adminSecret}` || authHeader === `Bearer ${process.env.INTERNAL_API_SECRET || "internal_secret"}`;
-  const isAuthenticated = verifyAdminSessionToken(adminSecret, adminCookie) || isSecretMatch;
-
-  if (!isAuthenticated && process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-  }
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
 
   try {
     const supabase = getSupabaseAdminClient();
@@ -37,8 +31,11 @@ export async function GET(req: NextRequest) {
       newsroomError: newsroomErr ? newsroomErr.message : null,
       socialError: socialErr ? socialErr.message : null,
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[PIPELINE LOGS ERROR]", err);
-    return NextResponse.json({ error: err?.message || String(err) }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500 },
+    );
   }
 }

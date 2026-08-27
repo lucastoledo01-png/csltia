@@ -12,6 +12,14 @@ export type NewsSourceConfig = {
   region?: "global" | "br";
 };
 
+/**
+ * Conjunto inicial de fontes, mantido como referência da semente aplicada em
+ * `project_news_sources` pela migração multi-projeto.
+ *
+ * O pipeline NÃO lê mais desta lista: as fontes em uso vêm do banco, por
+ * projeto, via `getProjectNewsSources`. Alterar este array não muda o que é
+ * coletado em produção.
+ */
 export const defaultNewsSources: NewsSourceConfig[] = [
   // Prioridade 1: Laboratórios e Empresas de IA Oficiais Globais
   {

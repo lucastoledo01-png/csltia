@@ -4,16 +4,15 @@ import {
   publishContainer,
   verifyMetaInstagramCredentials,
 } from "../lib/server/social/instagram/meta-client";
+import { loadEnvLocal, requireInstagramEnv } from "./load-env";
 
 async function main() {
   console.log("=== DESBUGUEI.IA — TESTE DE POSTAGEM DIRETA NO INSTAGRAM (@desbuguei.ig) ===");
 
-  const customEnv = {
-    ...process.env,
-    INSTAGRAM_ACCOUNT_ID: "17841465061867883",
-    INSTAGRAM_ACCESS_TOKEN:
-      "EAAcHmrXDrZBABSXp7azR23gQJRfCOgUfRvrxx14TUfb4OD3uMyh831iZBfcLbzOEY8vRjqfZCDKG5meSUj68QqR4ZCFGeZCVkCZCNwIe4NZAol62A7PGOlAO4ySixdZAKYhfW7pJjxJuv1uNTiXNZAIH3CaFRJz8YsKkqopU7QdPllS6OZBbuBc1Rfyz0RjfdI4gZDZD",
-  };
+  loadEnvLocal();
+  requireInstagramEnv();
+
+  const customEnv = process.env;
 
   console.log("1. Verificando token...");
   const verifyRes = await verifyMetaInstagramCredentials(customEnv);
