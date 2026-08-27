@@ -14,7 +14,7 @@ export const InstagramSlideSchema = z.object({
   type: InstagramSlideTypeSchema,
   eyebrow: z.string().optional().default(""),
   title: z.string().min(5).max(90),
-  body: z.string().max(350).optional().default(""),
+  body: z.string().max(600).optional().default(""),
   bullet_points: z.array(z.string()).optional().default([]),
   highlight_text: z.string().optional().default(""),
   cover_variant: z.enum(["dark_speaker", "clean_editorial", "brand_cutout"]).optional().default("dark_speaker"),
