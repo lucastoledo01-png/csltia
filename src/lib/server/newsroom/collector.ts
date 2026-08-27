@@ -116,6 +116,83 @@ function parseRSSItems(
   return items;
 }
 
+type RawItem = {
+  title: string;
+  url: string;
+  publishedAt: string;
+  description: string;
+  content: string;
+  author?: string;
+  imageUrl?: string;
+};
+
+/**
+ * Business Discovery: lê os posts recentes de OUTRA conta Instagram
+ * Business/Criador pública, usando a nossa própria conta configurada
+ * (INSTAGRAM_ACCOUNT_ID/INSTAGRAM_ACCESS_TOKEN) como ponto de acesso.
+ * Não funciona para contas pessoais nem exige consentimento do alvo —
+ * é um recurso público da Graph API, mas sujeito a limite de taxa.
+ */
+async function fetchInstagramProfilePosts(
+  source: NewsSourceConfig,
+  fetcher: typeof fetch
+): Promise<RawItem[]> {
+  const accountId = process.env.INSTAGRAM_ACCOUNT_ID?.trim();
+  const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN?.trim();
+  const targetUsername = source.url.replace(/^@/, "").trim();
+
+  if (!accountId || !accessToken) {
+    console.warn(`[NEWSROOM] Fonte Instagram ${source.name}: INSTAGRAM_ACCOUNT_ID/ACCESS_TOKEN não configurados.`);
+    return [];
+  }
+  if (!targetUsername) {
+    console.warn(`[NEWSROOM] Fonte Instagram ${source.name}: nenhum @username configurado.`);
+    return [];
+  }
+
+  const fields =
+    `business_discovery.username(${encodeURIComponent(targetUsername)})` +
+    `{username,media{caption,media_url,permalink,timestamp,media_type}}`;
+  const url = `https://graph.facebook.com/v22.0/${accountId}?fields=${fields}&access_token=${encodeURIComponent(accessToken)}`;
+
+  const res = await fetcher(url, { signal: AbortSignal.timeout(10000) });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const detail = json?.error?.message || res.statusText;
+    console.warn(`[NEWSROOM] Falha ao coletar perfil @${targetUsername} (${res.status}): ${detail}`);
+    return [];
+  }
+
+  const media = json?.business_discovery?.media?.data as
+    | Array<{ caption?: string; media_url?: string; permalink?: string; timestamp?: string }>
+    | undefined;
+
+  if (!media) return [];
+
+  return media
+    .filter((m) => m.caption && m.permalink)
+    .map((m) => {
+      const caption = m.caption as string;
+      const firstLine = caption.split("\n")[0].slice(0, 140) || caption.slice(0, 140);
+      return {
+        title: firstLine,
+        url: m.permalink as string,
+        publishedAt: m.timestamp ? new Date(m.timestamp).toISOString() : new Date().toISOString(),
+        description: caption.slice(0, 600),
+        content: caption.slice(0, 1500),
+        author: `@${targetUsername}`,
+        imageUrl: m.media_url,
+      };
+    });
+}
+
+function matchesKeywords(item: RawItem, keywords: string[] | undefined): boolean {
+  if (!keywords || keywords.length === 0) return true;
+  const haystack = `${item.title} ${item.description}`.toLowerCase();
+  return keywords.some((kw) => haystack.includes(kw.toLowerCase()));
+}
+
 export async function collectFromSource(
   source: NewsSourceConfig,
   fetcher: typeof fetch = fetch
@@ -123,23 +200,30 @@ export async function collectFromSource(
   if (!source.enabled) return [];
 
   try {
-    const res = await fetcher(source.url, {
-      headers: {
-        "User-Agent": "desbuguei.ia-NewsroomBot/1.0 (+https://desbuguei.ia)",
-        Accept: "application/rss+xml, application/xml, text/xml, application/atom+xml, text/html",
-      },
-      signal: AbortSignal.timeout(10000),
-    });
+    const rawItems =
+      source.type === "instagram_profile"
+        ? await fetchInstagramProfilePosts(source, fetcher)
+        : await (async () => {
+            const res = await fetcher(source.url, {
+              headers: {
+                "User-Agent": "desbuguei.ia-NewsroomBot/1.0 (+https://desbuguei.ia)",
+                Accept: "application/rss+xml, application/xml, text/xml, application/atom+xml, text/html",
+              },
+              signal: AbortSignal.timeout(10000),
+            });
 
-    if (!res.ok) {
-      console.warn(`[NEWSROOM] Falha ao coletar fonte ${source.name} (${res.status})`);
-      return [];
-    }
+            if (!res.ok) {
+              console.warn(`[NEWSROOM] Falha ao coletar fonte ${source.name} (${res.status})`);
+              return [];
+            }
 
-    const xmlText = await res.text();
-    const rawItems = parseRSSItems(xmlText, source);
+            const xmlText = await res.text();
+            return parseRSSItems(xmlText, source);
+          })();
 
-    return rawItems.map((item) => ({
+    const filtered = rawItems.filter((item) => matchesKeywords(item, source.keywords));
+
+    return filtered.map((item) => ({
       id: `cand-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       url: item.url,
       title: item.title,
@@ -151,7 +235,7 @@ export async function collectFromSource(
       description: item.description,
       content: item.content,
       category: source.category,
-      image_url: item.imageUrl,
+      image_url: item.imageUrl || getRandomFallbackImage(item.title),
       score: source.priority === 1 ? 75 : 60,
       dedupe_key: generateDedupeKey(item.title, item.url),
       window_hours: 24,
