@@ -1,4 +1,4 @@
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 import { getSupabaseAdminClient } from "../../supabase-admin";
 import { InstagramCarouselContent, InstagramSlide } from "./schemas";
 

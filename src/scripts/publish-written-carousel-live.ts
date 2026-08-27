@@ -9,7 +9,7 @@
  *   npx tsx src/scripts/publish-written-carousel-live.ts <socialPostId>
  */
 
-import { processScheduledPost } from "../lib/server/social/instagram/instagram-service";
+import { processScheduledPost } from "../lib/server/social/instagram/worker-service";
 import { loadEnvLocal, requireInstagramEnv } from "./load-env";
 
 async function main() {

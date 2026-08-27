@@ -13,7 +13,7 @@
  *   npx tsx src/scripts/instagram-worker.ts --once   idem, e encerra
  */
 
-import { processScheduledPost } from "../lib/server/social/instagram/instagram-service";
+import { processScheduledPost } from "../lib/server/social/instagram/worker-service";
 import { findDuePosts } from "../lib/server/social/instagram/scheduler";
 
 const LOTE_MAXIMO = 5;

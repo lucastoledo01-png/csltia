@@ -33,7 +33,7 @@ vi.mock("../../supabase-admin", () => ({
   getSupabaseAdminClient: () => ({ from: (tabela: string) => construirQuery(tabela) }),
 }));
 
-const { processScheduledPost } = await import("./instagram-service");
+const { processScheduledPost } = await import("./worker-service");
 
 beforeEach(() => {
   for (const chave of Object.keys(tabelas)) delete tabelas[chave];
