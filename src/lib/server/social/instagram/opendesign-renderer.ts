@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { getSupabaseAdminClient } from "../../supabase-admin.ts";
+import { getSupabaseAdminClient } from "../../supabase-admin";
 import { InstagramCarouselContent, InstagramSlide } from "./schemas";
 
 export type OpenDesignSlideAsset = {

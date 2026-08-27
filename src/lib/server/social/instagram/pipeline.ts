@@ -22,7 +22,7 @@ ESTRUTURA DE CAPA BASEADA EM AIDA (ATENÇÃO, INTERESSE, DESEJO, AÇÃO):
   * Subtítulo (Interesse/Desejo): Promessa clara do benefício ao arrastar para o lado.
   * Imagem de Fundo (Full-Bleed): A capa possui uma imagem conceitual de alta qualidade cobrindo 100% do slide com gradiente de contraste.
 REGRAS PARA A IMAGEM DA CAPA (cover_image_prompt):
-- O campo `cover_image_prompt` no Slide 1 DEVE conter uma descrição em inglês ultra-detalhada da imagem de fundo a ser gerada por IA.
+- O campo \`cover_image_prompt\` no Slide 1 DEVE conter uma descrição em inglês ultra-detalhada da imagem de fundo a ser gerada por IA.
 - Se a notícia envolver PESSOAS PÚBLICAS, CEOS OU POLÍTICOS (ex: Sam Altman, Dario Amodei, Mark Zuckerberg, Elon Musk, políticos ou ministros): descreva a figura pública de forma realista/editorial em um estúdio com o logotipo da empresa (ex: "Editorial photorealistic portrait of Sam Altman with the glowing OpenAI logo, dark studio lighting, 4k cinematic render, no text").
 - Se a notícia for sobre PLATAFORMAS OU FERRAMENTAS (ex: Anthropic Claude, WhatsApp, Instagram, Google Gemini, Apple): descreva o logotipo 3D da marca com interface holográfica ou smartphone futurista.
 
