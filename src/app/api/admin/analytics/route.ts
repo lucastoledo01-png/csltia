@@ -1,8 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getAllArticlesForAdmin } from "@/lib/server/articles-service";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
+import { requireAdmin } from "@/lib/server/api-auth";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const authErr = await requireAdmin(req);
+  if (authErr) return authErr;
+
   const supabase = getSupabaseAdminClient();
 
   // 1. Leads de Newsletter (contagem real no banco)

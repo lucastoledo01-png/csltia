@@ -53,25 +53,25 @@ export function AdminAnalyticsDashboard() {
     <div className="space-y-8">
       {/* Indicadores Principais em Tempo Real */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-[#e5e7eb] bg-white p-5 shadow-sm">
+        <div className="admin-glass rounded-2xl p-5">
           <p className="text-xs font-semibold text-[#6b7280]">Visualizações de Páginas</p>
           <p className="mt-2 text-3xl font-bold text-[#111827]">{data.totalPageviews.toLocaleString("pt-BR")}</p>
           <span className="mt-1 inline-block text-[11px] font-medium text-[#6b7280]">Métrica em tempo real</span>
         </div>
 
-        <div className="rounded-2xl border border-[#e5e7eb] bg-white p-5 shadow-sm">
+        <div className="admin-glass rounded-2xl p-5">
           <p className="text-xs font-semibold text-[#6b7280]">Visitantes Estimados</p>
           <p className="mt-2 text-3xl font-bold text-[#111827]">{data.uniqueVisitors.toLocaleString("pt-BR")}</p>
           <span className="mt-1 inline-block text-[11px] font-medium text-[#6b7280]">Com base em pageviews</span>
         </div>
 
-        <div className="rounded-2xl border border-[#e5e7eb] bg-white p-5 shadow-sm">
+        <div className="admin-glass rounded-2xl p-5">
           <p className="text-xs font-semibold text-[#6b7280]">Inscrições na Newsletter</p>
-          <p className="mt-2 text-3xl font-bold text-[#ff4a1c]">{data.totalLeads.toLocaleString("pt-BR")}</p>
+          <p className="mt-2 text-3xl font-bold text-[#6366f1]">{data.totalLeads.toLocaleString("pt-BR")}</p>
           <span className="mt-1 inline-block text-[11px] font-medium text-[#6b7280]">Leads no banco Supabase</span>
         </div>
 
-        <div className="rounded-2xl border border-[#e5e7eb] bg-white p-5 shadow-sm">
+        <div className="admin-glass rounded-2xl p-5">
           <p className="text-xs font-semibold text-[#6b7280]">Comentários Publicados</p>
           <p className="mt-2 text-3xl font-bold text-[#111827]">{data.totalComments}</p>
           <span className="mt-1 inline-block text-[11px] font-medium text-[#6b7280]">Média leitura: {data.avgReadingTime} min</span>
@@ -79,7 +79,7 @@ export function AdminAnalyticsDashboard() {
       </div>
 
       {/* Tabela de Artigos e Desempenho */}
-      <div className="rounded-2xl border border-[#e5e7eb] bg-white p-6 shadow-sm">
+      <div className="admin-glass rounded-2xl p-6">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-bold text-[#111827]">Desempenho de Leitura por Artigo</h3>
@@ -103,7 +103,7 @@ export function AdminAnalyticsDashboard() {
                 <tr key={art.slug} className="hover:bg-[#fafafa]">
                   <td className="py-3 px-3 font-semibold text-[#111827]">{art.title}</td>
                   <td className="py-3 px-3 text-[#6b7280]">{art.category}</td>
-                  <td className="py-3 px-3 font-mono font-bold text-[#ff4a1c]">{art.views}</td>
+                  <td className="py-3 px-3 font-mono font-bold text-[#6366f1]">{art.views}</td>
                   <td className="py-3 px-3 text-[#6b7280]">{art.readTime}</td>
                   <td className="py-3 px-3">
                     <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${art.status === "published" ? "bg-[#f0fdf4] text-[#166534]" : "bg-[#fefce8] text-[#854d0e]"}`}>
@@ -118,7 +118,7 @@ export function AdminAnalyticsDashboard() {
       </div>
 
       {/* Log de Acessos no Banco de Dados */}
-      <div className="rounded-2xl border border-[#e5e7eb] bg-white p-6 shadow-sm">
+      <div className="admin-glass rounded-2xl p-6">
         <h3 className="text-sm font-bold text-[#111827]">Log de Acessos Recentes</h3>
         <p className="mt-0.5 text-xs text-[#6b7280]">Últimas requisições gravadas na tabela pageviews.</p>
         <div className="mt-4 space-y-1.5 font-mono text-[11px]">
@@ -127,7 +127,7 @@ export function AdminAnalyticsDashboard() {
           ) : (
             data.recentPageviews.map((pv) => (
               <div key={pv.id} className="flex items-center justify-between rounded-md bg-[#fafafa] px-3 py-2 border border-[#f3f4f6]">
-                <span className="font-semibold text-[#ff4a1c]">{pv.path}</span>
+                <span className="font-semibold text-[#6366f1]">{pv.path}</span>
                 <span className="text-[#9ca3af]">
                   {new Date(pv.created_at).toLocaleTimeString("pt-BR")}
                 </span>

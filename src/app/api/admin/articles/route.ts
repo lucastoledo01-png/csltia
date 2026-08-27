@@ -1,14 +1,21 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getAllArticlesForAdmin } from "@/lib/server/articles-service";
 import { buildEditorialReadiness, normalizeAdminArticleDraft } from "@/lib/server/editorial-quality";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
+import { requireAdmin } from "@/lib/server/api-auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authErr = await requireAdmin(request);
+  if (authErr) return authErr;
+
   const articles = await getAllArticlesForAdmin();
   return NextResponse.json({ ok: true, articles });
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const authErr = await requireAdmin(request);
+  if (authErr) return authErr;
+
   const body = await request.json().catch(() => ({}));
   const draft = normalizeAdminArticleDraft(body);
   const readiness = buildEditorialReadiness(draft);
@@ -55,7 +62,10 @@ export async function POST(request: Request) {
   return NextResponse.json({ ok: true, article: data, readiness });
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
+  const authErr = await requireAdmin(request);
+  if (authErr) return authErr;
+
   const body = await request.json().catch(() => ({}));
   const { id, slug, ...updates } = body;
 
@@ -76,7 +86,10 @@ export async function PUT(request: Request) {
   return NextResponse.json({ ok: true, article: data });
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
+  const authErr = await requireAdmin(request);
+  if (authErr) return authErr;
+
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
   const slug = searchParams.get("slug");

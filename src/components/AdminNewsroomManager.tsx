@@ -39,7 +39,7 @@ export function AdminNewsroomManager() {
   return (
     <div className="space-y-6">
       {/* Banner de Status & Agendamento */}
-      <div className="rounded-[28px] border border-[#eaecf0] bg-white p-6 shadow-sm">
+      <div className="admin-glass rounded-3xl p-6">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#eaecf0] pb-6">
           <div>
             <div className="flex items-center gap-2">
@@ -58,14 +58,14 @@ export function AdminNewsroomManager() {
             <button
               onClick={() => handleRunNewsroom(true, false, false)}
               disabled={running}
-              className="rounded-full border border-[#ff4a1c] bg-[#fff5f2] px-5 py-2.5 text-xs font-bold text-[#ff4a1c] hover:bg-[#ffece6] disabled:opacity-50 transition-colors"
+              className="rounded-full border border-[#6366f1] bg-[#eef2ff] px-5 py-2.5 text-xs font-bold text-[#6366f1] hover:bg-[#e0e7ff] disabled:opacity-50 transition-colors"
             >
               {running ? "Processando..." : "⚡ Testar Edição Agora (DRY RUN)"}
             </button>
             <button
               onClick={() => handleRunNewsroom(false, true, true)}
               disabled={running}
-              className="rounded-full bg-[#ff4a1c] px-5 py-2.5 text-xs font-black text-white hover:bg-[#e03e13] disabled:opacity-50 transition-colors"
+              className="rounded-full bg-[#6366f1] px-5 py-2.5 text-xs font-black text-white hover:bg-[#4f46e5] disabled:opacity-50 transition-colors"
             >
               🚀 Gerar & Publicar Edição Completa
             </button>
@@ -105,7 +105,7 @@ export function AdminNewsroomManager() {
             </div>
             <div className="rounded-2xl border border-[#eaecf0] bg-[#fafafa] p-4">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#667085]">Custo Estimado</span>
-              <p className="mt-1 text-2xl font-black text-[#ff4a1c]">
+              <p className="mt-1 text-2xl font-black text-[#6366f1]">
                 ${(lastResult.tokens?.estimatedCostUsd || 0).toFixed(4)} <span className="text-xs font-normal text-[#667085]">USD</span>
               </p>
             </div>
@@ -115,9 +115,9 @@ export function AdminNewsroomManager() {
 
       {/* Visualizador de Edição Gerada */}
       {lastResult?.edition ? (
-        <div className="rounded-[28px] border border-[#eaecf0] bg-white p-6 shadow-sm space-y-6">
+        <div className="admin-glass rounded-3xl p-6 space-y-6">
           <div className="border-b border-[#eaecf0] pb-4">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#ff4a1c]">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#6366f1]">
               Pré-Visualização da Edição Gerada
             </span>
             <h4 className="mt-1 text-2xl font-black text-black">{lastResult.edition.headline}</h4>
@@ -132,7 +132,7 @@ export function AdminNewsroomManager() {
             <div className="space-y-1.5 text-xs font-medium text-[#344054]">
               {lastResult.edition.subject_options?.map((opt: string, i: number) => (
                 <div key={i} className="flex items-center gap-2 rounded-lg bg-[#fafafa] p-2 border border-[#eaecf0]">
-                  <span className="font-bold text-[#ff4a1c]">{i + 1}.</span>
+                  <span className="font-bold text-[#6366f1]">{i + 1}.</span>
                   <span>{opt}</span>
                 </div>
               ))}
@@ -147,10 +147,10 @@ export function AdminNewsroomManager() {
             {lastResult.edition.stories?.map((story: any, idx: number) => (
               <div key={idx} className="rounded-2xl border border-[#eaecf0] bg-[#fafafa] p-5 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="rounded-full bg-[#ff4a1c] px-3 py-0.5 font-bold text-white uppercase">
+                  <span className="rounded-full bg-[#6366f1] px-3 py-0.5 font-bold text-white uppercase">
                     {story.category}
                   </span>
-                  <a href={story.source_url} target="_blank" rel="noreferrer" className="text-[#ff4a1c] hover:underline font-medium">
+                  <a href={story.source_url} target="_blank" rel="noreferrer" className="text-[#6366f1] hover:underline font-medium">
                     Fonte: {story.source_name} ↗
                   </a>
                 </div>
@@ -163,7 +163,7 @@ export function AdminNewsroomManager() {
                   <strong className="text-black">Na prática:</strong> {story.practical_impact}
                 </p>
                 {story.humor_line ? (
-                  <div className="rounded-xl border-l-4 border-[#ff4a1c] bg-white p-3 text-xs italic text-[#1f2937]">
+                  <div className="rounded-xl border-l-4 border-[#6366f1] bg-white p-3 text-xs italic text-[#1f2937]">
                     "{story.humor_line}"
                   </div>
                 ) : null}
@@ -172,9 +172,9 @@ export function AdminNewsroomManager() {
           </div>
 
           {/* Assinatura Final */}
-          <div className="rounded-2xl border border-[#eaecf0] bg-[#fff5f2] p-4 text-center">
+          <div className="rounded-2xl border border-[#eaecf0] bg-[#eef2ff] p-4 text-center">
             <p className="text-xs font-bold text-[#344054]">{lastResult.edition.closing}</p>
-            <p className="mt-1 text-sm font-black text-[#ff4a1c]">{lastResult.edition.final_line}</p>
+            <p className="mt-1 text-sm font-black text-[#6366f1]">{lastResult.edition.final_line}</p>
           </div>
         </div>
       ) : null}
