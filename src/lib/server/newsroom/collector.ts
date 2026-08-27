@@ -1,4 +1,4 @@
-import { defaultNewsSources, NewsSourceConfig } from "./news-sources";
+import { NewsSourceConfig } from "./news-sources";
 
 export type NewsCandidate = {
   id: string;
@@ -163,7 +163,7 @@ export async function collectFromSource(
 }
 
 export async function collectAllNews(
-  sources: NewsSourceConfig[] = defaultNewsSources,
+  sources: NewsSourceConfig[],
   fetcher: typeof fetch = fetch
 ): Promise<{ candidates: NewsCandidate[]; sourcesAttempted: number; windowHours: number }> {
   const activeSources = sources.filter((s) => s.enabled);

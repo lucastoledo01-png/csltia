@@ -1,15 +1,22 @@
 import { escapeHtml, safeHttpUrl } from "../html";
 import { createListmonkClient } from "../listmonk";
 import { runInstagramCarouselService } from "../social/instagram/instagram-service";
+import {
+  DEFAULT_PROJECT_ID,
+  getProjectNewsSources,
+  projectToday,
+  requireActiveProject,
+} from "../projects";
 import { getSupabaseAdminClient } from "../supabase-admin";
 import { collectAllNews } from "./collector";
 import { deduplicateCandidates } from "./deduplicator";
-import { defaultNewsSources } from "./news-sources";
 import { runNewsroomPipeline } from "./pipeline";
 import { rankAndFilterCandidates } from "./ranker";
 import { EditionContent } from "./schemas";
 
 export type RunNewsroomOptions = {
+  /** Projeto para o qual a edição é produzida. Sem valor, usa o projeto semente. */
+  projectId?: string;
   dryRun?: boolean;
   timeWindowHours?: number;
   idempotencyKey?: string;
@@ -264,10 +271,14 @@ export async function runNewsroom(
   const createNewsletterCampaign = options.createNewsletterCampaign ?? !dryRun;
   const autoSend = options.autoSend ?? (env.NEWSLETTER_AUTO_SEND === "true" || (!dryRun && env.NEWSLETTER_AUTO_SEND !== "false"));
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const project = await requireActiveProject(options.projectId ?? DEFAULT_PROJECT_ID);
+
+  // A data vem do fuso do projeto. Com UTC, toda execução depois das 21h no
+  // Brasil era gravada com a data do dia seguinte.
+  const todayStr = projectToday(project);
   const idempotencyKey = options.idempotencyKey || `daily-edition-${todayStr}`;
 
-  console.log(`[NEWSROOM] Iniciando run da redação (dry_run: ${dryRun}, auto_send: ${autoSend}, key: ${idempotencyKey})...`);
+  console.log(`[NEWSROOM] Iniciando run da redação de ${project.slug} (dry_run: ${dryRun}, auto_send: ${autoSend}, key: ${idempotencyKey})...`);
 
   if (!dryRun) {
     try {
@@ -275,6 +286,7 @@ export async function runNewsroom(
       const { data: existingRun } = await supabase
         .from("newsroom_runs")
         .select("id, status, edition_id")
+        .eq("project_id", project.id)
         .eq("idempotency_key", idempotencyKey)
         .single();
 
@@ -289,8 +301,12 @@ export async function runNewsroom(
 
   const startTime = Date.now();
 
-  console.log("[NEWSROOM] Coletando notícias das fontes confiáveis brasileiras e globais...");
-  const collectionResult = await collectAllNews(defaultNewsSources, fetcher);
+  // As fontes vêm do banco, por projeto. Antes eram um array fixo no código,
+  // então um projeto de outro segmento exigiria editar o fonte e fazer deploy.
+  const sources = await getProjectNewsSources(project.id);
+
+  console.log(`[NEWSROOM] Coletando notícias de ${sources.length} fontes configuradas para ${project.slug}...`);
+  const collectionResult = await collectAllNews(sources, fetcher);
   console.log(`[NEWSROOM] ${collectionResult.candidates.length} candidatas encontradas na janela de ${collectionResult.windowHours}h em ${collectionResult.sourcesAttempted} fontes.`);
 
   const { uniqueGroups, duplicatesCount } = deduplicateCandidates(collectionResult.candidates);
@@ -327,6 +343,7 @@ export async function runNewsroom(
         .from("articles")
         .upsert(
           {
+            project_id: project.id,
             slug: articleSlug,
             title: pipelineResult.edition.headline,
             excerpt: pipelineResult.edition.preheader,
@@ -339,7 +356,7 @@ export async function runNewsroom(
             published_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
-          { onConflict: "slug" }
+          { onConflict: "project_id,slug" }
         )
         .select("id, slug")
         .single();
@@ -349,6 +366,7 @@ export async function runNewsroom(
         console.log(`[NEWSROOM PORTAL] Edição publicada no portal com sucesso em /artigos/${createdArticleSlug}`);
 
         await supabase.from("article_revisions").insert({
+          project_id: project.id,
           article_id: articleData.id,
           title: pipelineResult.edition.headline,
           body: pipelineResult.edition as any,
@@ -387,6 +405,7 @@ export async function runNewsroom(
       console.log("[NEWSROOM INSTAGRAM] Disparando criação e publicação 100% automática no Instagram...");
       await runInstagramCarouselService(
         {
+          projectId: project.id,
           dryRun: false,
           autoPost: autoSend,
           editionDateStr: todayStr,
@@ -406,6 +425,7 @@ export async function runNewsroom(
       const supabase = getSupabaseAdminClient();
       await supabase.from("newsroom_runs")
         .insert({
+          project_id: project.id,
           started_at: new Date(startTime).toISOString(),
           finished_at: new Date().toISOString(),
           status: "success",
@@ -427,6 +447,8 @@ export async function runNewsroom(
 
   return {
     ok: true,
+    projectId: project.id,
+    projectSlug: project.slug,
     dryRun,
     publishedToPortal: Boolean(createdArticleSlug),
     articleSlug: createdArticleSlug,

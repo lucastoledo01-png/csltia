@@ -1,3 +1,8 @@
+import {
+  DEFAULT_PROJECT_ID,
+  projectToday,
+  requireActiveProject,
+} from "../../projects";
 import { getSupabaseAdminClient } from "../../supabase-admin";
 import { EditionContent } from "../../newsroom/schemas";
 import {
@@ -10,6 +15,8 @@ import { generateInstagramCarouselPipeline } from "./pipeline";
 import { InstagramCarouselContent } from "./schemas";
 
 export type RunInstagramOptions = {
+  /** Projeto dono do post. Sem valor, usa o projeto semente. */
+  projectId?: string;
   dryRun?: boolean;
   autoPost?: boolean;
   editionDateStr?: string;
@@ -20,6 +27,7 @@ export type RunInstagramOptions = {
 
 export type InstagramRunResult = {
   ok: boolean;
+  projectId: string;
   reason?: string;
   dryRun: boolean;
   autoPost: boolean;
@@ -43,7 +51,9 @@ export async function runInstagramCarouselService(
   fetcher: typeof fetch = fetch
 ): Promise<InstagramRunResult> {
   const startTime = Date.now();
-  const todayStr = options.editionDateStr || new Date().toISOString().split("T")[0];
+
+  const project = await requireActiveProject(options.projectId ?? DEFAULT_PROJECT_ID);
+  const todayStr = options.editionDateStr || projectToday(project);
   const idempotencyKey = options.idempotencyKey || `instagram-carousel-${todayStr}`;
 
   const dryRun = options.dryRun ?? (env.INSTAGRAM_DRY_RUN === "true" ? true : false);
@@ -57,6 +67,7 @@ export async function runInstagramCarouselService(
     const { data: existingPost } = await supabase
       .from("social_posts")
       .select("id, status, title, content_json, caption, provider_post_id")
+      .eq("project_id", project.id)
       .eq("idempotency_key", idempotencyKey)
       .single();
 
@@ -64,6 +75,7 @@ export async function runInstagramCarouselService(
       console.log(`[INSTAGRAM SERVICE] Carrossel já existente no banco para a chave (${idempotencyKey}). Status: ${existingPost.status}`);
       return {
         ok: true,
+        projectId: project.id,
         reason: "already_exists",
         dryRun,
         autoPost,
@@ -89,6 +101,7 @@ export async function runInstagramCarouselService(
       const { data: editionRow } = await supabase
         .from("news_editions")
         .select("stories, headline, subject, preheader, intro, quick_bits, closing, final_line, slug")
+        .eq("project_id", project.id)
         .eq("edition_date", todayStr)
         .single();
 
@@ -194,6 +207,7 @@ export async function runInstagramCarouselService(
     const { data: inserted, error: dbError } = await supabase
       .from("social_posts")
       .insert({
+        project_id: project.id,
         edition_date: todayStr,
         article_slug: articleSlug,
         platform: "instagram",
@@ -281,6 +295,7 @@ export async function runInstagramCarouselService(
 
   return {
     ok: true,
+    projectId: project.id,
     dryRun,
     autoPost,
     idempotencyKey,
