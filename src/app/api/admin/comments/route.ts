@@ -1,7 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
+import { requireAdmin } from "@/lib/server/api-auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authErr = await requireAdmin(request);
+  if (authErr) return authErr;
+
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("article_comments")
@@ -16,7 +20,10 @@ export async function GET() {
   return NextResponse.json({ ok: true, comments: data ?? [] });
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
+  const authErr = await requireAdmin(request);
+  if (authErr) return authErr;
+
   const body = await request.json().catch(() => ({}));
   const { id, status } = body;
 
@@ -39,7 +46,10 @@ export async function PATCH(request: Request) {
   return NextResponse.json({ ok: true, comment: data });
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
+  const authErr = await requireAdmin(request);
+  if (authErr) return authErr;
+
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
 

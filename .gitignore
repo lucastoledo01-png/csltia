@@ -37,6 +37,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+!.env.chatbotx.example
+!.env.zernflow.example
+!.env.openreply.example
 
 # vercel
 .vercel

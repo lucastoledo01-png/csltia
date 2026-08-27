@@ -1,0 +1,82 @@
+/* Design system do painel de admin — sidebar + glassmorphism + gradiente animado. */
+
+.admin-shell {
+  --admin-indigo: #6366f1;
+  --admin-indigo-dark: #4f46e5;
+  --admin-rose: #f43f5e;
+  --admin-emerald: #10b981;
+  --admin-amber: #f59e0b;
+  min-height: 100vh;
+  font-family: var(--font-jakarta), system-ui, -apple-system, sans-serif;
+  background: linear-gradient(-45deg, #e9d5ff, #fbcfe8, #dbeafe, #dcfce7);
+  background-size: 400% 400%;
+  animation: admin-gradient-shift 20s ease infinite;
+}
+
+@keyframes admin-gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.admin-shell h1,
+.admin-shell h2,
+.admin-shell h3 {
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.admin-glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.admin-glass-dark {
+  background: rgba(49, 46, 129, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-sidebar-link {
+  transition: background-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
+}
+
+.admin-sidebar-link[data-active="true"] {
+  background: var(--admin-indigo);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
+}
+
+.admin-sidebar-link[data-active="false"]:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--admin-indigo-dark);
+}
+
+.admin-fab {
+  animation: admin-fab-bounce 3s ease-in-out infinite;
+}
+
+@keyframes admin-fab-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.admin-fab:hover {
+  transform: scale(1.1);
+}
+
+.admin-fab:active {
+  transform: scale(0.95);
+}
+
+.admin-hero {
+  background: radial-gradient(circle at top left, #4f46e5 0%, #6366f1 40%, #8b5cf6 100%);
+}
+
+.admin-progress-track {
+  background: rgba(148, 163, 184, 0.25);
+}

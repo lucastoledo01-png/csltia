@@ -153,7 +153,7 @@ export function AdminCMSManager() {
   return (
     <div className="space-y-6">
       {/* Barra de Ferramentas do CMS */}
-      <div className="rounded-[28px] border border-[#d0d5dd] bg-white p-6 shadow-sm">
+      <div className="admin-glass rounded-3xl p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h3 className="text-2xl font-black tracking-[-0.05em] text-black">Gestão CMS de Edições & Notícias</h3>
@@ -162,7 +162,7 @@ export function AdminCMSManager() {
 
           <button
             onClick={handleCreateNew}
-            className="rounded-full bg-[#ff4a1c] px-6 py-2.5 text-sm font-black text-white hover:bg-[#e03e13]"
+            className="rounded-full bg-[#6366f1] px-6 py-2.5 text-sm font-black text-white hover:bg-[#4f46e5]"
           >
             + Nova Edição / Notícia
           </button>
@@ -175,25 +175,25 @@ export function AdminCMSManager() {
             placeholder="Buscar por título ou slug..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full max-w-md rounded-xl border border-[#d0d5dd] px-4 py-2 text-sm focus:border-[#ff4a1c] focus:outline-none"
+            className="w-full max-w-md rounded-xl border border-[#d0d5dd] px-4 py-2 text-sm focus:border-[#6366f1] focus:outline-none"
           />
 
           <div className="flex rounded-full border border-[#d0d5dd] bg-[#fafafa] p-1 text-xs font-bold">
             <button
               onClick={() => setFilterStatus("all")}
-              className={`rounded-full px-4 py-1.5 ${filterStatus === "all" ? "bg-[#ff4a1c] text-white" : "text-[#667085]"}`}
+              className={`rounded-full px-4 py-1.5 ${filterStatus === "all" ? "bg-[#6366f1] text-white" : "text-[#667085]"}`}
             >
               Todos ({articles.length})
             </button>
             <button
               onClick={() => setFilterStatus("published")}
-              className={`rounded-full px-4 py-1.5 ${filterStatus === "published" ? "bg-[#ff4a1c] text-white" : "text-[#667085]"}`}
+              className={`rounded-full px-4 py-1.5 ${filterStatus === "published" ? "bg-[#6366f1] text-white" : "text-[#667085]"}`}
             >
               Publicados ({articles.filter((a) => a.status === "published").length})
             </button>
             <button
               onClick={() => setFilterStatus("draft")}
-              className={`rounded-full px-4 py-1.5 ${filterStatus === "draft" ? "bg-[#ff4a1c] text-white" : "text-[#667085]"}`}
+              className={`rounded-full px-4 py-1.5 ${filterStatus === "draft" ? "bg-[#6366f1] text-white" : "text-[#667085]"}`}
             >
               Rascunhos ({articles.filter((a) => a.status === "draft").length})
             </button>
@@ -220,7 +220,7 @@ export function AdminCMSManager() {
                     <span className="block text-xs font-mono font-normal text-[#98a2b3]">/{art.slug}</span>
                   </td>
                   <td className="py-4 px-4 text-[#667085]">{art.category}</td>
-                  <td className="py-4 px-4 font-mono font-bold text-[#ff4a1c]">{art.view_count || 0}</td>
+                  <td className="py-4 px-4 font-mono font-bold text-[#6366f1]">{art.view_count || 0}</td>
                   <td className="py-4 px-4">
                     <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold ${art.status === "published" ? "bg-[#e6f4ea] text-[#137333]" : "bg-[#feefc3] text-[#b06000]"}`}>
                       {art.status === "published" ? "Publicado" : "Rascunho"}
@@ -256,7 +256,7 @@ export function AdminCMSManager() {
       {/* Modal de Edição HTML e Preview */}
       {editingArticle ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
-          <div className="w-full max-w-4xl rounded-[32px] bg-white p-8 shadow-2xl max-h-[92vh] overflow-y-auto">
+          <div className="w-full max-w-4xl admin-glass rounded-[32px] p-8 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex flex-wrap items-center justify-between border-b border-[#eaecf0] pb-4 gap-4">
               <div>
                 <h3 className="text-2xl font-black text-black">
@@ -270,14 +270,14 @@ export function AdminCMSManager() {
                 <button
                   type="button"
                   onClick={() => setModalTab("edit")}
-                  className={`rounded-full px-5 py-1.5 ${modalTab === "edit" ? "bg-[#ff4a1c] text-white" : "text-[#667085]"}`}
+                  className={`rounded-full px-5 py-1.5 ${modalTab === "edit" ? "bg-[#6366f1] text-white" : "text-[#667085]"}`}
                 >
                   ✏️ Editar Conteúdo
                 </button>
                 <button
                   type="button"
                   onClick={() => setModalTab("preview")}
-                  className={`rounded-full px-5 py-1.5 ${modalTab === "preview" ? "bg-[#ff4a1c] text-white" : "text-[#667085]"}`}
+                  className={`rounded-full px-5 py-1.5 ${modalTab === "preview" ? "bg-[#6366f1] text-white" : "text-[#667085]"}`}
                 >
                   👁️ Preview ao Vivo
                 </button>
@@ -294,7 +294,7 @@ export function AdminCMSManager() {
                       required
                       value={editingArticle.title}
                       onChange={(e) => setEditingArticle({ ...editingArticle, title: e.target.value })}
-                      className="mt-1 w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2 text-sm focus:outline-none focus:border-[#ff4a1c]"
+                      className="mt-1 w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2 text-sm focus:outline-none focus:border-[#6366f1]"
                     />
                   </div>
                   <div>
@@ -304,7 +304,7 @@ export function AdminCMSManager() {
                       required
                       value={editingArticle.slug}
                       onChange={(e) => setEditingArticle({ ...editingArticle, slug: e.target.value })}
-                      className="mt-1 w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2 text-sm font-mono focus:outline-none focus:border-[#ff4a1c]"
+                      className="mt-1 w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2 text-sm font-mono focus:outline-none focus:border-[#6366f1]"
                     />
                   </div>
                 </div>
@@ -317,7 +317,7 @@ export function AdminCMSManager() {
                       required
                       value={editingArticle.category}
                       onChange={(e) => setEditingArticle({ ...editingArticle, category: e.target.value })}
-                      className="mt-1 w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2 text-sm focus:outline-none focus:border-[#ff4a1c]"
+                      className="mt-1 w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2 text-sm focus:outline-none focus:border-[#6366f1]"
                     />
                   </div>
                   <div>
@@ -327,7 +327,7 @@ export function AdminCMSManager() {
                       required
                       value={editingArticle.reading_minutes}
                       onChange={(e) => setEditingArticle({ ...editingArticle, reading_minutes: Number(e.target.value) })}
-                      className="mt-1 w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2 text-sm focus:outline-none focus:border-[#ff4a1c]"
+                      className="mt-1 w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2 text-sm focus:outline-none focus:border-[#6366f1]"
                     />
                   </div>
                   <div>
@@ -335,7 +335,7 @@ export function AdminCMSManager() {
                     <select
                       value={editingArticle.status}
                       onChange={(e) => setEditingArticle({ ...editingArticle, status: e.target.value as any })}
-                      className="mt-1 w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2 text-sm focus:outline-none focus:border-[#ff4a1c]"
+                      className="mt-1 w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2 text-sm focus:outline-none focus:border-[#6366f1]"
                     >
                       <option value="published">Publicado</option>
                       <option value="draft">Rascunho</option>
@@ -350,7 +350,7 @@ export function AdminCMSManager() {
                     rows={2}
                     value={editingArticle.excerpt}
                     onChange={(e) => setEditingArticle({ ...editingArticle, excerpt: e.target.value, description: e.target.value })}
-                    className="mt-1 w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2 text-sm focus:outline-none focus:border-[#ff4a1c]"
+                    className="mt-1 w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2 text-sm focus:outline-none focus:border-[#6366f1]"
                   />
                 </div>
 
@@ -369,7 +369,7 @@ export function AdminCMSManager() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => insertTag('<blockquote class="my-6 rounded-2xl border-l-4 border-[#ff4a1c] bg-white p-5 font-black text-black italic"><p>"Sua citação marcante aqui."</p></blockquote>')}
+                      onClick={() => insertTag('<blockquote class="my-6 rounded-2xl border-l-4 border-[#6366f1] bg-white p-5 font-black text-black italic"><p>"Sua citação marcante aqui."</p></blockquote>')}
                       className="rounded-lg border border-[#d0d5dd] bg-white px-3 py-1.5 font-bold text-[#344054] hover:bg-gray-100"
                     >
                       💬 Citação Destacada
@@ -400,7 +400,7 @@ export function AdminCMSManager() {
                     rows={12}
                     value={editingArticle.content_html || ""}
                     onChange={(e) => setEditingArticle({ ...editingArticle, content_html: e.target.value })}
-                    className="w-full rounded-xl border border-[#d0d5dd] p-4 text-sm font-mono leading-relaxed focus:outline-none focus:border-[#ff4a1c]"
+                    className="w-full rounded-xl border border-[#d0d5dd] p-4 text-sm font-mono leading-relaxed focus:outline-none focus:border-[#6366f1]"
                   />
                 </div>
 
@@ -414,7 +414,7 @@ export function AdminCMSManager() {
                   </button>
                   <button
                     type="submit"
-                    className="rounded-full bg-[#ff4a1c] px-6 py-2.5 text-sm font-black text-white hover:bg-[#e03e13]"
+                    className="rounded-full bg-[#6366f1] px-6 py-2.5 text-sm font-black text-white hover:bg-[#4f46e5]"
                   >
                     Salvar Edição
                   </button>
@@ -438,7 +438,7 @@ export function AdminCMSManager() {
                   <button
                     type="button"
                     onClick={() => setModalTab("edit")}
-                    className="rounded-full bg-[#ff4a1c] px-6 py-2.5 text-sm font-black text-white hover:bg-[#e03e13]"
+                    className="rounded-full bg-[#6366f1] px-6 py-2.5 text-sm font-black text-white hover:bg-[#4f46e5]"
                   >
                     Voltar para Edição
                   </button>

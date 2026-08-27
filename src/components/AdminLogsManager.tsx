@@ -39,9 +39,9 @@ export function AdminLogsManager() {
   return (
     <div className="space-y-8">
       {/* Header & Refresh */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-[28px] border border-[#eaecf0] bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-4 admin-glass rounded-3xl p-6">
         <div>
-          <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#ff4a1c]">
+          <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#6366f1]">
             Auditoria & Observabilidade
           </span>
           <h3 className="mt-1 text-2xl font-black text-black">Central de Logs & Rota Completa</h3>
@@ -53,7 +53,7 @@ export function AdminLogsManager() {
         <button
           onClick={fetchLogs}
           disabled={loading}
-          className="rounded-full bg-[#ff4a1c] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#e03e13] disabled:opacity-50 transition-colors"
+          className="rounded-full bg-[#6366f1] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#4f46e5] disabled:opacity-50 transition-colors"
         >
           {loading ? "Atualizando..." : "🔄 Atualizar Logs"}
         </button>
@@ -66,13 +66,13 @@ export function AdminLogsManager() {
       ) : null}
 
       {/* Logs do Instagram & Carrosséis */}
-      <div className="rounded-[28px] border border-[#eaecf0] bg-white p-6 shadow-sm space-y-4">
+      <div className="admin-glass rounded-3xl p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-[#eaecf0] pb-4">
           <div>
             <h4 className="text-lg font-black text-black">📸 Histórico do Gerador de Instagram</h4>
             <p className="text-xs text-[#667085]">Postagens, roteiros em JSON e visualização de slides</p>
           </div>
-          <span className="rounded-full bg-[#fff5f2] px-3 py-1 text-xs font-bold text-[#ff4a1c]">
+          <span className="rounded-full bg-[#eef2ff] px-3 py-1 text-xs font-bold text-[#6366f1]">
             {data.socialPosts.length} registros
           </span>
         </div>
@@ -106,7 +106,7 @@ export function AdminLogsManager() {
                     <span>Tokens: {post.tokens_input + post.tokens_output}</span>
                     <button
                       onClick={() => setSelectedPost(selectedPost?.id === post.id ? null : post)}
-                      className="font-bold text-[#ff4a1c] hover:underline"
+                      className="font-bold text-[#6366f1] hover:underline"
                     >
                       {selectedPost?.id === post.id ? "Fechar Preview ▲" : "Ver Roteiro & Caption ▼"}
                     </button>
@@ -131,7 +131,7 @@ export function AdminLogsManager() {
                         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                           {post.slides_manifest.map((s: any, idx: number) => (
                             <div key={idx} className="rounded-xl border border-[#eaecf0] bg-white p-3 space-y-1">
-                              <span className="font-bold text-[#ff4a1c]">Slide {s.index || idx + 1} ({s.type})</span>
+                              <span className="font-bold text-[#6366f1]">Slide {s.index || idx + 1} ({s.type})</span>
                               <p className="font-bold text-black">{s.title}</p>
                               <p className="text-[#667085] leading-relaxed">{s.body}</p>
                             </div>
@@ -148,7 +148,7 @@ export function AdminLogsManager() {
       </div>
 
       {/* Logs da Redação automatizada (Newsletter / Listmonk / Portal) */}
-      <div className="rounded-[28px] border border-[#eaecf0] bg-white p-6 shadow-sm space-y-4">
+      <div className="admin-glass rounded-3xl p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-[#eaecf0] pb-4">
           <div>
             <h4 className="text-lg font-black text-black">⚡ Logs de Execução da Redação (E-mail & Portal)</h4>
@@ -188,7 +188,7 @@ export function AdminLogsManager() {
                 <div className="flex items-center gap-4 text-[#667085]">
                   <span>Pautas: {run.stories_selected} / {run.candidates_found}</span>
                   <span>Tokens: {run.tokens_input + run.tokens_output}</span>
-                  <span className="font-bold text-[#ff4a1c]">${Number(run.cost_estimate_usd || 0).toFixed(4)} USD</span>
+                  <span className="font-bold text-[#6366f1]">${Number(run.cost_estimate_usd || 0).toFixed(4)} USD</span>
                 </div>
               </div>
             ))}

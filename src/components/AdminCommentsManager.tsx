@@ -73,7 +73,7 @@ export function AdminCommentsManager() {
   }
 
   return (
-    <div className="rounded-[28px] border border-[#d0d5dd] bg-white p-6 shadow-sm">
+    <div className="admin-glass rounded-3xl p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h3 className="text-2xl font-black tracking-[-0.05em] text-black">Moderação de Comentários</h3>
@@ -83,19 +83,19 @@ export function AdminCommentsManager() {
         <div className="flex rounded-full border border-[#d0d5dd] bg-[#fafafa] p-1 text-xs font-bold">
           <button
             onClick={() => setFilter("all")}
-            className={`rounded-full px-4 py-1.5 ${filter === "all" ? "bg-[#ff4a1c] text-white" : "text-[#667085]"}`}
+            className={`rounded-full px-4 py-1.5 ${filter === "all" ? "bg-[#6366f1] text-white" : "text-[#667085]"}`}
           >
             Todos ({comments.length})
           </button>
           <button
             onClick={() => setFilter("approved")}
-            className={`rounded-full px-4 py-1.5 ${filter === "approved" ? "bg-[#ff4a1c] text-white" : "text-[#667085]"}`}
+            className={`rounded-full px-4 py-1.5 ${filter === "approved" ? "bg-[#6366f1] text-white" : "text-[#667085]"}`}
           >
             Aprovados ({comments.filter((c) => c.status === "approved").length})
           </button>
           <button
             onClick={() => setFilter("rejected")}
-            className={`rounded-full px-4 py-1.5 ${filter === "rejected" ? "bg-[#ff4a1c] text-white" : "text-[#667085]"}`}
+            className={`rounded-full px-4 py-1.5 ${filter === "rejected" ? "bg-[#6366f1] text-white" : "text-[#667085]"}`}
           >
             Recusados ({comments.filter((c) => c.status === "rejected").length})
           </button>

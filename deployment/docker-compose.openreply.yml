@@ -1,0 +1,76 @@
+# OpenReply for Easypanel/Traefik deployment
+# Two processes (web + worker) sharing dedicated Postgres + Redis.
+# Deploy with: docker compose -f docker-compose.openreply.yml --env-file .env up -d --build
+
+name: openreply
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: openreply
+      POSTGRES_USER: openreply
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - openreply-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openreply"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - openreply-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["sh", "-c", "npx prisma migrate deploy && npm run start"]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.openreply.rule: "Host(`openreply.casaloti.ia.br`)"
+      traefik.http.routers.openreply.entrypoints: "websecure"
+      traefik.http.routers.openreply.tls: "true"
+      traefik.http.routers.openreply.tls.certresolver: "letsencrypt"
+      traefik.http.services.openreply.loadbalancer.server.port: "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["npm", "run", "worker"]
+
+volumes:
+  openreply-db-data:
+  openreply-redis-data:
