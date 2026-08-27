@@ -1188,7 +1188,14 @@ export function buildSlideHtml(slide: InstagramSlide, totalSlides: number, prima
 
 export async function renderOpenDesignSlides(carousel: InstagramCarouselContent): Promise<OpenDesignSlideAsset[]> {
   const totalSlides = carousel.slides.length;
-  const browser = await chromium.launch({ headless: true });
+
+  // Por padrão o Chromium vem do registro do Playwright, populado por
+  // `npx playwright install chromium`. Em servidor onde o navegador está em
+  // outro lugar — imagem de contêiner, pacote do sistema — o caminho pode ser
+  // informado por PLAYWRIGHT_CHROMIUM_EXECUTABLE.
+  const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?.trim() || undefined;
+
+  const browser = await chromium.launch({ headless: true, executablePath });
   const assets: OpenDesignSlideAsset[] = [];
 
   try {
