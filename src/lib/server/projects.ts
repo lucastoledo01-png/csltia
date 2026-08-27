@@ -147,7 +147,7 @@ export async function getProjectNewsSources(projectId: string): Promise<NewsSour
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("project_news_sources")
-    .select("source_key, name, company_name, type, url, enabled, priority, category, region")
+    .select("source_key, name, company_name, type, url, enabled, priority, category, region, keywords")
     .eq("project_id", projectId)
     .eq("enabled", true)
     .order("priority");
@@ -172,6 +172,7 @@ export async function getProjectNewsSources(projectId: string): Promise<NewsSour
     priority: row.priority as 1 | 2,
     category: row.category as NewsSourceConfig["category"],
     region: row.region as NewsSourceConfig["region"],
+    keywords: (row.keywords as string[] | null) ?? [],
   }));
 }
 

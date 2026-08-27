@@ -1,15 +1,18 @@
-export type NewsSourceType = "rss" | "atom" | "html" | "api";
+export type NewsSourceType = "rss" | "atom" | "html" | "api" | "instagram_profile";
 
 export type NewsSourceConfig = {
   id: string;
   name: string;
   companyName?: string;
   type: NewsSourceType;
+  /** Para instagram_profile: @username (sem o @) da conta pública Business/Criador. */
   url: string;
   enabled: boolean;
   priority: 1 | 2;
   category: "lab" | "tech_media" | "research" | "general_ai" | "br_media";
   region?: "global" | "br";
+  /** Filtro opcional: só entram candidatos cujo texto contenha uma destas palavras. */
+  keywords?: string[];
 };
 
 /**

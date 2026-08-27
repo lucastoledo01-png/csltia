@@ -166,30 +166,38 @@ export function AdminLogsManager() {
         ) : (
           <div className="divide-y divide-[#eaecf0]">
             {data.newsroomRuns.map((run) => (
-              <div key={run.id} className="py-3 flex flex-wrap items-center justify-between gap-4 text-xs">
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 font-bold uppercase ${
-                      run.status === "success"
-                        ? "bg-[#dcfce7] text-[#15803d]"
-                        : run.status === "failed"
-                        ? "bg-[#fef2f2] text-[#dc2626]"
-                        : "bg-[#fffbeb] text-[#b45309]"
-                    }`}
-                  >
-                    {run.status}
-                  </span>
-                  <span className="font-medium text-black">
-                    {new Date(run.started_at).toLocaleString("pt-BR")}
-                  </span>
-                  <span className="text-[#667085]">({run.dry_run ? "DRY RUN" : "OFICIAL"})</span>
+              <div key={run.id} className="py-3 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-4 text-xs">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 font-bold uppercase ${
+                        run.status === "success"
+                          ? "bg-[#dcfce7] text-[#15803d]"
+                          : run.status === "failed"
+                          ? "bg-[#fef2f2] text-[#dc2626]"
+                          : "bg-[#fffbeb] text-[#b45309]"
+                      }`}
+                    >
+                      {run.status}
+                    </span>
+                    <span className="font-medium text-black">
+                      {new Date(run.started_at).toLocaleString("pt-BR")}
+                    </span>
+                    <span className="text-[#667085]">({run.dry_run ? "DRY RUN" : "OFICIAL"})</span>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-[#667085]">
+                    <span>Pautas: {run.stories_selected} / {run.candidates_found}</span>
+                    <span>Tokens: {run.tokens_input + run.tokens_output}</span>
+                    <span className="font-bold text-[#6366f1]">${Number(run.cost_estimate_usd || 0).toFixed(4)} USD</span>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-4 text-[#667085]">
-                  <span>Pautas: {run.stories_selected} / {run.candidates_found}</span>
-                  <span>Tokens: {run.tokens_input + run.tokens_output}</span>
-                  <span className="font-bold text-[#6366f1]">${Number(run.cost_estimate_usd || 0).toFixed(4)} USD</span>
-                </div>
+                {run.status === "failed" && run.error_message ? (
+                  <div className="rounded-xl bg-[#fef2f2] p-3 text-xs text-[#dc2626]">
+                    ⚠️ {run.error_message}
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>

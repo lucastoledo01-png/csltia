@@ -8,12 +8,14 @@ import { AdminCommentsManager } from "@/components/AdminCommentsManager";
 import { AdminLogsManager } from "@/components/AdminLogsManager";
 import { AdminNewsroomManager } from "@/components/AdminNewsroomManager";
 import { AdminSocialPostsManager } from "@/components/AdminSocialPostsManager";
+import { AdminNewsSourcesManager } from "@/components/AdminNewsSourcesManager";
 
-type Tab = "newsroom" | "social" | "cms" | "analytics" | "logs" | "comments";
+type Tab = "newsroom" | "social" | "sources" | "cms" | "analytics" | "logs" | "comments";
 
 const NAV_ITEMS: Array<{ id: Tab; label: string; icon: string }> = [
   { id: "newsroom", label: "Redação (IA)", icon: "⚡" },
   { id: "social", label: "Publicações", icon: "📸" },
+  { id: "sources", label: "Fontes", icon: "🛰️" },
   { id: "cms", label: "CMS Artigos", icon: "📝" },
   { id: "analytics", label: "Analytics", icon: "📊" },
   { id: "logs", label: "Logs & Auditoria", icon: "📋" },
@@ -294,6 +296,7 @@ export default function AdminPage() {
           <section>
             {activeTab === "newsroom" ? <AdminNewsroomManager /> : null}
             {activeTab === "social" ? <AdminSocialPostsManager /> : null}
+            {activeTab === "sources" ? <AdminNewsSourcesManager /> : null}
             {activeTab === "cms" ? <AdminCMSManager /> : null}
             {activeTab === "analytics" ? <AdminAnalyticsDashboard /> : null}
             {activeTab === "logs" ? <AdminLogsManager /> : null}
