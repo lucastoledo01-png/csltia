@@ -31,6 +31,11 @@ export function AdminCMSManager() {
   const [editingArticle, setEditingArticle] = useState<ArticleRecord | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [modalTab, setModalTab] = useState<"edit" | "preview">("edit");
+  const [showTutorialForm, setShowTutorialForm] = useState(false);
+  const [tutorialTopic, setTutorialTopic] = useState("");
+  const [tutorialRefs, setTutorialRefs] = useState("");
+  const [generatingTutorial, setGeneratingTutorial] = useState(false);
+  const [tutorialError, setTutorialError] = useState<string | null>(null);
 
   async function loadArticles() {
     setLoading(true);
@@ -134,6 +139,41 @@ export function AdminCMSManager() {
     setModalTab("edit");
   }
 
+  async function handleGenerateTutorial(e: React.FormEvent) {
+    e.preventDefault();
+    if (!tutorialTopic.trim()) return;
+
+    setGeneratingTutorial(true);
+    setTutorialError(null);
+    try {
+      const res = await fetch("/api/admin/tutorials/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: tutorialTopic,
+          referenceUrls: tutorialRefs
+            .split("\n")
+            .map((u) => u.trim())
+            .filter(Boolean),
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        setTutorialError(json.error || "Erro ao gerar tutorial.");
+        return;
+      }
+      setTutorialTopic("");
+      setTutorialRefs("");
+      setShowTutorialForm(false);
+      loadArticles();
+      alert(`Tutorial "${json.article.title}" gerado como rascunho! Score editorial: ${json.readiness.score}/100.`);
+    } catch (err) {
+      setTutorialError("Falha na requisição ao gerar tutorial.");
+    } finally {
+      setGeneratingTutorial(false);
+    }
+  }
+
   function insertTag(tagSnippet: string) {
     if (!editingArticle) return;
     const current = editingArticle.content_html || "";
@@ -160,13 +200,65 @@ export function AdminCMSManager() {
             <p className="mt-1 text-sm text-[#667085]">Edite o conteúdo em texto livre/HTML com pré-visualização estilo The News.</p>
           </div>
 
-          <button
-            onClick={handleCreateNew}
-            className="rounded-full bg-[#6366f1] px-6 py-2.5 text-sm font-black text-white hover:bg-[#4f46e5]"
-          >
-            + Nova Edição / Notícia
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setShowTutorialForm((v) => !v)}
+              className="rounded-full border border-indigo-200 bg-indigo-50 px-6 py-2.5 text-sm font-black text-indigo-700 hover:bg-indigo-100"
+            >
+              🤖 {showTutorialForm ? "Cancelar" : "Gerar Tutorial com IA"}
+            </button>
+            <button
+              onClick={handleCreateNew}
+              className="rounded-full bg-[#6366f1] px-6 py-2.5 text-sm font-black text-white hover:bg-[#4f46e5]"
+            >
+              + Nova Edição / Notícia
+            </button>
+          </div>
         </div>
+
+        {showTutorialForm ? (
+          <form onSubmit={handleGenerateTutorial} className="mt-6 space-y-3 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-5">
+            {tutorialError ? (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-600">
+                {tutorialError}
+              </div>
+            ) : null}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
+                Tema do tutorial
+              </label>
+              <input
+                required
+                value={tutorialTopic}
+                onChange={(e) => setTutorialTopic(e.target.value)}
+                placeholder="Ex: Como criar uma skill personalizada no Claude Code"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
+                Referências (opcional, uma URL por linha)
+              </label>
+              <textarea
+                rows={2}
+                value={tutorialRefs}
+                onChange={(e) => setTutorialRefs(e.target.value)}
+                placeholder={"https://docs.claude.com/...\nhttps://github.com/..."}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-mono focus:border-indigo-500 focus:outline-none"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={generatingTutorial}
+              className="rounded-full bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {generatingTutorial ? "Gerando... (pode levar 1-2 min)" : "Gerar Tutorial"}
+            </button>
+            <p className="text-xs text-slate-400">
+              O tutorial fica salvo como rascunho na categoria &quot;Tutorial&quot; — revise e publique na lista abaixo.
+            </p>
+          </form>
+        ) : null}
 
         {/* Filtros e Busca */}
         <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
