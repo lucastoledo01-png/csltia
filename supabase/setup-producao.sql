@@ -1,67 +1,125 @@
--- Base multi-projeto.
+-- =========================================================================
+-- SCRIPT UNICO DE ATUALIZACAO DO BANCO DE PRODUCAO
+-- =========================================================================
 --
--- Ate aqui o sistema assumia uma marca so, e o schema nao apenas deixava de
--- suportar varios projetos: ele proibia. Havia restricoes de unicidade globais
--- que tornavam a coexistencia impossivel, nao apenas trabalhosa:
+-- Consolida quatro migracoes que faltam no banco:
 --
---   news_editions.edition_date UNIQUE  -> uma edicao por dia no sistema inteiro
---   news_candidates.url        UNIQUE  -> a mesma noticia nao podia ser
---                                         coletada por dois projetos
---   articles.slug              UNIQUE  -> colisao de slug entre marcas
---   newsletter_leads.email     UNIQUE  -> um e-mail nao podia assinar duas
---                                         newsletters diferentes
+--   20260825170000_social_posts                 (nunca aplicada)
+--   20260826120000_storage_public_assets        (nunca aplicada)
+--   20260827020000_fix_public_assets_upload_policy
+--   20260827030000_multi_project_base
 --
--- Esta migracao cria a entidade projeto, vincula todo o conteudo a ela e troca
--- essas unicidades globais por compostas.
+-- A politica insegura da terceira migracao ja entra corrigida aqui: o bucket
+-- e criado com escopo de papel correto desde o inicio, sem passar pelo estado
+-- em que qualquer visitante podia subir arquivo.
 --
--- Compatibilidade: project_id entra com DEFAULT apontando para o projeto
--- semente, entao o codigo que ainda nao passa o projeto continua funcionando
--- enquanto o pipeline e migrado por partes. O DEFAULT sai quando a migracao do
--- codigo terminar.
+-- Pode ser executado mais de uma vez sem erro.
+--
+-- COMO USAR: Supabase -> SQL Editor -> colar tudo -> Run.
+-- =========================================================================
 
--- ---------------------------------------------------------------------------
--- 1. Projetos
--- ---------------------------------------------------------------------------
+
+-- -------------------------------------------------------------------------
+-- 1. Postagens sociais
+-- -------------------------------------------------------------------------
+
+create table if not exists public.social_posts (
+  id uuid primary key default gen_random_uuid(),
+  edition_id uuid references public.news_editions(id) on delete set null,
+  edition_date date not null,
+  article_slug text,
+  platform text not null default 'instagram' check (platform in ('instagram', 'linkedin', 'twitter')),
+  post_type text not null default 'carousel' check (post_type in ('carousel', 'single_image', 'reels_script')),
+  title text not null,
+  caption text not null default '',
+  content_json jsonb not null default '{}'::jsonb,
+  slides_manifest jsonb not null default '[]'::jsonb,
+  asset_paths jsonb not null default '[]'::jsonb,
+  status text not null default 'draft' check (status in ('draft', 'generated', 'approved', 'scheduled', 'published', 'failed')),
+  idempotency_key text,
+  scheduled_at timestamptz,
+  published_at timestamptz,
+  provider_post_id text,
+  tokens_input int not null default 0,
+  tokens_output int not null default 0,
+  cost_estimate_usd numeric(10, 6) not null default 0,
+  dry_run boolean not null default true,
+  error_message text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists social_posts_date_idx on public.social_posts (edition_date desc);
+create index if not exists social_posts_status_idx on public.social_posts (status, created_at desc);
+
+alter table public.social_posts enable row level security;
+revoke all on public.social_posts from anon, authenticated;
+
+
+-- -------------------------------------------------------------------------
+-- 2. Bucket de assets, com politicas ja corretas
+-- -------------------------------------------------------------------------
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('public_assets', 'public_assets', true, 10485760, array['image/png', 'image/jpeg', 'image/svg+xml'])
+on conflict (id) do update set public = true;
+
+drop policy if exists "Public Read Access for Assets" on storage.objects;
+drop policy if exists "Service Role Upload Access for Assets" on storage.objects;
+drop policy if exists "Service Role Update Access for Assets" on storage.objects;
+drop policy if exists "Service Role Delete Access for Assets" on storage.objects;
+
+-- Leitura publica e intencional: a Meta precisa buscar os slides.
+create policy "Public Read Access for Assets"
+on storage.objects for select
+to anon, authenticated, service_role
+using (bucket_id = 'public_assets');
+
+-- Escrita apenas pelo papel de servico. Sem a clausula TO, a politica valeria
+-- para PUBLIC e liberaria upload anonimo.
+create policy "Service Role Upload Access for Assets"
+on storage.objects for insert
+to service_role
+with check (bucket_id = 'public_assets');
+
+create policy "Service Role Update Access for Assets"
+on storage.objects for update
+to service_role
+using (bucket_id = 'public_assets')
+with check (bucket_id = 'public_assets');
+
+create policy "Service Role Delete Access for Assets"
+on storage.objects for delete
+to service_role
+using (bucket_id = 'public_assets');
+
+
+-- -------------------------------------------------------------------------
+-- 3. Projetos
+-- -------------------------------------------------------------------------
 
 create table if not exists public.projects (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique,
   name text not null,
   status text not null default 'active' check (status in ('active', 'paused', 'archived')),
-
-  -- Segmento de atuacao: orienta a curadoria editorial de cada projeto.
   niche text not null default '',
   content_language text not null default 'pt-BR',
   timezone text not null default 'America/Sao_Paulo',
-
   site_url text,
-
-  -- Identidade visual usada na newsletter e nos slides do carrossel.
   brand_display_name text not null default '',
   brand_tagline text not null default '',
   brand_primary_color text not null default '#ff4a1c',
   brand_logo_url text,
   brand_social_links jsonb not null default '{}'::jsonb,
-
-  -- Publicacao
   newsletter_from_name text not null default '',
   publish_hour_local int not null default 6 check (publish_hour_local between 0 and 23),
   publish_minute_local int not null default 3 check (publish_minute_local between 0 and 59),
-
-  -- Ajuste fino do tom editorial por projeto, concatenado ao prompt do sistema.
   editorial_prompt_extra text not null default '',
-
   settings jsonb not null default '{}'::jsonb,
-
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
--- ---------------------------------------------------------------------------
--- 2. Fontes de conteudo por projeto
--- ---------------------------------------------------------------------------
--- As fontes viviam num array em news-sources.ts. Para um projeto de outro
--- segmento seria preciso editar codigo e fazer deploy.
 
 create table if not exists public.project_news_sources (
   id uuid primary key default gen_random_uuid(),
@@ -83,16 +141,6 @@ create table if not exists public.project_news_sources (
 create index if not exists project_news_sources_enabled_idx
   on public.project_news_sources (project_id, enabled, priority);
 
--- ---------------------------------------------------------------------------
--- 3. Credenciais por projeto
--- ---------------------------------------------------------------------------
--- Cada projeto publica numa conta de Instagram e numa lista de e-mail
--- diferentes, entao essas credenciais nao podem mais vir do ambiente global.
---
--- ATENCAO: os valores ficam em texto no banco. O acesso e restrito ao papel de
--- servico (RLS abaixo), mas o proximo passo de endurecimento e mover os
--- segredos para o Supabase Vault e guardar aqui apenas a referencia.
-
 create table if not exists public.project_credentials (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.projects(id) on delete cascade,
@@ -104,11 +152,18 @@ create table if not exists public.project_credentials (
   constraint project_credentials_provider_unique unique (project_id, provider)
 );
 
--- ---------------------------------------------------------------------------
+alter table public.projects enable row level security;
+alter table public.project_news_sources enable row level security;
+alter table public.project_credentials enable row level security;
+
+revoke all on public.projects from anon, authenticated;
+revoke all on public.project_news_sources from anon, authenticated;
+revoke all on public.project_credentials from anon, authenticated;
+
+
+-- -------------------------------------------------------------------------
 -- 4. Projeto semente
--- ---------------------------------------------------------------------------
--- O conteudo existente foi todo produzido para a desbuguei.ia. O identificador
--- e fixo para servir de DEFAULT das colunas adicionadas adiante.
+-- -------------------------------------------------------------------------
 
 insert into public.projects (
   id, slug, name, niche, site_url,
@@ -130,9 +185,10 @@ values (
 )
 on conflict (id) do nothing;
 
--- ---------------------------------------------------------------------------
--- 5. Fontes atuais migradas para o projeto semente
--- ---------------------------------------------------------------------------
+
+-- -------------------------------------------------------------------------
+-- 5. Fontes de conteudo
+-- -------------------------------------------------------------------------
 
 insert into public.project_news_sources
   (project_id, source_key, name, company_name, type, url, enabled, priority, category, region)
@@ -158,36 +214,24 @@ values
   ('00000000-0000-4000-8000-000000000001', 'theverge-ai', 'The Verge AI', null, 'rss', 'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml', true, 2, 'tech_media', 'global')
 on conflict (project_id, source_key) do nothing;
 
--- ---------------------------------------------------------------------------
--- 6. Vinculo do conteudo existente ao projeto
--- ---------------------------------------------------------------------------
+
+-- -------------------------------------------------------------------------
+-- 6. Vinculo do conteudo ao projeto
+-- -------------------------------------------------------------------------
 
 do $$
 declare
   alvo text;
 begin
   foreach alvo in array array[
-    'articles',
-    'article_revisions',
-    'article_comments',
-    'newsletter_leads',
-    'email_campaigns',
-    'email_events',
-    'content_sources',
-    'editorial_reviews',
-    'listmonk_sync_logs',
-    'platform_events',
-    'pageviews',
-    'news_candidates',
-    'news_editions',
-    'newsroom_runs',
-    'social_posts'
+    'articles', 'article_revisions', 'article_comments', 'newsletter_leads',
+    'email_campaigns', 'email_events', 'content_sources', 'editorial_reviews',
+    'listmonk_sync_logs', 'platform_events', 'pageviews', 'news_candidates',
+    'news_editions', 'newsroom_runs', 'social_posts'
   ] loop
     execute format(
       'alter table public.%I add column if not exists project_id uuid not null '
-      || 'default ''00000000-0000-4000-8000-000000000001''::uuid',
-      alvo
-    );
+      || 'default ''00000000-0000-4000-8000-000000000001''::uuid', alvo);
 
     if not exists (
       select 1 from pg_constraint
@@ -197,23 +241,19 @@ begin
       execute format(
         'alter table public.%I add constraint %I foreign key (project_id) '
         || 'references public.projects(id) on delete cascade',
-        alvo, alvo || '_project_id_fkey'
-      );
+        alvo, alvo || '_project_id_fkey');
     end if;
 
     execute format(
       'create index if not exists %I on public.%I (project_id, created_at desc)',
-      alvo || '_project_idx', alvo
-    );
+      alvo || '_project_idx', alvo);
   end loop;
 end $$;
 
--- ---------------------------------------------------------------------------
--- 7. Unicidades globais viram compostas
--- ---------------------------------------------------------------------------
 
--- Guardado por um bloco condicional para que a migracao possa ser reaplicada
--- sem erro de constraint ja existente.
+-- -------------------------------------------------------------------------
+-- 7. Unicidades globais viram compostas
+-- -------------------------------------------------------------------------
 
 do $$
 declare
@@ -243,16 +283,16 @@ begin
   end loop;
 end $$;
 
--- ---------------------------------------------------------------------------
--- 8. Acesso
--- ---------------------------------------------------------------------------
--- Mesmo padrao das demais tabelas: sem acesso por anon ou authenticated. Todo
--- o trafego passa pelo servidor com a chave de servico.
 
-alter table public.projects enable row level security;
-alter table public.project_news_sources enable row level security;
-alter table public.project_credentials enable row level security;
+-- -------------------------------------------------------------------------
+-- 8. Conferencia
+-- -------------------------------------------------------------------------
 
-revoke all on public.projects from anon, authenticated;
-revoke all on public.project_news_sources from anon, authenticated;
-revoke all on public.project_credentials from anon, authenticated;
+select
+  (select count(*) from public.projects)                        as projetos,
+  (select count(*) from public.project_news_sources)            as fontes,
+  (select count(*) from public.social_posts)                    as posts,
+  (select count(*) from storage.buckets where id='public_assets') as bucket,
+  (select count(*) from pg_policies
+     where schemaname='storage' and tablename='objects'
+       and policyname like '%Assets%')                          as politicas_storage;
