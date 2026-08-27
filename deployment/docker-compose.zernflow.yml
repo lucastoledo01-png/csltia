@@ -1,0 +1,30 @@
+# ZernFlow for Easypanel/Traefik deployment
+# Single container — no local DB needed, uses the hosted Supabase project.
+# Deploy with: docker compose -f docker-compose.zernflow.yml --env-file .env up -d --build
+
+name: zernflow
+
+services:
+  zernflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.zernflow
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.zernflow.rule: "Host(`zernflow.casaloti.ia.br`)"
+      traefik.http.routers.zernflow.entrypoints: "websecure"
+      traefik.http.routers.zernflow.tls: "true"
+      traefik.http.routers.zernflow.tls.certresolver: "letsencrypt"
+      traefik.http.services.zernflow.loadbalancer.server.port: "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
