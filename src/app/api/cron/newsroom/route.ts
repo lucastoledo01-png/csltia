@@ -1,20 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { requireCron } from "@/lib/server/api-auth";
 import { runNewsroom } from "@/lib/server/newsroom/newsroom-service";
 
-export async function GET(req: NextRequest) {
+async function handle(req: NextRequest) {
+  const denied = requireCron(req);
+  if (denied) return denied;
+
   try {
-    const authHeader = req.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET || process.env.ADMIN_SECRET || "casaloti_admin_secret_key";
-    const urlSecret = req.nextUrl.searchParams.get("secret");
-
-    const isAuthorized =
-      (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
-      (cronSecret && urlSecret === cronSecret);
-
-    if (!isAuthorized && process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
-
     console.log("[CRON NEWSROOM] Executando disparo diário da redação desbuguei.ia...");
 
     const result = await runNewsroom({
@@ -25,12 +18,19 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json(result);
-  } catch (err: any) {
+  } catch (err) {
     console.error("[CRON NEWSROOM ERROR]", err);
-    return NextResponse.json({ ok: false, error: err?.message || String(err) }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: err instanceof Error ? err.message : String(err) },
+      { status: 500 },
+    );
   }
 }
 
+export async function GET(req: NextRequest) {
+  return handle(req);
+}
+
 export async function POST(req: NextRequest) {
-  return GET(req);
+  return handle(req);
 }

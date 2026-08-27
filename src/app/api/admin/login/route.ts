@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { createAdminSessionCookie, signAdminSession, verifyAdminPassword } from "@/lib/server/admin-auth";
+import {
+  createAdminSessionCookie,
+  createAdminSessionPayload,
+  signAdminSession,
+  verifyAdminPassword,
+} from "@/lib/server/admin-auth";
+import { persistAdminSession } from "@/lib/server/admin-session";
+import { MissingEnvError, getAdminPassword, getAdminSessionSecret } from "@/lib/server/env";
 
 async function getPassword(request: Request) {
   const contentType = request.headers.get("content-type") ?? "";
@@ -47,10 +54,25 @@ function getTargetUrl(path: string, request: Request): URL {
 }
 
 export async function POST(request: Request) {
-  const password = await getPassword(request);
   const acceptsHtml = (request.headers.get("accept") ?? "").includes("text/html");
 
-  const configuredPassword = process.env.ADMIN_TEMP_PASSWORD || process.env.ADMIN_PASSWORD || "*4lur4F3lix$";
+  let configuredPassword: string;
+  let sessionSecret: string;
+  try {
+    configuredPassword = getAdminPassword();
+    sessionSecret = getAdminSessionSecret();
+  } catch (err) {
+    if (err instanceof MissingEnvError) {
+      console.error("[ADMIN LOGIN] Configuração ausente:", err.message);
+      return NextResponse.json(
+        { ok: false, error: "Login indisponível por configuração incompleta." },
+        { status: 500 },
+      );
+    }
+    throw err;
+  }
+
+  const password = await getPassword(request);
 
   if (!verifyAdminPassword(configuredPassword, password)) {
     if (acceptsHtml) {
@@ -60,12 +82,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Senha incorreta" }, { status: 401 });
   }
 
-  const sessionSecret = process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_TEMP_PASSWORD || "casaloti_admin_session_secret_fallback";
+  const payload = createAdminSessionPayload();
 
-  const token = signAdminSession(sessionSecret);
+  // Sem o registro no banco a sessão não teria como ser revogada depois, então
+  // o login falha em vez de emitir um cookie que ninguém consegue encerrar.
+  const persisted = await persistAdminSession(payload);
+  if (!persisted) {
+    if (acceptsHtml) {
+      return NextResponse.redirect(getTargetUrl("/admin?erro=sessao", request), { status: 303 });
+    }
+
+    return NextResponse.json(
+      { ok: false, error: "Não foi possível abrir a sessão. Tente novamente." },
+      { status: 503 },
+    );
+  }
+
+  const token = signAdminSession(sessionSecret, payload);
   const response = acceptsHtml
     ? NextResponse.redirect(getTargetUrl("/admin", request), { status: 303 })
     : NextResponse.json({ ok: true });
+
   response.headers.set("Set-Cookie", createAdminSessionCookie(token));
 
   return response;

@@ -1,3 +1,4 @@
+import { escapeHtml, safeHttpUrl } from "../html";
 import { createListmonkClient } from "../listmonk";
 import { runInstagramCarouselService } from "../social/instagram/instagram-service";
 import { getSupabaseAdminClient } from "../supabase-admin";
@@ -49,7 +50,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
       };
       const emoji = emojiMap[s.category] || "⚡";
       return `<div style="margin-bottom: 6px; font-size: 13px; color: #374151;">
-        <span style="font-weight: 700; color: #111827;">${emoji} ${s.category.toUpperCase()}:</span> ${s.title}
+        <span style="font-weight: 700; color: #111827;">${emoji} ${escapeHtml(s.category.toUpperCase())}:</span> ${escapeHtml(s.title)}
       </div>`;
     })
     .join("");
@@ -61,31 +62,37 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
       );
       const whatsappShareUrl = `https://api.whatsapp.com/send?text=${whatsappText}`;
 
-      const sourceCreditName = s.source_name || "Fonte Original";
-      const summaryWithInlineLink = s.summary.replace(
+      const sourceCreditName = escapeHtml(s.source_name || "Fonte Original");
+      const sourceUrl = safeHttpUrl(s.source_url);
+      const safeTitle = escapeHtml(s.title);
+
+      // O resumo é escapado antes de receber o link para que a âncora seja o
+      // único HTML introduzido aqui.
+      const escapedSummary = escapeHtml(s.summary);
+      const summaryWithInlineLink = escapedSummary.replace(
         /(notícia|estudo|pesquisa|anúncio|ferramenta|plataforma|novo modelo|atualização)/i,
-        `<a href="${s.source_url}" target="_blank" style="color: #374151; font-weight: 600; text-decoration: underline;">$1</a>`
+        `<a href="${sourceUrl}" target="_blank" style="color: #374151; font-weight: 600; text-decoration: underline;">$1</a>`
       );
 
-      const storyImage = coverImages[index] || fallbackImages[index % fallbackImages.length];
+      const storyImage = safeHttpUrl(coverImages[index] || fallbackImages[index % fallbackImages.length]);
 
       return `
       <section style="margin-bottom: 36px; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb;">
         <!-- Tag de Categoria Estilo The News -->
         <div style="margin-bottom: 6px;">
           <span style="display: inline-block; color: #d97706; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em;">
-            ${s.category}
+            ${escapeHtml(s.category)}
           </span>
         </div>
 
         <!-- Título da Pauta -->
         <h2 style="font-size: 24px; font-weight: 900; color: #111827; margin: 4px 0 16px 0; line-height: 1.25;">
-          ${s.title}
+          ${safeTitle}
         </h2>
 
         <!-- Imagem da Notícia com atributos de tag inline anti-download -->
         <div style="margin-bottom: 8px; border-radius: 12px; overflow: hidden; background-color: #f3f4f6;">
-          <img src="${storyImage}" alt="${s.title}" border="0" loading="eager" decoding="async" style="display: block; width: 100%; height: auto; max-height: 340px; object-fit: cover; border-radius: 12px; margin: 0 auto;" />
+          <img src="${storyImage}" alt="${safeTitle}" border="0" loading="eager" decoding="async" style="display: block; width: 100%; height: auto; max-height: 340px; object-fit: cover; border-radius: 12px; margin: 0 auto;" />
         </div>
         <div style="text-align: center; font-size: 11px; color: #9ca3af; margin-bottom: 18px;">
           (Imagem: ${sourceCreditName} | Reprodução)
@@ -93,7 +100,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
 
         <!-- Conteúdo Completo com Link da Fonte Embutido no Texto -->
         <div style="font-size: 15px; line-height: 1.7; color: #374151; margin-bottom: 16px;">
-          ${summaryWithInlineLink.includes("href=") ? summaryWithInlineLink : `${summaryWithInlineLink} (<a href="${s.source_url}" target="_blank" style="color: #374151; text-decoration: underline;">fonte original: ${sourceCreditName}</a>)`}
+          ${summaryWithInlineLink.includes("href=") ? summaryWithInlineLink : `${summaryWithInlineLink} (<a href="${sourceUrl}" target="_blank" style="color: #374151; text-decoration: underline;">fonte original: ${sourceCreditName}</a>)`}
         </div>
 
         <!-- Caixa Amarela Prática estilo The News -->
@@ -102,18 +109,18 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
             💡 Como aplicar isso no seu perfil ou vendas:
           </p>
           <p style="font-size: 14px; line-height: 1.6; color: #1f2937; margin: 0;">
-            ${s.practical_impact}
+            ${escapeHtml(s.practical_impact)}
           </p>
         </div>
 
         <p style="font-size: 14px; line-height: 1.6; color: #4b5563; margin-bottom: 12px;">
-          <strong>Por que olhar de perto:</strong> ${s.why_it_matters}
+          <strong>Por que olhar de perto:</strong> ${escapeHtml(s.why_it_matters)}
         </p>
 
         ${
           s.humor_line
             ? `<p style="font-size: 13px; font-style: italic; color: #6b7280; margin: 8px 0 16px 0;">
-                💬 "${s.humor_line}"
+                💬 "${escapeHtml(s.humor_line)}"
                </p>`
             : ""
         }
@@ -137,7 +144,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
           ⚡ Giro Rápido & Outras Sacadas
         </h3>
         <ul style="margin: 0; padding-left: 18px; font-size: 14px; color: #374151; line-height: 1.65;">
-          ${edition.quick_bits.map((b) => `<li style="margin-bottom: 10px;"><strong>${b.title}:</strong> ${b.text}</li>`).join("")}
+          ${edition.quick_bits.map((b) => `<li style="margin-bottom: 10px;"><strong>${escapeHtml(b.title)}:</strong> ${escapeHtml(b.text)}</li>`).join("")}
         </ul>
       </section>
     `
@@ -149,16 +156,16 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
       <!-- Cabeçalho Estilo The News -->
       <header style="text-align: center; border-bottom: 3px solid #ff4a1c; padding-bottom: 18px; margin-bottom: 24px;">
         <div style="font-size: 11px; font-weight: 800; color: #6b7280; letter-spacing: 0.1em; margin-bottom: 8px;">
-          ${dateFormatted}
+          ${escapeHtml(dateFormatted)}
         </div>
         <div style="display: inline-block; background-color: #ff4a1c; color: #ffffff; font-weight: 900; font-family: monospace; font-size: 18px; padding: 6px 16px; border-radius: 8px; margin-bottom: 12px; letter-spacing: 0.05em;">
           b. / desbuguei.ia
         </div>
         <h1 style="font-size: 26px; font-weight: 900; margin: 10px 0 6px 0; color: #111827; line-height: 1.25;">
-          ${edition.headline}
+          ${escapeHtml(edition.headline)}
         </h1>
         <p style="font-size: 14px; color: #4b5563; margin: 0; font-weight: 500;">
-          ${edition.preheader}
+          ${escapeHtml(edition.preheader)}
         </p>
       </header>
 
@@ -167,7 +174,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
         <p style="margin: 0 0 10px 0; font-weight: 800; color: #ff4a1c; text-transform: uppercase; font-size: 13px; letter-spacing: 0.08em;">
           ☕ Bom dia!
         </p>
-        ${edition.intro}
+        ${escapeHtml(edition.intro)}
       </div>
 
       <!-- Resumo Rápido (TOC) -->
