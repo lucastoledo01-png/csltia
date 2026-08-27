@@ -1,0 +1,27 @@
+# Worker de renderização e publicação do Instagram.
+#
+# Precisa de Chromium, o que a hospedagem compartilhada não permitia. O
+# navegador é instalado na versão exata do playwright declarado no
+# package-lock, evitando divergência entre a biblioteca e o binário.
+
+FROM node:22-bookworm-slim
+
+WORKDIR /app
+
+# devDependencies são necessárias: o worker roda via tsx e o pacote playwright
+# fornece o instalador do navegador.
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# --with-deps traz as bibliotecas de sistema que o Chromium exige.
+RUN npx playwright install --with-deps chromium \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY tsconfig.json ./
+COPY src ./src
+
+ENV NODE_ENV=production
+# Sem intervalo o script faz uma passada e encerra; com intervalo ele repete.
+ENV WORKER_INTERVAL_SECONDS=900
+
+CMD ["npx", "tsx", "src/scripts/instagram-worker.ts"]
