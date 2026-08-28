@@ -181,9 +181,22 @@ export async function pickInstagramTrendingTopic(
   };
 }
 
+/**
+ * A Hashtag Search do Instagram exige o recurso "Instagram Public Content
+ * Access" aprovado pela Meta (App Review) — sem isso a API devolve erro
+ * (#10) em toda chamada. Desligado até essa aprovação sair; a função de
+ * busca continua pronta em pickInstagramTrendingTopic para religar depois.
+ */
+const INSTAGRAM_LISTENING_ENABLED = false;
+
 export async function pickTodaysTopic(
   now = new Date(),
 ): Promise<{ suggestion: TopicSuggestion | null; reasons: string[] }> {
+  if (!INSTAGRAM_LISTENING_ENABLED) {
+    const result = await pickGitHubTrendingTopic(now);
+    return { suggestion: result.suggestion, reasons: result.reason ? [result.reason] : [] };
+  }
+
   const primary = pickSourceForToday(now);
   const fallback = primary === "github" ? "instagram" : "github";
 
