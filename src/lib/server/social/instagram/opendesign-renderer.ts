@@ -25,12 +25,40 @@ export async function fetchImageAsBase64(url: string): Promise<string> {
   }
 }
 
+// Modelo de geração de imagem da OpenAI. "dall-e-3" foi descontinuado — a
+// conta só tem acesso à família gpt-image agora. gpt-image-1 é o mais rápido
+// e barato dos disponíveis; trocar aqui pra "gpt-image-2" se quiser mais
+// qualidade (renderização mais rica) em troca de ~3x mais tempo de geração —
+// tolerável aqui porque roda em background no worker, não bloqueia usuário.
+const IMAGE_GENERATION_MODEL = "gpt-image-1";
+
+// Mascote fixo pra manter uma identidade visual consistente entre os posts,
+// em vez de sortear foto de banco de imagem a cada capa. Dois personagens:
+// a raposa/figura de moletom pra assunto geral, e a figurinha do Claude só
+// pra tutoriais que são especificamente sobre Claude Code — usar o mascote
+// oficial do Claude como identidade genérica da conta seria uso indevido de
+// marca de terceiro (Anthropic), por isso fica restrito a esse contexto.
+const HOODIE_MASCOT_DESCRIPTION =
+  "A mysterious person wearing a deep dark red hoodie (matte, muted brick-red tone), hood fully up, face completely hidden in pure black shadow with absolutely no facial features ever visible, photorealistic, cinematic single dramatic light source from above-front, moody low-key lighting, confident and enigmatic posture";
+
+const CLAUDE_MASCOT_DESCRIPTION =
+  "A small blocky voxel-shaped mascot figurine — simple cube-ish orange-red body, two simple rectangular black eyes, no mouth, minimalist geometric design like a real 3D-printed collectible toy, matte plastic texture with visible print layer lines, photorealistic product photography";
+
+function isClaudeRelated(...texts: Array<string | undefined>): boolean {
+  const combined = texts.filter(Boolean).join(" ").toLowerCase();
+  return /claude|anthropic/.test(combined);
+}
+
 export async function generateCoverImageWithAI(title: string, coverPrompt?: string, primaryTopic?: string): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return "";
 
-  const subject = coverPrompt || `${title} (${primaryTopic || "Inteligência Artificial"})`;
-  const finalPrompt = `High impact Instagram news carousel cover background image. Subject: ${subject}. Style: Photorealistic editorial news portrait or 3D render with dramatic lighting, tech journalism aesthetic, rich dark bottom contrast for text legibility, 4k resolution. ABSOLUTELY NO TEXT, NO WORDS, NO TYPOGRAPHY IN THE IMAGE.`;
+  const scene = coverPrompt || `${title} (${primaryTopic || "Inteligência Artificial"})`;
+  const claudeRelated = isClaudeRelated(title, coverPrompt, primaryTopic);
+
+  const finalPrompt = claudeRelated
+    ? `${CLAUDE_MASCOT_DESCRIPTION}. Scene/context: the figurine placed in a realistic desk or tech setup scene related to: ${scene}. Warm cozy authentic tech-creator desk photography style, shallow depth of field, high-impact Instagram cover aesthetic. ABSOLUTELY NO TEXT, NO WORDS, NO TYPOGRAPHY, NO LOGOS IN THE IMAGE.`
+    : `${HOODIE_MASCOT_DESCRIPTION}. Scene/context relates to: ${scene}. Solid black or deep charcoal background, subtle warm orange rim light, rich contrast, high-impact editorial Instagram cover aesthetic, 4k resolution. ABSOLUTELY NO TEXT, NO WORDS, NO TYPOGRAPHY IN THE IMAGE.`;
 
   try {
     const res = await fetch("https://api.openai.com/v1/images/generations", {
@@ -40,18 +68,18 @@ export async function generateCoverImageWithAI(title: string, coverPrompt?: stri
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "dall-e-3",
+        model: IMAGE_GENERATION_MODEL,
         prompt: finalPrompt,
         n: 1,
         size: "1024x1024",
-        quality: "standard",
-        response_format: "url"
+        quality: "high",
       }),
     });
 
     if (!res.ok) return "";
     const data = await res.json();
-    return data?.data?.[0]?.url || "";
+    const b64 = data?.data?.[0]?.b64_json;
+    return b64 ? `data:image/png;base64,${b64}` : "";
   } catch {
     return "";
   }
@@ -80,7 +108,9 @@ export function getContextualBrandImage(title: string, primaryTopic: string, pro
     return "https://images.unsplash.com/photo-1616469829941-c7200edec809?auto=format&fit=crop&w=1080&q=80";
   }
 
-  return "https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=1080&q=80";
+  // Sem categoria reconhecida: usa uma imagem própria, diferente de todas as
+  // acima, pra não colidir e repetir capa em posts sem relação nenhuma entre si.
+  return "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1080&q=80";
 }
 
 export function getBrandHeroVisual(title: string, primaryTopic: string): { brandName: string; brandClass: string; iconSvg: string } {
@@ -1219,7 +1249,9 @@ export async function renderOpenDesignSlides(carousel: InstagramCarouselContent)
           imageUrl = getContextualBrandImage(slide.title, carousel.primary_topic, slide.bg_image_url);
         }
 
-        if (imageUrl && imageUrl.startsWith("http")) {
+        if (imageUrl && imageUrl.startsWith("data:")) {
+          slide.bg_image_url = imageUrl;
+        } else if (imageUrl && imageUrl.startsWith("http")) {
           const b64 = await fetchImageAsBase64(imageUrl);
           if (b64 && b64.startsWith("data:")) {
             slide.bg_image_url = b64;
