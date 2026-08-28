@@ -20,9 +20,11 @@ async function handle(req: NextRequest) {
   const aguardar = req.nextUrl.searchParams.get("wait") === "1";
 
   const execucao = (async () => {
-    const suggestion = await pickTodaysTopic();
+    const { suggestion, reasons } = await pickTodaysTopic();
     if (!suggestion) {
-      throw new Error("Nenhuma fonte de tema (GitHub ou Instagram) devolveu resultado hoje.");
+      throw new Error(
+        `Nenhuma fonte de tema devolveu resultado hoje. ${reasons.join(" | ")}`,
+      );
     }
 
     const { draft } = await generateTutorialDraft(suggestion.topic, suggestion.referenceUrls);
