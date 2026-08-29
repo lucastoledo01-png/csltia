@@ -16,11 +16,16 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => ({}));
+    const format =
+      body.format === "tutorial" || body.format === "prompt" ? body.format : "noticia";
 
     const resultado = await requestInstagramPost({
       projectId: typeof body.projectId === "string" ? body.projectId : undefined,
       editionDateStr: typeof body.editionDateStr === "string" ? body.editionDateStr : undefined,
       storyIndex: typeof body.storyIndex === "number" ? body.storyIndex : undefined,
+      format,
+      articleSlug: typeof body.articleSlug === "string" ? body.articleSlug : undefined,
+      keyword: typeof body.keyword === "string" ? body.keyword : undefined,
     });
 
     return NextResponse.json({

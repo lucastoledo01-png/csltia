@@ -1,4 +1,4 @@
-import { callOpenAIJSON, getAIProviderConfig } from "../../newsroom/ai-provider";
+import { callOpenAIJSON, getAIProviderConfig, type AITokenUsage } from "../../newsroom/ai-provider";
 import { EditionContent } from "../../newsroom/schemas";
 import { InstagramCarouselContent, InstagramCarouselSchema } from "./schemas";
 
@@ -179,8 +179,127 @@ Gere o carrossel (5 a 8 slides) com o CTA final pedindo pro leitor comentar "NEW
     parsedCarousel = InstagramCarouselSchema.parse(raw);
   }
 
+  parsedCarousel.format = "noticia";
+
   return {
     carousel: parsedCarousel,
     usage: aiResult.usage,
   };
+}
+
+// ==========================================================================
+// FORMATO TUTORIAL — adapta um artigo de tutorial já revisado (tabela
+// `articles`, categoria "Tutorial") num carrossel de passos.
+// ==========================================================================
+
+export type TutorialArticleInput = {
+  title: string;
+  slug: string;
+  excerpt: string;
+  primaryTopic: string;
+  sections: Array<{ heading: string; paragraphs: string[] }>;
+  /** Palavra exclusiva pra comentar no CTA (recebe o tutorial escrito no Direct). */
+  keyword: string;
+};
+
+const SYSTEM_TUTORIAL_CAROUSEL = `
+Você é o roteirista da marca "Desbuguei" (desbuguei.ia). Sua missão é transformar um TUTORIAL ESCRITO já publicado em um ROTEIRO DE CARROSSEL PARA INSTAGRAM no formato PASSO A PASSO.
+
+PÚBLICO & TOM:
+- Criadores de conteúdo, gestores de redes sociais, empreendedores e curiosos por IA que não são programadores experientes.
+- Direto, claro, com personalidade. Frases curtas. Nada de manual técnico frio.
+- PROIBIDO clichê de IA ("Em um mundo onde...", "Não é apenas X, é Y", "Desvendando...", "Na era da...").
+
+ESTRUTURA OBRIGATÓRIA DO CARROSSEL (4 a 10 slides):
+- SLIDE 1 — type "cover":
+  * "title": o RESULTADO que a pessoa vai alcançar (não "Tutorial de X" — sim "Rodando seu primeiro agente no Claude Code").
+  * "eyebrow": "N PASSOS · M MIN" (ex: "6 PASSOS · 4 MIN"), estimando pelo número de passos.
+  * "cover_image_prompt": descrição em inglês, ultra-detalhada, de um print realista do resultado/tela final ou de um setup de desenvolvedor. SEM texto na imagem.
+- SLIDES DO MEIO — type "step", um passo REAL por slide:
+  * "eyebrow": "PASSO 0X DE 0Y" (numeração só dos passos, não conta capa/CTA).
+  * "title": a ação do passo, curta ("Instale a CLI", "Crie o arquivo do agente").
+  * "bullet_points": array com UM item — o comando/código/config EXATO daquele passo (pode ter várias linhas, use \\n). Se o passo não tiver comando, deixe o array vazio.
+  * "body": 1 frase curta explicando o passo ou por que ele importa.
+- SLIDE DE FECHAMENTO (opcional) — type "tip":
+  * "eyebrow": "FECHAMENTO"
+  * "title": "Dica de quem já fez" ou similar.
+  * "body": um erro comum a evitar, ou o próximo passo natural.
+- ÚLTIMO SLIDE — type "cta":
+  * "title": promessa de valor ("Quer o tutorial escrito, com tudo copiável?").
+  * "body": 1 frase.
+  * "highlight_text": a KEYWORD exclusiva do post (será mostrada no botão "Comente KEYWORD").
+
+REGRAS:
+- Um passo por slide. Não junte dois passos num slide só.
+- Os comandos têm que ser os REAIS do tutorial de origem — não invente sintaxe.
+- Não force número de slides: se o tutorial tem 3 passos, são 3 slides "step".
+
+LEGENDA ("caption"): headline com gancho, intro_summary, 2-5 key_takeaways com emoji, cta_call pedindo pra comentar a keyword, 5-10 hashtags, full_caption completa. Encerre a full_caption com "Agora você está desbugado.".
+
+FORMATO DE SAÍDA — APENAS um objeto JSON:
+{
+  "title": "título interno do carrossel",
+  "edition_date": "YYYY-MM-DD",
+  "primary_topic": "assunto",
+  "target_audience_focus": "Criadores, Vendedores & Empreendedores",
+  "slides": [ { "index": 1, "type": "cover", "title": "...", "eyebrow": "...", "cover_image_prompt": "..." }, ... ],
+  "caption": { "headline": "...", "intro_summary": "...", "key_takeaways": ["..."], "cta_call": "...", "hashtags": ["..."], "full_caption": "..." }
+}
+`;
+
+export async function generateTutorialCarouselPipeline(
+  article: TutorialArticleInput,
+  editionDateStr: string = new Date().toISOString().split("T")[0],
+  env: Record<string, string | undefined> = process.env,
+  fetcher: typeof fetch = fetch,
+): Promise<{ carousel: InstagramCarouselContent; usage: AITokenUsage }> {
+  const config = getAIProviderConfig(env);
+
+  const userPrompt = `
+Transforme este tutorial escrito da desbuguei.ia (data ${editionDateStr}) num carrossel PASSO A PASSO para Instagram.
+
+TÍTULO: ${article.title}
+RESUMO: ${article.excerpt}
+ASSUNTO: ${article.primaryTopic}
+KEYWORD EXCLUSIVA DO POST (use no CTA): ${article.keyword}
+
+SEÇÕES DO TUTORIAL:
+${JSON.stringify(
+  article.sections.map((s) => ({ heading: s.heading, paragraphs: s.paragraphs })),
+  null,
+  2,
+)}
+
+Extraia os passos executáveis das seções acima (com os comandos reais), monte a capa focada no resultado e feche com o CTA pedindo pra comentar "${article.keyword}".
+`;
+
+  const aiResult = await callOpenAIJSON<InstagramCarouselContent>(
+    [
+      { role: "system", content: SYSTEM_TUTORIAL_CAROUSEL },
+      { role: "user", content: userPrompt },
+    ],
+    config.editorModel,
+    env,
+    fetcher,
+  );
+
+  let parsedCarousel: InstagramCarouselContent;
+  try {
+    parsedCarousel = InstagramCarouselSchema.parse(aiResult.data);
+  } catch {
+    console.warn("[TUTORIAL CAROUSEL] Validação Zod ajustada no fallback...");
+    const raw = aiResult.data as any;
+    if (!raw.edition_date) raw.edition_date = editionDateStr;
+    if (!raw.primary_topic) raw.primary_topic = article.primaryTopic;
+    if (!raw.slides || !Array.isArray(raw.slides)) raw.slides = [];
+    parsedCarousel = InstagramCarouselSchema.parse(raw);
+  }
+
+  parsedCarousel.format = "tutorial";
+
+  // Garante que o CTA carrega a keyword mesmo se o modelo esquecer.
+  const ctaSlide = parsedCarousel.slides.find((s) => s.type === "cta");
+  if (ctaSlide && !ctaSlide.highlight_text) ctaSlide.highlight_text = article.keyword;
+
+  return { carousel: parsedCarousel, usage: aiResult.usage };
 }
