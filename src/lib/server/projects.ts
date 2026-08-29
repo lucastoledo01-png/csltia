@@ -202,6 +202,33 @@ export async function getProjectCredentials(
 }
 
 /**
+ * Grava/atualiza a credencial de um provedor. Usado pelo cron de renovação do
+ * token da Meta pra persistir o token novo e a data de expiração.
+ */
+export async function upsertProjectCredentials(
+  projectId: string,
+  provider: ProjectCredentialProvider,
+  config: Record<string, unknown>,
+  expiresAt?: string | null,
+): Promise<void> {
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase.from("project_credentials").upsert(
+    {
+      project_id: projectId,
+      provider,
+      config,
+      expires_at: expiresAt ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "project_id,provider" },
+  );
+
+  if (error) {
+    throw new Error(`Falha ao gravar credencial ${provider}: ${error.message}`);
+  }
+}
+
+/**
  * Data corrente no fuso do projeto, no formato AAAA-MM-DD.
  *
  * O pipeline usava `new Date().toISOString()`, que é UTC: qualquer execução

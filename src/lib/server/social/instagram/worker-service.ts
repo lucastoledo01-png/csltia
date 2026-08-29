@@ -8,9 +8,17 @@ import {
   waitForContainerReady,
 } from "./meta-client";
 import { renderOpenDesignSlides, uploadOpenDesignSlideToStorage } from "./opendesign-renderer";
-import { generateInstagramCarouselPipeline } from "./pipeline";
+import {
+  generateInstagramCarouselPipeline,
+  generateTutorialCarouselPipeline,
+  type TutorialArticleInput,
+} from "./pipeline";
+import { resolveInstagramToken } from "./meta-token";
 import { markPostFailed } from "./scheduler";
-import type { InstagramCarouselContent } from "./schemas";
+import { getArticleBySlug } from "../../articles-service";
+import { formatError, sendAlert } from "../../alerts";
+import type { CarouselFormat, InstagramCarouselContent } from "./schemas";
+import type { AITokenUsage } from "../../newsroom/ai-provider";
 
 /**
  * Geração, renderização e publicação dos posts.
@@ -31,6 +39,47 @@ export type InstagramRunResult = {
   executionTimeMs: number;
   error?: string;
 };
+
+/**
+ * Gera o roteiro do carrossel conforme o formato do post. Notícia parte da
+ * edição diária; tutorial parte de um artigo já revisado (tabela `articles`).
+ */
+async function generateCarouselForPost(
+  format: CarouselFormat,
+  meta: Record<string, unknown>,
+  project: Project,
+  editionDate: string,
+  env: Record<string, string | undefined>,
+  fetcher: typeof fetch,
+): Promise<{ carousel: InstagramCarouselContent; usage: AITokenUsage }> {
+  if (format === "tutorial") {
+    const slug = String(meta.article_slug ?? "").trim();
+    if (!slug) throw new Error("Post de tutorial sem article_slug no content_json.");
+
+    const article = await getArticleBySlug(slug);
+    if (!article) throw new Error(`Artigo "${slug}" não encontrado.`);
+
+    const input: TutorialArticleInput = {
+      title: article.title,
+      slug: article.slug,
+      excerpt: article.excerpt,
+      primaryTopic: article.category || "Claude Code",
+      sections: article.content,
+      keyword: String(meta.keyword ?? "TUTORIAL"),
+    };
+    return generateTutorialCarouselPipeline(input, editionDate, env, fetcher);
+  }
+
+  const storyIndex = Number((meta.story_index as number) ?? 0);
+  const edition = await loadEdition(project, editionDate);
+  const story = edition.stories[storyIndex];
+  if (!story) {
+    throw new Error(
+      `A edição de ${editionDate} tem ${edition.stories.length} pautas; a posição ${storyIndex} não existe.`,
+    );
+  }
+  return generateInstagramCarouselPipeline(edition, editionDate, env, fetcher, story);
+}
 
 /**
  * Renderiza os slides e sobe para o Storage, devolvendo as URLs públicas.
@@ -135,27 +184,22 @@ export async function processScheduledPost(
 
     const project = await requireActiveProject(projectId);
     const editionDate = post.edition_date as string;
-    const storyIndex = Number((post.content_json as { story_index?: number })?.story_index ?? 0);
+    const meta = (post.content_json ?? {}) as Record<string, unknown>;
+    const format: CarouselFormat = (meta.format as CarouselFormat) ?? "noticia";
 
-    const edition = await loadEdition(project, editionDate);
-    const story = edition.stories[storyIndex];
+    const pipelineResult = await generateCarouselForPost(format, meta, project, editionDate, env, fetcher);
 
-    if (!story) {
-      throw new Error(
-        `A edição de ${editionDate} tem ${edition.stories.length} pautas; a posição ${storyIndex} não existe.`,
-      );
-    }
-
-    console.log(`[INSTAGRAM WORKER] ${project.slug} ${editionDate} pauta ${storyIndex + 1}: ${story.title}`);
-
-    const pipelineResult = await generateInstagramCarouselPipeline(edition, editionDate, env, fetcher, story);
+    console.log(
+      `[INSTAGRAM WORKER] ${project.slug} ${editionDate} formato ${format}: ${pipelineResult.carousel.title}`,
+    );
 
     await supabase
       .from("social_posts")
       .update({
         title: pipelineResult.carousel.title,
         caption: pipelineResult.carousel.caption.full_caption,
-        content_json: { ...pipelineResult.carousel, story_index: storyIndex },
+        // preserva os metadados de origem (format, story_index, article_slug, keyword…)
+        content_json: { ...pipelineResult.carousel, ...meta },
         tokens_input: pipelineResult.usage.promptTokens,
         tokens_output: pipelineResult.usage.completionTokens,
         cost_estimate_usd: pipelineResult.usage.estimatedCostUsd,
@@ -189,10 +233,14 @@ export async function processScheduledPost(
       };
     }
 
+    // Token efetivo: o persistido em project_credentials (renovado pelo cron)
+    // ou a env como semente. O meta-client lê env.INSTAGRAM_ACCESS_TOKEN.
+    const igEnv = { ...env, INSTAGRAM_ACCESS_TOKEN: await resolveInstagramToken(projectId, env) };
+
     const mediaId = await publishCarousel(
       slides.map((s) => s.url),
       pipelineResult.carousel.caption.full_caption,
-      env,
+      igEnv,
       fetcher,
     );
 
@@ -225,6 +273,7 @@ export async function processScheduledPost(
     const message = err instanceof Error ? err.message : String(err);
     await markPostFailed(socialPostId, message);
     console.error(`[INSTAGRAM WORKER] Post ${socialPostId} falhou: ${message}`);
+    await sendAlert("critical", "Post do Instagram falhou", `Post ${socialPostId}\n${formatError(err)}`);
 
     return {
       ok: false,
