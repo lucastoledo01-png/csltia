@@ -70,11 +70,15 @@ LISTMONK_URL / LISTMONK_API_USER / LISTMONK_API_TOKEN / LISTMONK_DEFAULT_LIST_ID
 **3. Cron em hPanel → Avançado → Trabalhos Cron:**
 
 ```
-3 9 * * *   curl -fsS -m 60 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" https://SEU_DOMINIO/api/cron/newsroom
+3 9 * * *    curl -fsS -m 60 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" https://SEU_DOMINIO/api/cron/newsroom
+0 8 * * *    curl -fsS -m 60 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" https://SEU_DOMINIO/api/cron/refresh-instagram-token
 ```
 
 O agendamento é **UTC**: `3 9` equivale a 06:03 em Brasília. Confira o fuso do
 servidor em hPanel → Avançado → Informações do servidor antes de fixar.
+
+A segunda linha checa o token de longa duração da Meta todo dia, renova quando
+falta pouco e alerta no Telegram se não conseguir (ver "Observabilidade" abaixo).
 
 A rota responde 202 em segundos e continua trabalhando em segundo plano, então
 o `-m 60` não corta a execução — ele só limita a espera pela resposta. O
@@ -96,6 +100,9 @@ Crie o `.env.local` com as mesmas variáveis do Supabase e da OpenAI, mais:
 INSTAGRAM_ACCOUNT_ID
 INSTAGRAM_ACCESS_TOKEN
 INSTAGRAM_AUTO_POST=true
+
+# Recomendado: para o worker avisar no Telegram quando um post falha.
+# TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID   (ver "Observabilidade")
 
 # Opcional: só se o Chromium não estiver no registro do Playwright
 # (imagem de contêiner, pacote do sistema).
@@ -151,12 +158,53 @@ update social_posts set status = 'scheduled', error_message = null
 where id = '<id>';
 ```
 
+## Observabilidade (Tier 0)
+
+Todas as variáveis abaixo são **opcionais** — sem elas o sistema roda igual, só
+não avisa quando algo quebra. Configure na Hostinger (redação/tutorial) e na VPS
+(worker).
+
+### Telegram — alertas
+
+1. No Telegram, fale com o **@BotFather** → `/newbot` → guarde o token.
+2. Mande qualquer mensagem pro seu bot novo.
+3. Abra `https://api.telegram.org/bot<TOKEN>/getUpdates` e copie o
+   `message.chat.id`.
+4. No `.env`: `TELEGRAM_BOT_TOKEN=` e `TELEGRAM_CHAT_ID=`.
+
+Chega alerta quando: a redação falha ou não gera edição, a edição fica retida no
+QA, um post do Instagram falha, o cron do token da Meta não consegue renovar.
+
+### healthchecks.io — "o cron não rodou"
+
+1. Conta grátis em healthchecks.io → crie 3 checks:
+   - **redacao** — schedule `3 9 * * *`, grace 30 min
+   - **tutorial** — mesmo horário do seu cron de tutorial
+   - **instagram-token** — schedule `0 8 * * *`, grace 60 min
+2. Copie a *ping URL* de cada um pro `.env`:
+   `HEALTHCHECK_NEWSROOM_URL=`, `HEALTHCHECK_TUTORIAL_URL=`,
+   `HEALTHCHECK_INSTAGRAM_URL=`.
+
+O cron pinga a URL ao terminar com sucesso (e `.../fail` quando dá erro). Se o
+healthchecks não receber ping até o horário + grace, **ele** te avisa — cobre o
+caso de a VPS/container estar fora no horário.
+
+### Renovação do token da Meta
+
+`META_APP_ID` e `META_APP_SECRET` (dashboard do app em developers.facebook.com →
+Configurações → Básico). Com eles, o cron `refresh-instagram-token` troca o token
+automaticamente via `fb_exchange_token` antes de expirar. Sem eles, o cron ainda
+**avisa** quando falta pouco, mas a troca é manual.
+
+O token efetivo passa a vir de `project_credentials` (provider `instagram`),
+com `INSTAGRAM_ACCESS_TOKEN` servindo de semente na primeira execução.
+
 ## Limites conhecidos
 
-- **Token da Meta vence em 60 dias.** Não há rotina de renovação; a publicação
-  para até que o token seja trocado. Anote a data.
-- **Credenciais ainda vêm do ambiente**, não de `project_credentials`. Com um
-  projeto só isso funciona; o segundo projeto exige a ligação da tabela.
 - **A execução em segundo plano não sobrevive a reinício do processo.** Se a
   Hostinger reiniciar o Node no meio da redação, a execução se perde e não há
-  retomada automática — rode o passo 3 da verificação manualmente.
+  retomada automática — rode o passo 3 da verificação manualmente. (O
+  healthchecks.io avisa que o ping não chegou.)
+- **Credenciais de outros provedores ainda vêm do ambiente**, não de
+  `project_credentials` — só o token do Instagram foi migrado. O segundo projeto
+  exige a ligação da tabela pros demais.

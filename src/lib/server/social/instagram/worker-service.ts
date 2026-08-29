@@ -13,8 +13,10 @@ import {
   generateTutorialCarouselPipeline,
   type TutorialArticleInput,
 } from "./pipeline";
+import { resolveInstagramToken } from "./meta-token";
 import { markPostFailed } from "./scheduler";
 import { getArticleBySlug } from "../../articles-service";
+import { formatError, sendAlert } from "../../alerts";
 import type { CarouselFormat, InstagramCarouselContent } from "./schemas";
 import type { AITokenUsage } from "../../newsroom/ai-provider";
 
@@ -231,10 +233,14 @@ export async function processScheduledPost(
       };
     }
 
+    // Token efetivo: o persistido em project_credentials (renovado pelo cron)
+    // ou a env como semente. O meta-client lê env.INSTAGRAM_ACCESS_TOKEN.
+    const igEnv = { ...env, INSTAGRAM_ACCESS_TOKEN: await resolveInstagramToken(projectId, env) };
+
     const mediaId = await publishCarousel(
       slides.map((s) => s.url),
       pipelineResult.carousel.caption.full_caption,
-      env,
+      igEnv,
       fetcher,
     );
 
@@ -267,6 +273,7 @@ export async function processScheduledPost(
     const message = err instanceof Error ? err.message : String(err);
     await markPostFailed(socialPostId, message);
     console.error(`[INSTAGRAM WORKER] Post ${socialPostId} falhou: ${message}`);
+    await sendAlert("critical", "Post do Instagram falhou", `Post ${socialPostId}\n${formatError(err)}`);
 
     return {
       ok: false,
