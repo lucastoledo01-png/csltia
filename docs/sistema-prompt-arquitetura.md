@@ -81,6 +81,11 @@ conversa?"* — e sai com um conceito + lista de aplicações reproduzíveis (pe
 comum, casal, pet, cidade brasileira, profissão, produto, personagem original). A
 tendência é a porta de entrada; a aplicação é o conteúdo.
 
+Cada aplicação sai marcada com um `application_type` de vocabulário fechado
+(`pessoa` · `casal` · `pet` · `cidade` · `profissao` · `produto` · `personagem`)
+e um `hook_pattern` (também fechado). Sem vocabulário fechado o loop editorial
+(etapa 14) não consegue comparar campanha com campanha depois.
+
 Usa `src/lib/server/newsroom/ai-provider.ts`. Saída em `prompt_concepts`.
 
 ### 3. Originalidade e propriedade intelectual · `novo`
@@ -101,6 +106,10 @@ enquadramento, iluminação, cenário, tratamento, textura, atmosfera, elementos
 recorrentes. Toda imagem do carrossel herda essa direção. Gera N imagens = N
 aplicações distintas do mesmo conceito — nunca variações quase idênticas só pra
 encher slide.
+
+`visual_direction` grava também um `visual_style` curto de vocabulário fechado
+(ex: `cinematic-desk`, `black-bg-editorial`, `pov-street`) — mesmo motivo do
+`application_type` da etapa 2: é o atributo que o loop de aprendizado agrega.
 
 Estende `src/lib/server/social/instagram/opendesign-renderer.ts` (já usa
 `gpt-image-1`, já resolve `b64_json`).
@@ -186,6 +195,29 @@ referência/preview disponíveis.
 Gate reusa a abordagem de cookie assinado de
 `src/lib/server/admin-session.ts`. Conteúdo vem de `prompt_assets`.
 
+### Vetos automáticos (sem clique humano)
+
+Cada etapa arriscada tem uma condição de bloqueio automática — se disparar, o
+pipeline não avança essa campanha sozinho: registra o motivo em
+`prompt_funnel_events` (`stage = "veto"`), tenta corrigir automaticamente uma vez
+(pede pro mesmo LLM ajustar só o output que falhou) e, se falhar de novo, marca a
+campanha como `blocked`. Não publica *aquela* campanha, mas não trava o pipeline
+— a próxima tendência segue seu fluxo normal. Nenhum veto pausa esperando
+aprovação humana; o pior caso possível é "essa campanha não publica".
+
+| Etapa | Veto | Precedente |
+|---|---|---|
+| 3 · IP/marca | reprodução de logo/key art/pôster oficial, ou linguagem que sugira endosso oficial | política de marca já registrada em `aprendizados-e-incidentes.md` |
+| 5 · Prompt como asset | o prompt persistido não é o mesmo usado na geração real da imagem | novo — checagem de correspondência exata, não reconstrução |
+| 6 · Carrossel | slide sem CTA, contagem de slide preenchida artificialmente pra bater número | mesmo padrão de "Veto Conditions" por step visto no framework opensquad (ver D5) — adotado como boa prática, não como dependência |
+| 9 · Direct | copy do Direct longa/robótica demais (limite de caracteres + checagem de tom) | `qaResult.passed` do newsroom |
+
+**Recomendação:** mesmo mecanismo que já existe pro newsroom (`qaResult.passed`
+em `newsroom-service.ts`), só que aplicado por etapa em vez de um gate único no
+fim — barra conteúdo quebrado sem precisar de ninguém olhando.
+
+---
+
 ### 13. Analytics · `novo`
 
 Atribuição individual por etapa: publicação → comentário → Direct → clique →
@@ -197,16 +229,38 @@ periódico; visita / cadastro / acesso vêm dos eventos do csltia
 (`platform-events.ts`, `/api/events/pageview`). Superfície no
 `src/components/AdminAnalyticsDashboard.tsx`.
 
-### 14. Loop editorial · `novo`
+### 14. Loop editorial · `novo` (mecanismo)
 
-Registro por conceito: tema, tendência, hook, estética, keyword, alcance,
-salvamentos, compartilhamentos, comentários, Directs iniciados, cliques, leads,
-taxa de conversão. O sistema aprende quais combinações de **tendência + aplicação
-+ visual + hook** convertem — e realimenta a pontuação da etapa 1.
+Não é aprendizado de máquina treinando peso — nesse volume (poucos posts por
+dia) um modelo assim faria overfitting em cima de 5 amostras. É pontuação +
+agregação estatística, rodando como mais um cron, sem etapa humana em nenhum
+ponto:
 
-Não otimiza só para alcance: um conteúdo com menos views e muitos leads vale mais
-que um viral que não converte. Alcance/saves vêm do Meta Graph insights;
-conversão vem do funil.
+1. **Score composto por campanha**, não alcance bruto — pondera leads e taxa de
+   conversão acima de vaidade (alcance/saves): um conteúdo com menos views e
+   muitos leads vale mais que um viral que não converte.
+   `score = w1·leads + w2·conversion_rate + w3·saves_norm + w4·reach_norm`, com
+   `w1`/`w2` maiores. Grava em `prompt_concept_results.performance_score`.
+   Alcance/saves vêm do Meta Graph insights; conversão vem do funil.
+2. **Agregação por combinação de atributo** — `trend_category × application_type
+   × visual_style × hook_pattern` (os campos fechados das etapas 2 e 4), com
+   média ponderada pelo tamanho da amostra — uma campanha sortuda sozinha não
+   vira regra.
+3. **Decaimento por recência** — o algoritmo do Instagram muda sozinho; média
+   com meia-vida de ~60-90 dias, não histórico plano.
+4. **Explore vs. exploit** — ~15-20% das próximas pautas escolhidas
+   deliberadamente fora do topo do ranking, senão o sistema calcifica em cima do
+   que já funcionou e para de descobrir combinação nova.
+5. **Síntese qualitativa por LLM** — semanal, lê os N melhores e N piores por
+   score (com concept/hook/visual_direction de cada) e escreve um resumo curto
+   ("aplicação com pet converte 3x mais que produto genérico", "hook em pergunta
+   performa pior que hook afirmativo") em `prompt_learnings`. Isso ajusta o
+   `opportunity_score` da etapa 1 **e** vira few-shot no `SYSTEM` prompt da
+   etapa 2 — mesmo espírito de `docs/aprendizados-e-incidentes.md`, só que
+   gerado automaticamente em vez de escrito à mão.
+
+Cron dedicado (`/api/cron/prompt-learnings`, semanal), reaproveitando o padrão
+de `newsroom/ranker.ts` (pontuação) e `ai-provider.ts` (síntese por LLM).
 
 ---
 
@@ -231,13 +285,40 @@ OpenReply.
 
 O csltia já tem infra de cron + worker (newsroom, instagram worker).
 
-- Pipeline novo e separado: `/api/cron/prompt-system`, com portões de aprovação
-  humana entre estágios — igual ao portão de QA do newsroom.
-- Estágios 1–7 podem rodar como rascunho automático; publicação (8+) exige clique
-  no admin no início, relaxa depois que estabilizar.
+- Pipeline novo e separado: `/api/cron/prompt-system`, **sem** portão de
+  aprovação humana em nenhuma etapa. O único gate é o veto automático (ver
+  "Vetos automáticos" acima) — nunca um clique no admin.
+- Todas as 14 etapas rodam de ponta a ponta sem intervenção manual, do trend
+  intelligence até o Direct e a entrega do material. O admin serve pra
+  visibilidade e ajuste de parâmetro (pesos do score, listas de bloqueio de
+  marca), não pra liberar publicação.
 
 **Recomendação:** mesma infra de cron/worker do csltia, pipeline próprio. Não
 misturar com o newsroom — assunto, cadência e formato diferentes.
+
+### D5 · Squad operacional (sem chat interativo)
+
+Avaliamos usar o [opensquad](https://github.com/renatoasse/opensquad) como
+motor de orquestração — descartado. Ele é uma sessão *interativa* de IDE cujo
+runner pausa em checkpoints esperando clique humano
+(`Wait for user input before proceeding`, `_opensquad/core/runner.pipeline.md`),
+não um serviço que roda sozinho num cron. Incompatível com o requisito de zero
+etapa humana.
+
+O que fica, adaptado pra automação total: quatro Routines/crons especializados,
+cada um com escopo estreito, nenhum esperando aprovação.
+
+| Papel | O que faz | Cadência |
+|---|---|---|
+| **Produtor** | roda as 14 etapas do funil (`/api/cron/prompt-system`) | quando a etapa 1 encontra tendência nova |
+| **Guarda de qualidade** | vetos automáticos por etapa (ver acima) | inline, dentro de cada etapa arriscada |
+| **Watchdog de entrega** | confirma que cada etapa do funil de fato aconteceu (post publicado, automação criada no OpenReply, Direct disparado, landing servindo) — mesmo item pendente já registrado em `aprendizados-e-incidentes.md` sobre cron falhando silenciosamente | a cada execução do Produtor + checagem periódica independente |
+| **Analista de aprendizado** | etapa 14 — score, agregação, síntese | semanal |
+
+**Recomendação:** implementar como crons do próprio csltia (mesmo padrão de
+`newsroom/scheduler.ts` e `instagram/worker-service.ts`), não como squad de
+chat. Comandos ao Claude entram só como ajuste/melhoria de código entre uma
+execução e outra — nunca como etapa dentro do pipeline em produção.
 
 ### D3 · Landing e entrega
 
@@ -263,18 +344,19 @@ nunca deploy por post.
 
 ## Tabelas novas (Supabase / csltia)
 
-Sete tabelas, prefixo `prompt_`, seguindo a convenção das migrations em
+Oito tabelas, prefixo `prompt_`, seguindo a convenção das migrations em
 `supabase/migrations/`.
 
 | Tabela | Colunas principais |
 |---|---|
 | `prompt_trends` | id · source · raw_title · category · captured_at · opportunity_score · visual_hook · status |
-| `prompt_concepts` | id · trend_id → · concept · hook · applications jsonb · visual_direction jsonb · ip_check jsonb · status |
+| `prompt_concepts` | id · trend_id → · concept · hook · hook_pattern · applications jsonb (cada item com `application_type` fechado) · visual_direction jsonb (inclui `visual_style` fechado) · ip_check jsonb · status |
 | `prompt_campaigns` | id · concept_id → · keyword **unique** · theme · format · status · ig_media_id · openreply_automation_id · lp_url · source · created_at · published_at |
 | `prompt_assets` | id · campaign_id → · label · prompt_text · model · image_url · substitution_notes · generated_at |
 | `prompt_leads` | id · campaign_id → · name · email · whatsapp · attribution jsonb · listmonk_synced · created_at |
-| `prompt_funnel_events` | id · campaign_id → · stage · external_id · occurred_at · payload jsonb |
-| `prompt_concept_results` | id · campaign_id → · reach · saves · shares · comments · dms_started · clicks · leads · conversion_rate · snapshot_at |
+| `prompt_funnel_events` | id · campaign_id → · stage (inclui `veto`) · external_id · occurred_at · payload jsonb |
+| `prompt_concept_results` | id · campaign_id → · reach · saves · shares · comments · dms_started · clicks · leads · conversion_rate · performance_score · is_explore · snapshot_at |
+| `prompt_learnings` | id · period_start · period_end · top_combo jsonb · bottom_combo jsonb · summary_text · applied_to_prompt boolean · generated_at |
 
 ---
 
@@ -311,9 +393,9 @@ ponta antes de qualquer automação de ideação.
 
 | Fase | Escopo | Resultado |
 |---|---|---|
-| **0** | Schema (7 tabelas) + registro de campanha + gatilho manual no admin | Destrava tudo o resto; nenhum risco em produção |
+| **0** | Schema (8 tabelas) + registro de campanha + gatilho manual no admin (ferramenta de teste enquanto as etapas 1-4 ainda não decidem pauta sozinhas — deixa de ser necessário a partir da Fase 4) | Destrava tudo o resto; nenhum risco em produção |
 | **1** | Etapas 7 + 8 + 9 — keyword, automação no OpenReply, copy do Direct (inclui o fork D1) | Testável com um conceito criado à mão. É a espinha do funil |
 | **2** | Etapas 10 + 11 + 12 — landing dinâmica, captura, entrega | O funil fecha ponta a ponta: dá pra rodar PROMPT posts com produção manual |
 | **3** | Etapas 4 + 5 + 6 — geração visual, prompt como asset, carrossel | Produção de conteúdo deixa de ser manual |
 | **4** | Etapas 1 + 2 + 3 — trend intelligence, trend jacking, guardrail de PI | Topo do funil automatizado; o sistema propõe pautas sozinho |
-| **5** | Etapas 13 + 14 — analytics de funil e loop editorial | Fecha o ciclo: os resultados passam a decidir as próximas pautas |
+| **5** | Etapas 13 + 14 — analytics de funil + loop editorial automatizado (score, agregação, decaimento, explore/exploit, síntese semanal por LLM) | Fecha o ciclo: os resultados passam a decidir as próximas pautas, sem etapa humana |
