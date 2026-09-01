@@ -5,6 +5,11 @@ import { z } from "zod";
  * manual de campanha, sem as etapas 1-6 (trend intelligence, trend jacking,
  * geração visual) ainda automatizadas. `concept`/`applications` entram como
  * texto livre por enquanto — viram `prompt_concepts` estruturado na Fase 4.
+ *
+ * Fase 1 acrescenta a copy do Direct (etapa 9) e do upsell (etapa 9b) e a
+ * publicação manual da automação no OpenReply — "config, não código": a copy
+ * é escrita à mão no admin por enquanto, geração automática por LLM entra
+ * junto com a etapa 2 (Fase 4).
  */
 
 const KEYWORD_REGEX = /^[A-Z0-9]{3,20}$/;
@@ -23,6 +28,18 @@ export const CreateManualCampaignSchema = z.object({
 
 export type CreateManualCampaignInput = z.infer<typeof CreateManualCampaignSchema>;
 
+/** Etapa 9/9b: preenchido depois que a campanha já existe, antes de publicar no OpenReply. */
+export const UpdateCampaignDmCopySchema = z.object({
+  igMediaId: z.string().trim().min(1, "ID da mídia do Instagram é obrigatório."),
+  dmMessage: z.string().trim().min(1, "Mensagem do Direct é obrigatória."),
+  openingDmMessage: z.string().trim().min(1, "Mensagem de abertura é obrigatória."),
+  followUpEnabled: z.boolean().default(false),
+  followUpDelayMinutes: z.number().int().positive().optional(),
+  followUpMessage: z.string().trim().optional(),
+});
+
+export type UpdateCampaignDmCopyInput = z.infer<typeof UpdateCampaignDmCopySchema>;
+
 export type PromptCampaignStatus = "draft" | "ready" | "published" | "blocked" | "archived";
 
 export type PromptCampaign = {
@@ -37,6 +54,11 @@ export type PromptCampaign = {
   igMediaId: string | null;
   openreplyAutomationId: string | null;
   lpUrl: string | null;
+  dmMessage: string | null;
+  openingDmMessage: string | null;
+  followUpEnabled: boolean;
+  followUpDelayMinutes: number | null;
+  followUpMessage: string | null;
   source: "manual" | "automated";
   createdAt: string;
   publishedAt: string | null;
@@ -54,6 +76,11 @@ type PromptCampaignRow = {
   ig_media_id: string | null;
   openreply_automation_id: string | null;
   lp_url: string | null;
+  dm_message: string | null;
+  opening_dm_message: string | null;
+  follow_up_enabled: boolean;
+  follow_up_delay_minutes: number | null;
+  follow_up_message: string | null;
   source: PromptCampaign["source"];
   created_at: string;
   published_at: string | null;
@@ -72,6 +99,11 @@ export function toPromptCampaign(row: PromptCampaignRow): PromptCampaign {
     igMediaId: row.ig_media_id,
     openreplyAutomationId: row.openreply_automation_id,
     lpUrl: row.lp_url,
+    dmMessage: row.dm_message,
+    openingDmMessage: row.opening_dm_message,
+    followUpEnabled: row.follow_up_enabled,
+    followUpDelayMinutes: row.follow_up_delay_minutes,
+    followUpMessage: row.follow_up_message,
     source: row.source,
     createdAt: row.created_at,
     publishedAt: row.published_at,
@@ -80,4 +112,5 @@ export function toPromptCampaign(row: PromptCampaignRow): PromptCampaign {
 
 export const PROMPT_CAMPAIGN_COLUMNS =
   "id, project_id, concept_id, keyword, campaign_type, theme, format, status, " +
-  "ig_media_id, openreply_automation_id, lp_url, source, created_at, published_at";
+  "ig_media_id, openreply_automation_id, lp_url, dm_message, opening_dm_message, " +
+  "follow_up_enabled, follow_up_delay_minutes, follow_up_message, source, created_at, published_at";

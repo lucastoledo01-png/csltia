@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 type Campaign = {
   id: string;
@@ -12,6 +12,11 @@ type Campaign = {
   igMediaId: string | null;
   openreplyAutomationId: string | null;
   lpUrl: string | null;
+  dmMessage: string | null;
+  openingDmMessage: string | null;
+  followUpEnabled: boolean;
+  followUpDelayMinutes: number | null;
+  followUpMessage: string | null;
   source: "manual" | "automated";
   createdAt: string;
   publishedAt: string | null;
@@ -41,6 +46,15 @@ const emptyDraft = {
   concept: "",
 };
 
+const emptyDmCopy = {
+  igMediaId: "",
+  dmMessage: "",
+  openingDmMessage: "",
+  followUpEnabled: false,
+  followUpDelayMinutes: 10,
+  followUpMessage: "",
+};
+
 export function AdminPromptSystemManager() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +62,11 @@ export function AdminPromptSystemManager() {
   const [draft, setDraft] = useState(emptyDraft);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [dmCopy, setDmCopy] = useState(emptyDmCopy);
+  const [rowBusy, setRowBusy] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<Record<string, string>>({});
 
   async function load() {
     setLoading(true);
@@ -86,6 +105,66 @@ export function AdminPromptSystemManager() {
     }
   }
 
+  function openDmCopyForm(campaign: Campaign) {
+    setEditingId(campaign.id);
+    setDmCopy({
+      igMediaId: campaign.igMediaId ?? "",
+      dmMessage: campaign.dmMessage ?? "",
+      openingDmMessage: campaign.openingDmMessage ?? "",
+      followUpEnabled: campaign.followUpEnabled,
+      followUpDelayMinutes: campaign.followUpDelayMinutes ?? 10,
+      followUpMessage: campaign.followUpMessage ?? "",
+    });
+    setRowError((prev) => ({ ...prev, [campaign.id]: "" }));
+  }
+
+  async function handleSaveDmCopy(e: React.FormEvent, campaignId: string) {
+    e.preventDefault();
+    setRowBusy(campaignId);
+    setRowError((prev) => ({ ...prev, [campaignId]: "" }));
+    try {
+      const res = await fetch(`/api/admin/prompt-system/campaigns/${campaignId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...dmCopy,
+          followUpDelayMinutes: dmCopy.followUpEnabled ? dmCopy.followUpDelayMinutes : undefined,
+          followUpMessage: dmCopy.followUpEnabled ? dmCopy.followUpMessage : undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setRowError((prev) => ({ ...prev, [campaignId]: json.error || "Erro ao salvar." }));
+        return;
+      }
+      setEditingId(null);
+      load();
+    } finally {
+      setRowBusy(null);
+    }
+  }
+
+  async function handlePublish(campaignId: string) {
+    setRowBusy(campaignId);
+    setRowError((prev) => ({ ...prev, [campaignId]: "" }));
+    try {
+      const res = await fetch(`/api/admin/prompt-system/campaigns/${campaignId}/publish-openreply`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setRowError((prev) => ({
+          ...prev,
+          [campaignId]: `${json.error || "Erro ao publicar."} (esperado enquanto o fork do OpenReply não existir)`,
+        }));
+        return;
+      }
+      load();
+    } finally {
+      setRowBusy(null);
+    }
+  }
+
   if (loading) {
     return <div className="py-12 text-center text-sm text-slate-500">Carregando campanhas...</div>;
   }
@@ -96,9 +175,9 @@ export function AdminPromptSystemManager() {
         <div>
           <h3 className="text-2xl text-slate-900">Sistema PROMPT — Campanhas</h3>
           <p className="mt-1 text-sm text-slate-500">
-            Fase 0: registro manual de campanha. Trend intelligence, geração visual e a automação no
-            OpenReply ainda não estão plugadas — isso testa o funil de ponta a ponta com conteúdo feito à
-            mão. Ver <code className="text-xs">docs/sistema-prompt-arquitetura.md</code>.
+            Registro manual de campanha, copy do Direct (etapa 9/9b) e publicação da automação no
+            OpenReply (etapa 8 — falha até o fork mínimo existir do lado de lá). Ver{" "}
+            <code className="text-xs">docs/sistema-prompt-arquitetura.md</code>.
           </p>
         </div>
         <button
@@ -203,28 +282,171 @@ export function AdminPromptSystemManager() {
               <th className="px-5 py-3">Tema</th>
               <th className="px-5 py-3">Tipo</th>
               <th className="px-5 py-3">Status</th>
-              <th className="px-5 py-3">Origem</th>
               <th className="px-5 py-3">Criada em</th>
+              <th className="px-5 py-3 text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200/60">
             {campaigns.map((c) => (
-              <tr key={c.id} className="hover:bg-white/40">
-                <td className="px-5 py-4 font-mono font-bold text-slate-900">{c.keyword}</td>
-                <td className="px-5 py-4 text-slate-600">{c.theme}</td>
-                <td className="px-5 py-4 text-xs font-semibold text-indigo-600">
-                  {c.campaignType === "newsletter" ? "Newsletter" : "Prompt/Tutorial"}
-                </td>
-                <td className="px-5 py-4">
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_STYLE[c.status]}`}>
-                    {STATUS_LABEL[c.status]}
-                  </span>
-                </td>
-                <td className="px-5 py-4 text-xs text-slate-500">{c.source === "manual" ? "Manual" : "Automática"}</td>
-                <td className="px-5 py-4 text-xs text-slate-400">
-                  {new Date(c.createdAt).toLocaleDateString("pt-BR")}
-                </td>
-              </tr>
+              <Fragment key={c.id}>
+                <tr className="hover:bg-white/40">
+                  <td className="px-5 py-4 font-mono font-bold text-slate-900">{c.keyword}</td>
+                  <td className="px-5 py-4 text-slate-600">{c.theme}</td>
+                  <td className="px-5 py-4 text-xs font-semibold text-indigo-600">
+                    {c.campaignType === "newsletter" ? "Newsletter" : "Prompt/Tutorial"}
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_STYLE[c.status]}`}>
+                      {STATUS_LABEL[c.status]}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 text-xs text-slate-400">
+                    {new Date(c.createdAt).toLocaleDateString("pt-BR")}
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                    {c.status === "draft" ? (
+                      <button
+                        onClick={() => openDmCopyForm(c)}
+                        className="rounded-lg bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-600 hover:bg-indigo-100"
+                      >
+                        Configurar Direct
+                      </button>
+                    ) : null}
+                    {c.status === "ready" ? (
+                      <button
+                        onClick={() => handlePublish(c.id)}
+                        disabled={rowBusy === c.id}
+                        className="rounded-lg bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                      >
+                        {rowBusy === c.id ? "Publicando..." : "Publicar no OpenReply"}
+                      </button>
+                    ) : null}
+                    {c.status === "published" && c.lpUrl ? (
+                      <a
+                        href={c.lpUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-semibold text-emerald-700 underline"
+                      >
+                        Ver landing ↗
+                      </a>
+                    ) : null}
+                  </td>
+                </tr>
+                {rowError[c.id] ? (
+                  <tr key={`${c.id}-error`}>
+                    <td colSpan={6} className="break-words bg-rose-50 px-5 py-2 text-xs font-semibold text-rose-600">
+                      {rowError[c.id]}
+                    </td>
+                  </tr>
+                ) : null}
+                {editingId === c.id ? (
+                  <tr key={`${c.id}-edit`}>
+                    <td colSpan={6} className="bg-slate-50 px-5 py-5">
+                      <form onSubmit={(e) => handleSaveDmCopy(e, c.id)} className="space-y-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
+                              ID da mídia do Instagram (post já publicado)
+                            </label>
+                            <input
+                              required
+                              value={dmCopy.igMediaId}
+                              onChange={(e) => setDmCopy({ ...dmCopy, igMediaId: e.target.value })}
+                              placeholder="ex: 17999999999999999"
+                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-mono focus:border-indigo-500 focus:outline-none"
+                            />
+                          </div>
+                          <div className="flex items-end gap-2">
+                            <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                              <input
+                                type="checkbox"
+                                checked={dmCopy.followUpEnabled}
+                                onChange={(e) => setDmCopy({ ...dmCopy, followUpEnabled: e.target.checked })}
+                              />
+                              Upsell de infoproduto (etapa 9b)
+                            </label>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
+                            Mensagem de abertura do Direct
+                          </label>
+                          <input
+                            required
+                            value={dmCopy.openingDmMessage}
+                            onChange={(e) => setDmCopy({ ...dmCopy, openingDmMessage: e.target.value })}
+                            placeholder="ex: oi 👋"
+                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
+                            Mensagem do Direct (confirma + entrega o link)
+                          </label>
+                          <textarea
+                            required
+                            rows={2}
+                            value={dmCopy.dmMessage}
+                            onChange={(e) => setDmCopy({ ...dmCopy, dmMessage: e.target.value })}
+                            placeholder="achei você 👀 — preparei os prompts + exemplos desse post aqui: [ACESSAR]"
+                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
+                          />
+                        </div>
+
+                        {dmCopy.followUpEnabled ? (
+                          <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
+                            <div>
+                              <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
+                                Minutos depois
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={dmCopy.followUpDelayMinutes}
+                                onChange={(e) =>
+                                  setDmCopy({ ...dmCopy, followUpDelayMinutes: Number(e.target.value) })
+                                }
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
+                                Mensagem do upsell
+                              </label>
+                              <input
+                                value={dmCopy.followUpMessage}
+                                onChange={(e) => setDmCopy({ ...dmCopy, followUpMessage: e.target.value })}
+                                placeholder="quer levar isso pro próximo nível? temos um infoproduto..."
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            disabled={rowBusy === c.id}
+                            className="rounded-full bg-indigo-600 px-5 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50"
+                          >
+                            {rowBusy === c.id ? "Salvando..." : "Salvar copy do Direct"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(null)}
+                            className="rounded-full border border-slate-200 px-5 py-2 text-xs font-bold text-slate-600 hover:bg-white"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </form>
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
             ))}
             {campaigns.length === 0 ? (
               <tr>

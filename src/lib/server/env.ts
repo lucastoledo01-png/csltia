@@ -89,6 +89,27 @@ export function getOpenAIKey(env: Env = process.env): string {
   );
 }
 
+/**
+ * Fork mínimo do OpenReply (D1 em docs/sistema-prompt-arquitetura.md): rota
+ * aditiva `POST /api/service/automations` protegida por token estático. A
+ * rota ainda não existe no OpenReply — chamar sem ela implementada lá dá 404,
+ * não é bug daqui.
+ */
+export function getOpenReplyServiceConfig(env: Env = process.env): { baseUrl: string; token: string } {
+  return {
+    baseUrl: requireEnv(
+      "OPENREPLY_SERVICE_BASE_URL",
+      "URL base do OpenReply, ex: https://openreply.casaloti.ia.br",
+      env,
+    ),
+    token: requireEnv(
+      "PROMPT_SYSTEM_API_TOKEN",
+      "Token estático compartilhado com a rota de serviço do OpenReply.",
+      env,
+    ),
+  };
+}
+
 export function getSupabaseAdminConfig(env: Env = process.env): { url: string; key: string } {
   return {
     url: requireEnv(
