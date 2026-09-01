@@ -131,6 +131,22 @@ bloqueio de permissão mesmo. Hoje desligado via flag
 (`INSTAGRAM_LISTENING_ENABLED = false` em `topic-sources.ts`), código pronto
 pra religar assim que a aprovação sair.
 
+### Instagram não permite DM automática por "seguiu a conta" — só por comentário
+
+Cogitamos mandar Direct automático assim que alguém segue a conta (sem
+precisar comentar nada). Não dá: a regra geral da Messaging API do Instagram
+é que só se pode mandar DM pra quem já mandou mensagem primeiro — não existe
+webhook público de "novo seguidor". A única exceção documentada é o "Follow to
+DM", lançado pela Meta em outubro/2025, mas em beta fechada com o **ManyChat
+como parceiro exclusivo** — o campo aparece no schema de webhooks da Meta mas
+não na lista de campos publicamente inscritíveis, ou seja, não tem caminho de
+acesso pra ferramenta self-hosted nenhuma (OpenReply incluso).
+
+**Lição:** o único gatilho de Direct automatizado disponível pra gente é
+comentário com keyword → private reply (exceção que a Meta permite
+explicitamente). Não vale reinvestigar "mandar DM no follow" até a Meta abrir
+isso como capacidade geral da Graph API.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

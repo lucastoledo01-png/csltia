@@ -166,6 +166,24 @@ OpenReply, que redireciona pra landing.
 Config, não código: os campos `dmMessage` / `openingDmMessage` da automação. A
 copy é gerada pelo csltia e empurrada junto com a criação da automação (etapa 8).
 
+### 9b. Upsell no Direct · `novo`
+
+Alguns minutos depois da primeira DM, uma segunda mensagem oferece um
+infoproduto pago — sem cron novo, sem lógica extra: o model `Automation` do
+OpenReply já tem `followUpEnabled`/`followUpDelayMinutes` prontos pra isso.
+Config, não código, igual à etapa 9 — só falta usar os campos na criação da
+automação (etapa 8).
+
+É **baseada em tempo**, não em clique: dispara pra todo mundo que recebeu a
+primeira DM, independente de ter clicado no link ou não. Condicionar ao clique
+real (via `LinkClick`, etapa 13) é otimização futura, não bloqueia essa etapa.
+
+Descartado como alternativa: DM automática no momento em que alguém **segue**
+a conta (sem comentar nada). A Meta não libera isso pra terceiros — é feature
+em beta fechada com o ManyChat como parceiro exclusivo, sem campo público na
+Graph API. Ver `aprendizados-e-incidentes.md`. O gatilho da etapa 7-9
+(comentário com keyword → private reply) continua sendo o único disponível.
+
 ### 10. Landing page dinâmica · `novo`
 
 Rota `casaloti.ia.br/ultraprompts/[keyword]`, dirigida pelo registro da campanha.
@@ -194,6 +212,20 @@ referência/preview disponíveis.
 
 Gate reusa a abordagem de cookie assinado de
 `src/lib/server/admin-session.ts`. Conteúdo vem de `prompt_assets`.
+
+### 12b. Sequência de e-mail promocional · `novo`
+
+Depois da captura (etapa 11), uma sequência curta de e-mails promocionais do
+infoproduto ao longo de alguns dias — **não** é recurso do Listmonk: o
+Listmonk não tem automação/sequência nativa (só campanha em massa e API
+transacional), então a lógica de "quem está em que dia da sequência" mora no
+csltia, não nele.
+
+Mecanismo: um cron diário (mesmo padrão de `newsroom/scheduler.ts`) lê
+`prompt_leads` + o estágio atual de cada lead na sequência, e dispara o
+próximo e-mail via API **transacional** do Listmonk (`POST /api/tx`) quando o
+atraso configurado passa — não via `createCampaign` (que é disparo em massa
+único, já usado hoje pra newsletter). Estado por lead, não por campanha.
 
 ### Vetos automáticos (sem clique humano)
 
@@ -353,7 +385,7 @@ Oito tabelas, prefixo `prompt_`, seguindo a convenção das migrations em
 | `prompt_concepts` | id · trend_id → · concept · hook · hook_pattern · applications jsonb (cada item com `application_type` fechado) · visual_direction jsonb (inclui `visual_style` fechado) · ip_check jsonb · status |
 | `prompt_campaigns` | id · concept_id → · keyword **unique** · theme · format · status · ig_media_id · openreply_automation_id · lp_url · source · created_at · published_at |
 | `prompt_assets` | id · campaign_id → · label · prompt_text · model · image_url · substitution_notes · generated_at |
-| `prompt_leads` | id · campaign_id → · name · email · whatsapp · attribution jsonb · listmonk_synced · created_at |
+| `prompt_leads` | id · campaign_id → · name · email · whatsapp · attribution jsonb · listmonk_synced · email_sequence_stage · email_sequence_next_at · created_at |
 | `prompt_funnel_events` | id · campaign_id → · stage (inclui `veto`) · external_id · occurred_at · payload jsonb |
 | `prompt_concept_results` | id · campaign_id → · reach · saves · shares · comments · dms_started · clicks · leads · conversion_rate · performance_score · is_explore · snapshot_at |
 | `prompt_learnings` | id · period_start · period_end · top_combo jsonb · bottom_combo jsonb · summary_text · applied_to_prompt boolean · generated_at |
@@ -365,7 +397,8 @@ Oito tabelas, prefixo `prompt_`, seguindo a convenção das migrations em
 ```
 csltia → OpenReply   criar automação
   { keyword, postId: ig_media_id, dmMessage, openingDmMessage,
-    trackedLink: { slug, destinationUrl }, publicReplyMessages[], requireFollow }
+    trackedLink: { slug, destinationUrl }, publicReplyMessages[], requireFollow,
+    followUp: { enabled, delayMinutes, message } }  // etapa 9b, upsell de infoproduto
 
 csltia → OpenReply   checar keyword
   GET /api/service/automations?keyword=X  → 200 livre / 409 em uso
@@ -394,8 +427,8 @@ ponta antes de qualquer automação de ideação.
 | Fase | Escopo | Resultado |
 |---|---|---|
 | **0** | Schema (8 tabelas) + registro de campanha + gatilho manual no admin (ferramenta de teste enquanto as etapas 1-4 ainda não decidem pauta sozinhas — deixa de ser necessário a partir da Fase 4) | Destrava tudo o resto; nenhum risco em produção |
-| **1** | Etapas 7 + 8 + 9 — keyword, automação no OpenReply, copy do Direct (inclui o fork D1) | Testável com um conceito criado à mão. É a espinha do funil |
-| **2** | Etapas 10 + 11 + 12 — landing dinâmica, captura, entrega | O funil fecha ponta a ponta: dá pra rodar PROMPT posts com produção manual |
+| **1** | Etapas 7 + 8 + 9 + 9b — keyword, automação no OpenReply, copy do Direct + upsell de infoproduto (inclui o fork D1) | Testável com um conceito criado à mão. É a espinha do funil |
+| **2** | Etapas 10 + 11 + 12 + 12b — landing dinâmica, captura, entrega, sequência de e-mail promocional | O funil fecha ponta a ponta: dá pra rodar PROMPT posts com produção manual |
 | **3** | Etapas 4 + 5 + 6 — geração visual, prompt como asset, carrossel | Produção de conteúdo deixa de ser manual |
 | **4** | Etapas 1 + 2 + 3 — trend intelligence, trend jacking, guardrail de PI | Topo do funil automatizado; o sistema propõe pautas sozinho |
 | **5** | Etapas 13 + 14 — analytics de funil + loop editorial automatizado (score, agregação, decaimento, explore/exploit, síntese semanal por LLM) | Fecha o ciclo: os resultados passam a decidir as próximas pautas, sem etapa humana |
