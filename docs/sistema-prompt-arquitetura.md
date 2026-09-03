@@ -430,22 +430,28 @@ tabelas têm `rls=true forced=false policies=0`, nenhuma FK ficou sem índice, e
 um fluxo completo — tendência → conceito → campanha → asset → lead → evento →
 retrato → aprendizado — grava e é limpo pelo cascade do projeto.
 
-### Uma decisão pendente: `conversion_rate`
+### `conversion_rate` = leads por alcance, coluna gerada
 
-`prompt_concept_results.conversion_rate` é `numeric(6,4) not null default 0` —
-**coluna comum, não gerada**. Nada no banco a liga aos contadores, e nada no
-código a calcula ainda. Como está, ela pode divergir de `leads` e `reach` sem
-que ninguém perceba, e é ela que a etapa 14 usa para decidir a próxima pauta.
+A métrica nunca foi definida na documentação. As três menções eram "taxa de
+conversão" na lista da etapa 14, "conversão vem do funil" e — a única pista
+numérica — *"um conteúdo com menos views e muitos leads vale mais que um viral
+que não converte"*.
 
-Duas saídas, e a escolha depende do que a coluna significa — `numeric(6,4)`
-guarda de 0 a 99,9999, o que serve tanto para razão (0,0090) quanto para
-percentual (0,90):
+**Definida como `leads / reach`**, zero enquanto o alcance for zero. É a razão
+que produz o efeito descrito: nenhum outro denominador faz um conteúdo de pouco
+alcance pontuar acima de um viral. Dois sinais do schema concordam —
+`numeric(6,4)` tem resolução de razão (0,0090 = 0,9%), não de percentual; e
+`performance_score numeric(10,4)` ao lado é onde o composto ponderado do
+explore/exploit mora, então `conversion_rate` ser também composto deixaria
+aquela coluna sem função.
 
-- **Coluna gerada**, se for razão de lead por alcance:
-  `leads::numeric / nullif(reach, 0)`. Nunca divergiria, mas fixa a definição
-  no banco e exige recriar a coluna.
-- **Continuar comum**, com o cálculo num único lugar do código e um teste que
-  trave a fórmula.
+**Gerada, não calculada no código.** Como coluna comum ela podia divergir de
+`leads` e `reach` sem nada reclamar, e é ela que decide a próxima pauta —
+divergência ali não produz erro, produz decisão editorial errada. Gerada, o
+Postgres recusa escrita direta (`generated_always`), então é impossível.
 
-Enquanto não se decidir, quem gravar precisa calcular à mão — e é aí que
-divergir é fácil.
+As outras razões do funil não precisam de coluna: `leads/clicks`,
+`clicks/dms_started` e `dms_started/comments` saem dos contadores na consulta.
+
+Em `20260903140000_prompt_conversion_rate_gerada.sql`. Reverter é trocar uma
+expressão — se a intenção era outra razão, o custo é uma migração.
