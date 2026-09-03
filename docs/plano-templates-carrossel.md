@@ -66,33 +66,40 @@ Não é perda: CSS explícito é o que torna a variante **travada**. Utilitária
 solta no HTML é um convite a alguém rearranjar layout por post, que é
 exatamente o que não pode acontecer.
 
-### 4. Fontes precisam de origem confiável
+### 4. Fontes viram conjunto fechado
 
-O renderer é Playwright headless: fonte que não carrega vira fallback silencioso
-e o slide sai errado sem erro. Epilogue e Bespoke Serif estão no Google Fonts.
-General Sans vem de `fonts.cdnfonts.com` no draft — terceiro sem garantia.
+**A `Bespoke Serif` do design nunca carregou.** O `<link>` do draft a pede ao
+Google Fonts, que não a serve — verificado buscando a URL, que devolve só
+Epilogue. E confirmado com `document.fonts` no preview do próprio Superdesign:
+as únicas famílias carregadas são Epilogue e General Sans. A serifa itálica
+elegante que aparece no design é o **Times do sistema**.
 
-Duas saídas, e a segunda é a certa: trocar General Sans por Epilogue nos pesos
-de texto (já carregada, desenho compatível), ou **auto-hospedar** os `.woff2`
-em `public/fonts/`. Auto-hospedar elimina a dependência de rede no momento da
-renderização — e o renderer já tem histórico de falha silenciosa.
+Num container headless do Playwright isso seria pior e igualmente silencioso —
+pode não haver serifa instalada.
 
-## Uma pergunta que precisa de resposta antes
+`fonts.ts` fecha essa porta: a família e a especificação que a carrega ficam no
+mesmo registro, os tokens escolhem por chave, e o `<link>` é derivado das
+chaves. Declarar uma fonte sem requisitá-la deixa de ser possível de escrever.
+O itálico de destaque passa a ser **Playfair Display**, que está no Google
+Fonts e já é caminho comprovado neste renderer.
 
-**1080×1440 ou 1080×1350?** Os designs são 1440 (3:4); o renderer e o
-`deviceScaleFactor: 2` de `opendesign-renderer.ts` estão em 1350 (4:5). São
-proporções diferentes, e a diferença aparece no corte do feed.
+## Proporção: 1080×1440
 
-Não vou adivinhar o que o Instagram aceita hoje sem confirmar. Se a resposta for
-1440, muda `base-css.ts`, o viewport do Playwright e as alturas de todas as
-variantes existentes — as antigas precisam ser reavaliadas na proporção nova, ou
-aposentadas junto.
+Adotada a dos designs (3:4), contra os 1080×1350 (4:5) que o renderer usava.
+Agora é o token `canvas`, e o viewport do Playwright é derivado dele — antes
+eram dois números independentes, e mudar um sem o outro renderizaria certo no
+preview e cortado no post publicado.
+
+**As variantes antigas ainda estão calibradas para 1350.** Elas continuam
+montando sem erro, mas o espaçamento sobra: os 90px a mais aparecem como folga
+no rodapé. Só some quando cada uma for substituída pelas variantes dos designs
+aprovados, nas fases C e D. Se a proporção estiver errada, é um token.
 
 ## Ordem de execução
 
 | Fase | O quê | Resultado |
 |---|---|---|
-| **A** | Tokens por formato (migração + `resolve.ts`) e fontes auto-hospedadas | Destrava o resto; nada muda visualmente ainda |
+| **A** ✅ | Tokens por formato, conjunto fechado de fontes, tela 1080×1440 | Destrava o resto; nada muda visualmente ainda |
 | **B** | Chrome por sistema visual em `shell.ts` | Os dois chromes existem, ainda com as variantes antigas |
 | **C** | Variantes do design claro para os slides de `tutorial` | Tutorial sai no design definitivo |
 | **D** | Variantes do design escuro para `noticia` e `prompt` | Os três formatos fechados |
