@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createListmonkClient } from "@/lib/server/listmonk";
+import { DEFAULT_PROJECT_ID } from "@/lib/server/projects";
 import { normalizeSignupEvent } from "@/lib/server/platform-events";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import { verifyTurnstileToken } from "@/lib/server/turnstile";
@@ -24,11 +25,15 @@ export async function POST(request: Request) {
     .from("newsletter_leads")
     .upsert(
       {
+        project_id: DEFAULT_PROJECT_ID,
         email: payload.email,
         source: payload.source,
         status: "active",
       },
-      { onConflict: "email" },
+      // A migração multi-projeto trocou `unique (email)` por
+      // `unique (project_id, email)`. Com o alvo antigo o PostgREST responde
+      // 42P10 e nenhum lead é gravado.
+      { onConflict: "project_id,email" },
     )
     .select("id")
     .single();

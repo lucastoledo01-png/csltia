@@ -3,6 +3,7 @@ import { getAllArticlesForAdmin } from "@/lib/server/articles-service";
 import { buildEditorialReadiness, normalizeAdminArticleDraft } from "@/lib/server/editorial-quality";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import { requireAdmin } from "@/lib/server/api-auth";
+import { DEFAULT_PROJECT_ID } from "@/lib/server/projects";
 
 export async function GET(request: NextRequest) {
   const authErr = await requireAdmin(request);
@@ -25,6 +26,7 @@ export async function POST(request: NextRequest) {
     .from("articles")
     .upsert(
       {
+        project_id: DEFAULT_PROJECT_ID,
         slug: draft.slug,
         title: draft.title,
         excerpt: draft.excerpt,
@@ -42,7 +44,9 @@ export async function POST(request: NextRequest) {
         manual_review_status: readiness.canPublish ? "approved" : "needs_review",
         published_at: draft.status === "published" ? new Date().toISOString() : null,
       },
-      { onConflict: "slug" },
+      // `unique (slug)` virou `unique (project_id, slug)` na migração
+      // multi-projeto.
+      { onConflict: "project_id,slug" },
     )
     .select("*")
     .single();

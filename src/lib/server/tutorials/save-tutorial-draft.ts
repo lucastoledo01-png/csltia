@@ -1,5 +1,6 @@
 import { getSupabaseAdminClient } from "../supabase-admin";
 import { buildEditorialReadiness, type AdminArticleDraft } from "../editorial-quality";
+import { DEFAULT_PROJECT_ID } from "../projects";
 
 /**
  * Persiste um rascunho de tutorial gerado pela IA na tabela `articles`.
@@ -14,6 +15,7 @@ export async function saveTutorialDraft(draft: AdminArticleDraft, reviewer: stri
     .from("articles")
     .upsert(
       {
+        project_id: DEFAULT_PROJECT_ID,
         slug: draft.slug,
         title: draft.title,
         excerpt: draft.excerpt,
@@ -31,7 +33,9 @@ export async function saveTutorialDraft(draft: AdminArticleDraft, reviewer: stri
         manual_review_status: readiness.canPublish ? "approved" : "needs_review",
         published_at: null,
       },
-      { onConflict: "slug" },
+      // `unique (slug)` virou `unique (project_id, slug)` na migração
+      // multi-projeto.
+      { onConflict: "project_id,slug" },
     )
     .select("*")
     .single();
