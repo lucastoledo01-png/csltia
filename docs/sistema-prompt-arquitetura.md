@@ -393,17 +393,23 @@ O que **faltava**, corrigido em `20260903120000_prompt_system_invariantes.sql`:
 | Índices de `project_id` em 4 tabelas | `delete from projects` varria a tabela para o cascade; todo filtro por projeto era sequencial |
 | `prompt_concept_results (campaign_id, snapshot_date)` | Cron de insights criava dois retratos do mesmo dia e a série contava o alcance repetido |
 
-A migração foi aplicada e reaplicada numa réplica local do schema de produção
-(Postgres 18, reconstruída das colunas expostas e das constraints da
-auditoria), com os sete invariantes testados por violação deliberada.
+A migração foi ensaiada numa réplica local do schema de produção (Postgres 18,
+reconstruída das colunas expostas e das constraints da auditoria), com os sete
+invariantes testados por violação deliberada, e **aplicada em produção em
+2026-09-03**, enquanto as oito tabelas ainda estavam vazias — a janela em que
+acrescentar unicidade não pode falhar por dado preexistente.
 
-**Está aplicada em produção? Não.** As tabelas estão vazias, então acrescentar
-unicidade agora não pode falhar — depois, com dados, um único par duplicado
-impede a criação da constraint e o conserto passa a exigir limpeza manual.
+Verificação depois de aplicar, sem escrever nada no banco:
 
-A última seção da migração (`snapshot_date` em `prompt_concept_results`) é a
-única que muda a forma de uma tabela; está por último de propósito, para poder
-ser cortada.
+- os sete invariantes respondem `OK` na consulta de veredito
+- `prompt_concept_results.snapshot_date` aparece no schema exposto, tipo `date`
+- inserir `keyword = 'gta 26'` volta `23514` nomeando
+  `prompt_campaigns_keyword_check`, e `prompt_campaigns` segue com zero linhas
+- reaplicar a migração inteira não dá erro: os blocos `if not exists` a tornam
+  idempotente também em produção
+
+A última seção (`snapshot_date` em `prompt_concept_results`) é a única que muda
+a forma de uma tabela, e por isso está por último — ela foi aplicada junto.
 
 ### Dívida operacional que isto revelou
 
