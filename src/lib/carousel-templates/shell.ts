@@ -2,7 +2,6 @@ import { BASE_CSS } from "./base-css";
 import { tokensToCss, type CarouselTokens } from "./tokens";
 import { cantosEditorial, chromeFooter, chromeHeader } from "./chrome";
 import { fontLinkTag } from "./fonts";
-import { pad2 } from "./util";
 import type { VariantOutput } from "./types";
 
 
