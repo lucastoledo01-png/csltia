@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assembleSlide, resolveFormatConfig } from "./assemble";
+import { FONTS } from "./fonts";
 import { DEFAULT_TOKENS } from "./tokens";
 import { SAMPLE_CAROUSEL } from "./sample-data";
 import { CAROUSEL_FORMATS } from "./types";
@@ -30,8 +31,18 @@ describe("assembleSlide", () => {
         // placeholders resolvidos
         expect(html).not.toMatch(/\{\{.*?\}\}/);
         expect(html).not.toContain("undefined");
-        // 1080×1350
-        expect(html).toContain("width:1080px");
+        // A dimensão saiu do CSS literal e virou token, então é o token que
+        // precisa chegar ao HTML — é dele que o viewport do Playwright também
+        // é derivado. Confere a altura junto: antes ninguém checava.
+        expect(html).toContain(`--s-w:${DEFAULT_TOKENS.canvas.width}px`);
+        expect(html).toContain(`--s-h:${DEFAULT_TOKENS.canvas.height}px`);
+
+        // Toda família declarada precisa estar no <link> que a carrega. Fonte
+        // pedida e não requisitada cai no fallback do sistema sem erro.
+        for (const chave of new Set(Object.values(DEFAULT_TOKENS.fonts))) {
+          const primeiraFamilia = FONTS[chave].stack.split(",")[0].replace(/"/g, "");
+          expect(html).toContain(primeiraFamilia.replace(/ /g, "+"));
+        }
       });
     });
   }

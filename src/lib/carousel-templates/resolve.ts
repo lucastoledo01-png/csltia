@@ -11,15 +11,30 @@ import type { CarouselFormat, FormatConfig } from "./types";
  * ser gerado por causa de config de design.
  */
 
-export async function resolveTokens(): Promise<CarouselTokens> {
+/**
+ * Tokens efetivos de um formato, em cascata:
+ *
+ *   default do repo  →  carousel_theme (global)  →  carousel_format_config
+ *
+ * Sem `format`, devolve só o tema global — é o que o editor do painel mostra
+ * quando está editando o tema, não um formato específico.
+ *
+ * As duas leituras vão juntas de propósito: em duas idas ao banco, uma falha
+ * parcial produziria um slide meio claro e meio escuro, que é pior que cair
+ * inteiro no default.
+ */
+export async function resolveTokens(format?: CarouselFormat): Promise<CarouselTokens> {
   try {
     const supabase = getSupabaseAdminClient();
-    const { data } = await supabase
-      .from("carousel_theme")
-      .select("tokens")
-      .eq("id", 1)
-      .maybeSingle();
-    return mergeTokens(data?.tokens ?? {});
+
+    const [tema, doFormato] = await Promise.all([
+      supabase.from("carousel_theme").select("tokens").eq("id", 1).maybeSingle(),
+      format
+        ? supabase.from("carousel_format_config").select("tokens").eq("format", format).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+    return mergeTokens(tema.data?.tokens ?? {}, doFormato.data?.tokens ?? {});
   } catch {
     return DEFAULT_TOKENS;
   }

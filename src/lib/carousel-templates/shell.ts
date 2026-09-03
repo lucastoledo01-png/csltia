@@ -1,20 +1,15 @@
 import { BASE_CSS } from "./base-css";
 import { tokensToCss, type CarouselTokens } from "./tokens";
+import { fontLinkTag } from "./fonts";
 import { pad2 } from "./util";
 import type { VariantOutput } from "./types";
 
 const FOOTER_TAGLINE = "Inteligência Artificial para Redes &amp; Vendas";
 
-const FONT_LINK =
-  '<link rel="preconnect" href="https://fonts.googleapis.com">' +
-  '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
-  '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?' +
-  "family=JetBrains+Mono:wght@400;500;700&" +
-  "family=Playfair+Display:ital,wght@0,600;0,700;0,800;0,900;1,600;1,700&" +
-  'family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">';
 
 /**
- * Monta o documento HTML completo de um slide (1080×1350). Para slides `full`
+ * Monta o documento HTML completo de um slide, na proporção de
+ * `tokens.canvas`. Para slides `full`
  * (capa, galeria) o cabeçalho/rodapé são responsabilidade da variante — ela
  * desenha o próprio chrome sobre a imagem. Para os demais, o shell injeta o
  * cabeçalho e o rodapé padrão.
@@ -23,6 +18,11 @@ export function renderShell(
   out: VariantOutput,
   opts: { slideIndex: number; total: number; tokens: CarouselTokens },
 ): string {
+  // O <link> sai das fontes que os tokens realmente escolheram: declarar uma
+  // família sem requisitá-la é o bug silencioso que `fonts.ts` existe para
+  // impedir.
+  const f = opts.tokens.fonts;
+  const fontLink = fontLinkTag([f.display, f.body, f.accent, f.mono]);
   const style = `<style>${BASE_CSS}${tokensToCss(opts.tokens)}</style>`;
   const rootClass = out.onDark ? ' class="on-dark"' : "";
 
@@ -34,7 +34,7 @@ ${out.body}
 ${standardFooter()}
 </div>`;
 
-  return `<!DOCTYPE html><html lang="pt-BR"${rootClass}><head><meta charset="UTF-8">${FONT_LINK}${style}</head><body>${inner}</body></html>`;
+  return `<!DOCTYPE html><html lang="pt-BR"${rootClass}><head><meta charset="UTF-8">${fontLink}${style}</head><body>${inner}</body></html>`;
 }
 
 export function standardHeader(slideIndex: number, total: number): string {
