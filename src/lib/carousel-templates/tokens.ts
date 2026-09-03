@@ -30,6 +30,12 @@ export const TokensSchema = z.object({
     width: z.number().min(320).max(2160),
     height: z.number().min(320).max(2880),
   }),
+  /**
+   * Qual moldura o slide usa. Os dois designs aprovados têm chrome
+   * estruturalmente diferente — impresso versus interface — e não dá para
+   * converter um no outro só trocando cor. Ver `chrome.ts`.
+   */
+  chrome: z.enum(["editorial", "social"]),
   /** Só chaves do conjunto fechado de `fonts.ts` — ver o porquê lá. */
   fonts: z.object({
     display: FontKeySchema,
@@ -70,6 +76,7 @@ export type CarouselTokens = z.infer<typeof TokensSchema>;
 
 export const DEFAULT_TOKENS: CarouselTokens = {
   canvas: { width: 1080, height: 1440 },
+  chrome: "editorial",
   fonts: { display: "epilogue", body: "epilogue", accent: "playfair", mono: "jetbrains" },
   colors: {
     bg: "#f7f5f0",
@@ -120,6 +127,7 @@ export function mergeTokens(...overrides: unknown[]): CarouselTokens {
 
   const merged = {
     canvas: { ...base.canvas, ...asObj(o.canvas) },
+    chrome: typeof o.chrome === "string" ? o.chrome : base.chrome,
     fonts: { ...base.fonts, ...asObj(o.fonts) },
     colors: { ...base.colors, ...asObj(o.colors) },
     type: { ...base.type, ...asObj(o.type) },

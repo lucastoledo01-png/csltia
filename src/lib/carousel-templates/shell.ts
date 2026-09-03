@@ -1,10 +1,9 @@
 import { BASE_CSS } from "./base-css";
 import { tokensToCss, type CarouselTokens } from "./tokens";
+import { cantosEditorial, chromeFooter, chromeHeader } from "./chrome";
 import { fontLinkTag } from "./fonts";
 import { pad2 } from "./util";
 import type { VariantOutput } from "./types";
-
-const FOOTER_TAGLINE = "Inteligência Artificial para Redes &amp; Vendas";
 
 
 /**
@@ -26,26 +25,21 @@ export function renderShell(
   const style = `<style>${BASE_CSS}${tokensToCss(opts.tokens)}</style>`;
   const rootClass = out.onDark ? ' class="on-dark"' : "";
 
+  const chrome = opts.tokens.chrome;
+  // Os colchetes de corte são do sistema impresso e emolduram a arte inteira,
+  // então valem também no slide sangrado — é neles que o design se reconhece.
+  const cantos = chrome === "editorial" ? cantosEditorial() : "";
+
   const inner = out.full
-    ? `<div class="slide full">${out.body}</div>`
+    ? `<div class="slide full">${cantos}${out.body}</div>`
     : `<div class="slide">
-${standardHeader(opts.slideIndex, opts.total)}
+${cantos}
+${chromeHeader(chrome, opts.slideIndex, opts.total)}
 ${out.body}
-${standardFooter()}
+${chromeFooter(chrome, opts.slideIndex, opts.total)}
 </div>`;
 
   return `<!DOCTYPE html><html lang="pt-BR"${rootClass}><head><meta charset="UTF-8">${fontLink}${style}</head><body>${inner}</body></html>`;
-}
-
-export function standardHeader(slideIndex: number, total: number): string {
-  return `<div class="s-header">
-<div class="s-brand"><span class="s-badge">b.</span><span class="s-wordmark">desbuguei.ia</span></div>
-<span class="s-counter">${pad2(slideIndex)} / ${pad2(total)}</span>
-</div>`;
-}
-
-export function standardFooter(): string {
-  return `<div class="s-footer"><span class="h">@desbuguei.ia</span><span class="t">${FOOTER_TAGLINE}</span></div>`;
 }
 
 /** Marca da conta sem contador — usada nas sobreposições das capas. */

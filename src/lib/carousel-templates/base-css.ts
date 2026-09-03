@@ -16,26 +16,11 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 .slide.full{padding:0;}
 
 /* ---- cabeçalho ---- */
-.s-header{display:flex;align-items:center;justify-content:space-between;
   border-bottom:2px solid var(--s-border);padding-bottom:24px;}
-.s-header.plain{border:none;padding:0;}
-.s-brand{display:flex;align-items:center;gap:14px;}
-.s-badge{background:var(--s-accent);color:#fff;font-weight:800;font-size:22px;
-  width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;}
-.s-wordmark{font-family:var(--s-font-accent);font-size:30px;font-weight:700;color:var(--s-ink);}
-.s-counter{background:var(--s-border);color:var(--s-stone);font-size:18px;font-weight:700;
   padding:8px 20px;border-radius:22px;font-variant-numeric:tabular-nums;}
-.on-dark .s-wordmark,.on-dark .s-counter{color:#fff;}
-.on-dark .s-header,.on-dark .s-footer{border-color:rgba(255,255,255,0.2);}
-.on-dark .s-counter{background:rgba(255,255,255,0.16);}
 
 /* ---- rodapé ---- */
-.s-footer{display:flex;align-items:center;justify-content:space-between;
   border-top:2px solid var(--s-border);padding-top:22px;font-size:18px;}
-.s-footer .h{font-weight:800;color:var(--s-ink);}
-.s-footer .t{color:var(--s-stone);font-size:15px;font-weight:600;}
-.on-dark .s-footer .h{color:#fff;}
-.on-dark .s-footer .t{color:rgba(255,255,255,0.65);}
 
 /* ---- eyebrow ---- */
 .s-eyebrow{display:inline-flex;align-items:center;width:fit-content;
@@ -121,4 +106,48 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
   font-weight:800;font-size:18px;width:fit-content;font-family:var(--s-font-mono);}
 
 .gallery-cap{font-size:30px;font-weight:700;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,0.6);}
+
+/* ---- chrome: colchetes de corte (sistema impresso) ---- */
+.c-corners i{position:absolute;width:46px;height:46px;border-color:var(--s-accent);border-style:solid;border-width:0;}
+.c-corners .tl{top:44px;left:44px;border-top-width:3px;border-left-width:3px;}
+.c-corners .tr{top:44px;right:44px;border-top-width:3px;border-right-width:3px;}
+.c-corners .bl{bottom:44px;left:44px;border-bottom-width:3px;border-left-width:3px;}
+.c-corners .br{bottom:44px;right:44px;border-bottom-width:3px;border-right-width:3px;}
+
+/* ---- chrome editorial ---- */
+.c-head{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:2;}
+.c-head.editorial .handle,.c-head.editorial .count{font-family:var(--s-font-mono);font-size:19px;
+  font-weight:600;letter-spacing:1.6px;text-transform:uppercase;color:var(--s-stone);}
+.c-foot{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:2;}
+.c-foot.editorial{border-top:1px solid var(--s-border);padding-top:26px;}
+.c-foot.editorial .tag,.c-foot.editorial .swipe{font-family:var(--s-font-mono);font-size:16px;
+  font-weight:700;letter-spacing:2px;text-transform:uppercase;}
+.c-foot.editorial .tag{color:var(--s-stone);}
+.c-foot.editorial .swipe{color:var(--s-accent);display:inline-flex;align-items:center;gap:10px;}
+.c-foot.editorial .swipe svg{width:22px;height:22px;}
+.c-dots{display:flex;gap:11px;}
+.c-dots .d{width:11px;height:11px;border-radius:50%;background:var(--s-border);}
+.c-dots .d.on{background:var(--s-accent);}
+
+/* ---- chrome social ---- */
+.c-head.social .mark{font-family:var(--s-font-body);font-size:21px;font-weight:800;
+  letter-spacing:2.4px;text-transform:uppercase;color:var(--s-accent);}
+.c-head.social .pill{font-family:var(--s-font-mono);font-size:18px;font-weight:700;color:var(--s-ink);
+  background:rgba(255,255,255,0.10);border:1px solid var(--s-border);border-radius:999px;padding:8px 20px;}
+.c-head.social .pill i{opacity:0.45;font-style:normal;margin:0 4px;}
+.c-foot.social .prog{font-family:var(--s-font-mono);font-size:17px;letter-spacing:1.8px;
+  text-transform:uppercase;color:var(--s-stone);}
+.c-foot.social .prog b{color:var(--s-accent);font-weight:700;margin-right:10px;}
+.c-foot.social .next{width:64px;height:64px;border-radius:50%;background:var(--s-accent);color:#fff;
+  display:inline-flex;align-items:center;justify-content:center;}
+.c-foot.social .next svg{width:28px;height:28px;}
+
+/* Trilho de engajamento — ícones, sem números: contador de maquete impresso
+   na arte seria prova social inventada. */
+.c-rail{position:absolute;right:56px;top:50%;transform:translateY(-50%);z-index:2;
+  display:flex;flex-direction:column;gap:24px;}
+.c-rail span{width:76px;height:76px;border-radius:50%;background:rgba(255,255,255,0.08);
+  border:1px solid var(--s-border);color:var(--s-ink);
+  display:inline-flex;align-items:center;justify-content:center;}
+.c-rail svg{width:32px;height:32px;}
 `;
