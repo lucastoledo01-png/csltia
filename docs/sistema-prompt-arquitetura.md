@@ -455,3 +455,24 @@ As outras razões do funil não precisam de coluna: `leads/clicks`,
 
 Em `20260903140000_prompt_conversion_rate_gerada.sql`. Reverter é trocar uma
 expressão — se a intenção era outra razão, o custo é uma migração.
+
+### Estado em produção (2026-09-03)
+
+As quatro migrações do Sistema PROMPT estão aplicadas. Conferido no banco, com
+escritas deliberadamente inválidas que são recusadas sem gravar nada:
+
+| Verificação | Resposta do banco |
+|---|---|
+| Escrever `conversion_rate` à mão | `428C9` — *Column "conversion_rate" is a generated column* |
+| Retrato sem `snapshot_date` | `23502` — violação de not-null |
+| Keyword fora do formato (`gta 26`) | `23514` — `prompt_campaigns_keyword_check` |
+| Leitura pela chave anônima | `401` / `42501` |
+| Os sete invariantes | `OK` na consulta de veredito |
+
+`prompt_campaigns` e `prompt_concept_results` seguem com zero linhas: nenhuma
+das tentativas persistiu.
+
+O registro do painel está pronto para uso, e o schema protegido contra as
+formas de corrupção silenciosa que o loop editorial mais sofreria — keyword que
+não casa, funil inflado por reprocessamento, lead contado duas vezes e taxa de
+conversão divergindo dos contadores que a geraram.
