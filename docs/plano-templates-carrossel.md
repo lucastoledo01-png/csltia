@@ -5,11 +5,14 @@ formatos. É o caminho que `estado-do-ecossistema.md` já tinha apontado como o
 robusto: você desenha, eu converto uma vez, e daí em diante o sistema só
 preenche texto em campos fixos — nunca rearranja layout.
 
-| Formato | Design | Origem |
+| Formato | Forma do post | Design |
 |---|---|---|
-| `tutorial` | Claro / editorial impresso | draft `ac015490-…` |
-| `noticia` | Escuro / editorial com foto | draft `ec0f02b2-…` |
-| `prompt` | Escuro / editorial com foto | draft `ec0f02b2-…` |
+| `tutorial` | **Carrossel de texto** — o único | Claro / impresso, draft `ac015490-…` |
+| `noticia` | **Capa só** — imagem única | Escuro / editorial, draft `ec0f02b2-…` |
+| `prompt` | Capa + resultados **em tela cheia** | Escuro na capa; o corpo é a imagem gerada |
+
+Só o `tutorial` é carrossel de layouts. Isso reduz muito o trabalho: os slides
+de texto do sistema escuro não existem.
 
 Os drafts são públicos em `https://p.superdesign.dev/draft/<id>` e foram
 baixados com `curl` — não é preciso o CLI nem login.
@@ -101,13 +104,32 @@ aprovados, nas fases C e D. Se a proporção estiver errada, é um token.
 |---|---|---|
 | **A** ✅ | Tokens por formato, conjunto fechado de fontes, tela 1080×1440 | Destrava o resto; nada muda visualmente ainda |
 | **B** | Chrome por sistema visual em `shell.ts` | Os dois chromes existem, ainda com as variantes antigas |
-| **C** | Variantes do design claro para os slides de `tutorial` | Tutorial sai no design definitivo |
-| **D** | Variantes do design escuro para `noticia` e `prompt` | Os três formatos fechados |
-| **E** | Aposentar as variantes rascunho e ajustar `format-defaults.ts` | Só os designs aprovados sobram |
+| **C** ✅ | Variantes do design claro para `tutorial`, mais a de tela cheia | Tutorial sai no design definitivo |
+| **D** | Reformatar `noticia` e `prompt` — ver abaixo | Os três formatos na forma certa |
+| **E** | Aposentar as variantes rascunho | Só os designs aprovados sobram |
 
 Cada fase termina com preview no painel (aba **Carrossel**) e um teste de
 `assemble` — o arquivo `assemble.test.ts` já cobre o encaixe, e ganha um caso
 por variante nova.
+
+## Fase D é maior do que parece
+
+Reformatar `noticia` para capa-só e `prompt` para capa mais tela cheia **não é
+trabalho de design**. São três mudanças acopladas, e feitas pela metade quebram
+a publicação diária:
+
+1. **O SYSTEM prompt.** O de notícia pede hoje "ROTEIRO DE CARROSSEL (5 a 8
+   slides)" com CTA de comentário. Precisa passar a pedir só a capa.
+2. **A contagem no schema.** `InstagramCarouselSchema` exige
+   `slides.min(4).max(12)` — um post de capa só não passa na validação. O certo
+   é a contagem virar regra por formato, não um número único.
+3. **A publicação.** `meta-client.ts` só sabe carrossel: sempre manda
+   `is_carousel_item=true` e `media_type=CAROUSEL`. Imagem única é outra
+   sequência de chamadas na API da Meta.
+
+Enquanto as três não andarem juntas, `format-defaults.ts` descreve o que o
+pipeline **gera hoje** — mudar a lista antes só faz os testes divergirem do que
+sai no ar.
 
 ## Os dez tipos de slide precisam de cobertura
 
