@@ -57,6 +57,41 @@ a chamada do cron", então ninguém soube que havia quebrado.
 **O que fazer.** Tabela de execução vazia nunca é prova de que nada rodou.
 Qualquer diagnóstico começa pelo watchdog, não pelo banco.
 
+### Seis dias sem produzir, e ninguém soube
+
+**O que.** Em 2026-09-03 a produção foi encontrada parada desde 28/08:
+`newsroom_runs`, `news_editions`, `articles` e `social_posts` todos com último
+registro em 28/08. Seis edições não produzidas, seis dias sem newsletter e sem
+post.
+
+**Causa.** O cron não existia em lugar nenhum. Conferidos os quatro lugares
+possíveis: `/etc/crontab` (só entradas padrão do Debian), `/etc/cron.d/` (só
+docker-prune, e2scrub, monarx, sysstat), crontab do `deploy` (vazio) e a base
+do EasyPanel (zero ocorrências de "schedule" ou "cron"). O cron da Hostinger
+foi desligado na migração para a VPS — como o próprio `migracao-vps.md` manda
+— e o da VPS nunca foi criado.
+
+**Por que ninguém foi avisado.** O Tier 0 — alertas de Telegram, watchdog,
+auto-refresh do token da Meta — estava no repositório e **não em produção**.
+Os dois merges de 29/08 nunca foram deployados. A rede de proteção construída
+justamente para gritar nesse cenário não estava no ar.
+
+**Como foi diagnosticado sem privilégio no servidor.** `newsroom_runs` vazio no
+período prova que a chamada não chegou à aplicação — uma execução que quebrasse
+gravaria `failed`. E o commit publicado foi cercado testando quais rotas
+respondem 401 (existe) contra 404 (não existe):
+`/api/admin/carousel-design` e `/api/cron/refresh-instagram-token` davam 404,
+`/api/cron/tutorial` dava 401. Confirmado depois no disco, em
+`/etc/easypanel/projects/core/web/code`, que é legível sem sudo.
+
+**Corrigido.** Crontab instalado no usuário `deploy` e deploy do `web` disparado
+pelo webhook do EasyPanel.
+
+**O que fazer.** Migração de host move o agendamento junto — e a verificação de
+que o cron novo disparou tem que ser um item explícito, não uma suposição.
+Um site respondendo 200 não diz nada sobre o pipeline: durante os seis dias o
+site esteve no ar o tempo todo. O sinal é `newsroom_runs`, e agora o watchdog.
+
 ### `dall-e-3` descontinuado quebrou a geração de capa
 
 **O que.** A geração da capa por IA falhou porque o modelo `dall-e-3` foi

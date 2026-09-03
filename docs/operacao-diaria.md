@@ -72,15 +72,27 @@ OPENAI_API_KEY
 LISTMONK_URL / LISTMONK_API_USER / LISTMONK_API_TOKEN / LISTMONK_DEFAULT_LIST_ID
 ```
 
-**3. Cron em hPanel → Avançado → Trabalhos Cron:**
+**3. Cron — no crontab da VPS, usuário `deploy`** (`crontab -e`):
 
 ```
-3 9 * * *    curl -fsS -m 60 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" https://SEU_DOMINIO/api/cron/newsroom
-0 8 * * *    curl -fsS -m 60 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" https://SEU_DOMINIO/api/cron/refresh-instagram-token
+3 9 * * * /usr/bin/curl -fsS -m 60 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" https://casaloti.ia.br/api/cron/newsroom >> /home/deploy/newsroom-cron.log 2>&1
+0 8 * * * /usr/bin/curl -fsS -m 60 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" https://casaloti.ia.br/api/cron/refresh-instagram-token >> /home/deploy/meta-token-cron.log 2>&1
 ```
 
-O agendamento é **UTC**: `3 9` equivale a 06:03 em Brasília. Confira o fuso do
-servidor em hPanel → Avançado → Informações do servidor antes de fixar.
+> **Não é mais no hPanel da Hostinger.** A aplicação roda na VPS desde a
+> migração, e o cron vive lá. Em 2026-09-03 a produção foi encontrada parada
+> havia seis dias porque o cron da Hostinger foi desligado na migração e o da
+> VPS nunca chegou a ser criado — ver `aprendizados-e-incidentes.md`.
+
+A VPS está em **UTC** (`Etc/UTC`), então `3 9` é 06:03 em Brasília. Confirme
+com `date` antes de mudar o horário.
+
+O token da Meta é renovado **antes** da redação de propósito: se estiver para
+vencer, a renovação acontece antes de o worker precisar dele para publicar.
+
+Os dois redirecionam para log em `/home/deploy/`. Como usam `curl -f`, uma
+resposta de erro — 401 por segredo errado, 404 por rota ausente — aparece lá.
+É o primeiro lugar a olhar quando um dia não sair edição.
 
 A segunda linha checa o token de longa duração da Meta todo dia, renova quando
 falta pouco e alerta no Telegram se não conseguir (ver "Observabilidade" abaixo).
