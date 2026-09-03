@@ -135,6 +135,27 @@ CHECKs, unicidades e índices só saem por SQL — `pg_get_constraintdef` mais
 `pg_indexes`, no SQL Editor. E migração que contradiga produção **não** entra em
 `supabase/migrations/`: num banco novo criaria estrutura errada.
 
+### UNIQUE sobre coluna nullable não protege nada
+
+**O que.** Em 2026-09-03 criei `prompt_concept_results.snapshot_date` como
+nullable e pus `unique (campaign_id, snapshot_date)` em cima dela, para
+garantir um retrato por campanha por dia. No Postgres, nulos são **distintos
+entre si** numa constraint UNIQUE: N linhas com `snapshot_date` nulo para a
+mesma campanha passavam sem violação.
+
+**Por que passou despercebido.** O teste na réplica preenchia `snapshot_date`
+explicitamente, então a duplicata era barrada e a garantia parecia funcionar. O
+caminho não testado — quem grava esquecer a coluna — era justamente o que a
+constraint deveria cobrir.
+
+**Corrigido em** `20260903130000_prompt_snapshot_date_not_null.sql`.
+
+**O que fazer.** Unicidade que inclui coluna nullable precisa da coluna
+`not null`, ou de um índice único parcial (`where col is not null`) mais uma
+regra explícita para o caso nulo. E teste de invariante precisa exercitar o
+caminho em que quem chama **erra** — o caminho correto não prova constraint
+nenhuma.
+
 ### Constraint acrescentada com a tabela vazia não pode falhar
 
 **O que.** Os invariantes de `prompt_*` (dedupe do funil, unicidade de lead,

@@ -411,10 +411,41 @@ Verificação depois de aplicar, sem escrever nada no banco:
 A última seção (`snapshot_date` em `prompt_concept_results`) é a única que muda
 a forma de uma tabela, e por isso está por último — ela foi aplicada junto.
 
-### Dívida operacional que isto revelou
+### O repositório voltou a descrever o banco
 
-O banco de produção tem estrutura que o repositório não descreve. Enquanto isso
-durar, `supabase/migrations/` não reproduz produção — um ambiente novo nasce
-diferente, e ninguém sabe o que está no ar sem consultar o banco. O conserto é
-uma migração-baseline com o `CREATE TABLE` das oito tabelas como estão;
-`vocabulary.ts` e `promptSystemTables` já são a parte versionada do que se sabe.
+`20260901000000_prompt_system_baseline.sql` reconstrói as oito tabelas como
+estão em produção: colunas na mesma ordem, com os mesmos tipos, defaults,
+nulabilidade, CHECKs, unicidades, ações `ON DELETE` e RLS. Reconstruída de
+`information_schema.columns`, `pg_constraint`, `pg_indexes` e `pg_class`.
+
+Está **datada antes** da migração de invariantes de propósito: as migrações
+rodam em ordem de nome de arquivo e aquela acrescenta constraints a estas
+tabelas — invertida, um banco novo falharia. A data anterior também é a verdade
+histórica. Em produção o baseline é inteiramente no-op.
+
+Rodar as três em sequência num Postgres vazio produz exatamente produção,
+verificado por diff: as 91 colunas conferem uma a uma (nome, posição, tipo,
+nulabilidade, default), os 19 nomes de constraint e índice existem, as oito
+tabelas têm `rls=true forced=false policies=0`, nenhuma FK ficou sem índice, e
+um fluxo completo — tendência → conceito → campanha → asset → lead → evento →
+retrato → aprendizado — grava e é limpo pelo cascade do projeto.
+
+### Uma decisão pendente: `conversion_rate`
+
+`prompt_concept_results.conversion_rate` é `numeric(6,4) not null default 0` —
+**coluna comum, não gerada**. Nada no banco a liga aos contadores, e nada no
+código a calcula ainda. Como está, ela pode divergir de `leads` e `reach` sem
+que ninguém perceba, e é ela que a etapa 14 usa para decidir a próxima pauta.
+
+Duas saídas, e a escolha depende do que a coluna significa — `numeric(6,4)`
+guarda de 0 a 99,9999, o que serve tanto para razão (0,0090) quanto para
+percentual (0,90):
+
+- **Coluna gerada**, se for razão de lead por alcance:
+  `leads::numeric / nullif(reach, 0)`. Nunca divergiria, mas fixa a definição
+  no banco e exige recriar a coluna.
+- **Continuar comum**, com o cálculo num único lugar do código e um teste que
+  trave a fórmula.
+
+Enquanto não se decidir, quem gravar precisa calcular à mão — e é aí que
+divergir é fácil.
