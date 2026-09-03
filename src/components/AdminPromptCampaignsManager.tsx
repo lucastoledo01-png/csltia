@@ -32,18 +32,23 @@ type Campaign = {
   publishedAt: string | null;
 };
 
-const DELETABLE = ["draft", "keyword_reserved", "failed"];
-
 /** Cor por status; um status novo vindo do banco cai no neutro. */
 const STATUS_STYLE: Record<string, string> = {
   draft: "bg-slate-100 text-slate-600",
-  keyword_reserved: "bg-sky-100 text-sky-700",
-  automation_ready: "bg-indigo-100 text-indigo-700",
+  ready: "bg-indigo-100 text-indigo-700",
   published: "bg-emerald-100 text-emerald-700",
-  paused: "bg-amber-100 text-amber-700",
+  blocked: "bg-rose-100 text-rose-700",
   archived: "bg-slate-200 text-slate-500",
-  failed: "bg-rose-100 text-rose-700",
 };
+
+/**
+ * Mesma regra do servidor: o botão só aparece quando não há nada externo
+ * apontando para a campanha. A rota confere de novo — isto é só a tela.
+ */
+function podeRemover(c: Campaign): boolean {
+  if (c.status === "published" || c.status === "archived") return false;
+  return c.igMediaId === null && c.openReplyAutomationId === null;
+}
 
 function statusStyle(status: string): string {
   return STATUS_STYLE[status] ?? "bg-slate-100 text-slate-600";
@@ -369,7 +374,7 @@ export function AdminPromptCampaignsManager() {
                     </option>
                   ))}
                 </select>
-                {DELETABLE.includes(campaign.status) ? (
+                {podeRemover(campaign) ? (
                   <button
                     onClick={() => handleDelete(campaign)}
                     className="rounded-xl border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"

@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/server/api-auth";
 import {
   deleteCampaign,
   getCampaignById,
-  isDeletableStatus,
+  isDeletable,
   updateCampaign,
 } from "@/lib/server/prompt-system/campaigns";
 
@@ -63,15 +63,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ ok: false, error: "Campanha não encontrada." }, { status: 404 });
   }
 
-  // Depois de publicada existe um post no Instagram e uma automação no
-  // OpenReply apontando para esta linha. Apagar aqui deixaria os eventos do
-  // funil sem campanha e sumiria com o histórico do que já foi ao ar —
-  // arquivar preserva os dois.
-  if (!isDeletableStatus(campaign.status)) {
+  // Havendo post no Instagram ou automação no OpenReply, apagar a linha deixa
+  // os eventos do funil sem campanha e sumiria com o histórico do que foi ao
+  // ar — arquivar preserva os dois.
+  if (!isDeletable(campaign)) {
     return NextResponse.json(
       {
         ok: false,
-        error: `Campanha com status "${campaign.status}" não pode ser removida. Arquive em vez de apagar.`,
+        error:
+          "Campanha já tem post ou automação vinculados e não pode ser removida. Arquive em vez de apagar.",
       },
       { status: 409 },
     );

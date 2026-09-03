@@ -370,39 +370,45 @@ exige checagem dupla — histórico local **e** automações do OpenReply. A Fas
 só tem a primeira metade, e o campo diz isso a quem consome em vez de parecer
 completo. A segunda entra na Fase 1 com a rota de serviço (decisão D1).
 
-### Pendência que bloqueia confiar no registro
+### Auditoria do schema aplicado (2026-09-03)
 
-O schema aplicado não foi auditado: **não se sabe se existe
-`unique (project_id, keyword)`** em `prompt_campaigns`. Sem ela, duas campanhas
-nascem com a mesma keyword e o funil da etapa 7 fura na origem — o código trata
-o erro `23505` como "keyword em uso", mas se a constraint não existir o insert
-duplicado simplesmente passa. Mesma dúvida para o dedupe de
-`prompt_funnel_events (campaign_id, stage, external_id)`, para a unicidade de
-`prompt_leads (campaign_id, email)` e para os índices de chave estrangeira.
+Rodada com `pg_get_constraintdef` + `pg_indexes` sobre produção. O que **existe**:
 
-Auditoria:
+- `prompt_campaigns_project_keyword_key UNIQUE (project_id, keyword)` — o
+  invariante da etapa 7 está protegido, e o código pode tratar `23505` como
+  "keyword em uso"
+- CHECKs de vocabulário nas oito tabelas (valores em `vocabulary.ts`)
+- Índices de `project_id` em `prompt_trends`, `prompt_concepts`,
+  `prompt_campaigns` e `prompt_learnings`
+- Grants revogados: a chave anônima recebe `401`/`42501` nas tabelas `prompt_*`
 
-```sql
-select conrelid::regclass as tabela, conname, pg_get_constraintdef(oid) as definicao
-from pg_constraint
-where conrelid::regclass::text like 'prompt_%' and contype in ('c','u','p')
-union all
-select tablename::regclass, indexname, indexdef
-from pg_indexes where tablename like 'prompt_%'
-order by tabela, conname;
-```
+O que **faltava**, corrigido em `20260903120000_prompt_system_invariantes.sql`:
 
-`docs/propostas/prompt-system-invariantes.sql` guarda os invariantes desenhados
-e testados para essas tabelas (CHECK da keyword, unicidades de dedupe, índices
-de FK, RLS, `conversion_rate` como coluna gerada). **Não é uma migração
-aplicada** — mora fora de `supabase/migrations/` de propósito, porque criaria um
-schema diferente do de produção num banco novo. Serve como referência do que
-falta conferir e, se faltar, acrescentar por `ALTER`.
+| Invariante | O que quebrava sem ele |
+|---|---|
+| CHECK do formato da keyword | Só o TypeScript garantia. SQL na mão, o pipeline da Fase 4 ou uma carga gravavam `gta 26` — e o CTA do post não dispara Direct nenhum |
+| `prompt_funnel_events (campaign_id, stage, external_id)` | Pull do OpenReply não idempotente: retry ou cron sobreposto contava o evento duas vezes, e o funil alimenta a pontuação de pauta da etapa 14 |
+| `prompt_leads (campaign_id, email)` | F5 depois do submit inflava a taxa de conversão sem ninguém novo se cadastrar |
+| `prompt_assets (campaign_id, label)` + prompt não-vazio | Entrega ambígua, e asset sem prompt é promessa que o post não cumpre |
+| Índices de `project_id` em 4 tabelas | `delete from projects` varria a tabela para o cascade; todo filtro por projeto era sequencial |
+| `prompt_concept_results (campaign_id, snapshot_date)` | Cron de insights criava dois retratos do mesmo dia e a série contava o alcance repetido |
+
+A migração foi aplicada e reaplicada numa réplica local do schema de produção
+(Postgres 18, reconstruída das colunas expostas e das constraints da
+auditoria), com os sete invariantes testados por violação deliberada.
+
+**Está aplicada em produção? Não.** As tabelas estão vazias, então acrescentar
+unicidade agora não pode falhar — depois, com dados, um único par duplicado
+impede a criação da constraint e o conserto passa a exigir limpeza manual.
+
+A última seção da migração (`snapshot_date` em `prompt_concept_results`) é a
+única que muda a forma de uma tabela; está por último de propósito, para poder
+ser cortada.
 
 ### Dívida operacional que isto revelou
 
 O banco de produção tem estrutura que o repositório não descreve. Enquanto isso
 durar, `supabase/migrations/` não reproduz produção — um ambiente novo nasce
-diferente, e ninguém tem como saber o que está no ar sem consultar o banco. O
-conserto é uma migração-baseline que documente o schema aplicado, e ela depende
-da auditoria acima.
+diferente, e ninguém sabe o que está no ar sem consultar o banco. O conserto é
+uma migração-baseline com o `CREATE TABLE` das oito tabelas como estão;
+`vocabulary.ts` e `promptSystemTables` já são a parte versionada do que se sabe.

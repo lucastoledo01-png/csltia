@@ -68,14 +68,21 @@ const CAMPAIGN_COLUMNS =
   "follow_up_message, created_at, published_at";
 
 /**
- * Estados a partir dos quais a campanha ainda não tocou nada externo. Fora
- * deles existe um post no Instagram e uma automação no OpenReply apontando
- * para esta linha, e apagá-la deixaria o funil órfão.
+ * Uma campanha só pode ser apagada enquanto não existir nada fora do banco
+ * apontando para ela.
+ *
+ * A regra olha o estado externo (`ig_media_id`, `openreply_automation_id`), não
+ * o rótulo de status. O CHECK de produção aceita `draft`, `ready`, `published`,
+ * `blocked` e `archived`, e a semântica de `ready` e `blocked` não está escrita
+ * em lugar nenhum — inferir dela quem pode ser apagado seria adivinhar. Já a
+ * presença de um post no Instagram ou de uma automação no OpenReply é um fato:
+ * havendo qualquer um dos dois, apagar a linha deixa o funil órfão.
  */
-const DELETABLE_STATUSES = ["draft", "keyword_reserved", "failed"];
-
-export function isDeletableStatus(status: string): boolean {
-  return DELETABLE_STATUSES.includes(status);
+export function isDeletable(
+  campaign: Pick<PromptCampaign, "status" | "igMediaId" | "openReplyAutomationId">,
+): boolean {
+  if (campaign.status === "published" || campaign.status === "archived") return false;
+  return campaign.igMediaId === null && campaign.openReplyAutomationId === null;
 }
 
 function toCampaign(row: CampaignRow): PromptCampaign {
