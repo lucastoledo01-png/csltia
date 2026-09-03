@@ -75,3 +75,27 @@ describe("assembleSlide", () => {
     expect(cfg.eyebrowLabel).toBe("PLANTÃO");
   });
 });
+
+describe("forma de cada formato", () => {
+  it("o exemplo do painel só usa tipos que o formato produz", () => {
+    // Sem isto, o preview do admin mostra slides que o pipeline nunca gera —
+    // e a pessoa desenha em cima de um layout que não vai ao ar.
+    for (const format of CAROUSEL_FORMATS) {
+      const permitidos = FORMAT_DEFAULTS[format].allowedSlideTypes;
+      const usados = SAMPLE_CAROUSEL[format].slides.map((s) => s.type);
+
+      expect(usados.filter((t) => !permitidos.includes(t)), `formato ${format}`).toEqual([]);
+    }
+  });
+
+  it("cada tipo permitido tem variante padrão apontando para uma que existe", () => {
+    for (const format of CAROUSEL_FORMATS) {
+      const def = FORMAT_DEFAULTS[format];
+      for (const tipo of def.allowedSlideTypes) {
+        const chave = def.variantBySlideType[tipo];
+        expect(chave, `${format}/${tipo} sem variante padrão`).toBeTruthy();
+        expect(SLIDE_VARIANTS[tipo]?.[chave!], `${format}/${tipo} → "${chave}" não existe`).toBeDefined();
+      }
+    }
+  });
+});

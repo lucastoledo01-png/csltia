@@ -150,4 +150,58 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
   border:1px solid var(--s-border);color:var(--s-ink);
   display:inline-flex;align-items:center;justify-content:center;}
 .c-rail svg{width:32px;height:32px;}
+
+/* ---- primitivas do sistema impresso (design claro) ---- */
+.e-wrap{flex:1;display:flex;flex-direction:column;justify-content:center;gap:34px;position:relative;z-index:2;}
+.e-wrap.center{align-items:center;text-align:center;}
+
+.e-mark{width:74px;height:74px;color:var(--s-accent);}
+.e-mark svg{width:100%;height:100%;}
+
+/* Título partido: primeira linha em display pesada, segunda em serifa itálica
+   na cor de destaque. É a assinatura do design. */
+.e-title{font-family:var(--s-font-display);font-weight:800;letter-spacing:-0.035em;
+  line-height:1.02;font-size:var(--s-display-lg);color:var(--s-ink);text-transform:uppercase;}
+.e-title .it{display:block;font-family:var(--s-font-accent);font-weight:400;font-style:italic;
+  color:var(--s-accent);text-transform:none;letter-spacing:-0.01em;line-height:1.1;}
+.e-title.sm{font-size:var(--s-display-md);text-transform:none;letter-spacing:-0.03em;}
+
+.e-btn{display:inline-flex;align-items:center;justify-content:center;
+  border:2px solid var(--s-accent);color:var(--s-accent);border-radius:6px;
+  font-family:var(--s-font-body);font-weight:800;font-size:30px;letter-spacing:5px;
+  padding:22px 58px;width:fit-content;}
+
+.e-lede{font-size:var(--s-body);line-height:1.55;color:var(--s-stone);max-width:760px;font-weight:500;}
+.e-lede b{color:var(--s-ink);font-weight:800;}
+.e-lede i{font-family:var(--s-font-accent);font-style:italic;color:var(--s-accent);font-weight:400;}
+
+/* Terminal: barra de arquivo + linhas de saída. */
+.e-term{background:var(--s-dark);border-radius:var(--s-radius);overflow:hidden;width:100%;}
+.e-term .bar{display:flex;align-items:center;gap:12px;padding:20px 30px;
+  border-bottom:1px solid rgba(255,255,255,0.10);}
+.e-term .bar u{width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,0.22);text-decoration:none;}
+.e-term .bar span{font-family:var(--s-font-mono);font-size:17px;color:rgba(255,255,255,0.55);margin-left:8px;}
+.e-term .lines{padding:30px;display:flex;flex-direction:column;gap:14px;}
+.e-term .l{font-family:var(--s-font-mono);font-size:var(--s-mono);line-height:1.5;color:#e9e9e9;}
+.e-term .l.cmd{color:var(--s-accent);font-weight:700;}
+
+/* Lista numerada do slide de habilidades. */
+.e-nums{display:flex;flex-direction:column;gap:0;width:100%;}
+.e-nums .row{display:flex;align-items:center;gap:32px;padding:30px 0;border-bottom:1px solid var(--s-border);}
+.e-nums .row:last-child{border-bottom:none;}
+.e-nums .n{font-family:var(--s-font-accent);font-style:italic;font-size:52px;font-weight:400;
+  color:var(--s-accent);min-width:88px;line-height:1;}
+.e-nums .t{font-family:var(--s-font-display);font-size:40px;font-weight:700;
+  letter-spacing:-0.02em;color:var(--s-ink);}
+
+.e-quote{border-left:4px solid var(--s-accent);padding-left:34px;
+  font-family:var(--s-font-accent);font-style:italic;font-weight:400;
+  font-size:38px;line-height:1.32;color:var(--s-ink);}
+
+/* Palavra-chave do CTA — o que a pessoa comenta. */
+.e-kw{display:inline-flex;align-items:center;justify-content:center;background:var(--s-accent);color:#fff;
+  font-family:var(--s-font-body);font-weight:800;font-size:44px;letter-spacing:5px;
+  padding:20px 46px;border-radius:8px;width:fit-content;text-transform:uppercase;}
+.e-kw-line{font-size:34px;line-height:1.45;color:var(--s-ink);font-weight:500;max-width:820px;}
+.e-kw-line b{font-weight:800;color:var(--s-accent);}
 `;

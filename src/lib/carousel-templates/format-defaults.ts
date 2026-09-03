@@ -9,6 +9,20 @@ export type FormatDefault = {
   systemPromptKey: "noticia" | "tutorial" | "prompt";
 };
 
+/**
+ * `allowedSlideTypes` descreve o que o pipeline **gera hoje** — é contra isso
+ * que os testes conferem que todo tipo produzido tem variante desenhada.
+ *
+ * A forma-alvo dos formatos é outra, e ainda não está implementada:
+ * `noticia` vira post de imagem única (capa só) e `prompt` vira capa mais os
+ * resultados em tela cheia. Chegar lá exige três mudanças acopladas — o SYSTEM
+ * prompt, a contagem de slides no schema (`min(4)` hoje) e um caminho de
+ * publicação de imagem única no `meta-client` (que só sabe `media_type=CAROUSEL`).
+ * Ver `docs/plano-templates-carrossel.md`.
+ *
+ * Mudar esta lista antes das três não muda nada na geração e só faz os testes
+ * divergirem do que sai no ar.
+ */
 export const FORMAT_DEFAULTS: Record<CarouselFormat, FormatDefault> = {
   noticia: {
     allowedSlideTypes: ["cover", "intro", "content", "practical_impact", "quote_highlight", "cta"],
@@ -25,18 +39,20 @@ export const FORMAT_DEFAULTS: Record<CarouselFormat, FormatDefault> = {
   tutorial: {
     allowedSlideTypes: ["cover", "step", "tip", "cta"],
     variantBySlideType: {
-      cover: "result_showcase",
-      step: "code_block",
-      tip: "light_card",
-      cta: "dark_card",
+      cover: "editorial_claro",
+      step: "terminal_claro",
+      tip: "destaque_claro",
+      cta: "keyword_claro",
     },
     systemPromptKey: "tutorial",
   },
   prompt: {
     allowedSlideTypes: ["cover", "gallery", "personalization", "cta"],
     variantBySlideType: {
+      // O corpo do formato `prompt` é o resultado em tela cheia: a pessoa vê
+      // primeiro o que poderia criar, e o prompt aparece como a ferramenta.
       cover: "result_fullbleed",
-      gallery: "image_caption",
+      gallery: "tela_cheia",
       personalization: "prompt_swap",
       cta: "dark_card",
     },

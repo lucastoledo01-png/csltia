@@ -22,6 +22,58 @@ function eyebrow(ctx: VariantContext, slide: InstagramSlide): string {
   return `<span class="s-eyebrow eb-${ctx.format}">${esc(label)}</span>`;
 }
 
+/**
+ * Divide o título em duas linhas: a primeira em display pesada, a segunda em
+ * serifa itálica na cor de destaque. É a assinatura do design impresso, e o
+ * que faz uma capa parecer capa e não texto grande.
+ *
+ * A IA já pode dizer qual é o trecho de destaque em `highlight_text`. Quando
+ * não diz, o corte cai no meio das palavras — determinístico de propósito: o
+ * mesmo título tem que render sempre o mesmo slide, senão o preview do painel
+ * e o post publicado divergem.
+ */
+export function dividirTitulo(titulo: string, destaque?: string): { forte: string; italico: string } {
+  const t = String(titulo ?? "").trim();
+  const d = String(destaque ?? "").trim();
+
+  if (d && t.toLowerCase().endsWith(d.toLowerCase())) {
+    return { forte: t.slice(0, t.length - d.length).trim(), italico: d };
+  }
+
+  const palavras = t.split(/\s+/).filter(Boolean);
+  if (palavras.length < 4) return { forte: t, italico: "" };
+
+  const corte = Math.ceil(palavras.length / 2);
+  return { forte: palavras.slice(0, corte).join(" "), italico: palavras.slice(corte).join(" ") };
+}
+
+function tituloHtml(slide: InstagramSlide, classe = ""): string {
+  const { forte, italico } = dividirTitulo(slide.title, slide.highlight_text);
+  const segunda = italico ? `<span class="it">${esc(italico)}</span>` : "";
+  return `<div class="e-title${classe ? " " + classe : ""}">${esc(forte)}${segunda}</div>`;
+}
+
+/** Marca de abertura da capa — o mesmo asterisco/sol do design. */
+function marcaEditorial(): string {
+  return `<div class="e-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4.2" fill="currentColor" stroke="none"/><path d="M12 2.4v3M12 18.6v3M2.4 12h3M18.6 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1"/></svg></div>`;
+}
+
+/**
+ * Linhas do terminal. A primeira vira o comando (em destaque); as demais, a
+ * saída. Sem linha nenhuma o cartão não é desenhado — melhor um slide simples
+ * que um terminal vazio.
+ */
+function terminalHtml(arquivo: string, linhas: string[]): string {
+  if (!linhas.length) return "";
+  const corpo = linhas
+    .map((l, i) => `<div class="l${i === 0 ? " cmd" : ""}">${esc(l)}</div>`)
+    .join("");
+  return `<div class="e-term">
+  <div class="bar"><u></u><u></u><u></u><span>${esc(arquivo)}</span></div>
+  <div class="lines">${corpo}</div>
+</div>`;
+}
+
 function photo(url: string, placeholderClass = "ph"): string {
   const safe = safeImageUrl(url);
   if (safe) return `<div class="s-photo" style="background-image:url('${safe.replace(/'/g, "%27")}')"></div>`;
@@ -298,22 +350,128 @@ const ctaDarkCard: SlideVariant = {
 
 // --------------------------------------------------------------------------
 
+// --------------------------------------------------------------------------
+// TUTORIAL — design claro aprovado (sistema impresso)
+// --------------------------------------------------------------------------
+
+const coverEditorialClaro: SlideVariant = {
+  key: "editorial_claro",
+  label: "Capa clara — marca, título partido e botão",
+  render: (slide): VariantOutput => ({
+    body: `
+<div class="e-wrap center">
+  ${marcaEditorial()}
+  ${tituloHtml(slide)}
+  <div class="e-btn">START</div>
+  ${slide.body ? `<div class="e-lede">${esc(slide.body)}</div>` : ""}
+</div>`,
+  }),
+};
+
+const stepTerminalClaro: SlideVariant = {
+  key: "terminal_claro",
+  label: "Passo claro — terminal com comando e saída",
+  render: (slide, ctx): VariantOutput => ({
+    body: `
+<div class="e-wrap">
+  ${eyebrow(ctx, slide)}
+  ${tituloHtml(slide, "sm")}
+  ${terminalHtml(slide.eyebrow?.trim() || "terminal", slide.bullet_points)}
+  ${slide.body ? `<div class="e-lede">${esc(slide.body)}</div>` : ""}
+</div>`,
+  }),
+};
+
+const stepNumeradoClaro: SlideVariant = {
+  key: "numerado_claro",
+  label: "Passo claro — lista numerada",
+  render: (slide, ctx): VariantOutput => {
+    const linhas = slide.bullet_points
+      .map((b, i) => `<div class="row"><span class="n">${pad2(i + 1)}</span><span class="t">${esc(b)}</span></div>`)
+      .join("");
+
+    return {
+      body: `
+<div class="e-wrap">
+  ${eyebrow(ctx, slide)}
+  ${tituloHtml(slide, "sm")}
+  ${linhas ? `<div class="e-nums">${linhas}</div>` : ""}
+  ${slide.body ? `<div class="e-lede">${esc(slide.body)}</div>` : ""}
+</div>`,
+    };
+  },
+};
+
+const tipEditorialClaro: SlideVariant = {
+  key: "destaque_claro",
+  label: "Dica clara — parágrafo e citação",
+  render: (slide, ctx): VariantOutput => ({
+    body: `
+<div class="e-wrap">
+  ${eyebrow(ctx, slide)}
+  ${tituloHtml(slide, "sm")}
+  ${slide.body ? `<div class="e-lede">${esc(slide.body)}</div>` : ""}
+  ${slide.highlight_text ? `<div class="e-quote">${esc(slide.highlight_text)}</div>` : ""}
+</div>`,
+  }),
+};
+
+const ctaEditorialClaro: SlideVariant = {
+  key: "keyword_claro",
+  label: "CTA claro — palavra-chave em destaque",
+  render: (slide, ctx): VariantOutput => {
+    // A palavra-chave é o que a pessoa comenta para receber o Direct: sai de
+    // `highlight_text` quando a IA a informa, senão do CTA do formato.
+    const chave = slide.highlight_text?.trim();
+    const chamada = slide.cta_text?.trim() || ctx.ctaText;
+
+    return {
+      body: `
+<div class="e-wrap center">
+  ${tituloHtml(slide)}
+  ${chave ? `<div class="e-kw">${esc(chave)}</div>` : ""}
+  <div class="e-kw-line">${esc(chamada)}</div>
+</div>`,
+    };
+  },
+};
+
+/**
+ * Slide de imagem em tela cheia — o resultado do prompt, sem texto por cima.
+ * É o corpo do formato `prompt`: a pessoa vê primeiro o que poderia criar.
+ */
+const galleryTelaCheia: SlideVariant = {
+  key: "tela_cheia",
+  label: "Imagem em tela cheia (resultado do prompt)",
+  render: (slide): VariantOutput => ({
+    full: true,
+    onDark: true,
+    body: photo(slide.bg_image_url),
+  }),
+};
+
 export const SLIDE_VARIANTS: Record<InstagramSlideType, Record<string, SlideVariant>> = {
   cover: {
     fullbleed_portrait: coverFullbleedPortrait,
     brand_card: coverBrandCard,
     result_showcase: coverResultShowcase,
     result_fullbleed: coverResultFullbleed,
+    editorial_claro: coverEditorialClaro,
   },
   intro: { big_statement: introBigStatement },
   content: { bullets: contentBullets, highlight: contentHighlight },
   quote_highlight: { pull_quote: quotePull },
   practical_impact: { gold_dark_card: practicalGoldDark },
-  step: { code_block: stepCodeBlock, checklist: stepChecklist },
-  tip: { light_card: tipLightCard },
-  gallery: { image_caption: galleryImageCaption },
+  step: {
+    terminal_claro: stepTerminalClaro,
+    numerado_claro: stepNumeradoClaro,
+    code_block: stepCodeBlock,
+    checklist: stepChecklist,
+  },
+  tip: { destaque_claro: tipEditorialClaro, light_card: tipLightCard },
+  gallery: { tela_cheia: galleryTelaCheia, image_caption: galleryImageCaption },
   personalization: { prompt_swap: personalizationPromptSwap },
-  cta: { dark_card: ctaDarkCard },
+  cta: { keyword_claro: ctaEditorialClaro, dark_card: ctaDarkCard },
 };
 
 /** `{ cover: [{key,label},…], … }` — o que o painel do admin lista. */
