@@ -311,9 +311,98 @@ ponta antes de qualquer automação de ideação.
 
 | Fase | Escopo | Resultado |
 |---|---|---|
-| **0** | Schema (7 tabelas) + registro de campanha + gatilho manual no admin | Destrava tudo o resto; nenhum risco em produção |
+| **0** ✅ | Schema (7 tabelas) + registro de campanha + gatilho manual no admin | Destrava tudo o resto; nenhum risco em produção |
 | **1** | Etapas 7 + 8 + 9 — keyword, automação no OpenReply, copy do Direct (inclui o fork D1) | Testável com um conceito criado à mão. É a espinha do funil |
 | **2** | Etapas 10 + 11 + 12 — landing dinâmica, captura, entrega | O funil fecha ponta a ponta: dá pra rodar PROMPT posts com produção manual |
 | **3** | Etapas 4 + 5 + 6 — geração visual, prompt como asset, carrossel | Produção de conteúdo deixa de ser manual |
 | **4** | Etapas 1 + 2 + 3 — trend intelligence, trend jacking, guardrail de PI | Topo do funil automatizado; o sistema propõe pautas sozinho |
 | **5** | Etapas 13 + 14 — analytics de funil e loop editorial | Fecha o ciclo: os resultados passam a decidir as próximas pautas |
+
+---
+
+## Fase 0 — estado real (2026-09-03)
+
+> **O schema `prompt_*` já está em produção e não veio deste repositório.**
+> Foi aplicado direto no banco, fora do histórico de `supabase/migrations/`, e
+> nenhum arquivo aqui o descreve. Ele é **mais rico** que o desenho das seções
+> acima. Onde os dois discordarem, **o banco manda** — as seções anteriores
+> passam a ser a intenção original, não a especificação.
+
+### O que está no banco, e não estava previsto
+
+| Tabela | Colunas além do previsto |
+|---|---|
+| `prompt_campaigns` | `campaign_type`, `opening_dm_message`, `follow_up_enabled`, `follow_up_delay_minutes`, `follow_up_message` — sequência de Direct |
+| `prompt_leads` | `email_sequence_stage`, `email_sequence_next_at` — régua de e-mail |
+| `prompt_concept_results` | `performance_score`, `is_explore` — explore/exploit no loop |
+| `prompt_concepts` | `hook_pattern` |
+| **`prompt_learnings`** | tabela inteira: `period_start/end`, `top_combo`, `bottom_combo`, `summary_text`, `applied_to_prompt` |
+
+E o que o desenho original previa mas **não existe**: `prompt_campaigns.updated_at`
+e `prompt_campaigns.error_message` (então falha de campanha não tem onde gravar
+o motivo), `prompt_assets.position` e `.image_path`,
+`prompt_concept_results.snapshot_date` (só `snapshot_at`).
+
+### O que a Fase 0 entregou no código
+
+| Arquivo | Papel |
+|---|---|
+| `src/lib/prompt-system/keyword.ts` | Normalização e validação da keyword. Compartilhado: o formulário do painel usa a mesma função que a rota, então o navegador nunca propõe uma keyword que o servidor recusa |
+| `src/lib/prompt-system/vocabulary.ts` | **Único** lugar com os valores de `status`/`format`/`campaign_type`/`source`. Popula os menus do painel — não valida |
+| `src/lib/server/prompt-system/campaigns.ts` | Registro contra as colunas reais: listar, criar, checar keyword, mudar status, remover |
+| `src/app/api/admin/prompt-campaigns/` | `GET`/`POST` da lista, `GET keyword` (200 livre / 409 em uso), `PATCH`/`DELETE` por id |
+| `src/components/AdminPromptCampaignsManager.tsx` | Aba **Sistema PROMPT** do painel |
+
+### Três decisões
+
+**Os CHECKs não são duplicados em TypeScript.** `status`, `format`,
+`campaign_type` e `source` têm CHECK no banco. Como o schema foi aplicado fora
+do repo, uma lista espelhada aqui divergiria no primeiro `ALTER` que ninguém
+copiasse — e daria ilusão de validação. Quem recusa é o Postgres; a rota
+traduz o erro em 400. O `vocabulary.ts` existe só para os menus.
+
+**Campanha publicada não é apagável pela rota.** Fora de `draft`,
+`keyword_reserved` e `failed` existe um post no Instagram e uma automação no
+OpenReply apontando para a linha: a rota responde 409 e manda arquivar.
+
+**`checkKeywordAvailability` devolve `checkedOpenReply: false`.** A etapa 7
+exige checagem dupla — histórico local **e** automações do OpenReply. A Fase 0
+só tem a primeira metade, e o campo diz isso a quem consome em vez de parecer
+completo. A segunda entra na Fase 1 com a rota de serviço (decisão D1).
+
+### Pendência que bloqueia confiar no registro
+
+O schema aplicado não foi auditado: **não se sabe se existe
+`unique (project_id, keyword)`** em `prompt_campaigns`. Sem ela, duas campanhas
+nascem com a mesma keyword e o funil da etapa 7 fura na origem — o código trata
+o erro `23505` como "keyword em uso", mas se a constraint não existir o insert
+duplicado simplesmente passa. Mesma dúvida para o dedupe de
+`prompt_funnel_events (campaign_id, stage, external_id)`, para a unicidade de
+`prompt_leads (campaign_id, email)` e para os índices de chave estrangeira.
+
+Auditoria:
+
+```sql
+select conrelid::regclass as tabela, conname, pg_get_constraintdef(oid) as definicao
+from pg_constraint
+where conrelid::regclass::text like 'prompt_%' and contype in ('c','u','p')
+union all
+select tablename::regclass, indexname, indexdef
+from pg_indexes where tablename like 'prompt_%'
+order by tabela, conname;
+```
+
+`docs/propostas/prompt-system-invariantes.sql` guarda os invariantes desenhados
+e testados para essas tabelas (CHECK da keyword, unicidades de dedupe, índices
+de FK, RLS, `conversion_rate` como coluna gerada). **Não é uma migração
+aplicada** — mora fora de `supabase/migrations/` de propósito, porque criaria um
+schema diferente do de produção num banco novo. Serve como referência do que
+falta conferir e, se faltar, acrescentar por `ALTER`.
+
+### Dívida operacional que isto revelou
+
+O banco de produção tem estrutura que o repositório não descreve. Enquanto isso
+durar, `supabase/migrations/` não reproduz produção — um ambiente novo nasce
+diferente, e ninguém tem como saber o que está no ar sem consultar o banco. O
+conserto é uma migração-baseline que documente o schema aplicado, e ela depende
+da auditoria acima.

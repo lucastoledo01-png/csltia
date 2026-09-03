@@ -53,6 +53,7 @@ where slug = 'desbuguei';
 ```
 supabase/migrations/20260827020000_fix_public_assets_upload_policy.sql
 supabase/migrations/20260827030000_multi_project_base.sql
+supabase/migrations/20260829001300_carousel_design.sql
 ```
 
 **2. Variáveis de ambiente.** Sem elas as rotas respondem 500, não liberam:

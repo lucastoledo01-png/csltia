@@ -19,8 +19,9 @@ describe("Admin dashboard", () => {
     sessionStorage.setItem("casaloti_admin_authed", "true");
     render(<AdminPage />);
 
-    expect(screen.getByRole("heading", { name: /Gestão & Analytics/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Central Desbuguei\.ia/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Redação \(IA\)/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sistema PROMPT/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /CMS Artigos/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Analytics/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Comentários/i })).toBeInTheDocument();
