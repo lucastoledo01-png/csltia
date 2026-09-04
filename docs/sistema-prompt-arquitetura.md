@@ -660,8 +660,42 @@ A montagem roda **antes** do agendamento: campanha sem imagem gerada é
 recusada na hora, com a mensagem mandando rodar a etapa 4 — melhor que agendar
 uma vaga que falharia no worker quinze minutos depois, sem ninguém olhando.
 
+## Fase 4 — topo do funil (2026-09-04)
+
+**Etapa 1** (`trends.ts`): coleta do Google Trends BR por RSS mais entrada
+manual, e triagem por LLM que pergunta uma coisa só — *dá pra fazer alguém
+querer refazer isso?* Sem esse filtro o topo enche de tendência que não vira
+imagem. O `visual_hook` é a resposta à pergunta e é obrigatório para promover:
+tendência sem ele passou pela triagem sem ser triada.
+
+Grava tudo, aprovada ou não, com o motivo em `notes` — reprovada é registro
+útil, evita reavaliar amanhã e deixa auditar se o critério está apertado ou
+frouxo demais. É a lição do portão do QA da newsletter, que reprovava sem dizer
+por quê.
+
+**Etapa 2** (`concepts.ts`): trend jacking. De 3 a 6 aplicações realmente
+distintas — variação quase idêntica não conta — mais a `visual_direction` que
+todas as imagens herdam, que é o que faz o conjunto parecer uma série.
+
+**Etapa 3** (`guardrail-pi.ts`): o guardrail de propriedade intelectual, e ele
+é **portão de gravação, não aviso**. Conceito reprovado é gravado com
+`status = "blocked"` e o veredito em `ip_check`.
+
+A linha que ele protege: pode inspirar-se em características visuais gerais
+(paleta, iluminação, gênero de composição, atmosfera, época); não pode
+reproduzir logo, key art, pôster ou peça protegida, nem enquadrar o resultado
+como material oficial, vazamento, parceria ou licença. O segundo é pior que o
+primeiro — imagem parecida é discutível, dizer que é oficial é afirmação falsa
+sobre a marca de outro.
+
+A checagem é determinística e roda **antes** de qualquer LLM: termo explícito é
+reprovação objetiva, e pedir a um modelo para confirmar o óbvio só adiciona
+latência e a chance de ele relativizar o que não é relativizável. A mesma
+linha vai como instrução no prompt da etapa 2 — instruir antes é mais barato
+que reprovar depois. É piso, não teto: imagem pode copiar peça protegida sem
+que o texto diga isso.
+
 ### O que ainda falta
 
-O conceito com aplicações e direção visual é criado à mão. Automatizar isso é
-a fase 4 — etapas 1 a 3: trend intelligence, trend jacking e o guardrail de
-propriedade intelectual.
+Etapas 13 e 14 — analytics de funil e loop editorial (fase 5). E o fork do
+OpenReply (decisão D1), sem o qual o comentário no post não dispara Direct.
