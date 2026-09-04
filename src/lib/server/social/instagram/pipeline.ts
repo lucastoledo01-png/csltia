@@ -1,6 +1,11 @@
 import { callOpenAIJSON, getAIProviderConfig, type AITokenUsage } from "../../newsroom/ai-provider";
 import { EditionContent } from "../../newsroom/schemas";
-import { aparaSlidesParaFormato, InstagramCarouselContent, InstagramCarouselSchema } from "./schemas";
+import {
+  aparaLegenda,
+  aparaSlidesParaFormato,
+  InstagramCarouselContent,
+  InstagramCarouselSchema,
+} from "./schemas";
 
 /**
  * Identidade da marca no post. Mesma razão do prompt da redação: o sistema é
@@ -65,6 +70,9 @@ REGRAS DA LEGENDA:
 - CTA: peça para o leitor comentar a palavra "${marca.keyword}" para receber o material no Direct.
 - Encerre com a assinatura da marca: "${marca.assinatura}"
 - De 5 a 10 hashtags do nicho, misturando volume alto e termo específico.
+- LIMITES RÍGIDOS de caractere (o que passar é cortado): headline 100,
+  intro_summary 300, cta_call 150, full_caption 2000. key_takeaways: no
+  máximo 5 itens.
 - RIGOR FACTUAL: número, prazo, taxa e requisito só entram se estiverem no pacote da edição. Não estime, não arredonde, não deduza.
 
 ESTRUTURA DO JSON DE SAÍDA:
@@ -172,13 +180,13 @@ Gere o post de imagem única — exatamente 1 slide do tipo "cover" — com a le
 
   let parsedCarousel: InstagramCarouselContent;
   try {
-    parsedCarousel = InstagramCarouselSchema.parse(aparaSlidesParaFormato(aiResult.data));
+    parsedCarousel = InstagramCarouselSchema.parse(aparaLegenda(aparaSlidesParaFormato(aiResult.data)));
   } catch (err) {
     console.warn("[INSTAGRAM PIPELINE] Validação Zod ajustada no fallback...");
     const raw = aiResult.data as any;
     if (!raw.edition_date) raw.edition_date = editionDateStr;
     if (!raw.slides || !Array.isArray(raw.slides)) raw.slides = [];
-    parsedCarousel = InstagramCarouselSchema.parse(aparaSlidesParaFormato(raw));
+    parsedCarousel = InstagramCarouselSchema.parse(aparaLegenda(aparaSlidesParaFormato(raw)));
   }
 
   parsedCarousel.format = "noticia";
@@ -287,14 +295,14 @@ Extraia os passos executáveis das seções acima (com os comandos reais), monte
 
   let parsedCarousel: InstagramCarouselContent;
   try {
-    parsedCarousel = InstagramCarouselSchema.parse(aparaSlidesParaFormato(aiResult.data));
+    parsedCarousel = InstagramCarouselSchema.parse(aparaLegenda(aparaSlidesParaFormato(aiResult.data)));
   } catch {
     console.warn("[TUTORIAL CAROUSEL] Validação Zod ajustada no fallback...");
     const raw = aiResult.data as any;
     if (!raw.edition_date) raw.edition_date = editionDateStr;
     if (!raw.primary_topic) raw.primary_topic = article.primaryTopic;
     if (!raw.slides || !Array.isArray(raw.slides)) raw.slides = [];
-    parsedCarousel = InstagramCarouselSchema.parse(aparaSlidesParaFormato(raw));
+    parsedCarousel = InstagramCarouselSchema.parse(aparaLegenda(aparaSlidesParaFormato(raw)));
   }
 
   parsedCarousel.format = "tutorial";

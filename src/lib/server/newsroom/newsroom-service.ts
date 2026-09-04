@@ -38,7 +38,25 @@ const fallbackImages = [
   "https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=1200&q=80",
 ];
 
-export function renderEditionToHtml(edition: EditionContent, coverImages: string[] = []): string {
+/**
+ * HTML da edição.
+ *
+ * `paraWeb` decide o que fica de fora, e a distinção não é cosmética: a mesma
+ * string ia para a caixa de entrada **e** para o corpo do artigo no portal.
+ * Na página, o resultado era a edição duplicada — a página desenha o próprio
+ * cabeçalho (título, data, resumo) e logo abaixo aparecia o cabeçalho do
+ * e-mail com os mesmos dados, mais o índice repetindo todos os títulos, mais
+ * o rodapé com "powered by" e o link de descadastro. Foi o que apareceu como
+ * "repetindo um monte de parte".
+ *
+ * O que sai no modo web é só o que a página já provê ou o que só faz sentido
+ * numa caixa de entrada. As pautas em si são idênticas nos dois.
+ */
+export function renderEditionToHtml(
+  edition: EditionContent,
+  coverImages: string[] = [],
+  paraWeb = false,
+): string {
   const todayStr = new Date().toISOString().split("T")[0];
 
   const now = new Date();
@@ -115,10 +133,10 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
           ${summaryWithInlineLink.includes("href=") ? summaryWithInlineLink : `${summaryWithInlineLink} (<a href="${sourceUrl}" target="_blank" style="color: #374151; text-decoration: underline;">fonte original: ${sourceCreditName}</a>)`}
         </div>
 
-        <!-- Caixa Amarela Prática estilo The News -->
-        <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 14px 16px; border-radius: 0 8px 8px 0; margin: 18px 0;">
-          <p style="font-size: 14px; font-weight: 800; color: #92400e; margin: 0 0 6px 0;">
-            💡 Como aplicar isso no seu perfil ou vendas:
+        <!-- Caixa do impacto prático -->
+        <div style="background-color: ${MARCA.fundoRealce}; border-left: 4px solid ${MARCA.tintaEscura}; padding: 14px 16px; border-radius: 0 8px 8px 0; margin: 18px 0;">
+          <p style="font-size: 14px; font-weight: 800; color: ${MARCA.tintaEscura}; margin: 0 0 6px 0;">
+            💡 O que muda na prática:
           </p>
           <p style="font-size: 14px; line-height: 1.6; color: #1f2937; margin: 0;">
             ${escapeHtml(s.practical_impact)}
@@ -165,8 +183,8 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
   return `
     <div style="max-width: 640px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; background-color: #ffffff; padding: 20px;">
       
-      <!-- Cabeçalho Estilo The News -->
-      <header style="text-align: center; border-bottom: 3px solid ${MARCA.cor}; padding-bottom: 18px; margin-bottom: 24px;">
+      ${/* No portal a página já mostra título, data e resumo. */ ""}
+      ${paraWeb ? "" : `<header style="text-align: center; border-bottom: 3px solid ${MARCA.cor}; padding-bottom: 18px; margin-bottom: 24px;">
         <div style="font-size: 11px; font-weight: 800; color: #6b7280; letter-spacing: 0.1em; margin-bottom: 8px;">
           ${escapeHtml(dateFormatted)}
         </div>
@@ -179,7 +197,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
         <p style="font-size: 14px; color: #4b5563; margin: 0; font-weight: 500;">
           ${escapeHtml(edition.preheader)}
         </p>
-      </header>
+      </header>`}
 
       <!-- Saudação & Abertura -->
       <div style="font-size: 16px; line-height: 1.65; color: #1f2937; margin-bottom: 24px; background-color: #fafafa; padding: 16px 18px; border-radius: 12px; border: 1px solid #f3f4f6;">
@@ -189,13 +207,20 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
         ${escapeHtml(edition.intro)}
       </div>
 
-      <!-- Resumo Rápido (TOC) -->
-      <div style="background-color: #f3f4f6; border-radius: 12px; padding: 14px 18px; margin-bottom: 32px;">
+      ${/*
+        Índice. Fora do portal: numa página de rolagem contínua ele só repete
+        os títulos que vêm logo abaixo, e foi metade da duplicação relatada.
+      */ ""}
+      ${
+        paraWeb
+          ? ""
+          : `<div style="background-color: #f3f4f6; border-radius: 12px; padding: 14px 18px; margin-bottom: 32px;">
         <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b7280; letter-spacing: 0.1em; margin-bottom: 8px;">
           Nesta edição:
         </div>
         ${tocHtml}
-      </div>
+      </div>`
+      }
 
       <!-- Histórias Principais com Imagem em CADA bloco -->
       ${storiesHtml}
@@ -204,17 +229,25 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
       ${quickBitsHtml}
 
       <!-- Caixa de Recomendação -->
-      <div style="background-color: #fff0c2; border-radius: 12px; padding: 18px; margin: 32px 0; border: 1px solid #fde047; text-align: center;">
-        <p style="font-size: 15px; font-weight: 800; color: #854d0e; margin: 0 0 6px 0;">
+      ${
+        paraWeb
+          ? ""
+          : `<div style="background-color: ${MARCA.fundoRealce}; border-radius: 12px; padding: 18px; margin: 32px 0; border: 1px solid ${MARCA.bordaRealce}; text-align: center;">
+        <p style="font-size: 15px; font-weight: 800; color: ${MARCA.tintaEscura}; margin: 0 0 6px 0;">
           🤝 Curtiu a edição de hoje?
         </p>
-        <p style="font-size: 13px; color: #713f12; margin: 0; line-height: 1.5;">
-          Encaminhe esse e-mail para um amigo que quer aprender IA para crescer nas redes sociais ou vender mais!
+        <p style="font-size: 13px; color: #334155; margin: 0; line-height: 1.5;">
+          Encaminhe para alguém que está planejando a mudança para os Estados Unidos.
         </p>
-      </div>
+      </div>`
+      }
 
-      <!-- Rodapé QUEM SOMOS Formatado Idêntico ao The News -->
-      <footer style="margin-top: 40px; padding-top: 24px; border-top: 2px solid #e5e7eb;">
+      ${/*
+        Rodapé de caixa de entrada: marca, redes e descadastro. No portal isso
+        é ruído, e o link de descadastro chega a ser errado — a página é
+        pública e o visitante não é assinante de lista nenhuma.
+      */ ""}
+      ${paraWeb ? "" : `<footer style="margin-top: 40px; padding-top: 24px; border-top: 2px solid #e5e7eb;">
         
         <div style="text-align: left; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb; margin-bottom: 28px;">
           <div style="font-size: 11px; font-weight: 900; color: #d97706; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;">
@@ -286,7 +319,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
           </div>
         </div>
 
-      </footer>
+      </footer>`}
     </div>
   `;
 }
@@ -365,6 +398,8 @@ export async function runNewsroom(
 
   const coverImages = pipelineResult.selectedCandidates.map((c) => c.image_url).filter(Boolean) as string[];
   const htmlContent = renderEditionToHtml(pipelineResult.edition, coverImages);
+  // Versão sem o cromo de e-mail, para o corpo do artigo no portal.
+  const htmlParaPortal = renderEditionToHtml(pipelineResult.edition, coverImages, true);
   const wordCount = htmlContent.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
   const executionTimeMs = Date.now() - startTime;
 
@@ -448,7 +483,7 @@ export async function runNewsroom(
             excerpt: pipelineResult.edition.preheader,
             description: pipelineResult.edition.intro,
             cover_image: primaryCoverImage,
-            content_html: htmlContent,
+            content_html: htmlParaPortal,
             content: pipelineResult.edition.stories,
             status: "published",
             category: "Edição Diária",
