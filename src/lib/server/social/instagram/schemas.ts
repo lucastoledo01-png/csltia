@@ -123,3 +123,76 @@ export type InstagramSlideType = z.infer<typeof InstagramSlideTypeSchema>;
 export type CarouselFormat = z.infer<typeof CarouselFormatSchema>;
 export type InstagramCaption = z.infer<typeof InstagramCaptionSchema>;
 export type InstagramCarouselContent = z.infer<typeof InstagramCarouselSchema>;
+
+/**
+ * Limites de cada campo da legenda, do mesmo schema que os valida.
+ *
+ * Ficam aqui e não repetidos no aparador para não divergirem: alguém subiria
+ * o máximo no schema e o aparador continuaria cortando no número velho, o que
+ * é pior que não aparar — some texto sem nenhum erro para investigar.
+ */
+const LIMITES_DA_LEGENDA: Record<string, number> = {
+  headline: 100,
+  intro_summary: 300,
+  cta_call: 150,
+  full_caption: 2000,
+};
+
+/** Corta na última palavra inteira que cabe, com reticência. */
+function cortar(texto: string, limite: number): string {
+  if (texto.length <= limite) return texto;
+
+  const bruto = texto.slice(0, limite - 1);
+  const ultimoEspaco = bruto.lastIndexOf(" ");
+  // Sem espaço perto do fim é palavra única gigante: corta no caractere mesmo.
+  const base = ultimoEspaco > limite * 0.6 ? bruto.slice(0, ultimoEspaco) : bruto;
+
+  return `${base.trimEnd()}…`;
+}
+
+/**
+ * Apara a legenda para os limites do schema.
+ *
+ * O modelo escreve legenda mais longa que o teto com frequência — e o custo
+ * disso não era um texto cortado, era **o post inteiro não sair**: a validação
+ * falhava, a vaga ficava `scheduled` com o erro gravado, e ninguém era avisado.
+ * Metade dos posts recentes estava parada por isso.
+ *
+ * Perder a cauda de um resumo é infinitamente melhor que perder a publicação
+ * do dia. O prompt também passa a declarar os limites — pedido e garantia,
+ * como no encaixe de texto do slide: um reduz a frequência, o outro fecha o
+ * caminho.
+ */
+export function aparaLegenda(bruto: unknown): unknown {
+  if (!bruto || typeof bruto !== "object") return bruto;
+
+  const obj = bruto as { caption?: unknown };
+  if (!obj.caption || typeof obj.caption !== "object") return bruto;
+
+  const legenda = { ...(obj.caption as Record<string, unknown>) };
+  const cortados: string[] = [];
+
+  for (const [campo, limite] of Object.entries(LIMITES_DA_LEGENDA)) {
+    const valor = legenda[campo];
+    if (typeof valor === "string" && valor.length > limite) {
+      legenda[campo] = cortar(valor, limite);
+      cortados.push(`${campo} (${valor.length}→${limite})`);
+    }
+  }
+
+  // `key_takeaways` e `hashtags` são listas com máximo de itens, não de
+  // caracteres — o excesso aqui também derruba a validação.
+  if (Array.isArray(legenda.key_takeaways) && legenda.key_takeaways.length > 5) {
+    cortados.push(`key_takeaways (${legenda.key_takeaways.length}→5)`);
+    legenda.key_takeaways = legenda.key_takeaways.slice(0, 5);
+  }
+  if (Array.isArray(legenda.hashtags) && legenda.hashtags.length > 12) {
+    cortados.push(`hashtags (${legenda.hashtags.length}→12)`);
+    legenda.hashtags = legenda.hashtags.slice(0, 12);
+  }
+
+  if (cortados.length === 0) return bruto;
+
+  console.warn(`[INSTAGRAM] Legenda aparada: ${cortados.join(", ")}.`);
+  return { ...obj, caption: legenda };
+}
