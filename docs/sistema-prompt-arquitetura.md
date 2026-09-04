@@ -695,7 +695,49 @@ linha vai como instrução no prompt da etapa 2 — instruir antes é mais barat
 que reprovar depois. É piso, não teto: imagem pode copiar peça protegida sem
 que o texto diga isso.
 
+## Fase 5 — analytics de funil e loop editorial (2026-09-04)
+
+`loop.ts` mais o cron `/api/cron/prompt-loop`. Diariamente grava o retrato de
+cada campanha publicada: alcance, saves e shares do Meta Graph
+(`fetchMediaInsights`, novo no `meta-client`), o resto contado de
+`prompt_funnel_events`. Com `?agregar=1`, agrega o período em
+`prompt_learnings`.
+
+### A fórmula não otimiza para alcance
+
+É o que distingue o loop de um dashboard. `calcularPerformanceScore` pesa lead
+em 60, clique em 15, compartilhamento em 12 e salvamento em 8, tudo normalizado
+por mil de alcance. Um conteúdo com poucas views e muitos leads vence um viral
+que não converte — ordenar por alcance produziria a decisão oposta, e é
+exatamente o que a etapa 14 diz para não fazer.
+
+A fórmula vive num só lugar porque **decide a próxima pauta**: pesos escondidos
+em duas consultas diferentes acabariam divergindo, e a divergência apareceria
+como decisão editorial errada, não como bug.
+
+### Dois limites que um teste encontrou
+
+O denominador tem piso de 100. Sem ele, 100 leads sobre alcance 1 davam
+9.500.000 — acima do que `numeric(10,4)` aceita, e a gravação do retrato
+falhava. Alcance minúsculo não é hipótese: acontece nos minutos após publicar,
+enquanto os insights da Meta não chegam. Abaixo de 100 pessoas a taxa por mil
+não significa nada, então o denominador para de encolher.
+
+E `fetchMediaInsights` cai para pedir só `reach` quando a chamada completa
+falha: a Meta recusa o conjunto inteiro se **uma** métrica não se aplica àquele
+tipo de mídia, e o conjunto muda entre imagem única, carrossel e reels. Perder
+o detalhe é aceitável; perder o alcance inviabiliza a pontuação.
+
+### Duas coisas deliberadamente não feitas
+
+`applied_to_prompt` fica `false`. O aprendizado existir não significa que ele
+mudou a pauta — marcá-lo como aplicado sem ter aplicado transformaria o loop
+numa coleção de relatórios que se declara usada.
+
+E `comment`, `dm` e `click` seguem em zero: chegam por pull do OpenReply, que
+não tem a rota de serviço (decisão D1). A pontuação mede o que existe.
+
 ### O que ainda falta
 
-Etapas 13 e 14 — analytics de funil e loop editorial (fase 5). E o fork do
-OpenReply (decisão D1), sem o qual o comentário no post não dispara Direct.
+Só o fork do OpenReply. Sem ele o comentário no post não dispara Direct, e é o
+único elo que impede o funil de rodar sozinho.
