@@ -5,27 +5,28 @@
  * crível. Para conceitos ancorados em lugar — uma rua brasileira, uma fachada,
  * um ponto turístico — a diferença aparece.
  *
- * **A licença dos dois bancos exige atribuição ao fotógrafo.** O crédito é
- * capturado no momento em que a foto é escolhida e gravado junto do asset, em
- * `prompt_assets.stock_credit` — mesmo princípio do `prompt_text`: o dado que
- * comprova a origem se registra no ato, nunca se reconstrói depois. Sem isso a
- * atribuição depende de alguém lembrar, e ninguém lembra.
+ * **Só Pexels, e a razão é de termos de uso.** A licença do Pexels não exige
+ * atribuição ao fotógrafo — é bem-vinda, não obrigatória. Já as API Guidelines
+ * do Unsplash exigem atribuição visível de quem consome a API deles, o que
+ * colide com a decisão editorial de não creditar no post. Manter o Unsplash
+ * como fallback seria manter um caminho que só é legítimo se o crédito
+ * aparecer — e ele não vai aparecer.
  *
- * O Unsplash pede ainda um disparo no endpoint de download quando a foto é
- * efetivamente usada; é parte dos termos da API, não opcional, e está feito
- * abaixo.
+ * A origem continua sendo gravada em `prompt_assets.stock_credit`, mas como
+ * **registro interno de proveniência**, não como texto a publicar: saber de
+ * onde veio cada imagem é o que permite responder a uma contestação depois. O
+ * dado se grava no ato; não se reconstrói (a mesma busca amanhã devolve outra
+ * foto).
  *
- * Desligado sem chave configurada. Nenhum dos dois provedores é obrigatório: a
- * geração do zero continua sendo o caminho padrão.
+ * Desligado sem chave configurada. Nenhum provedor é obrigatório: a geração do
+ * zero continua sendo o caminho padrão.
  */
 
 export type CreditoDaFoto = {
-  provedor: "pexels" | "unsplash";
+  provedor: "pexels";
   fotografo: string;
   fotografoUrl: string;
   fotoUrl: string;
-  /** Texto pronto para publicar junto do material. */
-  atribuicao: string;
 };
 
 export type FotoDeBanco = {
@@ -39,96 +40,15 @@ type Opts = {
 };
 
 export function bancoConfigurado(env: Record<string, string | undefined> = process.env): boolean {
-  return Boolean(env.PEXELS_API_KEY?.trim() || env.UNSPLASH_ACCESS_KEY?.trim());
-}
-
-async function buscarNoPexels(consulta: string, { env = process.env, fetcher = fetch }: Opts): Promise<FotoDeBanco | null> {
-  const chave = env.PEXELS_API_KEY?.trim();
-  if (!chave) return null;
-
-  try {
-    const url =
-      `https://api.pexels.com/v1/search?per_page=1&orientation=portrait&query=` +
-      encodeURIComponent(consulta);
-
-    const res = await fetcher(url, { headers: { Authorization: chave } });
-    if (!res.ok) {
-      console.warn(`[BANCO] Pexels respondeu ${res.status}`);
-      return null;
-    }
-
-    const json = await res.json();
-    const foto = json?.photos?.[0];
-    if (!foto?.src?.large2x) return null;
-
-    const fotografo = String(foto.photographer ?? "Fotógrafo desconhecido");
-    return {
-      imagemUrl: String(foto.src.large2x),
-      credito: {
-        provedor: "pexels",
-        fotografo,
-        fotografoUrl: String(foto.photographer_url ?? ""),
-        fotoUrl: String(foto.url ?? ""),
-        atribuicao: `Foto de ${fotografo} no Pexels`,
-      },
-    };
-  } catch (err) {
-    console.warn("[BANCO] Exceção no Pexels:", err);
-    return null;
-  }
-}
-
-async function buscarNoUnsplash(consulta: string, { env = process.env, fetcher = fetch }: Opts): Promise<FotoDeBanco | null> {
-  const chave = env.UNSPLASH_ACCESS_KEY?.trim();
-  if (!chave) return null;
-
-  try {
-    const url =
-      `https://api.unsplash.com/search/photos?per_page=1&orientation=portrait&query=` +
-      encodeURIComponent(consulta);
-
-    const res = await fetcher(url, { headers: { Authorization: `Client-ID ${chave}` } });
-    if (!res.ok) {
-      console.warn(`[BANCO] Unsplash respondeu ${res.status}`);
-      return null;
-    }
-
-    const json = await res.json();
-    const foto = json?.results?.[0];
-    if (!foto?.urls?.regular) return null;
-
-    // Parte dos termos da API do Unsplash: avisar que a foto foi usada. Falhar
-    // aqui não impede o uso, mas é registrado.
-    const downloadLocation = foto?.links?.download_location;
-    if (downloadLocation) {
-      void fetcher(String(downloadLocation), {
-        headers: { Authorization: `Client-ID ${chave}` },
-      }).catch(() => console.warn("[BANCO] Não consegui registrar o download no Unsplash."));
-    }
-
-    const fotografo = String(foto.user?.name ?? "Fotógrafo desconhecido");
-    return {
-      imagemUrl: String(foto.urls.regular),
-      credito: {
-        provedor: "unsplash",
-        fotografo,
-        fotografoUrl: String(foto.user?.links?.html ?? ""),
-        fotoUrl: String(foto.links?.html ?? ""),
-        atribuicao: `Foto de ${fotografo} no Unsplash`,
-      },
-    };
-  } catch (err) {
-    console.warn("[BANCO] Exceção no Unsplash:", err);
-    return null;
-  }
+  return Boolean(env.PEXELS_API_KEY?.trim());
 }
 
 /**
  * Consulta de busca a partir da aplicação.
  *
- * Curta e em inglês: os dois bancos indexam em inglês e devolvem quase nada
- * para frase longa em português. Palavras de instrução ("use uma foto sua",
- * "transforme") são ruído para busca de imagem e saem.
+ * Curta e em inglês: o banco indexa em inglês e devolve quase nada para frase
+ * longa em português. Palavras de instrução ("use uma foto sua", "transforme")
+ * são ruído para busca de imagem e saem.
  */
 export function consultaDeBusca(aplicacao: string, conceito = ""): string {
   const RUIDO = new Set([
@@ -148,11 +68,40 @@ export function consultaDeBusca(aplicacao: string, conceito = ""): string {
   return [...new Set(palavras)].slice(0, 5).join(" ");
 }
 
-/** Busca no provedor configurado. Pexels primeiro por não exigir tracking. */
+/** Busca a foto de base. `null` quando não há chave, resultado ou a API falha. */
 export async function buscarFotoDeBanco(
   consulta: string,
-  opts: Opts = {},
+  { env = process.env, fetcher = fetch }: Opts = {},
 ): Promise<FotoDeBanco | null> {
-  if (!consulta.trim()) return null;
-  return (await buscarNoPexels(consulta, opts)) ?? (await buscarNoUnsplash(consulta, opts));
+  const chave = env.PEXELS_API_KEY?.trim();
+  if (!chave || !consulta.trim()) return null;
+
+  try {
+    const url =
+      `https://api.pexels.com/v1/search?per_page=1&orientation=portrait&query=` +
+      encodeURIComponent(consulta);
+
+    const res = await fetcher(url, { headers: { Authorization: chave } });
+    if (!res.ok) {
+      console.warn(`[BANCO] Pexels respondeu ${res.status}`);
+      return null;
+    }
+
+    const json = await res.json();
+    const foto = json?.photos?.[0];
+    if (!foto?.src?.large2x) return null;
+
+    return {
+      imagemUrl: String(foto.src.large2x),
+      credito: {
+        provedor: "pexels",
+        fotografo: String(foto.photographer ?? "desconhecido"),
+        fotografoUrl: String(foto.photographer_url ?? ""),
+        fotoUrl: String(foto.url ?? ""),
+      },
+    };
+  } catch (err) {
+    console.warn("[BANCO] Exceção no Pexels:", err);
+    return null;
+  }
 }

@@ -31,15 +31,23 @@ describe("bancoConfigurado", () => {
     expect(bancoConfigurado({ PEXELS_API_KEY: "   " })).toBe(false);
   });
 
-  it("basta uma das duas chaves", () => {
-    expect(bancoConfigurado({ UNSPLASH_ACCESS_KEY: "k" })).toBe(true);
+  it("liga com a chave do Pexels", () => {
+    expect(bancoConfigurado({ PEXELS_API_KEY: "k" })).toBe(true);
+  });
+
+  it("ignora chave do Unsplash — o provedor foi removido de propósito", () => {
+    // As API Guidelines do Unsplash exigem atribuição visível de quem usa a
+    // API. Como a decisão editorial é não creditar no post, manter o provedor
+    // seria manter um caminho só legítimo com um crédito que não existe.
+    expect(bancoConfigurado({ UNSPLASH_ACCESS_KEY: "k" })).toBe(false);
   });
 });
 
 describe("buscarFotoDeBanco", () => {
-  it("captura o crédito do fotógrafo junto da URL, num ato só", () => {
-    // O crédito não é reconstruível depois: a mesma busca amanhã pode devolver
-    // outra foto. Ou sai daqui com a URL, ou a atribuição se perde.
+  it("registra a proveniência junto da URL, num ato só", () => {
+    // Registro interno, não texto de post: a origem não é reconstruível
+    // depois — a mesma busca amanhã devolve outra foto. Ou sai daqui, ou
+    // não há como responder a uma contestação sobre esta imagem.
     const fetcher = vi.fn(async () =>
       new Response(
         JSON.stringify({
@@ -59,47 +67,15 @@ describe("buscarFotoDeBanco", () => {
     return buscarFotoDeBanco("feira rua", { env: { PEXELS_API_KEY: "k" }, fetcher }).then((foto) => {
       expect(foto?.imagemUrl).toBe("https://img/1.jpg");
       expect(foto?.credito.fotografo).toBe("Ana Lima");
-      expect(foto?.credito.atribuicao).toContain("Ana Lima");
-      expect(foto?.credito.atribuicao).toContain("Pexels");
+      expect(foto?.credito.fotoUrl).toBe("https://pexels.com/photo/1");
     });
   });
 
-  it("cai no Unsplash quando o Pexels não tem resultado", async () => {
-    const fetcher = vi.fn(async (url: string | URL | Request) => {
-      const alvo = String(url);
-      if (alvo.includes("pexels")) return new Response(JSON.stringify({ photos: [] }), { status: 200 });
-      return new Response(
-        JSON.stringify({
-          results: [
-            {
-              urls: { regular: "https://img/2.jpg" },
-              user: { name: "Bruno Sá", links: { html: "https://unsplash.com/@bruno" } },
-              links: { html: "https://unsplash.com/p/2", download_location: "https://api/dl" },
-            },
-          ],
-        }),
-        { status: 200 },
-      );
-    }) as unknown as typeof fetch;
-
-    const foto = await buscarFotoDeBanco("feira rua", {
-      env: { PEXELS_API_KEY: "k", UNSPLASH_ACCESS_KEY: "u" },
-      fetcher,
-    });
-
-    expect(foto?.credito.provedor).toBe("unsplash");
-    // Os termos da API do Unsplash exigem o disparo de download quando a foto é
-    // usada. Não é opcional, então é invariante testável.
-    const chamadas = (fetcher as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((c) =>
-      String(c[0]),
-    );
-    expect(chamadas).toContain("https://api/dl");
-  });
-
-  it("devolve null — nunca lança — quando os dois falham", async () => {
+  it("devolve null — nunca lança — quando a API falha", async () => {
+    // Falhar aqui não pode custar a imagem: quem chama cai na geração do zero.
     const fetcher = vi.fn(async () => new Response("erro", { status: 500 })) as unknown as typeof fetch;
     await expect(
-      buscarFotoDeBanco("x", { env: { PEXELS_API_KEY: "k", UNSPLASH_ACCESS_KEY: "u" }, fetcher }),
+      buscarFotoDeBanco("x", { env: { PEXELS_API_KEY: "k" }, fetcher }),
     ).resolves.toBeNull();
   });
 
