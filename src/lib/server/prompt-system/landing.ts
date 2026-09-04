@@ -10,11 +10,24 @@ import { validateKeyword } from "@/lib/prompt-system/keyword";
  * criada à mão e não tem nenhum dos dois, e a página precisa funcionar assim.
  */
 
+/**
+ * Crédito a exibir na entrega, ou `null` quando não há nenhum a exibir.
+ *
+ * Só o Unsplash produz crédito — as API Guidelines dele exigem, e a página de
+ * entrega é onde ele aparece (o post continua sem). Foto do Pexels e imagem
+ * gerada do zero chegam aqui como `null`.
+ */
+export type LandingCredito = {
+  texto: string;
+  fotografoUrl: string;
+};
+
 export type LandingAsset = {
   label: string;
   promptText: string;
   imageUrl: string | null;
   substitutionNotes: string;
+  credito: LandingCredito | null;
 };
 
 export type LandingCampaign = {
@@ -55,7 +68,7 @@ export async function loadLandingCampaign(
   if (error || !data) return null;
   if (!options.ignorarStatus && !STATUS_PUBLICOS.includes(data.status as string)) return null;
 
-  const [conceito, assets] = await Promise.all([
+  const [conceito, assets, creditos] = await Promise.all([
     data.concept_id
       ? supabase
           .from("prompt_concepts")
@@ -68,7 +81,24 @@ export async function loadLandingCampaign(
       .select("label, prompt_text, image_url, substitution_notes")
       .eq("campaign_id", data.id)
       .order("label"),
+    // Consulta separada de propósito. `stock_credit` é coluna nova, e um
+    // deploy que chegue antes da migração faria o `select` inteiro falhar —
+    // levando embora os prompts, que são o produto. Aqui o pior caso é perder
+    // a linha de crédito.
+    supabase.from("prompt_assets").select("label, stock_credit").eq("campaign_id", data.id),
   ]);
+
+  const creditoPorLabel = new Map<string, LandingCredito>();
+  for (const row of (creditos.data ?? []) as Array<{ label?: unknown; stock_credit?: unknown }>) {
+    const c = row.stock_credit as { atribuicao?: unknown; fotografoUrl?: unknown } | null;
+    const texto = String(c?.atribuicao ?? "").trim();
+    if (texto) {
+      creditoPorLabel.set(String(row.label), {
+        texto,
+        fotografoUrl: String(c?.fotografoUrl ?? ""),
+      });
+    }
+  }
 
   return {
     id: data.id as string,
@@ -90,6 +120,7 @@ export async function loadLandingCampaign(
       promptText: a.prompt_text as string,
       imageUrl: (a.image_url as string | null) ?? null,
       substitutionNotes: (a.substitution_notes as string | null) ?? "",
+      credito: creditoPorLabel.get(a.label as string) ?? null,
     })),
   };
 }
