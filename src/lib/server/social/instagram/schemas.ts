@@ -49,9 +49,41 @@ export const InstagramCarouselSchema = z.object({
   target_audience_focus: z.string().default("Criadores, Vendedores & Empreendedores"),
   /** Formato do carrossel — decide os SYSTEM prompts e o conjunto de variantes. */
   format: CarouselFormatSchema.default("noticia"),
-  slides: z.array(InstagramSlideSchema).min(4).max(12),
+  slides: z.array(InstagramSlideSchema).min(1).max(12),
   caption: InstagramCaptionSchema,
+}).superRefine((carrossel, ctx) => {
+  const regra = SLIDES_POR_FORMATO[carrossel.format];
+  if (!regra) return;
+
+  if (carrossel.slides.length < regra.min || carrossel.slides.length > regra.max) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["slides"],
+      message:
+        `O formato "${carrossel.format}" aceita de ${regra.min} a ${regra.max} slides; ` +
+        `foram gerados ${carrossel.slides.length}.`,
+    });
+  }
 });
+
+/**
+ * Quantidade de slides que cada formato aceita.
+ *
+ * Era um `min(4).max(12)` único, e isso amarrava os três formatos à forma de
+ * carrossel. Só o `tutorial` é carrossel de texto: `noticia` é capa só — post
+ * de imagem única — e `prompt` é capa mais os resultados em tela cheia.
+ *
+ * A regra vive aqui, no schema, porque é aqui que a saída da IA é validada.
+ * Deixá-la só no prompt tornaria "a IA gerou 5 slides para uma notícia" um
+ * post errado publicado, em vez de um erro de validação.
+ */
+export const SLIDES_POR_FORMATO: Record<z.infer<typeof CarouselFormatSchema>, { min: number; max: number }> = {
+  // Capa só. Um segundo slide já descaracteriza o formato.
+  noticia: { min: 1, max: 1 },
+  tutorial: { min: 4, max: 12 },
+  // Capa mais ao menos um resultado do prompt.
+  prompt: { min: 2, max: 12 },
+};
 
 export type InstagramSlide = z.infer<typeof InstagramSlideSchema>;
 export type InstagramSlideType = z.infer<typeof InstagramSlideTypeSchema>;

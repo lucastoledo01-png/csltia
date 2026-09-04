@@ -105,31 +105,32 @@ aprovados, nas fases C e D. Se a proporção estiver errada, é um token.
 | **A** ✅ | Tokens por formato, conjunto fechado de fontes, tela 1080×1440 | Destrava o resto; nada muda visualmente ainda |
 | **B** | Chrome por sistema visual em `shell.ts` | Os dois chromes existem, ainda com as variantes antigas |
 | **C** ✅ | Variantes do design claro para `tutorial`, mais a de tela cheia | Tutorial sai no design definitivo |
-| **D** | Reformatar `noticia` e `prompt` — ver abaixo | Os três formatos na forma certa |
+| **D** ✅ | Reformatar `noticia` e `prompt` | Os três formatos na forma certa |
 | **E** | Aposentar as variantes rascunho | Só os designs aprovados sobram |
 
 Cada fase termina com preview no painel (aba **Carrossel**) e um teste de
 `assemble` — o arquivo `assemble.test.ts` já cobre o encaixe, e ganha um caso
 por variante nova.
 
-## Fase D é maior do que parece
+## Fase D — as três mudanças acopladas, feitas
 
-Reformatar `noticia` para capa-só e `prompt` para capa mais tela cheia **não é
-trabalho de design**. São três mudanças acopladas, e feitas pela metade quebram
-a publicação diária:
+1. **SYSTEM prompt.** O de notícia pedia "ROTEIRO DE CARROSSEL (5 a 8 slides)".
+   Agora pede exatamente 1 slide `cover`, e todo o desenvolvimento que ia nos
+   slides de contexto, detalhe e aplicação passou para a legenda.
+2. **Contagem no schema.** `SLIDES_POR_FORMATO` substitui o `min(4).max(12)`
+   único: `noticia` 1–1, `prompt` 2–12, `tutorial` 4–12, aplicado por
+   `superRefine`. A regra mora no schema porque é onde a saída da IA é
+   validada — só no prompt, "a IA gerou 5 slides para uma notícia" seria um
+   post errado publicado em vez de um erro.
+3. **Publicação.** `createSingleImageContainer` no `meta-client`: sem
+   `is_carousel_item`, com a legenda no próprio container. O worker escolhe o
+   caminho pela **quantidade de slides**, não pelo formato — é a contagem que
+   a API da Meta exige que case com o container, e derivar dela evita um
+   formato novo publicar errado sem ninguém lembrar de atualizar o worker.
 
-1. **O SYSTEM prompt.** O de notícia pede hoje "ROTEIRO DE CARROSSEL (5 a 8
-   slides)" com CTA de comentário. Precisa passar a pedir só a capa.
-2. **A contagem no schema.** `InstagramCarouselSchema` exige
-   `slides.min(4).max(12)` — um post de capa só não passa na validação. O certo
-   é a contagem virar regra por formato, não um número único.
-3. **A publicação.** `meta-client.ts` só sabe carrossel: sempre manda
-   `is_carousel_item=true` e `media_type=CAROUSEL`. Imagem única é outra
-   sequência de chamadas na API da Meta.
-
-Enquanto as três não andarem juntas, `format-defaults.ts` descreve o que o
-pipeline **gera hoje** — mudar a lista antes só faz os testes divergirem do que
-sai no ar.
+**Consequência:** `intro`, `content`, `practical_impact` e `quote_highlight`
+não pertencem mais a formato nenhum, e suas variantes ficaram órfãs. É o
+escopo da fase E.
 
 ## Os dez tipos de slide precisam de cobertura
 

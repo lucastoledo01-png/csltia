@@ -47,6 +47,9 @@ describe("validação do roteiro do carrossel", () => {
       edition_date: "2026-08-28",
       primary_topic: "Redes Sociais",
       target_audience_focus: "Criadores e Vendedores",
+      // `tutorial` é o único formato de carrossel de texto depois da
+      // reformatação: `noticia` é capa só e `prompt` é capa + tela cheia.
+      format: "tutorial" as const,
       slides: [
         {
           index: 1,
@@ -56,15 +59,15 @@ describe("validação do roteiro do carrossel", () => {
           body: "Veja o que muda no seu perfil hoje",
           cover_image_prompt: "Minimalist 3D render tech background",
         },
-        { index: 2, type: "intro" as const, title: "O que aconteceu?", body: "A Meta liberou novas ferramentas." },
+        { index: 2, type: "step" as const, title: "O que aconteceu?", body: "A Meta liberou novas ferramentas." },
         {
           index: 3,
-          type: "content" as const,
+          type: "step" as const,
           title: "Como funciona",
           body: "Você escolhe o tema e a IA gera 3 roteiros.",
           bullet_points: ["Mais rápido", "Sem travamentos"],
         },
-        { index: 4, type: "practical_impact" as const, title: "Como usar hoje", body: "Abra a aba de criação." },
+        { index: 4, type: "tip" as const, title: "Como usar hoje", body: "Abra a aba de criação." },
         {
           index: 5,
           type: "cta" as const,
