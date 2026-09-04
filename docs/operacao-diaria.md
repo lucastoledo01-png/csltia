@@ -59,6 +59,7 @@ supabase/migrations/20260903120000_prompt_system_invariantes.sql
 supabase/migrations/20260903130000_prompt_snapshot_date_not_null.sql
 supabase/migrations/20260903140000_prompt_conversion_rate_gerada.sql
 supabase/migrations/20260903150000_carousel_tokens_por_formato.sql
+supabase/migrations/20260904140000_news_editions_qa_detalhe.sql
 ```
 
 **2. Variáveis de ambiente.** Sem elas as rotas respondem 500, não liberam:

@@ -16,6 +16,7 @@ import { deduplicateCandidates } from "./deduplicator";
 import { runNewsroomPipeline } from "./pipeline";
 import { rankAndFilterCandidates } from "./ranker";
 import { EditionContent } from "./schemas";
+import { sendAlert } from "../alerts";
 
 export type RunNewsroomOptions = {
   /** Projeto para o qual a edição é produzida. Sem valor, usa o projeto semente. */
@@ -371,6 +372,9 @@ export async function runNewsroom(
             content_html: htmlContent,
             word_count: wordCount,
             qa_passed: pipelineResult.qaResult.passed,
+            qa_score: pipelineResult.qaResult.score,
+            qa_hallucination_risk: pipelineResult.qaResult.hallucination_risk,
+            qa_issues: pipelineResult.qaResult.issues,
             status: "published",
             updated_at: new Date().toISOString(),
           },
@@ -442,17 +446,39 @@ export async function runNewsroom(
     try {
       const listmonk = createListmonkClient(env, fetcher);
       const campaignName = `desbuguei.ia — Edição ${todayStr}`;
+      // O portão olha `hallucination_risk`, não `passed`.
+      //
+      // `passed` é o veredito genérico que o checador autodeclara, e ele
+      // reprova por tom, gramática ou qualquer implicância — custando a
+      // newsletter inteira do dia. O dano que justifica não enviar é um só:
+      // fato inventado chegando à lista. Isso não se desfaz com errata.
+      //
+      // Vírgula errada é recuperável e não vale um dia sem edição. Número de
+      // benchmark que não estava na fonte, não.
+      const retidoPorAlucinacao = pipelineResult.qaResult.hallucination_risk;
       const campaignResult = await listmonk.createCampaign({
         name: campaignName,
         subject: pipelineResult.edition.subject,
         body: htmlContent,
-        autoSend: autoSend && pipelineResult.qaResult.passed,
+        autoSend: autoSend && !retidoPorAlucinacao,
       });
 
       if (campaignResult.ok && campaignResult.id) {
         createdCampaignId = campaignResult.id;
-        campaignStatus = campaignResult.status || (autoSend ? "running" : "draft");
+        campaignStatus = campaignResult.status || (autoSend && !retidoPorAlucinacao ? "running" : "draft");
         console.log(`[NEWSROOM LISTMONK] Campanha criada no Listmonk ID #${createdCampaignId} (status: ${campaignStatus})`);
+      }
+
+      if (retidoPorAlucinacao) {
+        // Campanha retida sem aviso é indistinguível de campanha que não foi
+        // criada. Quem precisa revisar tem que saber no mesmo minuto.
+        await sendAlert(
+          "warning",
+          "Newsletter retida: risco de alucinação",
+          `Edição ${todayStr} ficou em rascunho no Listmonk (campanha #${createdCampaignId ?? "?"}). ` +
+            `QA ${pipelineResult.qaResult.score}/100. Apontamentos: ` +
+            (pipelineResult.qaResult.issues.join(" · ") || "nenhum detalhado"),
+        );
       }
     } catch (lmErr) {
       console.error("[NEWSROOM LISTMONK ERROR] Falha ao criar campanha no Listmonk:", lmErr);

@@ -89,6 +89,23 @@ watchdog) que avisa se não houver run bem-sucedido até um horário limite.
 
 ### QA de alucinação bloqueando o envio automático — isso é o sistema funcionando
 
+> **Atualização de 2026-09-04.** A conclusão acima valia para o caso concreto,
+> mas o portão estava calibrado errado. Ele olhava `qaResult.passed`, que é o
+> veredito **genérico** autodeclarado pela IA: ela reprovava por tom, gramática
+> ou nota baixa e a newsletter do dia inteiro ficava retida. E o motivo não era
+> recuperável — dos sete campos que o checador devolve, só o `passed` era
+> gravado; `issues` e `score` iam para um `console.log` dentro do contêiner.
+>
+> Agora o portão olha só `hallucination_risk`. Fato inventado chegando à lista
+> não se desfaz com errata; vírgula errada se desfaz e não vale um dia sem
+> edição. O detalhe do QA passou a ser gravado em `news_editions`
+> (`qa_score`, `qa_hallucination_risk`, `qa_issues`) e uma retenção dispara
+> alerta no Telegram — silêncio foi o que custou seis dias em agosto.
+>
+> **Lição sobre a lição:** "o sistema está funcionando" precisa ser verificável.
+> Um portão cujo motivo de bloqueio não é gravado em lugar nenhum não é um
+> portão auditável — é uma parada inexplicável.
+
 **Sintoma:** a campanha do dia ficou como "draft" no Listmonk em vez de
 disparar sozinha, sem nenhum erro visível.
 
