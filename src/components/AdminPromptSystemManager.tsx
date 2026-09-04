@@ -79,7 +79,17 @@ export function AdminPromptSystemManager() {
   }
 
   useEffect(() => {
-    load();
+    let cancelado = false;
+
+    // O carregamento inicial roda dentro de um efeito assíncrono: chamar
+    // load() direto no corpo dispara setState síncrono e cascata de render.
+    void (async () => {
+      if (!cancelado) await load();
+    })();
+
+    return () => {
+      cancelado = true;
+    };
   }, []);
 
   async function handleCreate(e: React.FormEvent) {
