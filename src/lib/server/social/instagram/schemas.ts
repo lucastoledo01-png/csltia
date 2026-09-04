@@ -85,6 +85,39 @@ export const SLIDES_POR_FORMATO: Record<z.infer<typeof CarouselFormatSchema>, { 
   prompt: { min: 2, max: 12 },
 };
 
+/**
+ * Apara os slides para caber na forma do formato, antes de validar.
+ *
+ * O prompt pede a quantidade certa, mas um modelo que entrega demais não pode
+ * custar o post do dia — e para `noticia`, que é capa só, o excedente é
+ * justamente o conteúdo que passou a viver na legenda. Aparar é seguro porque
+ * a ordem dos slides é significativa: o primeiro é sempre a capa.
+ *
+ * Só apara para baixo. Entregar **menos** que o mínimo não tem conserto
+ * determinístico — inventar um slide de resultado que a IA não gerou seria
+ * publicar conteúdo que ninguém escreveu — e aí a validação recusa mesmo.
+ */
+export function aparaSlidesParaFormato(bruto: unknown): unknown {
+  if (!bruto || typeof bruto !== "object") return bruto;
+
+  const obj = bruto as { format?: unknown; slides?: unknown };
+  const format = typeof obj.format === "string" ? obj.format : "noticia";
+  const regra = SLIDES_POR_FORMATO[format as keyof typeof SLIDES_POR_FORMATO];
+
+  if (!regra || !Array.isArray(obj.slides) || obj.slides.length <= regra.max) return bruto;
+
+  const aparados = obj.slides.slice(0, regra.max).map((slide, i) =>
+    slide && typeof slide === "object" ? { ...(slide as object), index: i + 1 } : slide,
+  );
+
+  console.warn(
+    `[INSTAGRAM] Formato "${format}" aceita ${regra.max} slide(s) e a IA gerou ` +
+      `${obj.slides.length}. Aparado para ${aparados.length}.`,
+  );
+
+  return { ...obj, slides: aparados };
+}
+
 export type InstagramSlide = z.infer<typeof InstagramSlideSchema>;
 export type InstagramSlideType = z.infer<typeof InstagramSlideTypeSchema>;
 export type CarouselFormat = z.infer<typeof CarouselFormatSchema>;

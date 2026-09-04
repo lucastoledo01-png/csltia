@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InstagramCarouselSchema, SLIDES_POR_FORMATO } from "./schemas";
+import { aparaSlidesParaFormato, InstagramCarouselSchema, SLIDES_POR_FORMATO } from "./schemas";
 
 /**
  * A forma de cada formato, travada no schema.
@@ -91,5 +91,42 @@ describe("escolha do tipo de post na Meta", () => {
 
   it("zero slide não publica nada", () => {
     expect(tipoDePost(0)).toBe("invalido");
+  });
+});
+
+describe("aparo dos slides antes de validar", () => {
+  it("apara a notícia que veio como carrossel para a capa só", () => {
+    // O caso que custaria o post do dia: o prompt pede 1 slide e o modelo
+    // entrega 5. O excedente é justamente o que passou para a legenda.
+    const bruto = carrossel("noticia", ["cover", "intro", "content", "practical_impact", "cta"]);
+    const aparado = aparaSlidesParaFormato(bruto) as typeof bruto;
+
+    expect(aparado.slides).toHaveLength(1);
+    expect(aparado.slides[0].type).toBe("cover");
+    expect(InstagramCarouselSchema.safeParse(aparado).success).toBe(true);
+  });
+
+  it("reindexa depois de aparar", () => {
+    const aparado = aparaSlidesParaFormato(
+      carrossel("prompt", ["cover", "gallery", "gallery"]),
+    ) as ReturnType<typeof carrossel>;
+    expect(aparado.slides.map((s) => s.index)).toEqual([1, 2, 3]);
+  });
+
+  it("não mexe no que já cabe", () => {
+    const bruto = carrossel("tutorial", ["cover", "step", "step", "tip", "cta"]);
+    expect(aparaSlidesParaFormato(bruto)).toBe(bruto);
+  });
+
+  it("NÃO inventa slide quando vem menos que o mínimo", () => {
+    // Completar para cima significaria publicar conteúdo que ninguém escreveu.
+    // Aqui a validação tem que recusar mesmo.
+    const aparado = aparaSlidesParaFormato(carrossel("prompt", ["cover"]));
+    expect(InstagramCarouselSchema.safeParse(aparado).success).toBe(false);
+  });
+
+  it("aguenta entrada malformada sem explodir", () => {
+    expect(aparaSlidesParaFormato(null)).toBe(null);
+    expect(aparaSlidesParaFormato({ format: "noticia" })).toEqual({ format: "noticia" });
   });
 });
