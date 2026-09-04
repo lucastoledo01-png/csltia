@@ -3,6 +3,7 @@ import { NewsCandidate } from "./collector";
 import { DeduplicatedGroup } from "./deduplicator";
 import { RankedCandidate } from "./ranker";
 import { EditionContent, EditionContentSchema, QAResult, QAResultSchema } from "./schemas";
+import { limparVicios } from "./anti-vicios";
 
 export type PipelineResult = {
   edition: EditionContent;
@@ -195,7 +196,10 @@ Requisitos obrigatórios:
 
   let parsedEdition: EditionContent;
   try {
-    parsedEdition = EditionContentSchema.parse(writingResult.data);
+    // Antes da validação: o travessão é removido em toda string da edição.
+    // O prompt já pede; isto garante. Uma edição bem escrita perde
+    // credibilidade numa única frase que abre com traço longo.
+    parsedEdition = EditionContentSchema.parse(limparVicios(writingResult.data));
   } catch (err) {
     console.warn("[NEWSROOM QA] Ajustando formato do JSON...");
     const rawData = writingResult.data as any;

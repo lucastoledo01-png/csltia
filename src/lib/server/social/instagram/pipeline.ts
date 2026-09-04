@@ -1,5 +1,6 @@
 import { callOpenAIJSON, getAIProviderConfig, type AITokenUsage } from "../../newsroom/ai-provider";
 import { EditionContent } from "../../newsroom/schemas";
+import { limparVicios } from "../../newsroom/anti-vicios";
 import {
   aparaLegenda,
   aparaSlidesParaFormato,
@@ -190,13 +191,13 @@ Gere o post de imagem única — exatamente 1 slide do tipo "cover" — com a le
 
   let parsedCarousel: InstagramCarouselContent;
   try {
-    parsedCarousel = InstagramCarouselSchema.parse(aparaLegenda(aparaSlidesParaFormato(aiResult.data)));
+    parsedCarousel = InstagramCarouselSchema.parse(limparVicios(aparaLegenda(aparaSlidesParaFormato(aiResult.data))));
   } catch (err) {
     console.warn("[INSTAGRAM PIPELINE] Validação Zod ajustada no fallback...");
     const raw = aiResult.data as any;
     if (!raw.edition_date) raw.edition_date = editionDateStr;
     if (!raw.slides || !Array.isArray(raw.slides)) raw.slides = [];
-    parsedCarousel = InstagramCarouselSchema.parse(aparaLegenda(aparaSlidesParaFormato(raw)));
+    parsedCarousel = InstagramCarouselSchema.parse(limparVicios(aparaLegenda(aparaSlidesParaFormato(raw))));
   }
 
   parsedCarousel.format = "noticia";
@@ -305,14 +306,14 @@ Extraia os passos executáveis das seções acima (com os comandos reais), monte
 
   let parsedCarousel: InstagramCarouselContent;
   try {
-    parsedCarousel = InstagramCarouselSchema.parse(aparaLegenda(aparaSlidesParaFormato(aiResult.data)));
+    parsedCarousel = InstagramCarouselSchema.parse(limparVicios(aparaLegenda(aparaSlidesParaFormato(aiResult.data))));
   } catch {
     console.warn("[TUTORIAL CAROUSEL] Validação Zod ajustada no fallback...");
     const raw = aiResult.data as any;
     if (!raw.edition_date) raw.edition_date = editionDateStr;
     if (!raw.primary_topic) raw.primary_topic = article.primaryTopic;
     if (!raw.slides || !Array.isArray(raw.slides)) raw.slides = [];
-    parsedCarousel = InstagramCarouselSchema.parse(aparaLegenda(aparaSlidesParaFormato(raw)));
+    parsedCarousel = InstagramCarouselSchema.parse(limparVicios(aparaLegenda(aparaSlidesParaFormato(raw))));
   }
 
   parsedCarousel.format = "tutorial";
