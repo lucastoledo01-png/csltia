@@ -22,8 +22,17 @@ import { join } from "node:path";
 
 const RAIZ = join(process.cwd(), "src");
 
-/** Colunas cuja unicidade é composta com `project_id` desde a migração. */
-const COLUNAS_ISOLADAS_POR_PROJETO = ["email", "slug", "url", "edition_date", "idempotency_key"];
+/** Colunas que deixaram de ser únicas sozinhas depois do multi-projeto. */
+const NAO_UNICAS_SOZINHAS = ["email", "slug", "url", "edition_date", "idempotency_key"];
+
+/**
+ * Colunas que dão escopo suficiente para a unicidade.
+ *
+ * `campaign_id` conta junto com `project_id`: uma campanha pertence a exatamente
+ * um projeto, então `(campaign_id, email)` já é único dentro do projeto — é a
+ * constraint real de `prompt_leads`.
+ */
+const COLUNAS_DE_ESCOPO = ["project_id", "campaign_id"];
 
 function arquivosTypeScript(dir: string): string[] {
   return readdirSync(dir).flatMap((nome) => {
@@ -47,23 +56,33 @@ function alvosDeConflito(): Array<{ arquivo: string; alvo: string }> {
 }
 
 describe("alvos de ON CONFLICT nos upserts", () => {
+  it("um alvo sem escopo nenhum é reprovado", () => {
+    // Guarda a própria guarda: se a regra afrouxar, ela para de pegar o bug
+    // que existe para pegar, e ninguém percebe porque tudo fica verde.
+    const colunas = ["email"];
+    const temEscopo = colunas.some((c) => COLUNAS_DE_ESCOPO.includes(c));
+    const eSuspeita = colunas.some((c) => NAO_UNICAS_SOZINHAS.includes(c));
+    expect(temEscopo).toBe(false);
+    expect(eSuspeita).toBe(true);
+  });
+
   it("encontra os upserts do código", () => {
     // Se isto zerar, o teste virou decorativo — provavelmente o padrão de
     // escrita mudou e a guarda precisa acompanhar.
     expect(alvosDeConflito().length).toBeGreaterThan(0);
   });
 
-  it("nenhum aponta para coluna que hoje é única só junto com project_id", () => {
+  it("nenhum aponta para coluna que hoje não é única sozinha", () => {
     const quebrados = alvosDeConflito().filter(({ alvo }) => {
       const colunas = alvo.split(",").map((c) => c.trim());
-      if (colunas.includes("project_id")) return false;
-      return colunas.some((c) => COLUNAS_ISOLADAS_POR_PROJETO.includes(c));
+      if (colunas.some((c) => COLUNAS_DE_ESCOPO.includes(c))) return false;
+      return colunas.some((c) => NAO_UNICAS_SOZINHAS.includes(c));
     });
 
     expect(
       quebrados,
-      `Alvo de ON CONFLICT sem project_id. O PostgREST responde 42P10 e o upsert ` +
-        `não grava nada:\n${quebrados.map((q) => `  ${q.arquivo} → "${q.alvo}"`).join("\n")}`,
+      `Alvo de ON CONFLICT sem coluna de escopo. O PostgREST responde 42P10 e o ` +
+        `upsert não grava nada:\n${quebrados.map((q) => `  ${q.arquivo} → "${q.alvo}"`).join("\n")}`,
     ).toEqual([]);
   });
 });
