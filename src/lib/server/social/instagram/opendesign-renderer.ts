@@ -118,6 +118,8 @@ export function getContextualBrandImage(title: string, primaryTopic: string, pro
     return "https://images.unsplash.com/photo-1616469829941-c7200edec809?auto=format&fit=crop&w=1080&q=80";
   }
 
+  // Sem categoria reconhecida: usa uma imagem própria, diferente de todas as
+  // acima, pra não colidir e repetir capa em posts sem relação nenhuma entre si.
   return "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1080&q=80";
 }
 

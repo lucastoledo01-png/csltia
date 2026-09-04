@@ -64,7 +64,7 @@ function generateDedupeKey(title: string, url: string): string {
   }
 }
 
-function parseRSSItems(
+export function parseRSSItems(
   xml: string,
   source: NewsSourceConfig
 ): Array<{ title: string; url: string; publishedAt: string; description: string; content: string; author?: string; imageUrl?: string }> {
@@ -88,10 +88,29 @@ function parseRSSItems(
     const authorMatch = rawItem.match(/<(?:dc:creator|author|name)[^>]*>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/(?:dc:creator|author|name)>/i);
     const rawAuthor = authorMatch ? (authorMatch[1] || authorMatch[2] || "").trim() : undefined;
 
-    // Extração de imagem oficial (media:content, enclosure, og:image ou img src)
-    const mediaMatch = rawItem.match(/<(?:media:content|enclosure)[^>]*url=["']([^"']+)["'][^>]*>/i);
-    const imgMatch = rawItem.match(/<img[^>]+src=["']([^"']+\.(?:jpg|jpeg|png|webp|avif)[^"']*)["']/i);
-    let extractedImgUrl = mediaMatch ? mediaMatch[1] : imgMatch ? imgMatch[1] : undefined;
+    // Extração de imagem oficial (media:content, enclosure, og:image ou img src).
+    // media:content/enclosure também é usada por feeds pra anexar vídeo (ex: blog
+    // da AWS manda um .mp4 nessa mesma tag) — sem checar type="image/..." ou a
+    // extensão, um <img src> acabava recebendo um link de vídeo e quebrando.
+    const mediaTagMatch = rawItem.match(/<(?:media:content|enclosure)\b[^>]*>/i);
+    let extractedImgUrl: string | undefined;
+    if (mediaTagMatch) {
+      const mediaTag = mediaTagMatch[0];
+      const urlMatch = mediaTag.match(/url=["']([^"']+)["']/i);
+      const typeMatch = mediaTag.match(/type=["']([^"']+)["']/i);
+      const url = urlMatch?.[1];
+      const declaredType = typeMatch?.[1]?.toLowerCase() ?? "";
+      const looksLikeImage =
+        declaredType.startsWith("image/") ||
+        (!declaredType && url ? /\.(jpg|jpeg|png|webp|avif|gif)(\?|$)/i.test(url) : false);
+      if (url && looksLikeImage) {
+        extractedImgUrl = url;
+      }
+    }
+    if (!extractedImgUrl) {
+      const imgMatch = rawItem.match(/<img[^>]+src=["']([^"']+\.(?:jpg|jpeg|png|webp|avif)[^"']*)["']/i);
+      extractedImgUrl = imgMatch?.[1];
+    }
 
     if (extractedImgUrl && !extractedImgUrl.startsWith("http")) {
       extractedImgUrl = undefined;
@@ -165,7 +184,7 @@ async function fetchInstagramProfilePosts(
   }
 
   const media = json?.business_discovery?.media?.data as
-    | Array<{ caption?: string; media_url?: string; permalink?: string; timestamp?: string }>
+    | Array<{ caption?: string; media_url?: string; permalink?: string; timestamp?: string; media_type?: string }>
     | undefined;
 
   if (!media) return [];
@@ -175,6 +194,9 @@ async function fetchInstagramProfilePosts(
     .map((m) => {
       const caption = m.caption as string;
       const firstLine = caption.split("\n")[0].slice(0, 140) || caption.slice(0, 140);
+      // Para posts de vídeo/reels, media_url aponta pro arquivo de vídeo, não
+      // uma imagem — usá-lo como imageUrl quebraria o <img> no e-mail/portal.
+      const isImage = m.media_type === "IMAGE" || m.media_type === "CAROUSEL_ALBUM";
       return {
         title: firstLine,
         url: m.permalink as string,
@@ -182,7 +204,7 @@ async function fetchInstagramProfilePosts(
         description: caption.slice(0, 600),
         content: caption.slice(0, 1500),
         author: `@${targetUsername}`,
-        imageUrl: m.media_url,
+        imageUrl: isImage ? m.media_url : undefined,
       };
     });
 }

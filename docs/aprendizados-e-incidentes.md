@@ -1,61 +1,179 @@
-# Aprendizados e incidentes
+Registro de bugs, causas raiz e decisões não óbvias — pra não repetir o mesmo
+diagnóstico do zero da próxima vez. Toda vez que algo quebrar em produção ou
+uma decisão de arquitetura/conteúdo não for óbvia, acrescente uma entrada
+aqui (curta, indo direto ao sintoma → causa → correção → lição). Não é
+changelog de feature, é memória de "por que isso quebrou" e "por que
+decidimos assim".
 
-Registro do que já quebrou e do que a plataforma bloqueou. Serve para não
-redescobrir a mesma coisa duas vezes — e é o documento citado por
-`estado-do-ecossistema.md` e pelas etapas 1 e 3 de
-`sistema-prompt-arquitetura.md`.
+## Infra & Deploy
 
-Cada entrada diz **o que aconteceu**, **por que** e **o que fazer com isso**.
-Nada aqui é hipótese: tudo tem origem num commit, num erro de API ou numa
-verificação registrada.
+### 502 em produção: Next.js standalone escutando no endereço errado
+
+**Sintoma:** `casaloti.ia.br` retornava 502 do Traefik. O contêiner aparecia
+"Up" no `docker ps`, e o log mostrava `✓ Ready in 0ms` — parecia saudável.
+
+**Causa raiz:** o `server.js` gerado pelo build standalone do Next lê
+`process.env.HOSTNAME` pra decidir o endereço de escuta. Sem essa env fixada
+no Dockerfile, ele herdava o `HOSTNAME` que o Docker injeta automaticamente
+em todo contêiner (o ID do contêiner) — passando a escutar só nesse endereço
+específico, não em `0.0.0.0`. Confirmado via
+`docker exec <container> node -e "require('http').get('http://localhost:80', ...)"`
+→ `ECONNREFUSED`.
+
+**Correção:** `ENV HOSTNAME=0.0.0.0` na etapa `runner` do `Dockerfile`.
+
+**Lição:** um contêiner "Up" com log de "Ready" não prova que a porta está
+aceitando conexão — teste de dentro do próprio contêiner antes de suspeitar
+do proxy reverso.
+
+### `dall-e-3` foi descontinuado — geração de imagem falhava 100% silenciosa
+
+**Sintoma:** todos os posts do Instagram saíam com a mesma foto de banco de
+imagem repetida, mesmo sendo sobre assuntos completamente diferentes.
+
+**Causa raiz:** `generateCoverImageWithAI` chamava `model: "dall-e-3"`, que
+não existe mais na API da OpenAI (`"The model 'dall-e-3' does not exist"`).
+A função engolia o erro (`catch { return "" }`) e caía num fallback de ~5
+fotos fixas do Unsplash — cujo `default` (sem categoria reconhecida) por
+coincidência apontava pra mesma URL do bucket "chatgpt", dobrando a colisão.
+
+**Correção:** trocado pra `gpt-image-1` (família atual). Também mudou o
+formato de resposta: a API não aceita mais `response_format`, sempre devolve
+`b64_json` (não mais `url`) — o código que tratava o retorno como URL HTTP
+precisou ser ajustado pra aceitar `data:` URIs diretamente.
+
+**Lição:** erros de geração de imagem/IA que só resultam em "usa o
+fallback" nunca aparecem como erro visível pro usuário — testar a chamada
+real à API de tempos em tempos, não só confiar que "sempre funcionou".
+
+### RSS/Instagram: vídeo sendo usado como imagem de capa
+
+**Sintoma:** a newsletter saiu com uma "imagem" quebrada (`<img>` apontando
+pra um `.mp4`) na matéria da AWS.
+
+**Causa raiz:** o extrator de imagem de RSS pegava qualquer
+`<media:content>`/`<enclosure>` pela tag, sem checar o atributo `type=` nem
+a extensão do arquivo — o feed da AWS anexava um vídeo de demonstração
+nessa mesma tag. O mesmo padrão existia na coleta de perfis do Instagram:
+`media_url` de um post de vídeo/reels aponta pro arquivo de vídeo, não uma
+imagem, e o `media_type` vindo da Graph API não era usado pra filtrar.
+
+**Correção:** `parseRSSItems` (RSS) agora exige `type="image/..."` ou
+extensão de imagem antes de aceitar a URL; a coleta do Instagram só usa
+`media_url` quando `media_type` é `IMAGE` ou `CAROUSEL_ALBUM`. Teste de
+regressão em `collector.test.ts`.
+
+**Lição:** ao extrair mídia de fontes externas (RSS, APIs de rede social),
+sempre validar o *tipo* declarado, nunca assumir pela presença do campo.
+
+### Cron pode falhar silenciosamente durante uma janela de indisponibilidade
+
+**Sintoma:** um dia inteiro sem newsletter nem posts — nenhuma linha em
+`newsroom_runs`, nenhuma edição em `news_editions`.
+
+**Causa raiz:** o cron externo bateu em `/api/cron/newsroom` durante a
+janela do 502 acima. A chamada nunca chegou a criar registro nenhum — não
+teve erro pra logar porque a aplicação nem respondeu.
+
+**Correção pontual:** disparo manual com `?wait=1` recupera o dia (o cron
+não é sensível a data — roda a qualquer hora e gera a edição do dia
+corrente).
+
+**Lição / pendência:** não existe hoje nenhum alerta de "o cron devia ter
+rodado e não rodou". `newsroom_runs` vazio num dia é indistinguível de "a
+aplicação nunca recebeu a chamada" só olhando o painel — precisa checar
+ativamente. Vale considerar um monitor externo (ex: healthcheck.io/cron
+watchdog) que avisa se não houver run bem-sucedido até um horário limite.
+
+## Conteúdo & IA
+
+### QA de alucinação bloqueando o envio automático — isso é o sistema funcionando
+
+**Sintoma:** a campanha do dia ficou como "draft" no Listmonk em vez de
+disparar sozinha, sem nenhum erro visível.
+
+**Causa raiz:** não é bug. O pipeline roda um checador de QA
+(`qaResult.passed`) que reprovou a edição com `hallucination_risk: true` —
+uma matéria incluiu números de comparação (percentuais de benchmark entre
+modelos) que não estavam no pacote factual original das fontes. O
+`autoSend` só dispara quando `qaResult.passed` é `true`
+(`newsroom-service.ts`), então a campanha ficou retida pra revisão humana.
+
+**Correção pontual:** editar a matéria removendo o trecho não verificável,
+regerar o HTML (`renderEditionToHtml`) e atualizar a campanha via API do
+Listmonk (`PUT /api/campaigns/:id` + `PUT /api/campaigns/:id/status`)
+antes de disparar manualmente.
+
+**Lição:** quando uma campanha fica em "draft" sem erro no log, checar
+`qaResult` no retorno do cron (ou nos logs) antes de assumir que é bug —
+pode ser o QA fazendo o trabalho dele. Vale melhorar a visibilidade disso
+no painel de admin (hoje exige olhar o JSON bruto do run).
+
+### GitHub Search API não suporta OR entre parênteses combinado com outro qualificador
+
+**Sintoma:** `(topic:a OR topic:b OR topic:c) pushed:>data` devolvia
+`total_count: 0` mesmo com milhares de repositórios em cada tópico
+isoladamente.
+
+**Correção:** uma query por tópico só, alternando por dia (`topic-sources.ts`).
+
+**Lição:** testar queries da Search API do GitHub direto contra a API real
+antes de assumir que a sintaxe documentada de outras APIs de busca se
+aplica igual.
+
+### Instagram Hashtag Search exige aprovação da Meta
+
+Retorna erro `(#10)` em toda chamada sem o recurso "Instagram Public
+Content Access" aprovado via App Review. Não é configuração errada — é
+bloqueio de permissão mesmo. Hoje desligado via flag
+(`INSTAGRAM_LISTENING_ENABLED = false` em `topic-sources.ts`), código pronto
+pra religar assim que a aprovação sair.
+
+### Instagram não permite DM automática por "seguiu a conta" — só por comentário
+
+Cogitamos mandar Direct automático assim que alguém segue a conta (sem
+precisar comentar nada). Não dá: a regra geral da Messaging API do Instagram
+é que só se pode mandar DM pra quem já mandou mensagem primeiro — não existe
+webhook público de "novo seguidor". A única exceção documentada é o "Follow to
+DM", lançado pela Meta em outubro/2025, mas em beta fechada com o **ManyChat
+como parceiro exclusivo** — o campo aparece no schema de webhooks da Meta mas
+não na lista de campos publicamente inscritíveis, ou seja, não tem caminho de
+acesso pra ferramenta self-hosted nenhuma (OpenReply incluso).
+
+**Lição:** o único gatilho de Direct automatizado disponível pra gente é
+comentário com keyword → private reply (exceção que a Meta permite
+explicitamente). Não vale reinvestigar "mandar DM no follow" até a Meta abrir
+isso como capacidade geral da Graph API.
+
+## Legal & marca
+
+### Não usar o mascote do Claude como identidade genérica da conta
+
+Usar o personagem oficial da Anthropic/Claude como mascote de todo post
+(incluindo assuntos sem relação, tipo AWS ou ChatGPT) passa a impressão de
+afiliação/endosso que não existe, além de risco de denúncia de propriedade
+intelectual. Decisão: o mascote do Claude só aparece em posts
+especificamente sobre Claude Code, como referência editorial pontual —
+identidade geral da conta usa um personagem próprio e original (ver
+`opendesign-renderer.ts`, `HOODIE_MASCOT_DESCRIPTION` vs
+`CLAUDE_MASCOT_DESCRIPTION`).
+
+## Ambiente de desenvolvimento
+
+### Sessão do Claude Code tem rede restrita a domínios, não IPs
+
+Chamar `http://<IP-da-VPS>:<porta>/...` diretamente (ex: webhook de deploy
+do Easypanel) trava em timeout — o proxy de saída da sessão só libera
+HTTPS pra domínios conhecidos. O mesmo domínio via HTTPS
+(`https://casaloti.ia.br/...`) funciona normalmente. Na prática: quando
+precisar disparar algo por IP:porta, pedir pro usuário rodar o comando, ou
+usar a URL HTTPS do domínio se existir uma.
 
 ---
 
-## Bloqueios de plataforma
+## Schema, dados e ambiente
 
-### Busca por hashtag no Instagram exige App Review
-
-**O que.** A busca ampla por hashtag na Graph API responde erro `(#10)`:
-requer permissão que só sai por App Review da Meta.
-
-**Consequência.** O "listening amplo" descrito no ecossistema não existe.
-Só funciona o monitoramento dos perfis explicitamente cadastrados em
-`project_news_sources` com `type = 'instagram_profile'`.
-
-**O que fazer.** Não planejar etapa que dependa de descoberta por hashtag sem
-antes ter a aprovação. A etapa 1 do Sistema PROMPT contorna isso com entrada
-manual no painel e coletores alternativos (Google Trends RSS, Reddit, catálogo
-de estreias).
-
-### Token de longa duração da Meta expira em ~60 dias
-
-**O que.** `INSTAGRAM_ACCESS_TOKEN` é um token longo que vence. Antes do Tier 0
-ele era fixo no env: quando vencia, a publicação parava sem aviso.
-
-**Corrigido em** `a0981ae` — cron diário `/api/cron/refresh-instagram-token`
-renova quando falta pouco e alerta no Telegram se não conseguir.
-
-**O que fazer.** Se a publicação parar, conferir `newsroom_runs` e o alerta do
-Telegram antes de suspeitar do código.
-
----
-
-## Incidentes de produção
-
-### 502 por bind incorreto do Next standalone
-
-**O que.** A aplicação subiu mas respondeu 502. Causa: o build standalone do
-Next não estava escutando no endereço esperado pelo proxy.
-
-**Consequência real.** Um dia inteiro sem newsletter. E pior que a falha: o
-silêncio. `newsroom_runs` vazio é indistinguível de "a aplicação nunca recebeu
-a chamada do cron", então ninguém soube que havia quebrado.
-
-**Corrigido em** `47684ae`. O silêncio foi corrigido depois, no Tier 0
-(`a0981ae`): watchdog externo + alerta.
-
-**O que fazer.** Tabela de execução vazia nunca é prova de que nada rodou.
-Qualquer diagnóstico começa pelo watchdog, não pelo banco.
+Entradas de 2026-09-03 e 04.
 
 ### Seis dias sem produzir, e ninguém soube
 
@@ -92,31 +210,18 @@ que o cron novo disparou tem que ser um item explícito, não uma suposição.
 Um site respondendo 200 não diz nada sobre o pipeline: durante os seis dias o
 site esteve no ar o tempo todo. O sinal é `newsroom_runs`, e agora o watchdog.
 
-### `dall-e-3` descontinuado quebrou a geração de capa
+### Token de longa duração da Meta expira em ~60 dias
 
-**O que.** A geração da capa por IA falhou porque o modelo `dall-e-3` foi
-descontinuado pela OpenAI.
+**O que.** `INSTAGRAM_ACCESS_TOKEN` é um token longo que vence. Antes do Tier 0
+ele era fixo no env: quando vencia, a publicação parava sem aviso.
 
-**Corrigido em** `1e1a462` — migrado para `gpt-image-1`, mais mascotes fixos.
+**Corrigido em** `a0981ae` — cron diário `/api/cron/refresh-instagram-token`
+renova quando falta pouco e alerta no Telegram se não conseguir.
 
-**O que fazer.** Identificador de modelo é dependência externa que muda sem
-aviso. Ao ver falha na geração de imagem ou texto, conferir se o modelo ainda
-existe antes de depurar o código.
-
-### Query de busca no GitHub silenciosamente errada
-
-**O que.** A geração diária de tutorial dependia de uma busca no GitHub cuja
-query estava malformada. A falha não aparecia: o cron "rodava".
-
-**Corrigido em** `f80cd69` — query consertada e diagnóstico real de falha
-adicionado ao cron.
-
-**O que fazer.** Cron que termina sem erro não significa cron que fez algo.
-Todo novo cron precisa gravar o que produziu, não só que executou.
+**O que fazer.** Se a publicação parar, conferir `newsroom_runs` e o alerta do
+Telegram antes de suspeitar do código.
 
 ---
-
-## Armadilhas de dados e schema
 
 ### Data em UTC gravava o dia seguinte
 
@@ -205,8 +310,6 @@ duplicada morre, em produção, com o funil rodando.
 Adiar é trocar um `ALTER TABLE` de segundos por uma migração de dados.
 
 ---
-
-## Armadilhas de dependência e ambiente
 
 ### `zod` era dependência não declarada
 
