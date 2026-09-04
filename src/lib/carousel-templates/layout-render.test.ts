@@ -194,3 +194,101 @@ describe("orçamento de caracteres", () => {
     expect(orcamentoDeCaracteres(blocoNovo("imagem", 1), { width: 1080, height: 1440 })).toBe(0);
   });
 });
+
+describe("realce dentro da manchete", () => {
+  function comDestaque(titulo: string, destaque: string) {
+    const layout: Layout = {
+      canvas: { width: 1080, height: 1440 },
+      blocks: [
+        {
+          ...blocoNovo("texto", 1),
+          slot: "titulo",
+          realcarDestaque: true,
+          corDoRealce: "#E4344A",
+        },
+      ],
+    };
+
+    const slide = { ...slideDeTeste(titulo), highlight_text: destaque };
+    return renderLayout(layout, slide, {
+      tokens: DEFAULT_TOKENS,
+      eyebrowLabel: "",
+      ctaText: "",
+      slideIndex: 1,
+      total: 1,
+    });
+  }
+
+  it("pinta o trecho dentro do texto, sem quebrar o resto da frase", () => {
+    // O bloco é um só. O trecho colorido não pode virar outro bloco: a palavra
+    // destacada muda de posição a cada notícia.
+    const html = comDestaque("Fila do green card cai para 235 mil pedidos", "235 mil");
+
+    expect(html).toContain('<span style="color:#E4344A">235 mil</span>');
+    expect(html).toContain("Fila do green card cai para ");
+    expect(html).toContain(" pedidos");
+  });
+
+  it("acha o trecho independentemente de caixa", () => {
+    // A IA devolve o destaque como escreveu no corpo, não necessariamente como
+    // ficou na manchete. Exigir caixa idêntica faria o realce falhar em
+    // silêncio — e falhar em silêncio aqui significa post sem destaque nenhum.
+    const html = comDestaque("Trump pede poder para Restringir voto", "restringir");
+    expect(html).toContain('<span style="color:#E4344A">Restringir</span>');
+  });
+
+  it("pinta só a primeira ocorrência", () => {
+    // Manchete que repete a palavra ficaria salpicada de cor, que é o oposto
+    // de destacar.
+    const html = comDestaque("Visto e visto: o que muda no visto", "visto");
+    expect(html.match(/<span style="color:#E4344A">/g)).toHaveLength(1);
+  });
+
+  it("não inventa realce quando o trecho não está na manchete", () => {
+    const html = comDestaque("Novo decreto muda o critério", "green card");
+    expect(html).not.toContain("<span style=\"color:#E4344A\">");
+  });
+
+  it("escapa o destaque antes de procurá-lo — HTML no texto não vira tag", () => {
+    const html = comDestaque("Regra <nova> entra em vigor", "<nova>");
+    expect(html).toContain("&lt;nova&gt;");
+    expect(html).not.toContain("<nova>");
+  });
+});
+
+describe("véu da imagem", () => {
+  function veu(tipo: "solido" | "base") {
+    const layout: Layout = {
+      canvas: { width: 1080, height: 1440 },
+      blocks: [
+        {
+          ...blocoNovo("imagem", 1),
+          imagem: "fixa",
+          imagemUrl: "https://exemplo.com/foto.jpg",
+          veu: 0.9,
+          veuTipo: tipo,
+        },
+      ],
+    };
+    return renderLayout(layout, slideDeTeste("Título"), {
+      tokens: DEFAULT_TOKENS,
+      eyebrowLabel: "",
+      ctaText: "",
+      slideIndex: 1,
+      total: 1,
+    });
+  }
+
+  it("o degradê da base some antes da metade da arte", () => {
+    // Escurecer por igual apagaria o assunto da foto, que é metade do post.
+    const html = veu("base");
+    expect(html).toContain("linear-gradient(to top");
+    expect(html).toContain("rgba(0,0,0,0) 76%");
+  });
+
+  it("o sólido continua disponível para quem quer a foto rebaixada inteira", () => {
+    const html = veu("solido");
+    expect(html).toContain("rgba(0,0,0,0.9)");
+    expect(html).not.toContain("linear-gradient");
+  });
+});
