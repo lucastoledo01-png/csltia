@@ -419,15 +419,19 @@ export function AdminPromptSystemManager() {
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div>
                             <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
-                              ID da mídia do Instagram (post já publicado)
+                              ID da mídia do Instagram
                             </label>
                             <input
-                              required
                               value={dmCopy.igMediaId}
                               onChange={(e) => setDmCopy({ ...dmCopy, igMediaId: e.target.value })}
-                              placeholder="ex: 17999999999999999"
+                              placeholder="preenchido automaticamente ao publicar"
                               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-mono focus:border-indigo-500 focus:outline-none"
                             />
+                            <p className="mt-1 text-[11px] text-slate-400">
+                              Deixe em branco. O worker grava este ID no instante em que publica o
+                              post — é o único momento em que ele existe sem ninguém ter que
+                              procurá-lo no Instagram.
+                            </p>
                           </div>
                           <div className="flex items-end gap-2">
                             <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -446,10 +450,9 @@ export function AdminPromptSystemManager() {
                             Mensagem de abertura do Direct
                           </label>
                           <input
-                            required
                             value={dmCopy.openingDmMessage}
                             onChange={(e) => setDmCopy({ ...dmCopy, openingDmMessage: e.target.value })}
-                            placeholder="ex: oi 👋"
+                            placeholder="em branco usa o padrão da marca"
                             className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
                           />
                         </div>
@@ -459,11 +462,10 @@ export function AdminPromptSystemManager() {
                             Mensagem do Direct (confirma + entrega o link)
                           </label>
                           <textarea
-                            required
                             rows={2}
                             value={dmCopy.dmMessage}
                             onChange={(e) => setDmCopy({ ...dmCopy, dmMessage: e.target.value })}
-                            placeholder="achei você 👀 — preparei os prompts + exemplos desse post aqui: [ACESSAR]"
+                            placeholder="em branco usa o padrão da marca"
                             className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
                           />
                         </div>

@@ -28,11 +28,22 @@ export const CreateManualCampaignSchema = z.object({
 
 export type CreateManualCampaignInput = z.infer<typeof CreateManualCampaignSchema>;
 
-/** Etapa 9/9b: preenchido depois que a campanha já existe, antes de publicar no OpenReply. */
+/**
+ * Etapa 9/9b — **override**, não preenchimento obrigatório.
+ *
+ * Os três campos abaixo eram exigidos, e o `igMediaId` tornava o fluxo
+ * impossível de seguir na ordem certa: o ID da mídia só existe depois da
+ * publicação, então preenchê-lo antes exigia publicar à mão, copiar o número
+ * do Instagram e voltar ao painel.
+ *
+ * Agora o worker grava o ID no instante em que publica e a copy tem padrão de
+ * marca (`montarCopyDoDirect`). Quem escreve aqui está sobrescrevendo, e o
+ * texto escrito à mão sempre vence o padrão.
+ */
 export const UpdateCampaignDmCopySchema = z.object({
-  igMediaId: z.string().trim().min(1, "ID da mídia do Instagram é obrigatório."),
-  dmMessage: z.string().trim().min(1, "Mensagem do Direct é obrigatória."),
-  openingDmMessage: z.string().trim().min(1, "Mensagem de abertura é obrigatória."),
+  igMediaId: z.string().trim().optional().default(""),
+  dmMessage: z.string().trim().optional().default(""),
+  openingDmMessage: z.string().trim().optional().default(""),
   followUpEnabled: z.boolean().default(false),
   followUpDelayMinutes: z.number().int().positive().optional(),
   followUpMessage: z.string().trim().optional(),

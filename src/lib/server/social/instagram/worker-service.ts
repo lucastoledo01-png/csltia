@@ -18,6 +18,7 @@ import { resolveInstagramToken } from "./meta-token";
 import { markPostFailed } from "./scheduler";
 import { getArticleBySlug } from "../../articles-service";
 import { montarCarrosselDeCampanha } from "../../prompt-system/carrossel-de-campanha";
+import { concluirCampanhaPublicada } from "../../prompt-system/pos-publicacao";
 import { formatError, sendAlert } from "../../alerts";
 import type { CarouselFormat, InstagramCarouselContent } from "./schemas";
 import type { AITokenUsage } from "../../newsroom/ai-provider";
@@ -301,6 +302,19 @@ export async function processScheduledPost(
       .eq("id", socialPostId);
 
     console.log(`[INSTAGRAM WORKER] Publicado com sucesso. Media ID: ${mediaId}`);
+
+    // Post de campanha do Sistema PROMPT: é aqui, e só aqui, que o
+    // `ig_media_id` existe sem ninguém ter que procurá-lo no Instagram. A
+    // automação do OpenReply é criada agora, com a copy do Direct preenchida
+    // por padrão — o painel deixa de exigir os dois à mão.
+    const campaignId = String((post.content_json as Record<string, unknown> | null)?.campaign_id ?? "").trim();
+    if (campaignId) {
+      const r = await concluirCampanhaPublicada(campaignId, mediaId, projectId);
+      console.log(
+        `[INSTAGRAM WORKER] Campanha ${campaignId}: automação ${r.automacaoCriada ? "criada" : "não criada"}` +
+          (r.erro ? ` (${r.erro})` : ""),
+      );
+    }
 
     return {
       ok: true,
