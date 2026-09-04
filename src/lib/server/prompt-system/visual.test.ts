@@ -91,6 +91,7 @@ describe("nota de substituição", () => {
       fotografo: "Ana Lima",
       fotografoUrl: "https://pexels.com/@ana",
       fotoUrl: "https://pexels.com/photo/1",
+      atribuicao: null,
     });
 
     expect(nota).toContain("partiu de uma foto real");

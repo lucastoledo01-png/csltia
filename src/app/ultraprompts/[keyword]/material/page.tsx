@@ -95,6 +95,30 @@ export default async function MaterialPage({ params }: Props) {
                   />
                 ) : null}
 
+                {/*
+                  Crédito da foto de base. Aparece só quando o provedor exige —
+                  hoje o Unsplash, cujas API Guidelines pedem o nome do
+                  fotógrafo e o link de volta ao perfil. O post não credita; a
+                  entrega credita, e é aqui que a foto de base interessa a quem
+                  vai reproduzir.
+                */}
+                {asset.credito ? (
+                  <p className="mt-2 text-xs text-[#98a2b3]">
+                    {asset.credito.fotografoUrl ? (
+                      <a
+                        className="underline decoration-black/20 hover:text-black"
+                        href={asset.credito.fotografoUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                      >
+                        {asset.credito.texto}
+                      </a>
+                    ) : (
+                      asset.credito.texto
+                    )}
+                  </p>
+                ) : null}
+
                 <CopiarPrompt texto={asset.promptText} />
 
                 {asset.substitutionNotes ? (

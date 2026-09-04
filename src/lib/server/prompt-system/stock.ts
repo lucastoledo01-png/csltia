@@ -5,28 +5,50 @@
  * crível. Para conceitos ancorados em lugar — uma rua brasileira, uma fachada,
  * um ponto turístico — a diferença aparece.
  *
- * **Só Pexels, e a razão é de termos de uso.** A licença do Pexels não exige
- * atribuição ao fotógrafo — é bem-vinda, não obrigatória. Já as API Guidelines
- * do Unsplash exigem atribuição visível de quem consome a API deles, o que
- * colide com a decisão editorial de não creditar no post. Manter o Unsplash
- * como fallback seria manter um caminho que só é legítimo se o crédito
- * aparecer — e ele não vai aparecer.
+ * ## Onde o crédito aparece, e por quê
  *
- * A origem continua sendo gravada em `prompt_assets.stock_credit`, mas como
- * **registro interno de proveniência**, não como texto a publicar: saber de
- * onde veio cada imagem é o que permite responder a uma contestação depois. O
- * dado se grava no ato; não se reconstrói (a mesma busca amanhã devolve outra
- * foto).
+ * A decisão editorial é **não creditar no post**. Os dois provedores cabem
+ * nisso, por razões diferentes:
  *
- * Desligado sem chave configurada. Nenhum provedor é obrigatório: a geração do
- * zero continua sendo o caminho padrão.
+ * - **Pexels**: a licença não exige atribuição. Nada a fazer.
+ * - **Unsplash**: a licença também não exige, mas as *API Guidelines* — que
+ *   valem para quem consome a API, e é o nosso caso — exigem crédito ao
+ *   fotógrafo com link de volta ao perfil, com UTM. Isso não é opcional; é
+ *   condição de uso da API.
+ *
+ * A saída não é escolher entre a decisão e os termos: é o lugar. O crédito do
+ * Unsplash sai na **página de entrega do material**, que não é post — e é onde
+ * a foto de base é de fato relevante para quem vai reproduzir. O post continua
+ * sem crédito nenhum.
+ *
+ * O `atribuicao` é montado aqui, no ato da escolha, e gravado em
+ * `prompt_assets.stock_credit`: a mesma busca amanhã devolve outra foto, então
+ * o dado não se reconstrói. Mesmo princípio do `prompt_text`.
+ *
+ * ## Chaves
+ *
+ * `PEXELS_API_KEY` e `UNSPLASH_ACCESS_KEY` (a *Access Key* da aplicação, usada
+ * como `Client-ID`). A *Secret Key* do Unsplash **não** entra: ela serve ao
+ * fluxo OAuth de agir em nome de um usuário, que não fazemos.
+ *
+ * Desligado sem chave. Nenhum provedor é obrigatório: a geração do zero
+ * continua sendo o caminho padrão.
  */
 
 export type CreditoDaFoto = {
-  provedor: "pexels";
+  provedor: "pexels" | "unsplash";
   fotografo: string;
+  /** Perfil do fotógrafo. No Unsplash já vem com o UTM que as guidelines pedem. */
   fotografoUrl: string;
   fotoUrl: string;
+  /**
+   * Texto de crédito, ou `null` quando o provedor não exige nenhum.
+   *
+   * Nulo é o sinal que a página de entrega usa para não mostrar nada — e é o
+   * que mantém o Pexels sem crédito sem precisar de um `if` por provedor
+   * espalhado pela renderização.
+   */
+  atribuicao: string | null;
 };
 
 export type FotoDeBanco = {
@@ -40,7 +62,19 @@ type Opts = {
 };
 
 export function bancoConfigurado(env: Record<string, string | undefined> = process.env): boolean {
-  return Boolean(env.PEXELS_API_KEY?.trim());
+  return Boolean(env.PEXELS_API_KEY?.trim() || env.UNSPLASH_ACCESS_KEY?.trim());
+}
+
+/**
+ * UTM que as API Guidelines do Unsplash exigem nos links de volta.
+ *
+ * `utm_source` tem que ser o nome da aplicação registrada no Unsplash — é
+ * assim que eles atribuem o tráfego à app. Configurável porque o nome
+ * registrado pode não ser o slug que eu escolheria.
+ */
+function utmDoUnsplash(env: Record<string, string | undefined>): string {
+  const app = (env.UNSPLASH_APP_NAME ?? "desbuguei-ia").trim() || "desbuguei-ia";
+  return `?utm_source=${encodeURIComponent(app)}&utm_medium=referral`;
 }
 
 /**
@@ -68,13 +102,12 @@ export function consultaDeBusca(aplicacao: string, conceito = ""): string {
   return [...new Set(palavras)].slice(0, 5).join(" ");
 }
 
-/** Busca a foto de base. `null` quando não há chave, resultado ou a API falha. */
-export async function buscarFotoDeBanco(
+async function buscarNoPexels(
   consulta: string,
-  { env = process.env, fetcher = fetch }: Opts = {},
+  { env = process.env, fetcher = fetch }: Opts,
 ): Promise<FotoDeBanco | null> {
   const chave = env.PEXELS_API_KEY?.trim();
-  if (!chave || !consulta.trim()) return null;
+  if (!chave) return null;
 
   try {
     const url =
@@ -98,10 +131,79 @@ export async function buscarFotoDeBanco(
         fotografo: String(foto.photographer ?? "desconhecido"),
         fotografoUrl: String(foto.photographer_url ?? ""),
         fotoUrl: String(foto.url ?? ""),
+        // A licença do Pexels não pede crédito, e a decisão é não creditar.
+        atribuicao: null,
       },
     };
   } catch (err) {
     console.warn("[BANCO] Exceção no Pexels:", err);
     return null;
   }
+}
+
+async function buscarNoUnsplash(
+  consulta: string,
+  { env = process.env, fetcher = fetch }: Opts,
+): Promise<FotoDeBanco | null> {
+  const chave = env.UNSPLASH_ACCESS_KEY?.trim();
+  if (!chave) return null;
+
+  try {
+    const url =
+      `https://api.unsplash.com/search/photos?per_page=1&orientation=portrait&query=` +
+      encodeURIComponent(consulta);
+
+    const res = await fetcher(url, { headers: { Authorization: `Client-ID ${chave}` } });
+    if (!res.ok) {
+      console.warn(`[BANCO] Unsplash respondeu ${res.status}`);
+      return null;
+    }
+
+    const json = await res.json();
+    const foto = json?.results?.[0];
+    if (!foto?.urls?.regular) return null;
+
+    // Exigido pelas API Guidelines: avisar que a foto foi usada. Não bloqueia
+    // o uso se falhar, mas fica registrado — é termo de uso, não telemetria.
+    const downloadLocation = foto?.links?.download_location;
+    if (downloadLocation) {
+      void Promise.resolve(
+        fetcher(String(downloadLocation), { headers: { Authorization: `Client-ID ${chave}` } }),
+      ).catch(() => console.warn("[BANCO] Não consegui registrar o download no Unsplash."));
+    }
+
+    const utm = utmDoUnsplash(env);
+    const fotografo = String(foto.user?.name ?? "desconhecido");
+    const perfil = String(foto.user?.links?.html ?? "");
+
+    return {
+      imagemUrl: String(foto.urls.regular),
+      credito: {
+        provedor: "unsplash",
+        fotografo,
+        fotografoUrl: perfil ? `${perfil}${utm}` : "",
+        fotoUrl: String(foto.links?.html ?? ""),
+        atribuicao: `Foto de ${fotografo} no Unsplash`,
+      },
+    };
+  } catch (err) {
+    console.warn("[BANCO] Exceção no Unsplash:", err);
+    return null;
+  }
+}
+
+/**
+ * Busca a foto de base. `null` quando não há chave, resultado ou a API falha.
+ *
+ * Pexels primeiro: é o provedor que não exige crédito nenhum, então a ordem
+ * faz a maioria das imagens não gerar obrigação de atribuição. O Unsplash
+ * entra quando o Pexels não tem a cena — melhor uma foto creditada na página
+ * de entrega que uma cena inventada.
+ */
+export async function buscarFotoDeBanco(
+  consulta: string,
+  opts: Opts = {},
+): Promise<FotoDeBanco | null> {
+  if (!consulta.trim()) return null;
+  return (await buscarNoPexels(consulta, opts)) ?? (await buscarNoUnsplash(consulta, opts));
 }
