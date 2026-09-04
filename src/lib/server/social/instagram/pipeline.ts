@@ -81,9 +81,15 @@ REGRAS DA LEGENDA:
   * Nada de urgência inventada ("últimas vagas", "regra muda amanhã").
 - Encerre com a assinatura da marca: "${marca.assinatura}"
 - De 5 a 10 hashtags do nicho, misturando volume alto e termo específico.
-- LIMITES RÍGIDOS de caractere (o que passar é cortado): headline 100,
-  intro_summary 300, cta_call 150, full_caption 2000. key_takeaways: no
-  máximo 5 itens.
+- LEGENDA CURTA. Ninguem le legenda longa no feed; o que nao for lido nos
+  primeiros segundos nao existe. Alvos:
+  * "headline": ate 70 caracteres. E' a primeira linha, antes do "mais".
+  * "intro_summary": 2 frases, ate 200 caracteres.
+  * "key_takeaways": 3 itens, cada um ate 60 caracteres.
+  * "full_caption": entre 400 e 700 caracteres no total, ja incluindo o CTA.
+    Nao repita a manchete que ja esta na arte.
+- LIMITES RIGIDOS (o que passar e' cortado): headline 100, intro_summary 300,
+  cta_call 150, full_caption 2000, key_takeaways no maximo 5 itens.
 - RIGOR FACTUAL: número, prazo, taxa e requisito só entram se estiverem no pacote da edição. Não estime, não arredonde, não deduza.
 
 ESTRUTURA DO JSON DE SAÍDA:
