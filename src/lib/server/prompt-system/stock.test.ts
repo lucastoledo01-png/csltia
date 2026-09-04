@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { bancoConfigurado, buscarFotoDeBanco, consultaDaCapa, consultaDeBusca } from "./stock";
+import {
+  bancoConfigurado,
+  buscarFotoDeBanco,
+  consultaDaCapa,
+  consultaDaNoticia,
+  consultaDeBusca,
+} from "./stock";
 
 describe("consultaDeBusca", () => {
   it("descarta palavra de instrução e mantém o que descreve a cena", () => {
@@ -180,5 +186,31 @@ describe("consulta da capa", () => {
     const q = consultaDaCapa("", "Fila do green card chega a 179 anos");
     expect(q.length).toBeGreaterThan(0);
     expect(q).toContain("green");
+  });
+});
+
+describe("consulta da pauta da newsletter", () => {
+  it("mapeia o assunto, não a frase — o título é português e o acervo é inglês", () => {
+    // "fila do green card chega a 179 anos" devolveria quase nada num acervo
+    // indexado em inglês, e o pouco que voltasse não teria relação.
+    expect(consultaDaNoticia("Fila do green card chega a 179 anos")).toContain("green card");
+    expect(consultaDaNoticia("Agente do ICE é solto sob fiança")).toContain("law enforcement");
+    expect(consultaDaNoticia("USCIS estende prazo de comentários")).toContain("paperwork");
+  });
+
+  it("pautas de assuntos diferentes não recebem a mesma foto", () => {
+    // Era o sintoma: toda pauta ilustrada com a mesma imagem genérica.
+    const consultas = [
+      consultaDaNoticia("Novo decreto sobre deportação", "ICE"),
+      consultaDaNoticia("Fila do green card", "Residência"),
+      consultaDaNoticia("Entrevista no consulado muda de regra", "Vistos"),
+      consultaDaNoticia("Corte decide sobre asilo", "Justiça"),
+    ];
+    expect(new Set(consultas).size).toBe(consultas.length);
+  });
+
+  it("cai numa consulta do tema quando nada casa", () => {
+    const q = consultaDaNoticia("Uma notícia sem palavra reconhecível aqui");
+    expect(q).toContain("american");
   });
 });

@@ -18,6 +18,11 @@ import { rankAndFilterCandidates } from "./ranker";
 import { EditionContent } from "./schemas";
 import { sendAlert } from "../alerts";
 import { MARCA } from "@/lib/marca";
+import {
+  bancoConfigurado,
+  buscarFotoDeBanco,
+  consultaDaNoticia,
+} from "../prompt-system/stock";
 
 export type RunNewsroomOptions = {
   /** Projeto para o qual a edição é produzida. Sem valor, usa o projeto semente. */
@@ -390,7 +395,39 @@ export async function runNewsroom(
       `Até amanhã. — ${project.brand.displayName || project.name}`,
   });
 
-  const coverImages = pipelineResult.selectedCandidates.map((c) => c.image_url).filter(Boolean) as string[];
+  /*
+   * Uma foto por pauta, na ordem das pautas.
+   *
+   * Duas coisas estavam erradas aqui.
+   *
+   * A primeira: a imagem vinha do RSS, e feed de agregador traz a arte
+   * genérica do publicador — foi assim que uma matéria sobre custódia do ICE
+   * saiu com uma estante de livros e outra sobre o USCIS com uma placa de
+   * circuito. Agora a foto sai do banco de imagem, buscada pelo assunto da
+   * pauta; a do feed vira reserva.
+   *
+   * A segunda, mais silenciosa: `.filter(Boolean)` removia os vazios e
+   * **deslocava os índices**. Se a pauta 1 não tinha imagem e a 2 tinha, a
+   * foto da 2 aparecia na 1 — cada pauta seguinte ilustrada com a foto de
+   * outra. O array agora é posicional e admite vazio.
+   */
+  const usarBanco = bancoConfigurado();
+  const coverImages = await Promise.all(
+    pipelineResult.edition.stories.map(async (story, i) => {
+      const doFeed = pipelineResult.selectedCandidates[i]?.image_url ?? "";
+
+      if (usarBanco) {
+        try {
+          const foto = await buscarFotoDeBanco(consultaDaNoticia(story.title, story.category));
+          if (foto) return foto.imagemUrl;
+        } catch {
+          /* banco fora do ar não pode custar a edição */
+        }
+      }
+
+      return doFeed;
+    }),
+  );
   const htmlContent = renderEditionToHtml(pipelineResult.edition, coverImages);
   // Versão sem o cromo de e-mail, para o corpo do artigo no portal.
   const htmlParaPortal = renderEditionToHtml(pipelineResult.edition, coverImages, true);
