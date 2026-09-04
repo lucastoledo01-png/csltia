@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FONTS, FONT_KEYS, type FontKey } from "./fonts";
 
 /**
  * Tokens de design do carrossel — a única coisa que o painel do admin edita
@@ -17,7 +18,31 @@ const EyebrowSchema = z.object({
   fg: HexColor,
 });
 
+const FontKeySchema = z.enum(FONT_KEYS as [FontKey, ...FontKey[]]);
+
 export const TokensSchema = z.object({
+  /**
+   * Proporção da arte. Os designs aprovados são 1080×1440 (3:4); o viewport do
+   * Playwright é derivado daqui, então mudar a altura muda a renderização real,
+   * não só o preview.
+   */
+  canvas: z.object({
+    width: z.number().min(320).max(2160),
+    height: z.number().min(320).max(2880),
+  }),
+  /**
+   * Qual moldura o slide usa. Os dois designs aprovados têm chrome
+   * estruturalmente diferente — impresso versus interface — e não dá para
+   * converter um no outro só trocando cor. Ver `chrome.ts`.
+   */
+  chrome: z.enum(["editorial", "social"]),
+  /** Só chaves do conjunto fechado de `fonts.ts` — ver o porquê lá. */
+  fonts: z.object({
+    display: FontKeySchema,
+    body: FontKeySchema,
+    accent: FontKeySchema,
+    mono: FontKeySchema,
+  }),
   colors: z.object({
     bg: HexColor, // fundo pergaminho
     ivory: HexColor, // cartão claro
@@ -50,6 +75,9 @@ export const TokensSchema = z.object({
 export type CarouselTokens = z.infer<typeof TokensSchema>;
 
 export const DEFAULT_TOKENS: CarouselTokens = {
+  canvas: { width: 1080, height: 1440 },
+  chrome: "editorial",
+  fonts: { display: "epilogue", body: "epilogue", accent: "playfair", mono: "jetbrains" },
   colors: {
     bg: "#f7f5f0",
     ivory: "#ffffff",
@@ -79,12 +107,28 @@ export const DEFAULT_TOKENS: CarouselTokens = {
   },
 };
 
-/** Faz merge raso-recursivo do que veio do banco sobre o default e valida. */
-export function mergeTokens(overrides: unknown): CarouselTokens {
+/**
+ * Faz merge raso-recursivo das camadas sobre o default e valida.
+ *
+ * As camadas vêm na ordem em que ganham precedência: o tema global do painel
+ * primeiro, o override do formato depois. É o que permite `tutorial` ser claro
+ * e `noticia` ser escuro sem duplicar o tema inteiro — um `--s-bg` só não pode
+ * ser `#F5F1ED` e `#080808` ao mesmo tempo.
+ *
+ * Camada inválida não derruba a montagem: o `safeParse` no fim devolve o
+ * default, porque carrossel não deixa de ser gerado por causa de config.
+ */
+export function mergeTokens(...overrides: unknown[]): CarouselTokens {
   const base = DEFAULT_TOKENS;
-  const o = (overrides && typeof overrides === "object" ? overrides : {}) as Record<string, unknown>;
+  const o = overrides.reduce<Record<string, unknown>>(
+    (acc, camada) => (camada && typeof camada === "object" ? deepMerge(acc, camada as Record<string, unknown>) : acc),
+    {},
+  );
 
   const merged = {
+    canvas: { ...base.canvas, ...asObj(o.canvas) },
+    chrome: typeof o.chrome === "string" ? o.chrome : base.chrome,
+    fonts: { ...base.fonts, ...asObj(o.fonts) },
     colors: { ...base.colors, ...asObj(o.colors) },
     type: { ...base.type, ...asObj(o.type) },
     radius: typeof o.radius === "number" ? o.radius : base.radius,
@@ -109,11 +153,35 @@ function asObj(v: unknown): Record<string, unknown> {
   return v && typeof v === "object" ? (v as Record<string, unknown>) : {};
 }
 
+/** Merge recursivo de objetos simples; valor não-objeto sobrescreve. */
+function deepMerge(
+  base: Record<string, unknown>,
+  camada: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...base };
+  for (const [chave, valor] of Object.entries(camada)) {
+    const atual = out[chave];
+    if (valor && typeof valor === "object" && !Array.isArray(valor) && atual && typeof atual === "object") {
+      out[chave] = deepMerge(atual as Record<string, unknown>, valor as Record<string, unknown>);
+    } else if (valor !== undefined) {
+      out[chave] = valor;
+    }
+  }
+  return out;
+}
+
 /** `:root { --s-bg: …; … }` — injetado no `<style>` de cada slide. */
 export function tokensToCss(tokens: CarouselTokens): string {
   const c = tokens.colors;
   const t = tokens.type;
+  const f = tokens.fonts;
   return `:root{
+--s-w:${tokens.canvas.width}px;
+--s-h:${tokens.canvas.height}px;
+--s-font-display:${FONTS[f.display].stack};
+--s-font-body:${FONTS[f.body].stack};
+--s-font-accent:${FONTS[f.accent].stack};
+--s-font-mono:${FONTS[f.mono].stack};
 --s-bg:${c.bg};
 --s-ivory:${c.ivory};
 --s-ink:${c.ink};

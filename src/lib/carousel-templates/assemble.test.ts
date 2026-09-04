@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assembleSlide, resolveFormatConfig } from "./assemble";
+import { FONTS } from "./fonts";
 import { DEFAULT_TOKENS } from "./tokens";
 import { SAMPLE_CAROUSEL } from "./sample-data";
 import { CAROUSEL_FORMATS } from "./types";
@@ -30,8 +31,18 @@ describe("assembleSlide", () => {
         // placeholders resolvidos
         expect(html).not.toMatch(/\{\{.*?\}\}/);
         expect(html).not.toContain("undefined");
-        // 1080×1350
-        expect(html).toContain("width:1080px");
+        // A dimensão saiu do CSS literal e virou token, então é o token que
+        // precisa chegar ao HTML — é dele que o viewport do Playwright também
+        // é derivado. Confere a altura junto: antes ninguém checava.
+        expect(html).toContain(`--s-w:${DEFAULT_TOKENS.canvas.width}px`);
+        expect(html).toContain(`--s-h:${DEFAULT_TOKENS.canvas.height}px`);
+
+        // Toda família declarada precisa estar no <link> que a carrega. Fonte
+        // pedida e não requisitada cai no fallback do sistema sem erro.
+        for (const chave of new Set(Object.values(DEFAULT_TOKENS.fonts))) {
+          const primeiraFamilia = FONTS[chave].stack.split(",")[0].replace(/"/g, "");
+          expect(html).toContain(primeiraFamilia.replace(/ /g, "+"));
+        }
       });
     });
   }
@@ -62,5 +73,29 @@ describe("assembleSlide", () => {
     expect(cfg.variantBySlideType.cover).toBe("brand_card");
     expect(cfg.variantBySlideType.cta).toBe(FORMAT_DEFAULTS.noticia.variantBySlideType.cta);
     expect(cfg.eyebrowLabel).toBe("PLANTÃO");
+  });
+});
+
+describe("forma de cada formato", () => {
+  it("o exemplo do painel só usa tipos que o formato produz", () => {
+    // Sem isto, o preview do admin mostra slides que o pipeline nunca gera —
+    // e a pessoa desenha em cima de um layout que não vai ao ar.
+    for (const format of CAROUSEL_FORMATS) {
+      const permitidos = FORMAT_DEFAULTS[format].allowedSlideTypes;
+      const usados = SAMPLE_CAROUSEL[format].slides.map((s) => s.type);
+
+      expect(usados.filter((t) => !permitidos.includes(t)), `formato ${format}`).toEqual([]);
+    }
+  });
+
+  it("cada tipo permitido tem variante padrão apontando para uma que existe", () => {
+    for (const format of CAROUSEL_FORMATS) {
+      const def = FORMAT_DEFAULTS[format];
+      for (const tipo of def.allowedSlideTypes) {
+        const chave = def.variantBySlideType[tipo];
+        expect(chave, `${format}/${tipo} sem variante padrão`).toBeTruthy();
+        expect(SLIDE_VARIANTS[tipo]?.[chave!], `${format}/${tipo} → "${chave}" não existe`).toBeDefined();
+      }
+    }
   });
 });

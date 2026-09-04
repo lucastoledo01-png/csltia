@@ -10,12 +10,23 @@ import { AdminNewsroomManager } from "@/components/AdminNewsroomManager";
 import { AdminSocialPostsManager } from "@/components/AdminSocialPostsManager";
 import { AdminNewsSourcesManager } from "@/components/AdminNewsSourcesManager";
 import { AdminCarouselDesignManager } from "@/components/AdminCarouselDesignManager";
+import { AdminPromptCampaignsManager } from "@/components/AdminPromptCampaignsManager";
 
-type Tab = "newsroom" | "social" | "carousel" | "sources" | "cms" | "analytics" | "logs" | "comments";
+type Tab =
+  | "newsroom"
+  | "social"
+  | "prompt"
+  | "carousel"
+  | "sources"
+  | "cms"
+  | "analytics"
+  | "logs"
+  | "comments";
 
 const NAV_ITEMS: Array<{ id: Tab; label: string; icon: string }> = [
   { id: "newsroom", label: "Redação (IA)", icon: "⚡" },
   { id: "social", label: "Publicações", icon: "📸" },
+  { id: "prompt", label: "Sistema PROMPT", icon: "🔑" },
   { id: "carousel", label: "Carrossel", icon: "🎨" },
   { id: "sources", label: "Fontes", icon: "🛰️" },
   { id: "cms", label: "CMS Artigos", icon: "📝" },
@@ -298,6 +309,7 @@ export default function AdminPage() {
           <section>
             {activeTab === "newsroom" ? <AdminNewsroomManager /> : null}
             {activeTab === "social" ? <AdminSocialPostsManager /> : null}
+            {activeTab === "prompt" ? <AdminPromptCampaignsManager /> : null}
             {activeTab === "carousel" ? <AdminCarouselDesignManager /> : null}
             {activeTab === "sources" ? <AdminNewsSourcesManager /> : null}
             {activeTab === "cms" ? <AdminCMSManager /> : null}

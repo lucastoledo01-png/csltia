@@ -133,7 +133,7 @@ export async function renderOpenDesignSlides(carousel: InstagramCarouselContent)
   const format = carousel.format ?? "noticia";
 
   const [tokens, formatConfig] = await Promise.all([
-    resolveTokens(),
+    resolveTokens(format),
     resolveFormatConfigFromDb(format),
   ]);
 
@@ -147,9 +147,13 @@ export async function renderOpenDesignSlides(carousel: InstagramCarouselContent)
   const assets: OpenDesignSlideAsset[] = [];
 
   try {
+    // O viewport vem dos tokens, não de um número fixo aqui. Com os dois
+    // separados, mudar a proporção da arte no `base-css` renderizava certo no
+    // preview do navegador e cortado no worker — e o corte só apareceria no
+    // post publicado.
     const page = await browser.newPage({
-      viewport: { width: 1080, height: 1350 },
-      deviceScaleFactor: 2, // Retinal HD 2160x2700 screenshot
+      viewport: { width: tokens.canvas.width, height: tokens.canvas.height },
+      deviceScaleFactor: 2, // dobra a resolução do arquivo entregue à Meta
     });
 
     for (const slide of carousel.slides) {

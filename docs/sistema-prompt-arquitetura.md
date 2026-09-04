@@ -311,9 +311,168 @@ ponta antes de qualquer automação de ideação.
 
 | Fase | Escopo | Resultado |
 |---|---|---|
-| **0** | Schema (7 tabelas) + registro de campanha + gatilho manual no admin | Destrava tudo o resto; nenhum risco em produção |
+| **0** ✅ | Schema (7 tabelas) + registro de campanha + gatilho manual no admin | Destrava tudo o resto; nenhum risco em produção |
 | **1** | Etapas 7 + 8 + 9 — keyword, automação no OpenReply, copy do Direct (inclui o fork D1) | Testável com um conceito criado à mão. É a espinha do funil |
 | **2** | Etapas 10 + 11 + 12 — landing dinâmica, captura, entrega | O funil fecha ponta a ponta: dá pra rodar PROMPT posts com produção manual |
 | **3** | Etapas 4 + 5 + 6 — geração visual, prompt como asset, carrossel | Produção de conteúdo deixa de ser manual |
 | **4** | Etapas 1 + 2 + 3 — trend intelligence, trend jacking, guardrail de PI | Topo do funil automatizado; o sistema propõe pautas sozinho |
 | **5** | Etapas 13 + 14 — analytics de funil e loop editorial | Fecha o ciclo: os resultados passam a decidir as próximas pautas |
+
+---
+
+## Fase 0 — estado real (2026-09-03)
+
+> **O schema `prompt_*` já está em produção e não veio deste repositório.**
+> Foi aplicado direto no banco, fora do histórico de `supabase/migrations/`, e
+> nenhum arquivo aqui o descreve. Ele é **mais rico** que o desenho das seções
+> acima. Onde os dois discordarem, **o banco manda** — as seções anteriores
+> passam a ser a intenção original, não a especificação.
+
+### O que está no banco, e não estava previsto
+
+| Tabela | Colunas além do previsto |
+|---|---|
+| `prompt_campaigns` | `campaign_type`, `opening_dm_message`, `follow_up_enabled`, `follow_up_delay_minutes`, `follow_up_message` — sequência de Direct |
+| `prompt_leads` | `email_sequence_stage`, `email_sequence_next_at` — régua de e-mail |
+| `prompt_concept_results` | `performance_score`, `is_explore` — explore/exploit no loop |
+| `prompt_concepts` | `hook_pattern` |
+| **`prompt_learnings`** | tabela inteira: `period_start/end`, `top_combo`, `bottom_combo`, `summary_text`, `applied_to_prompt` |
+
+E o que o desenho original previa mas **não existe**: `prompt_campaigns.updated_at`
+e `prompt_campaigns.error_message` (então falha de campanha não tem onde gravar
+o motivo), `prompt_assets.position` e `.image_path`,
+`prompt_concept_results.snapshot_date` (só `snapshot_at`).
+
+### O que a Fase 0 entregou no código
+
+| Arquivo | Papel |
+|---|---|
+| `src/lib/prompt-system/keyword.ts` | Normalização e validação da keyword. Compartilhado: o formulário do painel usa a mesma função que a rota, então o navegador nunca propõe uma keyword que o servidor recusa |
+| `src/lib/prompt-system/vocabulary.ts` | **Único** lugar com os valores de `status`/`format`/`campaign_type`/`source`. Popula os menus do painel — não valida |
+| `src/lib/server/prompt-system/campaigns.ts` | Registro contra as colunas reais: listar, criar, checar keyword, mudar status, remover |
+| `src/app/api/admin/prompt-campaigns/` | `GET`/`POST` da lista, `GET keyword` (200 livre / 409 em uso), `PATCH`/`DELETE` por id |
+| `src/components/AdminPromptCampaignsManager.tsx` | Aba **Sistema PROMPT** do painel |
+
+### Três decisões
+
+**Os CHECKs não são duplicados em TypeScript.** `status`, `format`,
+`campaign_type` e `source` têm CHECK no banco. Como o schema foi aplicado fora
+do repo, uma lista espelhada aqui divergiria no primeiro `ALTER` que ninguém
+copiasse — e daria ilusão de validação. Quem recusa é o Postgres; a rota
+traduz o erro em 400. O `vocabulary.ts` existe só para os menus.
+
+**Campanha publicada não é apagável pela rota.** Fora de `draft`,
+`keyword_reserved` e `failed` existe um post no Instagram e uma automação no
+OpenReply apontando para a linha: a rota responde 409 e manda arquivar.
+
+**`checkKeywordAvailability` devolve `checkedOpenReply: false`.** A etapa 7
+exige checagem dupla — histórico local **e** automações do OpenReply. A Fase 0
+só tem a primeira metade, e o campo diz isso a quem consome em vez de parecer
+completo. A segunda entra na Fase 1 com a rota de serviço (decisão D1).
+
+### Auditoria do schema aplicado (2026-09-03)
+
+Rodada com `pg_get_constraintdef` + `pg_indexes` sobre produção. O que **existe**:
+
+- `prompt_campaigns_project_keyword_key UNIQUE (project_id, keyword)` — o
+  invariante da etapa 7 está protegido, e o código pode tratar `23505` como
+  "keyword em uso"
+- CHECKs de vocabulário nas oito tabelas (valores em `vocabulary.ts`)
+- Índices de `project_id` em `prompt_trends`, `prompt_concepts`,
+  `prompt_campaigns` e `prompt_learnings`
+- Grants revogados: a chave anônima recebe `401`/`42501` nas tabelas `prompt_*`
+
+O que **faltava**, corrigido em `20260903120000_prompt_system_invariantes.sql`:
+
+| Invariante | O que quebrava sem ele |
+|---|---|
+| CHECK do formato da keyword | Só o TypeScript garantia. SQL na mão, o pipeline da Fase 4 ou uma carga gravavam `gta 26` — e o CTA do post não dispara Direct nenhum |
+| `prompt_funnel_events (campaign_id, stage, external_id)` | Pull do OpenReply não idempotente: retry ou cron sobreposto contava o evento duas vezes, e o funil alimenta a pontuação de pauta da etapa 14 |
+| `prompt_leads (campaign_id, email)` | F5 depois do submit inflava a taxa de conversão sem ninguém novo se cadastrar |
+| `prompt_assets (campaign_id, label)` + prompt não-vazio | Entrega ambígua, e asset sem prompt é promessa que o post não cumpre |
+| Índices de `project_id` em 4 tabelas | `delete from projects` varria a tabela para o cascade; todo filtro por projeto era sequencial |
+| `prompt_concept_results (campaign_id, snapshot_date)` | Cron de insights criava dois retratos do mesmo dia e a série contava o alcance repetido |
+
+A migração foi ensaiada numa réplica local do schema de produção (Postgres 18,
+reconstruída das colunas expostas e das constraints da auditoria), com os sete
+invariantes testados por violação deliberada, e **aplicada em produção em
+2026-09-03**, enquanto as oito tabelas ainda estavam vazias — a janela em que
+acrescentar unicidade não pode falhar por dado preexistente.
+
+Verificação depois de aplicar, sem escrever nada no banco:
+
+- os sete invariantes respondem `OK` na consulta de veredito
+- `prompt_concept_results.snapshot_date` aparece no schema exposto, tipo `date`
+- inserir `keyword = 'gta 26'` volta `23514` nomeando
+  `prompt_campaigns_keyword_check`, e `prompt_campaigns` segue com zero linhas
+- reaplicar a migração inteira não dá erro: os blocos `if not exists` a tornam
+  idempotente também em produção
+
+A última seção (`snapshot_date` em `prompt_concept_results`) é a única que muda
+a forma de uma tabela, e por isso está por último — ela foi aplicada junto.
+
+### O repositório voltou a descrever o banco
+
+`20260901000000_prompt_system_baseline.sql` reconstrói as oito tabelas como
+estão em produção: colunas na mesma ordem, com os mesmos tipos, defaults,
+nulabilidade, CHECKs, unicidades, ações `ON DELETE` e RLS. Reconstruída de
+`information_schema.columns`, `pg_constraint`, `pg_indexes` e `pg_class`.
+
+Está **datada antes** da migração de invariantes de propósito: as migrações
+rodam em ordem de nome de arquivo e aquela acrescenta constraints a estas
+tabelas — invertida, um banco novo falharia. A data anterior também é a verdade
+histórica. Em produção o baseline é inteiramente no-op.
+
+Rodar as três em sequência num Postgres vazio produz exatamente produção,
+verificado por diff: as 91 colunas conferem uma a uma (nome, posição, tipo,
+nulabilidade, default), os 19 nomes de constraint e índice existem, as oito
+tabelas têm `rls=true forced=false policies=0`, nenhuma FK ficou sem índice, e
+um fluxo completo — tendência → conceito → campanha → asset → lead → evento →
+retrato → aprendizado — grava e é limpo pelo cascade do projeto.
+
+### `conversion_rate` = leads por alcance, coluna gerada
+
+A métrica nunca foi definida na documentação. As três menções eram "taxa de
+conversão" na lista da etapa 14, "conversão vem do funil" e — a única pista
+numérica — *"um conteúdo com menos views e muitos leads vale mais que um viral
+que não converte"*.
+
+**Definida como `leads / reach`**, zero enquanto o alcance for zero. É a razão
+que produz o efeito descrito: nenhum outro denominador faz um conteúdo de pouco
+alcance pontuar acima de um viral. Dois sinais do schema concordam —
+`numeric(6,4)` tem resolução de razão (0,0090 = 0,9%), não de percentual; e
+`performance_score numeric(10,4)` ao lado é onde o composto ponderado do
+explore/exploit mora, então `conversion_rate` ser também composto deixaria
+aquela coluna sem função.
+
+**Gerada, não calculada no código.** Como coluna comum ela podia divergir de
+`leads` e `reach` sem nada reclamar, e é ela que decide a próxima pauta —
+divergência ali não produz erro, produz decisão editorial errada. Gerada, o
+Postgres recusa escrita direta (`generated_always`), então é impossível.
+
+As outras razões do funil não precisam de coluna: `leads/clicks`,
+`clicks/dms_started` e `dms_started/comments` saem dos contadores na consulta.
+
+Em `20260903140000_prompt_conversion_rate_gerada.sql`. Reverter é trocar uma
+expressão — se a intenção era outra razão, o custo é uma migração.
+
+### Estado em produção (2026-09-03)
+
+As quatro migrações do Sistema PROMPT estão aplicadas. Conferido no banco, com
+escritas deliberadamente inválidas que são recusadas sem gravar nada:
+
+| Verificação | Resposta do banco |
+|---|---|
+| Escrever `conversion_rate` à mão | `428C9` — *Column "conversion_rate" is a generated column* |
+| Retrato sem `snapshot_date` | `23502` — violação de not-null |
+| Keyword fora do formato (`gta 26`) | `23514` — `prompt_campaigns_keyword_check` |
+| Leitura pela chave anônima | `401` / `42501` |
+| Os sete invariantes | `OK` na consulta de veredito |
+
+`prompt_campaigns` e `prompt_concept_results` seguem com zero linhas: nenhuma
+das tentativas persistiu.
+
+O registro do painel está pronto para uso, e o schema protegido contra as
+formas de corrupção silenciosa que o loop editorial mais sofreria — keyword que
+não casa, funil inflado por reprocessamento, lead contado duas vezes e taxa de
+conversão divergindo dos contadores que a geraram.
