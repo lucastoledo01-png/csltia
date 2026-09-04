@@ -200,6 +200,27 @@ export function AdminPromptSystemManager() {
     }
   }
 
+  /** Etapa 6: agenda o post — capa mais um slide por resultado gerado. */
+  async function handleAgendarPost(campaignId: string) {
+    setRowBusy(campaignId);
+    setRowError((prev) => ({ ...prev, [campaignId]: "" }));
+    try {
+      const res = await fetch(`/api/admin/prompt-system/campaigns/${campaignId}/schedule-post`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      setRowError((prev) => ({
+        ...prev,
+        [campaignId]: res.ok && json.ok ? json.resumo : json.error || "Erro ao agendar o post.",
+      }));
+      load();
+    } finally {
+      setRowBusy(null);
+    }
+  }
+
   if (loading) {
     return <div className="py-12 text-center text-sm text-slate-500">Carregando campanhas...</div>;
   }
@@ -347,6 +368,14 @@ export function AdminPromptSystemManager() {
                         Configurar Direct
                       </button>
                     ) : null}
+                    <button
+                      onClick={() => handleAgendarPost(c.id)}
+                      disabled={rowBusy === c.id}
+                      title="Agenda o post: capa mais um slide de tela cheia por resultado gerado"
+                      className="ml-2 rounded-lg bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                    >
+                      {rowBusy === c.id ? "Agendando..." : "Agendar post"}
+                    </button>
                     <button
                       onClick={() => handleGerarAssets(c.id)}
                       disabled={rowBusy === c.id}

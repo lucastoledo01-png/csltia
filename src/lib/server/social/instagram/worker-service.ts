@@ -17,6 +17,7 @@ import {
 import { resolveInstagramToken } from "./meta-token";
 import { markPostFailed } from "./scheduler";
 import { getArticleBySlug } from "../../articles-service";
+import { montarCarrosselDeCampanha } from "../../prompt-system/carrossel-de-campanha";
 import { formatError, sendAlert } from "../../alerts";
 import type { CarouselFormat, InstagramCarouselContent } from "./schemas";
 import type { AITokenUsage } from "../../newsroom/ai-provider";
@@ -42,8 +43,9 @@ export type InstagramRunResult = {
 };
 
 /**
- * Gera o roteiro do carrossel conforme o formato do post. Notícia parte da
- * edição diária; tutorial parte de um artigo já revisado (tabela `articles`).
+ * Gera o roteiro do post conforme o formato. Cada um parte de uma origem
+ * diferente: notícia da edição diária, tutorial de um artigo já revisado,
+ * prompt dos assets já gerados da campanha.
  */
 async function generateCarouselForPost(
   format: CarouselFormat,
@@ -53,6 +55,18 @@ async function generateCarouselForPost(
   env: Record<string, string | undefined>,
   fetcher: typeof fetch,
 ): Promise<{ carousel: InstagramCarouselContent; usage: AITokenUsage }> {
+  if (format === "prompt") {
+    const campaignId = String(meta.campaign_id ?? "").trim();
+    if (!campaignId) throw new Error("Post de prompt sem campaign_id no content_json.");
+
+    // Sem LLM: parte de dados que já existem (hook do conceito, aplicações e
+    // as imagens geradas). Ver `carrossel-de-campanha.ts`.
+    const { carousel } = await montarCarrosselDeCampanha(campaignId);
+    // Zerado porque não houve chamada de modelo — o custo deste formato está
+    // na geração das imagens (etapa 4), contabilizada lá.
+    return { carousel, usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 } };
+  }
+
   if (format === "tutorial") {
     const slug = String(meta.article_slug ?? "").trim();
     if (!slug) throw new Error("Post de tutorial sem article_slug no content_json.");

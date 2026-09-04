@@ -639,10 +639,29 @@ porque a ilustração não saiu seria perder a parte que importa.
 idempotente, o que importa porque ela pode ser cortada no meio: são N gerações
 em série e cada uma leva segundos.
 
-### O que ainda falta para o formato `prompt` rodar sozinho
+### Etapa 6 — os assets viraram o post
 
-Os assets alimentam os slides de tela cheia, mas nada liga um ao outro
-automaticamente: o `bg_image_url` dos slides `gallery` continua vindo do
-roteiro da IA, não de `prompt_assets`. E o conceito com aplicações e direção
-visual ainda é criado à mão — as etapas 1 a 3 (trend intelligence, trend
-jacking, guardrail de PI) são a fase 4.
+`carrossel-de-campanha.ts` monta o carrossel do formato `prompt` a partir dos
+assets: capa com o resultado mais forte, mais um slide de tela cheia por
+imagem gerada. `agendarPostDaCampanha` põe a vaga em `social_posts`, que ganhou
+`campaign_id` — antes não havia caminho de uma campanha para um post, e as
+imagens ficavam no banco sem nunca chegar a um slide.
+
+O worker ganhou o ramo do formato `prompt`, que faltava: ele só tratava
+`tutorial` e caía em notícia.
+
+**Montado sem chamar LLM, de propósito.** As outras duas formas precisam de um
+modelo porque partem de texto corrido — uma edição, um artigo. Esta parte de
+dados que já existem: hook do conceito, aplicações e imagens. Passar isso por
+um modelo só acrescentaria uma chance de o post falhar, e risco de alucinação
+num conteúdo cuja razão de existir é entregar prompts exatos.
+
+A montagem roda **antes** do agendamento: campanha sem imagem gerada é
+recusada na hora, com a mensagem mandando rodar a etapa 4 — melhor que agendar
+uma vaga que falharia no worker quinze minutos depois, sem ninguém olhando.
+
+### O que ainda falta
+
+O conceito com aplicações e direção visual é criado à mão. Automatizar isso é
+a fase 4 — etapas 1 a 3: trend intelligence, trend jacking e o guardrail de
+propriedade intelectual.
