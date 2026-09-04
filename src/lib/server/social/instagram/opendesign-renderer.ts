@@ -38,22 +38,43 @@ export async function fetchImageAsBase64(url: string): Promise<string> {
 // tolerável aqui porque roda em background no worker, não bloqueia usuário.
 const IMAGE_GENERATION_MODEL = "gpt-image-1";
 
-// Mascote fixo pra manter uma identidade visual consistente entre os posts,
-// em vez de sortear foto de banco de imagem a cada capa. Dois personagens:
-// a figura de moletom pra assunto geral, e a figurinha do Claude só pra
-// tutoriais que são especificamente sobre Claude Code — usar o mascote oficial
-// do Claude como identidade genérica da conta seria uso indevido de marca de
-// terceiro (Anthropic), por isso fica restrito a esse contexto.
-const HOODIE_MASCOT_DESCRIPTION =
-  "A mysterious person wearing a deep dark red hoodie (matte, muted brick-red tone), hood fully up, face completely hidden in pure black shadow with absolutely no facial features ever visible, photorealistic, cinematic single dramatic light source from above-front, moody low-key lighting, confident and enigmatic posture";
+/**
+ * Prompt da capa: fotografia editorial da cena, sem personagem.
+ *
+ * Havia um mascote — uma figura de moletom com o rosto na sombra — prefixado
+ * em **toda** capa, com a notícia entrando depois como "contexto". O resultado
+ * era o previsível: uma matéria sobre fila de green card virava um vulto
+ * encapuzado num quarto escuro. O personagem era o assunto da imagem e a
+ * notícia era o pano de fundo, exatamente ao contrário do que uma capa de
+ * notícia precisa.
+ *
+ * Aqui a cena é o assunto. O que ficou fixo é a *linguagem* — fotojornalismo,
+ * luz natural, sem texto — e não um personagem: é o que dá unidade à conta sem
+ * amarrar toda notícia à mesma figura.
+ *
+ * ## Duas regras que existem por causa do template
+ *
+ * - **Retrato, não quadrado.** A arte é 1080×1440 e a imagem entra com
+ *   `object-fit: cover`. Uma imagem 1024×1024 nesse quadro perde as laterais,
+ *   e é onde o assunto costuma estar.
+ * - **Espaço embaixo.** O terço inferior recebe a manchete. Sem pedir isso, o
+ *   modelo centraliza o assunto e o texto cai por cima do rosto. Pedir "espaço
+ *   vazio" também não serve: o modelo desenha uma faixa cinza lisa, que é uma
+ *   moldura, não uma foto. O pedido é por *simplicidade visual* na parte de
+ *   baixo — chão, superfície, primeiro plano desfocado —, ainda dentro da cena.
+ */
+const LINGUAGEM_DA_CAPA =
+  "Editorial photojournalism, realistic documentary photograph, natural available light, " +
+  "muted true-to-life colors, shallow depth of field, shot on a full-frame camera with a " +
+  "35mm or 50mm lens, candid and unstaged";
 
-const CLAUDE_MASCOT_DESCRIPTION =
-  "A small blocky voxel-shaped mascot figurine — simple cube-ish orange-red body, two simple rectangular black eyes, no mouth, minimalist geometric design like a real 3D-printed collectible toy, matte plastic texture with visible print layer lines, photorealistic product photography";
-
-function isClaudeRelated(...texts: Array<string | undefined>): boolean {
-  const combined = texts.filter(Boolean).join(" ").toLowerCase();
-  return /claude|anthropic/.test(combined);
-}
+const ENQUADRAMENTO_DA_CAPA =
+  "Vertical portrait framing. Compose with the main subject in the upper two thirds. " +
+  "The bottom third should be visually simple — floor, ground, a plain surface or an " +
+  "out-of-focus foreground — but still a real part of the photographed scene: do not " +
+  "leave it blank, do not add a solid band, border, gradient or empty margin. " +
+  "ABSOLUTELY NO TEXT, NO WORDS, NO LETTERING, NO NUMBERS, NO LOGOS, NO BRAND MARKS, " +
+  "NO WATERMARKS anywhere in the image.";
 
 export async function generateCoverImageWithAI(
   title: string,
@@ -63,12 +84,9 @@ export async function generateCoverImageWithAI(
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return "";
 
-  const scene = coverPrompt || `${title} (${primaryTopic || "Inteligência Artificial"})`;
-  const claudeRelated = isClaudeRelated(title, coverPrompt, primaryTopic);
+  const cena = (coverPrompt || "").trim() || `${title}${primaryTopic ? ` — ${primaryTopic}` : ""}`;
 
-  const finalPrompt = claudeRelated
-    ? `${CLAUDE_MASCOT_DESCRIPTION}. Scene/context: the figurine placed in a realistic desk or tech setup scene related to: ${scene}. Warm cozy authentic tech-creator desk photography style, shallow depth of field, high-impact Instagram cover aesthetic. ABSOLUTELY NO TEXT, NO WORDS, NO TYPOGRAPHY, NO LOGOS IN THE IMAGE.`
-    : `${HOODIE_MASCOT_DESCRIPTION}. Scene/context relates to: ${scene}. Solid black or deep charcoal background, subtle warm orange rim light, rich contrast, high-impact editorial Instagram cover aesthetic, 4k resolution. ABSOLUTELY NO TEXT, NO WORDS, NO TYPOGRAPHY IN THE IMAGE.`;
+  const finalPrompt = `${cena}. ${LINGUAGEM_DA_CAPA}. ${ENQUADRAMENTO_DA_CAPA}`;
 
   try {
     const res = await fetch("https://api.openai.com/v1/images/generations", {
@@ -81,50 +99,87 @@ export async function generateCoverImageWithAI(
         model: IMAGE_GENERATION_MODEL,
         prompt: finalPrompt,
         n: 1,
-        size: "1024x1024",
+        // Retrato, na proporção da arte. Quadrado era cortado nas laterais.
+        size: "1024x1536",
         quality: "high",
       }),
     });
 
-    if (!res.ok) return "";
+    if (!res.ok) {
+      console.warn(`[CAPA] Geração falhou (${res.status}).`);
+      return "";
+    }
     const data = await res.json();
     const b64 = data?.data?.[0]?.b64_json;
     return b64 ? `data:image/png;base64,${b64}` : "";
-  } catch {
+  } catch (err) {
+    console.warn("[CAPA] Exceção na geração:", err);
     return "";
   }
 }
 
 /**
- * Imagem de fundo contextual quando a geração por IA não roda (sem
- * OPENAI_API_KEY) ou falha. Só é usada em slides de capa.
+ * Imagem de reserva, quando a geração por IA não roda ou falha.
+ *
+ * A lista anterior mapeava WhatsApp, Instagram, ChatGPT, Google e Apple — o
+ * catálogo da vertical de IA. Numa notícia de imigração, nenhuma dessas
+ * condições casava e **toda** capa caía na mesma foto genérica: posts sem
+ * relação nenhuma entre si saíam com a mesma imagem, que foi o incidente do
+ * `dall-e-3` de novo por outro caminho.
+ *
+ * As categorias agora são as do assunto, e o padrão continua sendo o último
+ * recurso — não o caminho normal.
  */
+const RESERVAS: Array<{ termos: string[]; url: string }> = [
+  {
+    termos: ["visto", "consulad", "embaixad", "entrevista", "passaporte"],
+    url: "https://images.pexels.com/photos/1051075/pexels-photo-1051075.jpeg?auto=compress&cs=tinysrgb&w=1080",
+  },
+  {
+    termos: ["green card", "residencia", "residência", "cidadania", "naturaliza"],
+    url: "https://images.pexels.com/photos/6077326/pexels-photo-6077326.jpeg?auto=compress&cs=tinysrgb&w=1080",
+  },
+  {
+    termos: ["ice", "deporta", "detid", "custodia", "custódia", "fiscaliza"],
+    url: "https://images.pexels.com/photos/5669602/pexels-photo-5669602.jpeg?auto=compress&cs=tinysrgb&w=1080",
+  },
+  {
+    termos: ["fronteira", "border", "asilo", "refugiad", "migrant"],
+    url: "https://images.pexels.com/photos/5473955/pexels-photo-5473955.jpeg?auto=compress&cs=tinysrgb&w=1080",
+  },
+  {
+    termos: ["corte", "juiz", "tribunal", "decisao", "decisão", "lei", "decreto", "regra"],
+    url: "https://images.pexels.com/photos/5668858/pexels-photo-5668858.jpeg?auto=compress&cs=tinysrgb&w=1080",
+  },
+  {
+    termos: ["trump", "casa branca", "governo", "congresso", "politica", "política"],
+    url: "https://images.pexels.com/photos/1550337/pexels-photo-1550337.jpeg?auto=compress&cs=tinysrgb&w=1080",
+  },
+  {
+    termos: ["trabalho", "emprego", "h-1b", "h1b", "empresa", "profission"],
+    url: "https://images.pexels.com/photos/373912/pexels-photo-373912.jpeg?auto=compress&cs=tinysrgb&w=1080",
+  },
+];
+
+/** Bandeira e paisagem urbana: serve a qualquer pauta sem cair no absurdo. */
+const RESERVA_PADRAO =
+  "https://images.pexels.com/photos/1550337/pexels-photo-1550337.jpeg?auto=compress&cs=tinysrgb&w=1080";
+
 export function getContextualBrandImage(title: string, primaryTopic: string, providedUrl?: string): string {
-  if (providedUrl && providedUrl.startsWith("http") && !providedUrl.includes("photo-1618005182384")) {
+  if (providedUrl && providedUrl.startsWith("http")) {
     return providedUrl;
   }
 
-  const text = (title + " " + primaryTopic).toLowerCase();
+  const texto = `${title} ${primaryTopic}`
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 
-  if (text.includes("whatsapp") || text.includes("zap")) {
-    return "https://images.unsplash.com/photo-1614680376593-902f749f7b2c?auto=format&fit=crop&w=1080&q=80";
-  }
-  if (text.includes("instagram") || text.includes("reels") || text.includes("meta")) {
-    return "https://images.unsplash.com/photo-1611262588024-d12430b98920?auto=format&fit=crop&w=1080&q=80";
-  }
-  if (text.includes("chatgpt") || text.includes("openai") || text.includes("gpt")) {
-    return "https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=1080&q=80";
-  }
-  if (text.includes("google") || text.includes("gemini") || text.includes("busca")) {
-    return "https://images.unsplash.com/photo-1573804633927-bfcbcd909acd?auto=format&fit=crop&w=1080&q=80";
-  }
-  if (text.includes("apple") || text.includes("iphone") || text.includes("mac")) {
-    return "https://images.unsplash.com/photo-1616469829941-c7200edec809?auto=format&fit=crop&w=1080&q=80";
+  for (const reserva of RESERVAS) {
+    if (reserva.termos.some((t) => texto.includes(t))) return reserva.url;
   }
 
-  // Sem categoria reconhecida: usa uma imagem própria, diferente de todas as
-  // acima, pra não colidir e repetir capa em posts sem relação nenhuma entre si.
-  return "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1080&q=80";
+  return RESERVA_PADRAO;
 }
 
 /**
