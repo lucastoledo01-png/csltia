@@ -175,6 +175,31 @@ export function AdminPromptSystemManager() {
     }
   }
 
+  /**
+   * Etapas 4 e 5: gera as imagens do conceito e grava cada prompt junto da
+   * sua imagem. Pode levar minutos — são N gerações em série.
+   */
+  async function handleGerarAssets(campaignId: string) {
+    setRowBusy(campaignId);
+    setRowError((prev) => ({ ...prev, [campaignId]: "" }));
+    try {
+      const res = await fetch(`/api/admin/prompt-system/campaigns/${campaignId}/generate-assets`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      setRowError((prev) => ({
+        ...prev,
+        // O resumo aparece no mesmo lugar do erro de propósito: "gravou os
+        // prompts e as imagens falharam" também é 200, e quem opera precisa
+        // ver a diferença.
+        [campaignId]: res.ok && json.ok ? json.resumo : json.error || "Erro ao gerar os assets.",
+      }));
+      load();
+    } finally {
+      setRowBusy(null);
+    }
+  }
+
   if (loading) {
     return <div className="py-12 text-center text-sm text-slate-500">Carregando campanhas...</div>;
   }
@@ -322,6 +347,14 @@ export function AdminPromptSystemManager() {
                         Configurar Direct
                       </button>
                     ) : null}
+                    <button
+                      onClick={() => handleGerarAssets(c.id)}
+                      disabled={rowBusy === c.id}
+                      title="Gera as imagens do conceito e grava cada prompt junto da sua imagem"
+                      className="ml-2 rounded-lg bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+                    >
+                      {rowBusy === c.id ? "Gerando..." : "Gerar prompts + imagens"}
+                    </button>
                     {c.status === "ready" ? (
                       <button
                         onClick={() => handlePublish(c.id)}
