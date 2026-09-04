@@ -26,6 +26,9 @@ type Trend = {
 
 type IpCheck = { aprovado?: boolean; motivos?: string[]; correcoes?: string[] };
 
+/** Só o que interessa aqui: qual keyword já saiu de qual conceito. */
+type CampanhaLigada = { keyword: string; conceptId: string | null };
+
 type Concept = {
   id: string;
   concept: string;
@@ -42,6 +45,38 @@ const STATUS_TREND: Record<string, { rotulo: string; cor: string }> = {
   archived: { rotulo: "Arquivada", cor: "bg-slate-200 text-slate-500" },
 };
 
+/**
+ * Lê a resposta sem assumir que ela é JSON.
+ *
+ * `res.json()` cru foi o que fez o painel travar em silêncio: quando o
+ * container está sendo trocado, o proxy devolve uma página HTML de erro, o
+ * parse lança, e — como os handlers só tinham `finally` — o botão parava de
+ * girar sem mostrar nada. Sumiço é o pior resultado possível: quem clicou não
+ * sabe se criou, se falhou, ou se deve clicar de novo (e clicar de novo era
+ * garantia de erro, porque a keyword já existia).
+ */
+async function lerResposta(res: Response): Promise<{ ok: boolean; json: Record<string, unknown> }> {
+  const texto = await res.text();
+  try {
+    return { ok: res.ok, json: JSON.parse(texto) as Record<string, unknown> };
+  } catch {
+    return {
+      ok: false,
+      json: {
+        error:
+          `O servidor respondeu ${res.status} sem JSON — normalmente é deploy em ` +
+          `andamento. Espere alguns segundos e tente de novo.`,
+      },
+    };
+  }
+}
+
+/** Mensagem de erro de exceção, já legível para quem opera. */
+function motivoDaFalha(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return `A requisição não completou: ${msg}. Se o deploy acabou de rodar, tente de novo.`;
+}
+
 async function buscar<T>(url: string, chave: string): Promise<T[]> {
   try {
     const res = await fetch(url);
@@ -52,21 +87,43 @@ async function buscar<T>(url: string, chave: string): Promise<T[]> {
   }
 }
 
+/**
+ * Campanhas existentes, para saber quais conceitos já viraram uma.
+ *
+ * Sem isto o cartão oferece "Criar campanha" para um conceito que já tem
+ * campanha — e o segundo clique só pode falhar, porque a keyword sugerida é
+ * derivada do mesmo hook e a unicidade `(project_id, keyword)` recusa. Era
+ * convite para um erro garantido.
+ */
+async function buscarCampanhas(): Promise<CampanhaLigada[]> {
+  try {
+    const res = await fetch("/api/admin/prompt-system/campaigns");
+    if (!res.ok) return [];
+    const json = await res.json();
+    return Array.isArray(json) ? (json as CampanhaLigada[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function AdminPromptTrendsManager() {
   const [trends, setTrends] = useState<Trend[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
+  const [campanhas, setCampanhas] = useState<CampanhaLigada[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string>("");
   const [manuais, setManuais] = useState("");
 
   async function recarregar() {
-    const [t, c] = await Promise.all([
+    const [t, c, camp] = await Promise.all([
       buscar<Trend>("/api/admin/prompt-system/trends", "trends"),
       buscar<Concept>("/api/admin/prompt-system/concepts", "concepts"),
+      buscarCampanhas(),
     ]);
     setTrends(t);
     setConcepts(c);
+    setCampanhas(camp);
     setCarregando(false);
   }
 
@@ -97,10 +154,12 @@ export function AdminPromptTrendsManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ extras }),
       });
-      const json = await res.json();
-      setAviso(res.ok && json.ok ? json.resumo : json.error || "Erro ao coletar.");
+      const { ok, json } = await lerResposta(res);
+      setAviso(ok && json.ok ? String(json.resumo) : String(json.error ?? "Erro ao coletar."));
       setManuais("");
       await recarregar();
+    } catch (err) {
+      setAviso(motivoDaFalha(err));
     } finally {
       setOcupado(null);
     }
@@ -118,9 +177,11 @@ export function AdminPromptTrendsManager() {
     setAviso("");
     try {
       const res = await fetch("/api/admin/prompt-system/concepts/reavaliar", { method: "POST" });
-      const json = await res.json();
-      setAviso(res.ok && json.ok ? json.resumo : json.error || "Erro ao reavaliar.");
+      const { ok, json } = await lerResposta(res);
+      setAviso(ok && json.ok ? String(json.resumo) : String(json.error ?? "Erro ao reavaliar."));
       await recarregar();
+    } catch (err) {
+      setAviso(motivoDaFalha(err));
     } finally {
       setOcupado(null);
     }
@@ -135,9 +196,11 @@ export function AdminPromptTrendsManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ trendId }),
       });
-      const json = await res.json();
-      setAviso(res.ok && json.ok ? json.resumo : json.error || "Erro ao gerar conceito.");
+      const { ok, json } = await lerResposta(res);
+      setAviso(ok && json.ok ? String(json.resumo) : String(json.error ?? "Erro ao gerar conceito."));
       await recarregar();
+    } catch (err) {
+      setAviso(motivoDaFalha(err));
     } finally {
       setOcupado(null);
     }
@@ -172,14 +235,16 @@ export function AdminPromptTrendsManager() {
           conceptId: concept.id,
         }),
       });
-      const json = await res.json();
+      const { ok, json } = await lerResposta(res);
       setAviso(
-        res.ok
+        ok
           ? `Campanha ${keyword.toUpperCase()} criada e ligada ao conceito. ` +
               `Agora use "Gerar prompts + imagens" na tabela abaixo.`
-          : json.error || "Erro ao criar campanha.",
+          : String(json.error ?? "Erro ao criar campanha."),
       );
       await recarregar();
+    } catch (err) {
+      setAviso(motivoDaFalha(err));
     } finally {
       setOcupado(null);
     }
@@ -291,6 +356,7 @@ export function AdminPromptTrendsManager() {
             {concepts.map((c) => {
               const apps = Array.isArray(c.applications) ? (c.applications as string[]) : [];
               const bloqueado = c.status === "blocked";
+              const jaTemCampanha = campanhas.find((k) => k.conceptId === c.id);
 
               return (
                 <div
@@ -313,6 +379,13 @@ export function AdminPromptTrendsManager() {
                     {bloqueado ? (
                       <span className="rounded-full bg-rose-200 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-rose-800">
                         Barrado — PI
+                      </span>
+                    ) : jaTemCampanha ? (
+                      <span
+                        className="rounded-full bg-emerald-100 px-3 py-1 font-mono text-[10px] font-bold tracking-wide text-emerald-800"
+                        title="Este conceito já virou campanha. Gere os prompts e as imagens na aba de campanhas."
+                      >
+                        {jaTemCampanha.keyword}
                       </span>
                     ) : (
                       <button
