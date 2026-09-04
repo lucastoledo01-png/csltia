@@ -81,6 +81,17 @@ export function renderEditionToHtml(
   const fonte =
     "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
+  /*
+   * Anula a borda que o template padrao do Listmonk aplica em TODA tabela
+   * (`table { border: 1px solid #ddd }` no CSS dele). Como este layout usa
+   * tabela para diagramar, cada bloco saiu com uma caixa cinza em volta, e o
+   * indice "Nesta edicao" ficou dentro de um retangulo.
+   *
+   * Estilo inline vence a folha de estilo, entao a correcao vale mesmo se o
+   * template mudar.
+   */
+  const SEM_BORDA = "border:0;border-collapse:collapse";
+
   const rotulo = (texto: string, cor: string) =>
     `<div style="font-family:${fonte};font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:${cor};margin:0 0 10px 0;">${escapeHtml(texto)}</div>`;
 
@@ -104,19 +115,57 @@ export function renderEditionToHtml(
     .join("");
 
   // --- pautas ---------------------------------------------------------------
+  //
+  // A primeira pauta tem tratamento de capa. As demais são mais curtas.
+  //
+  // Antes, toda pauta trazia os mesmos dois blocos rotulados ("O que muda na
+  // prática" e "Por que olhar de perto"), na mesma ordem, com o mesmo tamanho.
+  // Cinco vezes seguidas isso deixa de ser estrutura e vira cadência de robô:
+  // o leitor aprende o formato na segunda pauta e passa a rolar as outras.
+  //
+  // Só a pauta principal ganha o box destacado. Nas demais o impacto prático
+  // entra como uma frase no fim do parágrafo, sem rótulo. Um texto com ritmo
+  // variado se lê; um formulário repetido não.
   const storiesHtml = edition.stories
     .map((s, index) => {
+      const principal = index === 0;
       const whatsappText = encodeURIComponent(
-        `${s.title}\n\n"${s.summary.slice(0, 150)}..."\n\nEdição completa: ${MARCA.site}/artigos/edicao-${todayStr}`,
+        `${s.title}\n\n${MARCA.site}/artigos/edicao-${todayStr}`,
       );
       const imagem = safeHttpUrl(coverImages[index] || "", "");
-      // `safeHttpUrl` e não `escapeHtml`: escapar impede a quebra do atributo,
-      // mas não impede o esquema. `javascript:` num href escapado continua
-      // sendo `javascript:` — e a edição inteira vem de fonte externa.
       const fonteUrl = safeHttpUrl(s.source_url);
 
+      const linhaDaFonte = `
+        <p style="font-family:${fonte};font-size:13px;line-height:1.5;color:#71717A;margin:0;">
+          Fonte:
+          <a href="${escapeHtml(fonteUrl)}" target="_blank" rel="noopener noreferrer" style="color:#71717A;text-decoration:underline;">${escapeHtml(s.source_name)}</a>
+          &nbsp;·&nbsp;
+          <a href="https://wa.me/?text=${whatsappText}" target="_blank" style="color:${MARCA.cor};text-decoration:none;font-weight:700;">Compartilhar</a>
+        </p>`;
+
+      if (!principal) {
+        return `
+      <tr><td style="padding:0 0 34px 0;border:0;">
+        ${rotulo(s.category, MARCA.cor)}
+        <h2 style="font-family:${fonte};font-size:21px;line-height:1.3;font-weight:800;letter-spacing:-0.015em;color:${TINTA};margin:0 0 12px 0;">
+          ${escapeHtml(s.title)}
+        </h2>
+        ${
+          imagem
+            ? `<img src="${escapeHtml(imagem)}" alt="" width="600" style="width:100%;max-width:600px;height:auto;display:block;border-radius:10px;margin:0 0 14px 0;" />`
+            : ""
+        }
+        <p style="font-family:${fonte};font-size:15px;line-height:1.7;color:${TINTA_SUAVE};margin:0 0 12px 0;">
+          ${escapeHtml(s.summary)}${
+            s.practical_impact ? ` <strong style="color:${TINTA};">${escapeHtml(s.practical_impact)}</strong>` : ""
+          }
+        </p>
+        ${linhaDaFonte}
+      </td></tr>`;
+      }
+
       return `
-      <tr><td style="padding:0 0 44px 0;">
+      <tr><td style="padding:0 0 40px 0;border:0;">
         ${rotulo(s.category, MARCA.cor)}
 
         <h2 style="font-family:${fonte};font-size:27px;line-height:1.22;font-weight:800;letter-spacing:-0.02em;color:${TINTA};margin:0 0 16px 0;">
@@ -133,44 +182,38 @@ export function renderEditionToHtml(
           ${escapeHtml(s.summary)}
         </p>
 
+        ${/*
+          Contexto e relevância no mesmo parágrafo, sem rótulo. O conteúdo do
+          "Por que olhar de perto" continua na edição; o que sai é o rótulo
+          repetido em toda pauta, que era o que dava cara de formulário.
+        */ ""}
         ${
-          s.context
-            ? `<p style="font-family:${fonte};font-size:16px;line-height:1.72;color:${TINTA_SUAVE};margin:0 0 18px 0;">${escapeHtml(s.context)}</p>`
+          s.context || s.why_it_matters
+            ? `<p style="font-family:${fonte};font-size:16px;line-height:1.72;color:${TINTA_SUAVE};margin:0 0 18px 0;">${[
+                escapeHtml(s.context ?? ""),
+                escapeHtml(s.why_it_matters ?? ""),
+              ]
+                .filter(Boolean)
+                .join(" ")}</p>`
             : ""
         }
 
-        <!-- Impacto prático: fundo frio, rótulo em azul da bandeira. -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px 0;">
+        ${
+          s.practical_impact
+            ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA};margin:0 0 18px 0;">
           <tr>
-            <td style="background:${MARCA.fundoRealce};border-left:3px solid ${MARCA.tintaEscura};border-radius:0 8px 8px 0;padding:16px 18px;">
+            <td style="background:${MARCA.fundoRealce};border:0;border-left:3px solid ${MARCA.tintaEscura};border-radius:0 8px 8px 0;padding:16px 18px;">
               ${rotulo("O que muda na prática", MARCA.tintaEscura)}
               <p style="font-family:${fonte};font-size:15px;line-height:1.65;color:${TINTA};margin:0;">
                 ${escapeHtml(s.practical_impact)}
               </p>
             </td>
           </tr>
-        </table>
-
-        ${
-          s.why_it_matters
-            ? `<p style="font-family:${fonte};font-size:15px;line-height:1.68;color:${TINTA_SUAVE};margin:0 0 16px 0;">
-                 <strong style="color:${TINTA};">Por que olhar de perto:</strong> ${escapeHtml(s.why_it_matters)}
-               </p>`
+        </table>`
             : ""
         }
 
-        ${
-          s.humor_line
-            ? `<p style="font-family:${fonte};font-size:15px;line-height:1.6;font-style:italic;color:${TINTA_SUAVE};border-left:2px solid ${LINHA};padding-left:14px;margin:0 0 16px 0;">${escapeHtml(s.humor_line)}</p>`
-            : ""
-        }
-
-        <p style="font-family:${fonte};font-size:13px;line-height:1.5;color:#71717A;margin:0;">
-          Fonte:
-          <a href="${escapeHtml(fonteUrl)}" target="_blank" rel="noopener noreferrer" style="color:#71717A;text-decoration:underline;">${escapeHtml(s.source_name)}</a>
-          &nbsp;·&nbsp;
-          <a href="https://wa.me/?text=${whatsappText}" target="_blank" style="color:${MARCA.cor};text-decoration:none;font-weight:700;">Compartilhar</a>
-        </p>
+        ${linhaDaFonte}
       </td></tr>`;
     })
     .join("");
@@ -180,7 +223,7 @@ export function renderEditionToHtml(
     edition.quick_bits && edition.quick_bits.length > 0
       ? `
       <tr><td style="padding:0 0 40px 0;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA}">
           <tr><td style="background:#FAFAFA;border:1px solid ${LINHA};border-radius:12px;padding:22px 24px;">
             ${rotulo("Giro rápido", TINTA_SUAVE)}
             ${edition.quick_bits
@@ -198,9 +241,9 @@ export function renderEditionToHtml(
   // --- montagem -------------------------------------------------------------
   return `
   <div style="background:#F4F4F5;padding:0;margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F4F5;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA};background:#F4F4F5;">
       <tr><td align="center" style="padding:24px 12px;">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#FFFFFF;border-radius:14px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA};width:100%;max-width:600px;background:#FFFFFF;border-radius:14px;">
           <tr><td style="padding:36px 32px 40px 32px;">
 
             ${/* No portal a página já mostra título, data e resumo. */ ""}
@@ -240,15 +283,15 @@ export function renderEditionToHtml(
             ${
               paraWeb
                 ? ""
-                : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 40px 0;">
+                : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA};margin:0 0 40px 0;">
               <tr><td style="border-top:1px solid ${LINHA};border-bottom:1px solid ${LINHA};padding:22px 0;">
                 ${rotulo("Nesta edição", TINTA_SUAVE)}
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${tocHtml}</table>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA}">${tocHtml}</table>
               </td></tr>
             </table>`
             }
 
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA}">
               ${storiesHtml}
               ${quickBitsHtml}
             </table>
@@ -257,7 +300,7 @@ export function renderEditionToHtml(
               Convite ao Instagram. Depois do conteúdo: quem chegou aqui leu a
               edição, e é a essa pessoa que vale pedir o seguir.
             */ ""}
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 32px 0;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA};margin:0 0 32px 0;">
               <tr><td align="center" style="background:${MARCA.tintaEscura};border-radius:14px;padding:30px 26px;">
                 <div style="font-family:${fonte};font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#9DB4D8;margin:0 0 10px 0;">
                   Todo dia no Instagram
@@ -291,7 +334,7 @@ export function renderEditionToHtml(
             ${
               paraWeb
                 ? ""
-                : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA}">
               <tr><td style="border-top:1px solid ${LINHA};padding:28px 0 0 0;">
                 ${rotulo("Quem somos", "#A1A1AA")}
                 <p style="font-family:${fonte};font-size:14px;line-height:1.65;color:${TINTA_SUAVE};margin:0 0 14px 0;">

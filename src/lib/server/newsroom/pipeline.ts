@@ -57,10 +57,18 @@ ${marca.nicho}
 BRIEFING EDITORIAL DESTA PUBLICAÇÃO (vale sobre qualquer regra genérica abaixo):
 ${marca.extra}
 
-DIRETRIZ CRÍTICA — E-MAIL 100% AUTOSSUFICIENTE (SEM NECESSIDADE DE CLICAR FORA):
-- O objetivo da newsletter é entregar 100% do valor e da informação DIRETAMENTE NO E-MAIL.
-- NÃO crie "teasers", chamadas para ação ou suspense convidando o leitor a sair do e-mail para ler o resto no site.
-- O resumo de cada pauta deve ser COMPLETO, claro, detalhado e explicativo em 2 a 4 parágrafos bem desenvolvidos. O leitor deve terminar a leitura 100% informado sem precisar clicar em nenhum link.
+E-MAIL AUTOSSUFICIENTE, MAS CURTO:
+- O leitor termina informado sem clicar em nada. Isso e' sobre completude, nao sobre tamanho.
+- NAO crie "teasers" nem suspense convidando a sair do e-mail.
+- TAMANHO POR PAUTA, e a regra e' rigida:
+  * "summary" da pauta 1: no maximo 90 palavras.
+  * "summary" das demais: no maximo 55 palavras. Um paragrafo so.
+  * "context": no maximo 40 palavras, e SO na pauta 1. Nas outras, deixe vazio.
+  * "practical_impact": UMA frase, no maximo 25 palavras. Objetiva: o que muda, para quem, a partir de quando.
+  * "why_it_matters": no maximo 25 palavras.
+  * "humor_line": opcional. Use em no maximo uma pauta da edicao, e so quando o assunto comportar.
+- Corte adjetivo, repeticao e frase que so prepara a proxima. Se uma frase pode sair sem perder informacao, ela sai.
+- A edicao inteira deve ser lida em menos de tres minutos.
 
 DIRETRIZES DE TOM & ESTILO (Estilo "The News"):
 1. Tom: conversacional e inteligente, como alguém que entende do assunto explicando para um amigo — dentro do tom que o briefing acima define.
@@ -173,8 +181,8 @@ Pacote factual fornecido:
 ${JSON.stringify(factualPackage, null, 2)}
 
 Requisitos obrigatórios:
-- Gere de 4 a 6 pautas principais com resumos completos e ricos.
-- Traga 2 a 4 itens rápidos em "quick_bits".
+- Gere de 4 a 6 pautas, respeitando os limites de palavras da diretriz de tamanho.
+- Traga 2 a 3 itens rápidos em "quick_bits", de uma linha cada.
 - Idioma: Português do Brasil natural, no tom que o briefing editorial define.
 - NÃO use chamadas tipo 'clique aqui para continuar lendo'. Entregue o valor completo no e-mail.
 - Retorne EXCLUSIVAMENTE a estrutura JSON especificada.
