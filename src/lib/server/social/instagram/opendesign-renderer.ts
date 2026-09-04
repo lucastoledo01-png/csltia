@@ -7,6 +7,11 @@ import {
   resolveTokens,
 } from "@/lib/carousel-templates/resolve";
 import { InstagramCarouselContent } from "./schemas";
+import {
+  bancoConfigurado,
+  buscarFotoDeBanco,
+  consultaDaCapa,
+} from "../../prompt-system/stock";
 
 export type OpenDesignSlideAsset = {
   index: number;
@@ -230,7 +235,29 @@ export async function renderOpenDesignSlides(carousel: InstagramCarouselContent)
       if (slide.type === "cover") {
         let imageUrl = slide.bg_image_url;
 
+        /*
+         * Ordem: foto real > banco de imagem > geração.
+         *
+         * A geração passou a ser o último recurso, não o primeiro. Imagem de
+         * IA em capa de notícia tem um tell — pele lisa demais, mão errada,
+         * texto borrado ao fundo, luz que não existe — e num post que se
+         * apresenta como jornalismo esse tell custa credibilidade, que é o
+         * único ativo que a conta tem.
+         *
+         * A busca sai do `cover_image_prompt`, que a IA já escreve em inglês
+         * descrevendo a cena: é o formato que banco de imagem indexa.
+         */
+        if (!imageUrl && bancoConfigurado()) {
+          const consulta = consultaDaCapa(slide.cover_image_prompt, slide.title);
+          const foto = await buscarFotoDeBanco(consulta);
+          if (foto) {
+            imageUrl = foto.imagemUrl;
+            console.log(`[CAPA] Foto de banco (${foto.credito.provedor}) para "${consulta}".`);
+          }
+        }
+
         if (!imageUrl) {
+          console.log("[CAPA] Sem foto de banco; gerando por IA.");
           const aiUrl = await generateCoverImageWithAI(
             slide.title,
             slide.cover_image_prompt,

@@ -193,6 +193,37 @@ async function buscarNoUnsplash(
 }
 
 /**
+ * Consulta a partir do prompt de capa que a IA escreveu.
+ *
+ * Esse prompt já vem em inglês e descrevendo a cena — que é exatamente o que
+ * banco de imagem indexa. O que atrapalha é a direção fotográfica
+ * ("editorial", "natural light", "shallow depth of field"): são adjetivos que
+ * cabem em qualquer foto do acervo e diluem a busca até devolver qualquer
+ * coisa.
+ */
+export function consultaDaCapa(promptDaCapa: string, titulo = ""): string {
+  const RUIDO = new Set([
+    "editorial", "photojournalism", "photograph", "photography", "photo", "realistic",
+    "documentary", "natural", "available", "light", "lighting", "muted", "colors", "color",
+    "shallow", "depth", "field", "shot", "full", "frame", "camera", "lens", "candid",
+    "unstaged", "vertical", "portrait", "framing", "image", "scene", "context", "background",
+    "high", "quality", "cinematic", "render", "daytime", "daylight", "overcast",
+    "the", "and", "with", "for", "from", "not", "text", "words", "logos", "watermarks",
+    "typography", "lettering", "numbers", "brand", "marks", "absolutely", "anywhere",
+  ]);
+
+  const base = `${promptDaCapa || ""} ${titulo}`
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((p) => p.length > 2 && !RUIDO.has(p));
+
+  return [...new Set(base)].slice(0, 4).join(" ");
+}
+
+/**
  * Busca a foto de base. `null` quando não há chave, resultado ou a API falha.
  *
  * Pexels primeiro: é o provedor que não exige crédito nenhum, então a ordem
