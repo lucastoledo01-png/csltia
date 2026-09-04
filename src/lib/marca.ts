@@ -43,6 +43,16 @@ export const MARCA = {
   keyword: "VISTO",
 
   site: "https://casaloti.ia.br",
+
+  /**
+   * Logotipo, nas duas versões.
+   *
+   * Caminho absoluto porque o mesmo arquivo serve o site e o e-mail, e num
+   * e-mail o caminho relativo não resolve: o cliente de e-mail não sabe de
+   * qual origem a mensagem veio.
+   */
+  logoClaro: "https://casaloti.ia.br/marca/imigra-us-claro.png",
+  logoEscuro: "https://casaloti.ia.br/marca/imigra-us-escuro.png",
   instagram: "https://instagram.com/imigra.us",
   instagramHandle: "@imigra.us",
 

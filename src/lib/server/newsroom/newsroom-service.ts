@@ -254,10 +254,13 @@ export function renderEditionToHtml(
               <div style="font-family:${fonte};font-size:11px;font-weight:700;letter-spacing:0.12em;color:#A1A1AA;margin:0 0 14px 0;">
                 ${escapeHtml(dataLonga)}
               </div>
-              <div style="font-family:${fonte};font-size:22px;font-weight:800;letter-spacing:-0.02em;color:${TINTA};margin:0 0 22px 0;">
-                ${MARCA.nomeBase}<span style="color:${MARCA.cor};">${MARCA.nomeSufixo}</span>
-              </div>
-              <div style="height:2px;background:${MARCA.cor};width:40px;margin:0 auto 22px auto;"></div>
+              ${/*
+                O logo com o `alt` da marca. Cliente de e-mail que bloqueia
+                imagem por padrão mostra o texto alternativo, então o
+                cabeçalho continua legível mesmo sem carregar nada.
+              */ ""}
+              <img src="${MARCA.logoClaro}" alt="${MARCA.nome}" width="200"
+                style="width:200px;max-width:60%;height:auto;display:block;margin:0 auto 20px auto;border:0;" />
               <h1 style="font-family:${fonte};font-size:30px;line-height:1.2;font-weight:800;letter-spacing:-0.03em;color:${TINTA};margin:0 0 12px 0;">
                 ${escapeHtml(edition.headline)}
               </h1>
