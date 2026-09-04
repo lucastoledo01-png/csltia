@@ -12,17 +12,17 @@ const navItems = [{ href: "/artigos", label: "Artigos" }];
 
 export function BrandMark({ dark = false }: { dark?: boolean }) {
   return (
-    <Link aria-label={MARCA.nome} className="flex items-center gap-2.5 group" href="/">
-      <span
-        className="flex h-8 w-8 items-center justify-center rounded-xl font-mono text-sm font-black text-white shadow-sm transition-transform group-hover:scale-105"
-        style={{ background: MARCA.cor }}
-      >
-        us
-      </span>
-      <span className={`font-sans text-xl font-bold tracking-tight ${dark ? "text-white" : "text-[#111827]"}`}>
-        {MARCA.nomeBase}
-        <span style={{ color: MARCA.cor }}>{MARCA.nomeSufixo}</span>
-      </span>
+    <Link aria-label={MARCA.nome} className="group flex items-center" href="/">
+      {/*
+        Duas versões do arquivo, escolhidas pelo fundo. A clara tem o "imigra"
+        em azul-marinho, que some sobre fundo escuro.
+      */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={dark ? "/marca/imigra-us-escuro.png" : "/marca/imigra-us-claro.png"}
+        alt={MARCA.nome}
+        className="h-8 w-auto transition-transform group-hover:scale-[1.03]"
+      />
     </Link>
   );
 }
