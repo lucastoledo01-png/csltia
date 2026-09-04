@@ -12,7 +12,15 @@ import { getOpenReplyServiceConfig } from "../env";
 
 export type CreateAutomationParams = {
   keyword: string;
-  postId: string;
+  /**
+   * Post ao qual a automação responde.
+   *
+   * Omitido, o OpenReply cria a automação com `matchAnyPost`: a palavra passa
+   * a valer em qualquer publicação do perfil, para sempre. É o que o funil
+   * permanente usa, e evita ter que criar uma automação por post (que a
+   * checagem de colisão de keyword recusaria a partir da segunda).
+   */
+  postId?: string;
   dmMessage: string;
   openingDmMessage: string;
   trackedLink: { slug: string; destinationUrl: string };

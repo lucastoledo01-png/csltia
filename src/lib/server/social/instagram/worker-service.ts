@@ -19,6 +19,7 @@ import { markPostFailed } from "./scheduler";
 import { getArticleBySlug } from "../../articles-service";
 import { montarCarrosselDeCampanha } from "../../prompt-system/carrossel-de-campanha";
 import { concluirCampanhaPublicada } from "../../prompt-system/pos-publicacao";
+import { garantirFunilPermanente } from "../../prompt-system/funil-permanente";
 import { formatError, sendAlert } from "../../alerts";
 import type { CarouselFormat, InstagramCarouselContent } from "./schemas";
 import type { AITokenUsage } from "../../newsroom/ai-provider";
@@ -322,6 +323,21 @@ export async function processScheduledPost(
       console.log(
         `[INSTAGRAM WORKER] Campanha ${campaignId}: automação ${r.automacaoCriada ? "criada" : "não criada"}` +
           (r.erro ? ` (${r.erro})` : ""),
+      );
+    } else {
+      /*
+       * Post que não vem de campanha, que é o caso de toda notícia.
+       *
+       * O funil permanente do projeto entra aqui: a mesma keyword em toda
+       * publicação, levando ao mesmo destino. Sem isto o CTA do post pede um
+       * comentário que não dispara nada.
+       */
+      const f = await garantirFunilPermanente(projectId);
+      console.log(
+        f.ligado
+          ? `[INSTAGRAM WORKER] Funil "${f.keyword}" ativo (automação ${f.automationId}` +
+              `${f.criadaAgora ? ", criada agora" : ""}).`
+          : `[INSTAGRAM WORKER] Funil permanente indisponível: ${f.motivo}`,
       );
     }
 
