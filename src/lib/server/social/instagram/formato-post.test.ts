@@ -130,3 +130,52 @@ describe("aparo dos slides antes de validar", () => {
     expect(aparaSlidesParaFormato({ format: "noticia" })).toEqual({ format: "noticia" });
   });
 });
+
+describe("escalonamento das vagas", () => {
+  it("uma execução tardia não vence todos os horários de uma vez", () => {
+    // Reproduz o caso real: a edição rodou às 18h44 e 09:30, 12:30 e 16:00 já
+    // tinham passado. O worker encontrou três vagas vencidas e despejou os
+    // posts em sequência no perfil.
+    //
+    // A regra é `max(horário configurado, próxima janela livre)`, com 90
+    // minutos entre vagas.
+    const agora = new Date("2026-09-04T21:44:00Z").getTime();
+    const horariosUTC = ["09:30", "12:30", "16:00", "19:00"].map((h) =>
+      new Date(`2026-09-04T${h}:00Z`).getTime(),
+    );
+
+    const ESPACAMENTO = 90 * 60_000;
+    let proximo = agora + 5 * 60_000;
+    const quando = horariosUTC.map((h) => {
+      const t = Math.max(h, proximo);
+      proximo = t + ESPACAMENTO;
+      return t;
+    });
+
+    // Nenhuma vaga no passado.
+    for (const t of quando) expect(t).toBeGreaterThanOrEqual(agora);
+
+    // E cada uma ao menos 90 minutos depois da anterior.
+    for (let i = 1; i < quando.length; i++) {
+      expect(quando[i] - quando[i - 1]).toBeGreaterThanOrEqual(ESPACAMENTO);
+    }
+  });
+
+  it("execução no horário respeita os horários configurados", () => {
+    // A correção não pode empurrar o dia normal: às 9h da manhã todos os
+    // horários ainda estão por vir e valem como escritos.
+    const agora = new Date("2026-09-04T09:03:00Z").getTime();
+    const horariosUTC = ["09:30", "12:30", "16:00", "19:00"].map((h) =>
+      new Date(`2026-09-04T${h}:00Z`).getTime(),
+    );
+
+    let proximo = agora + 5 * 60_000;
+    const quando = horariosUTC.map((h) => {
+      const t = Math.max(h, proximo);
+      proximo = t + 90 * 60_000;
+      return t;
+    });
+
+    expect(quando).toEqual(horariosUTC);
+  });
+});

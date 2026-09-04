@@ -67,7 +67,17 @@ NÃO EXISTEM SLIDES SEGUINTES:
 
 REGRAS DA LEGENDA:
 - Otimização para busca no Instagram: termos-chave do nicho nos primeiros parágrafos.
-- CTA: peça para o leitor comentar a palavra "${marca.keyword}" para receber o material no Direct.
+- CTA (é o objetivo do post, não um adendo): convide o leitor a fazer uma
+  AVALIAÇÃO DE PERFIL comentando a palavra "${marca.keyword}". A promessa é
+  descobrir QUAIS CAMINHOS de imigração combinam com o perfil dele — formação,
+  profissão, experiência, família — e o que costuma pesar em cada um.
+- Como escrever esse convite:
+  * Fale de caminhos possíveis, nunca de aprovação. "Descubra quais vistos
+    combinam com o seu perfil" é honesto; "descubra se você pode morar
+    legalmente nos EUA" promete uma resposta que só um advogado dá depois de
+    ver o caso, e prometê-la num post é o tipo de coisa que gera reclamação.
+  * Nunca diga que a pessoa se qualifica, nem estime chance, prazo ou custo.
+  * Nada de urgência inventada ("últimas vagas", "regra muda amanhã").
 - Encerre com a assinatura da marca: "${marca.assinatura}"
 - De 5 a 10 hashtags do nicho, misturando volume alto e termo específico.
 - LIMITES RÍGIDOS de caractere (o que passar é cortado): headline 100,
@@ -96,7 +106,7 @@ ESTRUTURA DO JSON DE SAÍDA:
     "headline": "Primeira linha da legenda, que continua a manchete",
     "intro_summary": "Duas ou três frases dizendo o que mudou e para quem",
     "key_takeaways": ["Ponto 1", "Ponto 2", "Ponto 3"],
-    "cta_call": "👇 Comente ${marca.keyword} para receber no Direct",
+    "cta_call": "👇 Comente ${marca.keyword} e receba a avaliação de perfil no Direct",
     "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5"],
     "full_caption": "Legenda completa, longa, com o desenvolvimento inteiro da notícia"
   }

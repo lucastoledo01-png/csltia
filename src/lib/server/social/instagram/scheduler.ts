@@ -57,9 +57,35 @@ export async function scheduleEditionPosts(options: {
   const supabase = getSupabaseAdminClient();
   const agendados: ScheduledPostSlot[] = [];
 
+  /**
+   * Espaçamento mínimo entre posts, em minutos.
+   *
+   * Os horários configurados já são espaçados, mas eles valem para uma edição
+   * que roda de manhã. Numa execução tardia — refazer o dia às 18h, por
+   * exemplo — todos os horários anteriores já passaram, o worker encontra três
+   * vagas vencidas de uma vez e despeja os posts em sequência no perfil.
+   *
+   * Foi o que aconteceu ao trocar a vertical: a edição rodou às 18h44 e
+   * 09:30, 12:30 e 16:00 venceram juntos.
+   */
+  const ESPACAMENTO_MINUTOS = 90;
+
+  const agora = Date.now();
+  // Cinco minutos de folga: a vaga é criada aqui e o roteiro ainda precisa ser
+  // gerado. Vencer no mesmo instante faria o worker pegá-la antes disso.
+  let proximoPermitido = agora + 5 * 60_000;
+
   for (let i = 0; i < total; i++) {
     const story = stories[i];
-    const scheduledAt = zonedTimeToUtc(editionDate, horarios[i], project.timezone).toISOString();
+
+    const doHorario = zonedTimeToUtc(editionDate, horarios[i], project.timezone).getTime();
+    // O horário configurado quando ele ainda está por vir; senão, a próxima
+    // janela livre. Assim uma execução tardia continua escalonando em vez de
+    // publicar tudo de uma vez.
+    const quando = Math.max(doHorario, proximoPermitido);
+    proximoPermitido = quando + ESPACAMENTO_MINUTOS * 60_000;
+
+    const scheduledAt = new Date(quando).toISOString();
 
     // A chave de idempotência inclui a posição da pauta, senão o segundo post
     // do dia colidiria com o primeiro.
