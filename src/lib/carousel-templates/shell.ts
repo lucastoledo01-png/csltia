@@ -2,6 +2,7 @@ import { BASE_CSS } from "./base-css";
 import { tokensToCss, type CarouselTokens } from "./tokens";
 import { cantosEditorial, chromeFooter, chromeHeader } from "./chrome";
 import { fontLinkTag } from "./fonts";
+import { CSS_DO_LAYOUT } from "./layout-render";
 import type { VariantOutput } from "./types";
 
 
@@ -21,7 +22,7 @@ export function renderShell(
   // impedir.
   const f = opts.tokens.fonts;
   const fontLink = fontLinkTag([f.display, f.body, f.accent, f.mono]);
-  const style = `<style>${BASE_CSS}${tokensToCss(opts.tokens)}</style>`;
+  const style = `<style>${BASE_CSS}${CSS_DO_LAYOUT}${tokensToCss(opts.tokens)}</style>`;
   const rootClass = out.onDark ? ' class="on-dark"' : "";
 
   const chrome = opts.tokens.chrome;

@@ -1,7 +1,8 @@
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import { DEFAULT_TOKENS, mergeTokens, type CarouselTokens } from "./tokens";
 import { resolveFormatConfig } from "./assemble";
-import type { CarouselFormat, FormatConfig } from "./types";
+import type { CarouselFormat, FormatConfig, InstagramSlideType } from "./types";
+import { LayoutSchema, type Layout } from "./layout";
 
 /**
  * Leitura do design salvo pelo painel. Só o renderer (worker) e a rota de
@@ -61,5 +62,41 @@ export async function resolveFormatConfigFromDb(format: CarouselFormat): Promise
     });
   } catch {
     return resolveFormatConfig(format);
+  }
+}
+
+/**
+ * Layout desenhado à mão para um par (formato, tipo de slide).
+ *
+ * `null` quando não há nenhum, e o slide cai na variante de código — que
+ * continua sendo o caminho de todo formato que ninguém desenhou. Um layout
+ * salvo com desenho inválido também vira `null`: publicar com a variante
+ * conhecida é melhor que publicar um slide quebrado.
+ */
+export async function resolveLayout(
+  format: CarouselFormat,
+  slideType: InstagramSlideType,
+): Promise<Layout | null> {
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { data } = await supabase
+      .from("carousel_layouts")
+      .select("canvas, blocks, enabled")
+      .eq("format", format)
+      .eq("slide_type", slideType)
+      .eq("enabled", true)
+      .maybeSingle();
+
+    if (!data) return null;
+
+    const parsed = LayoutSchema.safeParse({ canvas: data.canvas, blocks: data.blocks });
+    if (!parsed.success) {
+      console.warn(`[LAYOUT] Desenho inválido em ${format}/${slideType}; usando a variante.`);
+      return null;
+    }
+
+    return parsed.data.blocks.length > 0 ? parsed.data : null;
+  } catch {
+    return null;
   }
 }

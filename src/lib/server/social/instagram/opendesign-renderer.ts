@@ -1,7 +1,11 @@
 import { chromium } from "playwright-core";
 import { getSupabaseAdminClient } from "../../supabase-admin";
 import { assembleSlide } from "@/lib/carousel-templates/assemble";
-import { resolveFormatConfigFromDb, resolveTokens } from "@/lib/carousel-templates/resolve";
+import {
+  resolveFormatConfigFromDb,
+  resolveLayout,
+  resolveTokens,
+} from "@/lib/carousel-templates/resolve";
 import { InstagramCarouselContent } from "./schemas";
 
 export type OpenDesignSlideAsset = {
@@ -139,6 +143,15 @@ export async function renderOpenDesignSlides(carousel: InstagramCarouselContent)
     resolveFormatConfigFromDb(format),
   ]);
 
+  // Um layout por tipo de slide, buscado uma vez. Buscar dentro do laço faria
+  // N consultas para ler as mesmas duas ou três linhas — e um carrossel de 12
+  // slides costuma ter só três tipos distintos.
+  const tiposUsados = [...new Set(carousel.slides.map((s) => s.type))];
+  const layouts = new Map<string, Awaited<ReturnType<typeof resolveLayout>>>();
+  for (const tipo of tiposUsados) {
+    layouts.set(tipo, await resolveLayout(format, tipo));
+  }
+
   // Por padrão o Chromium vem do registro do Playwright, populado por
   // `npx playwright install chromium`. Em servidor onde o navegador está em
   // outro lugar — imagem de contêiner, pacote do sistema — o caminho pode ser
@@ -189,6 +202,7 @@ export async function renderOpenDesignSlides(carousel: InstagramCarouselContent)
         formatConfig,
         slideIndex: slide.index,
         total: totalSlides,
+        layout: layouts.get(slide.type) ?? null,
       });
 
       await page.setContent(htmlContent, { waitUntil: "networkidle" });
