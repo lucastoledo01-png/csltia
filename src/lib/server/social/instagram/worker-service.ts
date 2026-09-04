@@ -94,7 +94,16 @@ async function generateCarouselForPost(
       `A edição de ${editionDate} tem ${edition.stories.length} pautas; a posição ${storyIndex} não existe.`,
     );
   }
-  return generateInstagramCarouselPipeline(edition, editionDate, env, fetcher, story);
+  // A marca vem do projeto pelo mesmo motivo da redação: o sistema é
+  // multi-projeto e o nome, o público e a keyword do CTA estavam escritos
+  // dentro da constante do prompt.
+  return generateInstagramCarouselPipeline(edition, editionDate, env, fetcher, story, {
+    nome: project.brand.displayName || project.name,
+    nicho: project.niche,
+    extra: project.editorialPromptExtra,
+    keyword: String(project.settings?.instagram_keyword ?? "").trim() || "NEWS",
+    assinatura: String(project.settings?.final_line ?? "").trim() || "",
+  });
 }
 
 /**

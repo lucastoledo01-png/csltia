@@ -324,7 +324,18 @@ export async function runNewsroom(
   }
 
   console.log("[NEWSROOM] Executando pipeline editorial da OpenAI...");
-  const pipelineResult = await runNewsroomPipeline(ranked, env, fetcher);
+
+  // A voz da edição vem do projeto, não de uma constante no código. Sem isto,
+  // trocar a vertical no banco mudava as fontes e não mudava o texto — o
+  // sistema coletava imigração e escrevia como se fosse notícia de IA.
+  const pipelineResult = await runNewsroomPipeline(ranked, env, fetcher, {
+    nome: project.brand.displayName || project.name,
+    nicho: project.niche,
+    extra: project.editorialPromptExtra,
+    assinatura:
+      String(project.settings?.final_line ?? "").trim() ||
+      `Até amanhã. — ${project.brand.displayName || project.name}`,
+  });
 
   const coverImages = pipelineResult.selectedCandidates.map((c) => c.image_url).filter(Boolean) as string[];
   const htmlContent = renderEditionToHtml(pipelineResult.edition, coverImages);
