@@ -15,12 +15,12 @@
 
 export const MARCA = {
   /** Nome exibido. Aparece no site, no e-mail e nos slides. */
-  nome: "immigra.us",
+  nome: "imigra.us",
   /** Parte antes do ponto, para o logotipo em duas cores. */
-  nomeBase: "immigra",
+  nomeBase: "imigra",
   /** Sufixo colorido do logotipo. */
   nomeSufixo: ".us",
-  handle: "@immigra.us",
+  handle: "@imigra.us",
   tagline: "O que muda para quem vai para os EUA.",
   descricao:
     "Notícias de imigração para os Estados Unidos: vistos, green card, prazos e " +
@@ -38,13 +38,13 @@ export const MARCA = {
   corOficialAzul: "#0A3161",
 
   /** Encerramento da edição e do post. */
-  assinatura: "Até amanhã. — immigra.us",
+  assinatura: "Até amanhã. — imigra.us",
   /** Palavra que o leitor comenta no post para receber o material. */
   keyword: "VISTO",
 
   site: "https://casaloti.ia.br",
-  instagram: "https://instagram.com/immigra.us",
-  instagramHandle: "@immigra.us",
+  instagram: "https://instagram.com/imigra.us",
+  instagramHandle: "@imigra.us",
 
   /**
    * Paleta da bandeira aplicada à interface.

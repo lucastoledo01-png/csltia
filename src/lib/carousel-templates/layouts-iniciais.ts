@@ -1,5 +1,6 @@
 import { blocoNovo, type Bloco, type Layout } from "./layout";
 import type { InstagramSlideType } from "./types";
+import { MARCA } from "@/lib/marca";
 
 /**
  * Ponto de partida para cada tipo de slide.
@@ -221,7 +222,7 @@ function capaNoticiaEUA(): Layout {
 
       texto(
         {
-          textoFixo: "immigra.us",
+          textoFixo: MARCA.nome,
           x: 20, y: 4, w: 60, h: 5,
           tamanho: 48, tamanhoMinimo: 30, peso: 800,
           fonte: "body", cor: PAPEL, espacamento: -0.02,
