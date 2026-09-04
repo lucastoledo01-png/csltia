@@ -88,8 +88,19 @@ const NEGACOES = [
   "excluir",
   "proibido",
   "jamais",
+  // "nunca" é a negação mais comum do português falado, e ficou de fora na
+  // primeira versão junto com "jamais" — que é a variante rara. O conceito
+  // das miniaturas dizia "aparência de recriação autoral, nunca de material
+  // oficial": a frase que declara a boa prática era exatamente a que barrava
+  // o conceito.
+  "nunca",
   "livre de",
   "isento de",
+  // "em vez de"/"no lugar de" negam por substituição: "estética inspirada, em
+  // vez de material oficial" diz a mesma coisa que "não é material oficial".
+  "em vez de",
+  "no lugar de",
+  "nada de",
 ];
 
 /** Quantos caracteres antes do termo são olhados em busca de negação. */

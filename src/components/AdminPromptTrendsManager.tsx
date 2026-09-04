@@ -106,6 +106,26 @@ export function AdminPromptTrendsManager() {
     }
   }
 
+  /**
+   * Reaplica o guardrail atual sobre os conceitos barrados.
+   *
+   * O veredito fica gravado no registro, então afrouxar a regra não destrava
+   * sozinho o que já foi barrado. Este botão é o que faz a correção alcançar
+   * o passado — sem ele, seria UPDATE na mão no banco.
+   */
+  async function reavaliar() {
+    setOcupado("reavaliar");
+    setAviso("");
+    try {
+      const res = await fetch("/api/admin/prompt-system/concepts/reavaliar", { method: "POST" });
+      const json = await res.json();
+      setAviso(res.ok && json.ok ? json.resumo : json.error || "Erro ao reavaliar.");
+      await recarregar();
+    } finally {
+      setOcupado(null);
+    }
+  }
+
   async function gerarConceito(trendId: string) {
     setOcupado(trendId);
     setAviso("");
@@ -245,12 +265,27 @@ export function AdminPromptTrendsManager() {
 
       {concepts.length > 0 ? (
         <div className="admin-glass rounded-3xl p-6">
-          <h4 className="text-lg font-bold text-slate-900">
-            Conceitos <span className="text-slate-400">({concepts.length})</span>
-          </h4>
-          <p className="mt-1 text-xs text-slate-500">
-            Cada aplicação vira uma imagem. Criar a campanha liga o conceito à keyword.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h4 className="text-lg font-bold text-slate-900">
+                Conceitos <span className="text-slate-400">({concepts.length})</span>
+              </h4>
+              <p className="mt-1 text-xs text-slate-500">
+                Cada aplicação vira uma imagem. Criar a campanha liga o conceito à keyword.
+              </p>
+            </div>
+
+            {concepts.some((c) => c.status === "blocked") ? (
+              <button
+                onClick={reavaliar}
+                disabled={ocupado !== null}
+                className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200 disabled:opacity-50"
+                title="O motivo do bloqueio fica gravado no conceito. Se o guardrail foi afrouxado depois, só reavaliando o registro se atualiza."
+              >
+                {ocupado === "reavaliar" ? "Reavaliando..." : "Reavaliar barrados"}
+              </button>
+            ) : null}
+          </div>
 
           <div className="mt-4 space-y-2">
             {concepts.map((c) => {

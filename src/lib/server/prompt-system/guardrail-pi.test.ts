@@ -143,4 +143,37 @@ describe("instrução do prompt", () => {
     expect(INSTRUCAO_PI).toMatch(/conta a favor/i);
     expect(INSTRUCAO_PI).toMatch(/sem marcas ou\s+logotipos vis/i);
   });
+
+  it("não barra 'nunca de material oficial' — é a declaração da boa prática", () => {
+    // Texto real de um conceito que ficou bloqueado em produção. A frase que
+    // deveria aprovar o conceito era a que o barrava: ela diz que o resultado
+    // NÃO se apresenta como material oficial.
+    const v = checarPropriedadeIntelectual({
+      conceito: "Miniaturas hiper-realistas em cartões-postais brasileiros.",
+      hook: "E se você coubesse no seu ponto turístico favorito?",
+      aplicacoes: ["Pessoa comum: uma miniatura no calçadão de Copacabana."],
+      direcaoVisual: {
+        atmosfera:
+          "Materiais que lembram resina e madeira, com aparência de recriação " +
+          "autoral, nunca de material oficial.",
+      },
+    });
+
+    expect(v.aprovado).toBe(true);
+    expect(v.motivos).toEqual([]);
+  });
+
+  it("continua barrando quando a oficialidade é afirmada, não negada", () => {
+    // A guarda da guarda: se "nunca" bastasse aparecer em qualquer lugar do
+    // texto, bastaria escrever a palavra uma vez para desarmar o portão.
+    const v = checarPropriedadeIntelectual({
+      conceito: "Nunca foi tão fácil. Este é o material oficial do lançamento.",
+      hook: "O anúncio oficial",
+      aplicacoes: ["Recrie o pôster oficial do filme."],
+      direcaoVisual: {},
+    });
+
+    expect(v.aprovado).toBe(false);
+  });
+
 });

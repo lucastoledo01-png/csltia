@@ -66,6 +66,71 @@ Responda EXCLUSIVAMENTE com o JSON:
 }
 `.trim();
 
+/**
+ * Reavalia os conceitos barrados com o guardrail atual.
+ *
+ * Existe porque o veredito é **gravado**, não recalculado na leitura: um
+ * conceito barrado guarda o motivo do dia em que foi checado. Quando o
+ * guardrail é afrouxado — e ele foi, duas vezes, porque estava barrando a
+ * declaração da boa prática ("não inserir logos", "nunca de material
+ * oficial") — os registros antigos continuam barrados para sempre, e a
+ * correção não alcança o que já existe.
+ *
+ * Sem isto o conserto seria `UPDATE` na mão em produção, que ninguém audita.
+ *
+ * Só afrouxa, nunca aperta: um conceito que **passou** a ser reprovado
+ * continua `draft`. Rebaixar conteúdo já aprovado — possivelmente já
+ * publicado — a partir de uma regra nova é decisão editorial, não efeito
+ * colateral de um botão.
+ */
+export async function reavaliarConceitosBloqueados(): Promise<{
+  avaliados: number;
+  liberados: number;
+  detalhes: Array<{ id: string; hook: string; liberado: boolean; motivos: string[] }>;
+}> {
+  const supabase = getSupabaseAdminClient();
+
+  const { data } = await supabase
+    .from("prompt_concepts")
+    .select("id, concept, hook, applications, visual_direction")
+    .eq("project_id", DEFAULT_PROJECT_ID)
+    .eq("status", "blocked");
+
+  const detalhes: Array<{ id: string; hook: string; liberado: boolean; motivos: string[] }> = [];
+  let liberados = 0;
+
+  for (const c of data ?? []) {
+    const veredito = checarPropriedadeIntelectual({
+      conceito: String(c.concept ?? ""),
+      hook: String(c.hook ?? ""),
+      aplicacoes: (Array.isArray(c.applications) ? c.applications : []).map((a) =>
+        String(a ?? ""),
+      ),
+      direcaoVisual: (c.visual_direction ?? {}) as Record<string, string>,
+    });
+
+    // O veredito é regravado mesmo quando continua barrado: o motivo de hoje
+    // é o que quem opera precisa ler para reformular, não o de duas semanas
+    // atrás sob outra regra.
+    await supabase
+      .from("prompt_concepts")
+      .update({ ip_check: veredito, ...(veredito.aprovado ? { status: "draft" } : {}) })
+      .eq("id", c.id)
+      .eq("project_id", DEFAULT_PROJECT_ID);
+
+    if (veredito.aprovado) liberados += 1;
+
+    detalhes.push({
+      id: String(c.id),
+      hook: String(c.hook ?? c.concept ?? ""),
+      liberado: veredito.aprovado,
+      motivos: veredito.motivos,
+    });
+  }
+
+  return { avaliados: (data ?? []).length, liberados, detalhes };
+}
+
 /** Gera o conceito a partir da tendência. Não grava — quem chama decide. */
 export async function gerarConceito(
   tendencia: { titulo: string; visualHook?: string },
