@@ -18,6 +18,10 @@ type FormatDefault = {
 
 type Payload = {
   tokens: CarouselTokens;
+  /** Tokens efetivos de cada formato: tema global + override do formato. */
+  formatTokens: Record<CarouselFormat, CarouselTokens>;
+  /** Só o que o formato sobrescreve — o que o botão de restaurar apaga. */
+  formatTokenOverrides: Record<CarouselFormat, OverrideDeTokens>;
   defaultTokens: CarouselTokens;
   formatConfigs: Record<CarouselFormat, FormatConfig>;
   formatDefaults: Record<CarouselFormat, FormatDefault>;
@@ -46,6 +50,30 @@ const SLIDE_TYPE_LABEL: Record<string, string> = {
 
 const PREVIEW_SCALE = 0.25;
 
+/**
+ * O que um formato sobrescreve do tema global.
+ *
+ * Não é `Partial<CarouselTokens>`: aquele torna `colors` opcional como bloco,
+ * mas continua exigindo as sete cores juntas. Aqui cada cor é opcional
+ * sozinha, que é como o painel edita — e como o `deepMerge` do servidor
+ * consome.
+ */
+type OverrideDeTokens = {
+  canvas?: Partial<CarouselTokens["canvas"]>;
+  chrome?: CarouselTokens["chrome"];
+  fonts?: Partial<CarouselTokens["fonts"]>;
+  colors?: Partial<CarouselTokens["colors"]>;
+};
+
+/** Aplica só as chaves realmente definidas do override sobre a base. */
+function sobrepor<T extends object>(base: T, over?: Partial<T>): T {
+  const saida = { ...base };
+  for (const [k, v] of Object.entries(over ?? {})) {
+    if (v !== undefined) (saida as Record<string, unknown>)[k] = v;
+  }
+  return saida;
+}
+
 export function AdminCarouselDesignManager() {
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +84,9 @@ export function AdminCarouselDesignManager() {
 
   // cópias editáveis
   const [tokens, setTokens] = useState<CarouselTokens | null>(null);
+  // Override por formato. É o que permite `tutorial` claro e `noticia` escuro:
+  // um `--s-bg` só não pode ser #F5F1ED e #080808 ao mesmo tempo.
+  const [porFormato, setPorFormato] = useState<Record<string, OverrideDeTokens> | null>(null);
   const [configs, setConfigs] = useState<Record<CarouselFormat, FormatConfig> | null>(null);
 
   async function load() {
@@ -67,6 +98,7 @@ export function AdminCarouselDesignManager() {
         setData(json);
         setTokens(structuredClone(json.tokens));
         setConfigs(structuredClone(json.formatConfigs));
+        setPorFormato(structuredClone(json.formatTokenOverrides ?? {}));
       }
     } finally {
       setLoading(false);
@@ -81,12 +113,41 @@ export function AdminCarouselDesignManager() {
     if (!data || !tokens || !configs) return false;
     return (
       JSON.stringify(tokens) !== JSON.stringify(data.tokens) ||
-      JSON.stringify(configs) !== JSON.stringify(data.formatConfigs)
+      JSON.stringify(configs) !== JSON.stringify(data.formatConfigs) ||
+      JSON.stringify(porFormato) !== JSON.stringify(data.formatTokenOverrides ?? {})
     );
-  }, [data, tokens, configs]);
+  }, [data, tokens, configs, porFormato]);
 
-  if (loading || !data || !tokens || !configs) {
+  if (loading || !data || !tokens || !configs || !porFormato) {
     return <div className="py-12 text-center text-sm text-slate-500">Carregando design dos carrosséis…</div>;
+  }
+
+  // Cascata na tela, igual à do servidor: tema global sob o override do formato.
+  //
+  // O spread cru não serve: uma chave presente com valor `undefined` no
+  // override apagaria a cor do tema, e o resultado renderizaria `undefined` no
+  // CSS. `sobrepor` ignora as ausentes.
+  const overrideDoFormato = porFormato[activeFormat] ?? {};
+  const tokensEfetivos: CarouselTokens = {
+    ...tokens,
+    colors: sobrepor(tokens.colors, overrideDoFormato.colors),
+    fonts: sobrepor(tokens.fonts, overrideDoFormato.fonts),
+    canvas: sobrepor(tokens.canvas, overrideDoFormato.canvas),
+    chrome: overrideDoFormato.chrome ?? tokens.chrome,
+  };
+
+  function ajustarCorDoFormato(chave: keyof CarouselTokens["colors"], valor: string) {
+    setPorFormato((prev) => {
+      const next = { ...(prev ?? {}) };
+      const atual = { ...(next[activeFormat] ?? {}) };
+      atual.colors = { ...(atual.colors ?? {}), [chave]: valor };
+      next[activeFormat] = atual;
+      return next;
+    });
+  }
+
+  function limparOverrideDoFormato() {
+    setPorFormato((prev) => ({ ...(prev ?? {}), [activeFormat]: {} }));
   }
 
   const fmtDefault = data.formatDefaults[activeFormat];
@@ -140,6 +201,14 @@ export function AdminCarouselDesignManager() {
               ctaText: configs[f.id].ctaText ?? "",
             }),
           );
+        }
+
+        const antes = (data!.formatTokenOverrides ?? {})[f.id] ?? {};
+        const agora = porFormato![f.id] ?? {};
+        if (JSON.stringify(antes) !== JSON.stringify(agora)) {
+          // `formatTokens: true` diz ao servidor que estes tokens são override
+          // do formato, não tema global — os dois usam a mesma chave.
+          puts.push(putJson({ format: f.id, tokens: agora, formatTokens: true }));
         }
       }
       const results = await Promise.all(puts);
@@ -324,6 +393,75 @@ export function AdminCarouselDesignManager() {
           </label>
         </div>
 
+        {/* ---- cores só deste formato ---- */}
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-bold text-slate-800">Cores deste formato</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Sobrescreve o tema global só em <strong>{FORMATS.find((f) => f.id === activeFormat)?.label}</strong>.
+                É o que permite o tutorial claro e a notícia escura ao mesmo tempo — um
+                token global sozinho não consegue ser as duas coisas. Campo em branco
+                herda o tema.
+              </p>
+            </div>
+            {Object.keys(overrideDoFormato).length > 0 ? (
+              <button
+                onClick={limparOverrideDoFormato}
+                className="text-xs font-semibold text-rose-600 hover:underline"
+              >
+                Voltar a herdar o tema
+              </button>
+            ) : null}
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {(
+              [
+                ["bg", "Fundo"],
+                ["ivory", "Cartão claro"],
+                ["ink", "Texto"],
+                ["stone", "Texto 2"],
+                ["accent", "Accent"],
+                ["dark", "Cartão escuro"],
+                ["border", "Borda"],
+              ] as const
+            ).map(([chave, label]) => (
+              <ColorField
+                key={chave}
+                label={
+                  overrideDoFormato.colors?.[chave] ? `${label} ·` : label
+                }
+                value={tokensEfetivos.colors[chave]}
+                onChange={(v) => ajustarCorDoFormato(chave, v)}
+              />
+            ))}
+          </div>
+
+          <label className="mt-4 block text-xs font-bold uppercase tracking-wide text-slate-500">
+            Moldura
+            <select
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal normal-case sm:w-64"
+              value={overrideDoFormato.chrome ?? ""}
+              onChange={(e) =>
+                setPorFormato((prev) => {
+                  const next = { ...(prev ?? {}) };
+                  const atual = { ...(next[activeFormat] ?? {}) };
+                  const v = e.target.value;
+                  if (v) atual.chrome = v as CarouselTokens["chrome"];
+                  else delete atual.chrome;
+                  next[activeFormat] = atual;
+                  return next;
+                })
+              }
+            >
+              <option value="">herda o tema ({tokens.chrome})</option>
+              <option value="editorial">editorial — cantos e trilho</option>
+              <option value="social">social — cabeçalho e rodapé</option>
+            </select>
+          </label>
+        </div>
+
         <div className="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {fmtDefault.allowedSlideTypes.map((slideType) => {
             const variants = data.variantCatalog[slideType] ?? [];
@@ -332,7 +470,9 @@ export function AdminCarouselDesignManager() {
             const previewSlide = pickSampleSlide(sample, slideType);
             const html = assembleSlide(previewSlide, {
               format: activeFormat,
-              tokens,
+              // Efetivos, não globais: o preview tem que mostrar o que vai ser
+              // publicado, e o formato pode sobrescrever o tema.
+              tokens: tokensEfetivos,
               formatConfig: fmtConfig,
               slideIndex: previewSlide.index,
               total: sample.slides.length,

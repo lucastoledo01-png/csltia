@@ -17,6 +17,7 @@ import type { CarouselFormat } from "@/lib/server/social/instagram/schemas";
 
 type FormatRow = {
   format: string;
+  tokens?: Record<string, unknown> | null;
   variant_by_slide_type: Record<string, string> | null;
   eyebrow_label: string | null;
   cta_text: string | null;
@@ -36,6 +37,20 @@ export async function GET(req: NextRequest) {
   const tokens = mergeTokens(themeRow?.tokens ?? {});
   const rowsByFormat = new Map<string, FormatRow>();
   for (const row of (formatRows ?? []) as FormatRow[]) rowsByFormat.set(row.format, row);
+
+  // Tokens efetivos por formato: default do repo → tema global → override do
+  // formato. É o que permite `tutorial` ser claro e `noticia` escuro, e é o
+  // que o preview precisa mostrar para o painel não mentir sobre o resultado.
+  const formatTokens = Object.fromEntries(
+    CAROUSEL_FORMATS.map((format) => [
+      format,
+      mergeTokens(themeRow?.tokens ?? {}, rowsByFormat.get(format)?.tokens ?? {}),
+    ]),
+  );
+
+  const formatTokenOverrides = Object.fromEntries(
+    CAROUSEL_FORMATS.map((format) => [format, rowsByFormat.get(format)?.tokens ?? {}]),
+  );
 
   const formatConfigs = Object.fromEntries(
     CAROUSEL_FORMATS.map((format) => {
@@ -57,6 +72,8 @@ export async function GET(req: NextRequest) {
     ok: true,
     tokens,
     defaultTokens: DEFAULT_TOKENS,
+    formatTokens,
+    formatTokenOverrides,
     formatConfigs,
     formatDefaults: FORMAT_DEFAULTS,
     variantCatalog: variantCatalog(),
@@ -72,7 +89,16 @@ export async function PUT(req: NextRequest) {
   const supabase = getSupabaseAdminClient();
   const now = new Date().toISOString();
 
-  if (body.tokens !== undefined) {
+  const { data: temaAtual } = await supabase
+    .from("carousel_theme")
+    .select("tokens")
+    .eq("id", 1)
+    .maybeSingle();
+  const themeTokensAtuais = (temaAtual?.tokens ?? {}) as Record<string, unknown>;
+
+  // `formatTokens: true` marca que os tokens do corpo são override de formato,
+  // não tema global — os dois usam a mesma chave `tokens`.
+  if (body.tokens !== undefined && body.formatTokens !== true) {
     const merged = mergeTokens(body.tokens);
     const parsed = TokensSchema.safeParse(merged);
     if (!parsed.success) {
@@ -97,6 +123,21 @@ export async function PUT(req: NextRequest) {
     }
     if (typeof body.eyebrowLabel === "string") patch.eyebrow_label = body.eyebrowLabel || null;
     if (typeof body.ctaText === "string") patch.cta_text = body.ctaText || null;
+
+    // Override de tokens do formato. Valida a cascata inteira, não o override
+    // sozinho: um override parcial não é um tema válido por si, e recusá-lo
+    // isolado impediria trocar só o fundo.
+    if (body.tokens !== undefined && body.formatTokens === true) {
+      const efetivo = mergeTokens(themeTokensAtuais ?? {}, body.tokens);
+      const parsed = TokensSchema.safeParse(efetivo);
+      if (!parsed.success) {
+        return NextResponse.json(
+          { ok: false, error: "Tokens do formato inválidos.", issues: parsed.error.issues },
+          { status: 400 },
+        );
+      }
+      patch.tokens = body.tokens;
+    }
 
     const { error } = await supabase.from("carousel_format_config").upsert(patch);
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
