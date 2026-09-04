@@ -267,3 +267,72 @@ export async function publishContainer(
     return { ok: false, error: err?.message || String(err) };
   }
 }
+
+export type MetaMediaInsights = {
+  reach: number;
+  saved: number;
+  shares: number;
+  comments: number;
+  likes: number;
+};
+
+const METRICAS = ["reach", "saved", "shares", "comments", "likes"] as const;
+
+/**
+ * Insights de uma mídia publicada — alcance, salvamentos, compartilhamentos.
+ *
+ * A Meta recusa a chamada inteira quando **uma** das métricas pedidas não se
+ * aplica àquele tipo de mídia, e o conjunto disponível muda entre imagem
+ * única, carrossel e reels — além de mudar de versão para versão da API. Por
+ * isso o fallback pede só `reach`: perder o detalhe é aceitável, perder o
+ * alcance inviabiliza a pontuação do loop editorial, que é o que decide a
+ * próxima pauta.
+ *
+ * Nunca lança: um relatório com número faltando é melhor que um cron que
+ * morre no meio e deixa metade das campanhas sem retrato do dia.
+ */
+export async function fetchMediaInsights(
+  mediaId: string,
+  env: Record<string, string | undefined> = process.env,
+  fetcher: typeof fetch = fetch,
+): Promise<MetaMediaInsights> {
+  const vazio: MetaMediaInsights = { reach: 0, saved: 0, shares: 0, comments: 0, likes: 0 };
+  const { accessToken, isConfigured } = getMetaConfig(env);
+  if (!isConfigured || !accessToken || !mediaId) return vazio;
+
+  async function pedir(metricas: readonly string[]): Promise<Record<string, number> | null> {
+    try {
+      const url =
+        `https://graph.facebook.com/v22.0/${mediaId}/insights` +
+        `?metric=${metricas.join(",")}&access_token=${encodeURIComponent(accessToken!)}`;
+
+      const res = await fetcher(url);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !Array.isArray(json?.data)) return null;
+
+      const out: Record<string, number> = {};
+      for (const item of json.data) {
+        const nome = String(item?.name ?? "");
+        const valor = Number(item?.values?.[0]?.value ?? 0);
+        if (nome) out[nome] = Number.isFinite(valor) ? valor : 0;
+      }
+      return out;
+    } catch {
+      return null;
+    }
+  }
+
+  const lidos = (await pedir(METRICAS)) ?? (await pedir(["reach"]));
+  if (!lidos) {
+    console.warn(`[META INSIGHTS] Não foi possível ler insights da mídia ${mediaId}.`);
+    return vazio;
+  }
+
+  return {
+    reach: lidos.reach ?? 0,
+    saved: lidos.saved ?? 0,
+    shares: lidos.shares ?? 0,
+    comments: lidos.comments ?? 0,
+    likes: lidos.likes ?? 0,
+  };
+}

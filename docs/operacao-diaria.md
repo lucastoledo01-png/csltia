@@ -81,7 +81,15 @@ LISTMONK_URL / LISTMONK_API_USER / LISTMONK_API_TOKEN / LISTMONK_DEFAULT_LIST_ID
 ```
 3 9 * * * /usr/bin/curl -fsS -m 60 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" https://casaloti.ia.br/api/cron/newsroom >> /home/deploy/newsroom-cron.log 2>&1
 0 8 * * * /usr/bin/curl -fsS -m 60 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" https://casaloti.ia.br/api/cron/refresh-instagram-token >> /home/deploy/meta-token-cron.log 2>&1
+
+# Loop editorial do Sistema PROMPT — retrato diário das campanhas publicadas.
+# Domingo agrega a semana em prompt_learnings (?agregar=1).
+0 23 * * 1-6 /usr/bin/curl -fsS -m 300 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" https://casaloti.ia.br/api/cron/prompt-loop >> /home/deploy/prompt-loop-cron.log 2>&1
+0 23 * * 0   /usr/bin/curl -fsS -m 300 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" "https://casaloti.ia.br/api/cron/prompt-loop?agregar=1" >> /home/deploy/prompt-loop-cron.log 2>&1
 ```
+
+O loop roda às 23:00 UTC (20:00 em Brasília), depois de o dia de publicação ter
+acontecido: retrato tirado de manhã mediria um post que ainda não circulou.
 
 > **Não é mais no hPanel da Hostinger.** A aplicação roda na VPS desde a
 > migração, e o cron vive lá. Em 2026-09-03 a produção foi encontrada parada
