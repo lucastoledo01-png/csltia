@@ -1,5 +1,11 @@
 import { getSupabaseAdminClient } from "../supabase-admin";
 import { DEFAULT_PROJECT_ID } from "../projects";
+import {
+  bancoConfigurado,
+  buscarFotoDeBanco,
+  consultaDeBusca,
+  type CreditoDaFoto,
+} from "./stock";
 
 /**
  * Etapas 4 e 5 — geração visual e prompt como asset.
@@ -107,10 +113,20 @@ export function rotuloDoAsset(aplicacao: string): string {
  * Texto curto e concreto: um prompt entregue sem dizer o que substituir é um
  * prompt que só serve para reproduzir o exemplo.
  */
-export function notaDeSubstituicao(aplicacao: string): string {
-  return (
+export function notaDeSubstituicao(aplicacao: string, credito?: CreditoDaFoto | null): string {
+  const base =
     `Troque "${aplicacao.trim()}" pelo seu caso — pessoa, produto, cidade ou ` +
-    `profissão. O resto do prompt mantém a direção visual e não deve mudar.`
+    `profissão. O resto do prompt mantém a direção visual e não deve mudar.`;
+
+  if (!credito) return base;
+
+  // Omitir isto quebraria o invariante do módulo. Quem recebe o prompt e gera
+  // do zero não chega nesta imagem — ela partiu de uma foto. Dizer o método
+  // real é o que mantém o material honesto, e de quebra é a instrução que
+  // faz a pessoa conseguir reproduzir: com a foto DELA no lugar.
+  return (
+    `${base} Esta imagem partiu de uma foto real transformada pelo prompt ` +
+    `(${credito.atribuicao}) — use uma foto sua como base para o mesmo efeito.`
   );
 }
 
@@ -118,6 +134,8 @@ export type AssetGerado = {
   label: string;
   promptText: string;
   imageUrl: string | null;
+  /** Preenchido só quando a imagem partiu de uma foto de banco. */
+  credito?: CreditoDaFoto | null;
   erro?: string;
 };
 
@@ -125,6 +143,61 @@ type GerarOpts = {
   fetcher?: typeof fetch;
   env?: Record<string, string | undefined>;
 };
+
+/**
+ * Transforma uma foto de banco com o prompt, via `/v1/images/edits`.
+ *
+ * Partir de uma foto real produz cena crível; gerar do zero produz cena
+ * inventada, e para conceito ancorado em lugar — uma rua, uma fachada — a
+ * diferença é visível.
+ *
+ * Falha aqui não é erro: quem chama cai na geração do zero, que continua sendo
+ * o caminho padrão.
+ */
+async function transformarFoto(
+  prompt: string,
+  fotoUrl: string,
+  { fetcher = fetch, env = process.env }: GerarOpts,
+): Promise<Buffer | null> {
+  const apiKey = env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const baixada = await fetcher(fotoUrl);
+    if (!baixada.ok) {
+      console.warn(`[VISUAL] Não consegui baixar a foto de base (${baixada.status}).`);
+      return null;
+    }
+
+    const bytes = new Uint8Array(await baixada.arrayBuffer());
+    const form = new FormData();
+    form.append("model", MODELO_IMAGEM);
+    form.append("prompt", prompt);
+    form.append("size", TAMANHO);
+    form.append("quality", "high");
+    form.append("n", "1");
+    form.append("image", new Blob([bytes], { type: "image/jpeg" }), "base.jpg");
+
+    // Sem Content-Type manual: o boundary do multipart é gerado pelo fetch.
+    const res = await fetcher("https://api.openai.com/v1/images/edits", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+    });
+
+    if (!res.ok) {
+      console.warn(`[VISUAL] Transformação falhou (${res.status})`);
+      return null;
+    }
+
+    const data = await res.json();
+    const b64 = data?.data?.[0]?.b64_json;
+    return b64 ? Buffer.from(b64, "base64") : null;
+  } catch (err) {
+    console.warn("[VISUAL] Exceção na transformação:", err);
+    return null;
+  }
+}
 
 /** Gera a imagem e devolve o PNG. `null` quando não há chave ou a API falha. */
 async function gerarImagem(
@@ -241,10 +314,26 @@ export async function gerarAssetsDaCampanha(
     const promptText = montarPrompt(conceitoTexto, aplicacao, direcao);
     const label = rotuloDoAsset(aplicacao);
 
-    const png = await gerarImagem(promptText, opts);
+    // Foto de base, quando há banco configurado. A transformação vem antes da
+    // geração do zero, e a geração do zero continua sendo o fallback: nenhuma
+    // imagem deixa de existir porque o Pexels respondeu 429.
+    const foto = bancoConfigurado(opts.env ?? process.env)
+      ? await buscarFotoDeBanco(consultaDeBusca(aplicacao, conceitoTexto), opts)
+      : null;
+
+    const png = foto
+      ? ((await transformarFoto(promptText, foto.imagemUrl, opts)) ??
+        (await gerarImagem(promptText, opts)))
+      : await gerarImagem(promptText, opts);
+
     const imageUrl = png
       ? await subirImagem(png, `prompt-system/${campanha.keyword}/${i + 1}-${Date.now()}.png`)
       : null;
+
+    // O crédito só vale se a foto virou ESTA imagem. Quando a transformação
+    // falha e o fallback gera do zero, creditar o fotógrafo seria atribuir a
+    // ele uma imagem em que a foto dele não entrou.
+    const credito = foto && png && imageUrl ? foto.credito : null;
 
     const { error } = await supabase.from("prompt_assets").upsert(
       {
@@ -254,7 +343,11 @@ export async function gerarAssetsDaCampanha(
         prompt_text: promptText,
         model: MODELO_IMAGEM,
         image_url: imageUrl,
-        substitution_notes: notaDeSubstituicao(aplicacao),
+        substitution_notes: notaDeSubstituicao(aplicacao, credito),
+        // Só entra no payload quando existe: assim o gerador continua rodando
+        // em banco onde a coluna `stock_credit` ainda não foi criada, que é o
+        // estado normal enquanto o banco de imagens está desligado.
+        ...(credito ? { stock_credit: credito } : {}),
       },
       { onConflict: "campaign_id,label" },
     );
@@ -263,6 +356,7 @@ export async function gerarAssetsDaCampanha(
       label,
       promptText,
       imageUrl,
+      credito,
       erro: error ? error.message : png ? undefined : "imagem não gerada",
     });
   }

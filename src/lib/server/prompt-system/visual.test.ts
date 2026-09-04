@@ -81,4 +81,26 @@ describe("nota de substituição", () => {
     expect(notaDeSubstituicao("retrato de casal")).toContain("retrato de casal");
     expect(notaDeSubstituicao("x")).toMatch(/troque/i);
   });
+
+  it("declara a foto de base quando a imagem não foi gerada do zero", () => {
+    // O invariante do módulo é que o material entregue corresponda ao método
+    // real. Uma imagem que partiu de foto não se reproduz só com o prompt —
+    // omitir isso entrega um prompt que não chega no resultado do post.
+    const nota = notaDeSubstituicao("retrato de casal", {
+      provedor: "pexels",
+      fotografo: "Ana Lima",
+      fotografoUrl: "",
+      fotoUrl: "",
+      atribuicao: "Foto de Ana Lima no Pexels",
+    });
+
+    expect(nota).toContain("partiu de uma foto real");
+    expect(nota).toContain("Ana Lima");
+    expect(nota).toMatch(/foto sua/i);
+  });
+
+  it("não inventa foto de base quando a imagem foi gerada do zero", () => {
+    const nota = notaDeSubstituicao("retrato de casal", null);
+    expect(nota).not.toMatch(/foto real/i);
+  });
 });
