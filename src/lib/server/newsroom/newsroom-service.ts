@@ -59,269 +59,263 @@ export function renderEditionToHtml(
 ): string {
   const todayStr = new Date().toISOString().split("T")[0];
 
-  const now = new Date();
-  const dateFormatted = now
-    .toLocaleDateString("pt-BR", {
-      weekday: "long",
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    })
+  const dataLonga = new Date()
+    .toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })
     .toUpperCase();
 
+  // --- paleta e medidas -----------------------------------------------------
+  //
+  // Tudo o que é texto fica em #1A1A1A ou #4A4A4A sobre branco. A auditoria do
+  // template anterior achou o oposto disso: rótulo vermelho sobre cinza claro,
+  // caixa amarela com texto âmbar, cinza médio sobre cinza claro. Cor de marca
+  // aqui é acento — fio, número, rótulo curto — nunca corpo de texto.
+  const TINTA = "#1A1A1A";
+  const TINTA_SUAVE = "#4A4A4A";
+  const LINHA = "#E4E4E7";
+
+  const fonte =
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
+  const rotulo = (texto: string, cor: string) =>
+    `<div style="font-family:${fonte};font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:${cor};margin:0 0 10px 0;">${escapeHtml(texto)}</div>`;
+
+  // --- índice ---------------------------------------------------------------
+  //
+  // Numerado, sem emoji e sem caixa cinza. O emoji por categoria vinha de um
+  // mapa da vertical antiga ("Redes Sociais", "Vendas") e caía num raio ⚡ para
+  // toda pauta de imigração — decoração que não informa nada.
   const tocHtml = edition.stories
-    .map((s) => {
-      const emojiMap: Record<string, string> = {
-        "Redes Sociais": "📲",
-        Vendas: "💼",
-        Produtividade: "💡",
-        Ferramentas: "🤖",
-        Tendências: "🚀",
-      };
-      const emoji = emojiMap[s.category] || "⚡";
-      return `<div style="margin-bottom: 6px; font-size: 13px; color: #374151;">
-        <span style="font-weight: 700; color: #111827;">${emoji} ${escapeHtml(s.category.toUpperCase())}:</span> ${escapeHtml(s.title)}
-      </div>`;
-    })
+    .map(
+      (s, i) => `
+      <tr>
+        <td style="padding:0 0 12px 0;vertical-align:top;width:28px;">
+          <span style="font-family:${fonte};font-size:15px;font-weight:800;color:${MARCA.cor};">${i + 1}</span>
+        </td>
+        <td style="padding:0 0 12px 0;font-family:${fonte};font-size:15px;line-height:1.45;color:${TINTA};">
+          ${escapeHtml(s.title)}
+        </td>
+      </tr>`,
+    )
     .join("");
 
+  // --- pautas ---------------------------------------------------------------
   const storiesHtml = edition.stories
     .map((s, index) => {
       const whatsappText = encodeURIComponent(
-        `${s.title}\n\n"${s.summary.slice(0, 150)}..."\n\nEdição completa: ${MARCA.site}/artigos/edicao-${todayStr}`
+        `${s.title}\n\n"${s.summary.slice(0, 150)}..."\n\nEdição completa: ${MARCA.site}/artigos/edicao-${todayStr}`,
       );
-      const whatsappShareUrl = `https://api.whatsapp.com/send?text=${whatsappText}`;
-
-      const sourceCreditName = escapeHtml(s.source_name || "Fonte Original");
-      const sourceUrl = safeHttpUrl(s.source_url);
-      const safeTitle = escapeHtml(s.title);
-
-      // O resumo é escapado antes de receber o link para que a âncora seja o
-      // único HTML introduzido aqui.
-      const escapedSummary = escapeHtml(s.summary);
-      const summaryWithInlineLink = escapedSummary.replace(
-        /(notícia|estudo|pesquisa|anúncio|ferramenta|plataforma|novo modelo|atualização)/i,
-        `<a href="${sourceUrl}" target="_blank" style="color: #374151; font-weight: 600; text-decoration: underline;">$1</a>`
-      );
-
-      const storyImage = safeHttpUrl(coverImages[index] || fallbackImages[index % fallbackImages.length]);
+      const imagem = safeHttpUrl(coverImages[index] || "", "");
+      // `safeHttpUrl` e não `escapeHtml`: escapar impede a quebra do atributo,
+      // mas não impede o esquema. `javascript:` num href escapado continua
+      // sendo `javascript:` — e a edição inteira vem de fonte externa.
+      const fonteUrl = safeHttpUrl(s.source_url);
 
       return `
-      <section style="margin-bottom: 36px; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb;">
-        <!-- Tag de Categoria Estilo The News -->
-        <div style="margin-bottom: 6px;">
-          <span style="display: inline-block; color: #d97706; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em;">
-            ${escapeHtml(s.category)}
-          </span>
-        </div>
+      <tr><td style="padding:0 0 44px 0;">
+        ${rotulo(s.category, MARCA.cor)}
 
-        <!-- Título da Pauta -->
-        <h2 style="font-size: 24px; font-weight: 900; color: #111827; margin: 4px 0 16px 0; line-height: 1.25;">
-          ${safeTitle}
+        <h2 style="font-family:${fonte};font-size:27px;line-height:1.22;font-weight:800;letter-spacing:-0.02em;color:${TINTA};margin:0 0 16px 0;">
+          ${escapeHtml(s.title)}
         </h2>
 
-        <!-- Imagem da Notícia com atributos de tag inline anti-download -->
-        <div style="margin-bottom: 8px; border-radius: 12px; overflow: hidden; background-color: #f3f4f6;">
-          <img src="${storyImage}" alt="${safeTitle}" border="0" loading="eager" decoding="async" style="display: block; width: 100%; height: auto; max-height: 340px; object-fit: cover; border-radius: 12px; margin: 0 auto;" />
-        </div>
-        <div style="text-align: center; font-size: 11px; color: #9ca3af; margin-bottom: 18px;">
-          (Imagem: ${sourceCreditName} | Reprodução)
-        </div>
+        ${
+          imagem
+            ? `<img src="${escapeHtml(imagem)}" alt="" width="600" style="width:100%;max-width:600px;height:auto;display:block;border-radius:10px;margin:0 0 18px 0;" />`
+            : ""
+        }
 
-        <!-- Conteúdo Completo com Link da Fonte Embutido no Texto -->
-        <div style="font-size: 15px; line-height: 1.7; color: #374151; margin-bottom: 16px;">
-          ${summaryWithInlineLink.includes("href=") ? summaryWithInlineLink : `${summaryWithInlineLink} (<a href="${sourceUrl}" target="_blank" style="color: #374151; text-decoration: underline;">fonte original: ${sourceCreditName}</a>)`}
-        </div>
-
-        <!-- Caixa do impacto prático -->
-        <div style="background-color: ${MARCA.fundoRealce}; border-left: 4px solid ${MARCA.tintaEscura}; padding: 14px 16px; border-radius: 0 8px 8px 0; margin: 18px 0;">
-          <p style="font-size: 14px; font-weight: 800; color: ${MARCA.tintaEscura}; margin: 0 0 6px 0;">
-            💡 O que muda na prática:
-          </p>
-          <p style="font-size: 14px; line-height: 1.6; color: #1f2937; margin: 0;">
-            ${escapeHtml(s.practical_impact)}
-          </p>
-        </div>
-
-        <p style="font-size: 14px; line-height: 1.6; color: #4b5563; margin-bottom: 12px;">
-          <strong>Por que olhar de perto:</strong> ${escapeHtml(s.why_it_matters)}
+        <p style="font-family:${fonte};font-size:16px;line-height:1.72;color:${TINTA_SUAVE};margin:0 0 14px 0;">
+          ${escapeHtml(s.summary)}
         </p>
 
         ${
-          s.humor_line
-            ? `<p style="font-size: 13px; font-style: italic; color: #6b7280; margin: 8px 0 16px 0;">
-                💬 "${escapeHtml(s.humor_line)}"
+          s.context
+            ? `<p style="font-family:${fonte};font-size:16px;line-height:1.72;color:${TINTA_SUAVE};margin:0 0 18px 0;">${escapeHtml(s.context)}</p>`
+            : ""
+        }
+
+        <!-- Impacto prático: fundo frio, rótulo em azul da bandeira. -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px 0;">
+          <tr>
+            <td style="background:${MARCA.fundoRealce};border-left:3px solid ${MARCA.tintaEscura};border-radius:0 8px 8px 0;padding:16px 18px;">
+              ${rotulo("O que muda na prática", MARCA.tintaEscura)}
+              <p style="font-family:${fonte};font-size:15px;line-height:1.65;color:${TINTA};margin:0;">
+                ${escapeHtml(s.practical_impact)}
+              </p>
+            </td>
+          </tr>
+        </table>
+
+        ${
+          s.why_it_matters
+            ? `<p style="font-family:${fonte};font-size:15px;line-height:1.68;color:${TINTA_SUAVE};margin:0 0 16px 0;">
+                 <strong style="color:${TINTA};">Por que olhar de perto:</strong> ${escapeHtml(s.why_it_matters)}
                </p>`
             : ""
         }
 
-        <!-- Link Verde de Compartilhamento pelo WhatsApp ao Final de CADA Notícia -->
-        <div style="text-align: right; margin-top: 18px;">
-          <a href="${whatsappShareUrl}" target="_blank" style="color: #15803d; font-size: 13px; font-weight: 800; text-decoration: underline;">
-            Compartilhe essa notícia pelo WhatsApp
-          </a>
-        </div>
-      </section>
-    `;
+        ${
+          s.humor_line
+            ? `<p style="font-family:${fonte};font-size:15px;line-height:1.6;font-style:italic;color:${TINTA_SUAVE};border-left:2px solid ${LINHA};padding-left:14px;margin:0 0 16px 0;">${escapeHtml(s.humor_line)}</p>`
+            : ""
+        }
+
+        <p style="font-family:${fonte};font-size:13px;line-height:1.5;color:#71717A;margin:0;">
+          Fonte:
+          <a href="${escapeHtml(fonteUrl)}" target="_blank" rel="noopener noreferrer" style="color:#71717A;text-decoration:underline;">${escapeHtml(s.source_name)}</a>
+          &nbsp;·&nbsp;
+          <a href="https://wa.me/?text=${whatsappText}" target="_blank" style="color:${MARCA.cor};text-decoration:none;font-weight:700;">Compartilhar</a>
+        </p>
+      </td></tr>`;
     })
     .join("");
 
+  // --- giro rápido ----------------------------------------------------------
   const quickBitsHtml =
     edition.quick_bits && edition.quick_bits.length > 0
       ? `
-      <section style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 14px; padding: 20px; margin: 32px 0;">
-        <h3 style="font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; color: #111827; margin: 0 0 14px 0;">
-          ⚡ Giro Rápido & Outras Sacadas
-        </h3>
-        <ul style="margin: 0; padding-left: 18px; font-size: 14px; color: #374151; line-height: 1.65;">
-          ${edition.quick_bits.map((b) => `<li style="margin-bottom: 10px;"><strong>${escapeHtml(b.title)}:</strong> ${escapeHtml(b.text)}</li>`).join("")}
-        </ul>
-      </section>
-    `
+      <tr><td style="padding:0 0 40px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="background:#FAFAFA;border:1px solid ${LINHA};border-radius:12px;padding:22px 24px;">
+            ${rotulo("Giro rápido", TINTA_SUAVE)}
+            ${edition.quick_bits
+              .map(
+                (q) => `<p style="font-family:${fonte};font-size:15px;line-height:1.6;color:${TINTA_SUAVE};margin:0 0 10px 0;">
+                  <strong style="color:${TINTA};">${escapeHtml(q.title)}</strong> ${escapeHtml(q.text ?? "")}
+                </p>`,
+              )
+              .join("")}
+          </td></tr>
+        </table>
+      </td></tr>`
       : "";
 
+  // --- montagem -------------------------------------------------------------
   return `
-    <div style="max-width: 640px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; background-color: #ffffff; padding: 20px;">
-      
-      ${/* No portal a página já mostra título, data e resumo. */ ""}
-      ${paraWeb ? "" : `<header style="text-align: center; border-bottom: 3px solid ${MARCA.cor}; padding-bottom: 18px; margin-bottom: 24px;">
-        <div style="font-size: 11px; font-weight: 800; color: #6b7280; letter-spacing: 0.1em; margin-bottom: 8px;">
-          ${escapeHtml(dateFormatted)}
-        </div>
-        <div style="display: inline-block; background-color: ${MARCA.cor}; color: #ffffff; font-weight: 900; font-family: monospace; font-size: 18px; padding: 6px 16px; border-radius: 8px; margin-bottom: 12px; letter-spacing: 0.05em;">
-          ${MARCA.nome}
-        </div>
-        <h1 style="font-size: 26px; font-weight: 900; margin: 10px 0 6px 0; color: #111827; line-height: 1.25;">
-          ${escapeHtml(edition.headline)}
-        </h1>
-        <p style="font-size: 14px; color: #4b5563; margin: 0; font-weight: 500;">
-          ${escapeHtml(edition.preheader)}
-        </p>
-      </header>`}
+  <div style="background:#F4F4F5;padding:0;margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F4F5;">
+      <tr><td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#FFFFFF;border-radius:14px;">
+          <tr><td style="padding:36px 32px 40px 32px;">
 
-      <!-- Saudação & Abertura -->
-      <div style="font-size: 16px; line-height: 1.65; color: #1f2937; margin-bottom: 24px; background-color: #fafafa; padding: 16px 18px; border-radius: 12px; border: 1px solid #f3f4f6;">
-        <p style="margin: 0 0 10px 0; font-weight: 800; color: ${MARCA.cor}; text-transform: uppercase; font-size: 13px; letter-spacing: 0.08em;">
-          ☕ Bom dia!
-        </p>
-        ${escapeHtml(edition.intro)}
-      </div>
+            ${/* No portal a página já mostra título, data e resumo. */ ""}
+            ${
+              paraWeb
+                ? ""
+                : `<div style="text-align:center;padding:0 0 26px 0;">
+              <div style="font-family:${fonte};font-size:11px;font-weight:700;letter-spacing:0.12em;color:#A1A1AA;margin:0 0 14px 0;">
+                ${escapeHtml(dataLonga)}
+              </div>
+              <div style="font-family:${fonte};font-size:22px;font-weight:800;letter-spacing:-0.02em;color:${TINTA};margin:0 0 22px 0;">
+                ${MARCA.nomeBase}<span style="color:${MARCA.cor};">${MARCA.nomeSufixo}</span>
+              </div>
+              <div style="height:2px;background:${MARCA.cor};width:40px;margin:0 auto 22px auto;"></div>
+              <h1 style="font-family:${fonte};font-size:30px;line-height:1.2;font-weight:800;letter-spacing:-0.03em;color:${TINTA};margin:0 0 12px 0;">
+                ${escapeHtml(edition.headline)}
+              </h1>
+              <p style="font-family:${fonte};font-size:16px;line-height:1.6;color:${TINTA_SUAVE};margin:0;">
+                ${escapeHtml(edition.preheader)}
+              </p>
+            </div>`
+            }
 
-      ${/*
-        Índice. Fora do portal: numa página de rolagem contínua ele só repete
-        os títulos que vêm logo abaixo, e foi metade da duplicação relatada.
-      */ ""}
-      ${
-        paraWeb
-          ? ""
-          : `<div style="background-color: #f3f4f6; border-radius: 12px; padding: 14px 18px; margin-bottom: 32px;">
-        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b7280; letter-spacing: 0.1em; margin-bottom: 8px;">
-          Nesta edição:
-        </div>
-        ${tocHtml}
-      </div>`
-      }
+            ${
+              paraWeb
+                ? ""
+                : `<p style="font-family:${fonte};font-size:16px;line-height:1.72;color:${TINTA_SUAVE};border-left:3px solid ${MARCA.cor};padding:0 0 0 16px;margin:0 0 34px 0;">
+              ${escapeHtml(edition.intro)}
+            </p>`
+            }
 
-      <!-- Histórias Principais com Imagem em CADA bloco -->
-      ${storiesHtml}
+            ${/*
+              Índice. Fora do portal: numa página de rolagem contínua ele só
+              repete os títulos que vêm logo abaixo, e foi metade da duplicação
+              relatada pelo leitor.
+            */ ""}
+            ${
+              paraWeb
+                ? ""
+                : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 40px 0;">
+              <tr><td style="border-top:1px solid ${LINHA};border-bottom:1px solid ${LINHA};padding:22px 0;">
+                ${rotulo("Nesta edição", TINTA_SUAVE)}
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${tocHtml}</table>
+              </td></tr>
+            </table>`
+            }
 
-      <!-- Giro Rápido -->
-      ${quickBitsHtml}
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              ${storiesHtml}
+              ${quickBitsHtml}
+            </table>
 
-      <!-- Caixa de Recomendação -->
-      ${
-        paraWeb
-          ? ""
-          : `<div style="background-color: ${MARCA.fundoRealce}; border-radius: 12px; padding: 18px; margin: 32px 0; border: 1px solid ${MARCA.bordaRealce}; text-align: center;">
-        <p style="font-size: 15px; font-weight: 800; color: ${MARCA.tintaEscura}; margin: 0 0 6px 0;">
-          🤝 Curtiu a edição de hoje?
-        </p>
-        <p style="font-size: 13px; color: #334155; margin: 0; line-height: 1.5;">
-          Encaminhe para alguém que está planejando a mudança para os Estados Unidos.
-        </p>
-      </div>`
-      }
+            ${/*
+              Convite ao Instagram. Depois do conteúdo: quem chegou aqui leu a
+              edição, e é a essa pessoa que vale pedir o seguir.
+            */ ""}
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 32px 0;">
+              <tr><td align="center" style="background:${MARCA.tintaEscura};border-radius:14px;padding:30px 26px;">
+                <div style="font-family:${fonte};font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#9DB4D8;margin:0 0 10px 0;">
+                  Todo dia no Instagram
+                </div>
+                <div style="font-family:${fonte};font-size:21px;line-height:1.3;font-weight:800;color:#FFFFFF;margin:0 0 10px 0;">
+                  A notícia do dia em uma imagem
+                </div>
+                <p style="font-family:${fonte};font-size:15px;line-height:1.6;color:#C8D6EC;margin:0 0 20px 0;">
+                  Mudança de regra, prazo e decisão que afeta brasileiros nos EUA — no
+                  formato que dá para ler no ônibus e mandar para quem precisa.
+                </p>
+                <a href="${MARCA.instagram}" target="_blank" style="display:inline-block;background:${MARCA.cor};color:#FFFFFF;font-family:${fonte};font-size:15px;font-weight:800;padding:14px 30px;border-radius:999px;text-decoration:none;">
+                  Seguir ${MARCA.instagramHandle}
+                </a>
+              </td></tr>
+            </table>
 
-      ${/*
-        Rodapé de caixa de entrada: marca, redes e descadastro. No portal isso
-        é ruído, e o link de descadastro chega a ser errado — a página é
-        pública e o visitante não é assinante de lista nenhuma.
-      */ ""}
-      ${paraWeb ? "" : `<footer style="margin-top: 40px; padding-top: 24px; border-top: 2px solid #e5e7eb;">
-        
-        <div style="text-align: left; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb; margin-bottom: 28px;">
-          <div style="font-size: 11px; font-weight: 900; color: #d97706; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;">
-            QUEM SOMOS
-          </div>
-          <h3 style="font-size: 26px; font-weight: 900; color: #111827; margin: 0 0 14px 0; letter-spacing: -0.02em;">
-            ${MARCA.nome}
-          </h3>
-          <p style="font-size: 14px; line-height: 1.6; color: #374151; margin-bottom: 12px;">
-            Mais inteligente em 5 minutos. Somos um jornal gratuito e diário, que tem por objetivo te trazer tudo o que você precisa saber para começar o seu dia bem e informado sobre Inteligência Artificial, redes sociais, vendas e produtividade.
-          </p>
-          <p style="font-size: 14px; line-height: 1.6; color: #374151; margin-bottom: 12px;">
-            Notícias, de fato, relevantes sobre as principais atualidades de IA no mundo e no Brasil, sempre simplificadas para o seu perfil e para o seu negócio.
-          </p>
-          <p style="font-size: 14px; line-height: 1.6; color: #374151; margin-bottom: 16px;">
-            Direto na sua caixa de entrada do e-mail favorito, sempre às 06:03 AM. É gratuito, mas pode viciar.
-          </p>
-          <p style="font-size: 18px; font-weight: 900; color: #111827; margin: 0;">
-            até amanhã!
-          </p>
-        </div>
+            ${
+              paraWeb
+                ? ""
+                : `<p style="font-family:${fonte};font-size:16px;line-height:1.7;color:${TINTA};font-weight:700;margin:0 0 32px 0;">
+              ${escapeHtml(edition.final_line)}
+            </p>`
+            }
 
-        <!--
-          Convite para o Instagram. Vem depois do conteúdo de propósito: quem
-          chegou aqui leu a edição, e é a essa pessoa que vale pedir o seguir.
-          No topo, competiria com a notícia que fez a pessoa abrir o e-mail.
-        -->
-        <div style="background-color: ${MARCA.tintaEscura}; border-radius: 20px; padding: 28px 24px; text-align: center; margin-bottom: 28px;">
-          <div style="font-family: monospace; font-size: 12px; font-weight: 900; letter-spacing: 0.16em; text-transform: uppercase; color: #9DB4D8;">
-            Todo dia no Instagram
-          </div>
-          <div style="font-size: 20px; font-weight: 900; color: #ffffff; margin-top: 8px; line-height: 1.3;">
-            A notícia do dia em uma imagem
-          </div>
-          <div style="font-size: 14px; color: #C8D6EC; margin-top: 8px; line-height: 1.5;">
-            Mudança de regra, prazo e decisão que afeta brasileiros nos EUA — no formato
-            que dá para ler no ônibus e mandar para quem precisa.
-          </div>
-          <a href="${MARCA.instagram}" target="_blank" style="display: inline-block; margin-top: 18px; background-color: ${MARCA.cor}; color: #ffffff; font-weight: 900; font-size: 14px; padding: 13px 28px; border-radius: 999px; text-decoration: none;">
-            Seguir ${MARCA.instagramHandle}
-          </a>
-        </div>
+            ${/*
+              Rodapé de caixa de entrada: quem somos, redes e descadastro. No
+              portal é ruído, e o link de descadastro chega a ser errado — a
+              página é pública e o visitante não assina lista nenhuma.
+            */ ""}
+            ${
+              paraWeb
+                ? ""
+                : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr><td style="border-top:1px solid ${LINHA};padding:28px 0 0 0;">
+                ${rotulo("Quem somos", "#A1A1AA")}
+                <p style="font-family:${fonte};font-size:14px;line-height:1.65;color:${TINTA_SUAVE};margin:0 0 14px 0;">
+                  A <strong style="color:${TINTA};">${MARCA.nome}</strong> é uma newsletter diária e gratuita
+                  sobre imigração para os Estados Unidos: mudanças de regra, prazos, decisões
+                  e o que elas significam para brasileiros — sempre com a fonte oficial ao lado.
+                </p>
+                <p style="font-family:${fonte};font-size:12px;line-height:1.6;color:#8A8A8F;margin:0 0 20px 0;">
+                  Conteúdo informativo, não orientação jurídica. Regras de imigração mudam e cada
+                  caso tem particularidades — confirme na fonte citada ou com um advogado
+                  licenciado antes de tomar qualquer decisão.
+                </p>
+                <p style="font-family:${fonte};font-size:13px;margin:0 0 16px 0;">
+                  <a href="${MARCA.instagram}" target="_blank" style="color:${TINTA};font-weight:700;text-decoration:none;">${MARCA.instagramHandle} no Instagram</a>
+                </p>
+                <p style="font-family:${fonte};font-size:12px;line-height:1.6;color:#A1A1AA;margin:0;">
+                  Atualize suas <a href="{{ UnsubscribeURL }}" style="color:#71717A;">preferências</a>
+                  ou <a href="{{ UnsubscribeURL }}" style="color:#71717A;">cancele a assinatura</a>.<br />
+                  © 2026 ${MARCA.nome}
+                </p>
+              </td></tr>
+            </table>`
+            }
 
-        <!-- Seção Powered By & Links de Redes / Inscrição -->
-        <div style="text-align: center; margin-bottom: 24px;">
-          <div style="font-size: 12px; font-style: italic; color: #6b7280; margin-bottom: 8px;">
-            powered by
-          </div>
-          <div style="display: inline-block; background-color: ${MARCA.cor}; color: #ffffff; font-weight: 900; font-family: monospace; font-size: 18px; padding: 6px 14px; border-radius: 8px; margin-bottom: 16px;">
-            ${MARCA.nome}
-          </div>
-
-          <!--
-            Só o perfil que existe. Antes daqui os três links apontavam para
-            instagram.com, linkedin.com e youtube.com — a home dos sites, não a
-            conta. Link que leva a lugar nenhum gasta a confiança de quem
-            clicou e não devolve nada.
-          -->
-          <div style="margin: 16px 0; font-size: 13px; font-weight: 700; color: #111827;">
-            <a href="${MARCA.instagram}" target="_blank" style="margin: 0 8px; text-decoration: none; color: #111827;">${MARCA.instagramHandle} no Instagram</a>
-          </div>
-
-          <div style="font-size: 12px; color: #6b7280; margin-top: 20px;">
-            Atualize suas <a href="{{ UnsubscribeURL }}" target="_blank" style="color: #374151; text-decoration: underline;">preferências de e-mail</a> ou cancele a assinatura <a href="{{ UnsubscribeURL }}" target="_blank" style="color: #374151; text-decoration: underline;">aqui</a>
-          </div>
-
-          <div style="font-size: 11px; color: #9ca3af; margin-top: 10px;">
-            © 2026 ${MARCA.nome}. Todos os direitos reservados.
-          </div>
-        </div>
-
-      </footer>`}
-    </div>
-  `;
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </div>`;
 }
 
 export async function runNewsroom(

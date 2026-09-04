@@ -42,8 +42,8 @@ describe("HTML da edição", () => {
   it("no e-mail traz cabeçalho, índice e rodapé", () => {
     const html = renderEditionToHtml(EDICAO, []);
 
-    expect(html).toContain("Nesta edição:");
-    expect(html).toContain("powered by");
+    expect(html).toContain("Nesta edição");
+    expect(html).toContain("Quem somos");
     expect(html).toContain("UnsubscribeURL");
   });
 
@@ -51,8 +51,8 @@ describe("HTML da edição", () => {
     const html = renderEditionToHtml(EDICAO, [], true);
 
     // A página já tem título e data no topo.
-    expect(html).not.toContain("Nesta edição:");
-    expect(html).not.toContain("powered by");
+    expect(html).not.toContain("Nesta edição");
+    expect(html).not.toContain("Quem somos");
 
     // Link de descadastro numa página pública é pior que ruído: o visitante
     // não é assinante de lista nenhuma.

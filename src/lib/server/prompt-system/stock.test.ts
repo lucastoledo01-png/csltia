@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { bancoConfigurado, buscarFotoDeBanco, consultaDeBusca } from "./stock";
+import { bancoConfigurado, buscarFotoDeBanco, consultaDaCapa, consultaDeBusca } from "./stock";
 
 describe("consultaDeBusca", () => {
   it("descarta palavra de instrução e mantém o que descreve a cena", () => {
@@ -148,5 +148,37 @@ describe("buscarFotoDeBanco", () => {
     const fetcher = vi.fn() as unknown as typeof fetch;
     await expect(buscarFotoDeBanco("  ", { env: { PEXELS_API_KEY: "k" }, fetcher })).resolves.toBeNull();
     expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
+describe("consulta da capa", () => {
+  it("descarta a direção fotográfica e mantém a cena", () => {
+    // O prompt de capa traz cena + direção. A direção ("editorial", "natural
+    // light", "shallow depth of field") cabe em qualquer foto do acervo e
+    // dilui a busca até devolver qualquer coisa.
+    const q = consultaDaCapa(
+      "Exterior of a United States embassy building with the American flag, people queuing " +
+        "outside on the sidewalk, overcast daylight. Editorial photojournalism, realistic " +
+        "documentary photograph, natural available light, shallow depth of field",
+      "Novo decreto muda critério do visto de trabalho",
+    );
+
+    expect(q).toContain("embassy");
+    for (const ruido of ["editorial", "light", "photograph", "documentary", "daylight"]) {
+      expect(q).not.toContain(ruido);
+    }
+  });
+
+  it("é curta — busca longa não acha nada no acervo", () => {
+    const q = consultaDaCapa(
+      "A crowded immigration services waiting room with rows of people holding folders and paperwork",
+    );
+    expect(q.split(" ").length).toBeLessThanOrEqual(4);
+  });
+
+  it("cai no título quando não há prompt de capa", () => {
+    const q = consultaDaCapa("", "Fila do green card chega a 179 anos");
+    expect(q.length).toBeGreaterThan(0);
+    expect(q).toContain("green");
   });
 });
