@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import AdminPage from "./page";
+import { MARCA } from "@/lib/marca";
 
 describe("Admin dashboard", () => {
   beforeEach(() => {
@@ -19,7 +20,7 @@ describe("Admin dashboard", () => {
     sessionStorage.setItem("casaloti_admin_authed", "true");
     render(<AdminPage />);
 
-    expect(screen.getByRole("heading", { name: /Central Desbuguei\.ia/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: new RegExp(`Central ${MARCA.nome}`, "i") })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Redação \(IA\)/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Sistema PROMPT/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /CMS Artigos/i })).toBeInTheDocument();

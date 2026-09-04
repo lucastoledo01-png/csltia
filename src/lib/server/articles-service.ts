@@ -1,5 +1,6 @@
 import { articles as staticArticles, Article } from "@/lib/editorial";
 import { getSupabaseAdminClient } from "./supabase-admin";
+import { MARCA } from "@/lib/marca";
 
 export type AdminArticleRecord = {
   id?: string;
@@ -68,7 +69,7 @@ export async function getAllArticlesForAdmin(): Promise<AdminArticleRecord[]> {
           cover_image: row.cover_image,
           status: row.status || "published",
           category: row.category || "IA",
-          author: row.author || "desbuguei.ia",
+          author: row.author || MARCA.nome,
           reading_minutes: row.reading_minutes || 5,
           view_count: Number(row.view_count || 0),
           published_at: row.published_at,
@@ -98,7 +99,7 @@ export async function getAllArticlesForAdmin(): Promise<AdminArticleRecord[]> {
     cover_image: art.image,
     status: "published",
     category: art.category,
-    author: "desbuguei.ia",
+    author: MARCA.nome,
     reading_minutes: parseInt(art.readTime, 10) || 5,
     view_count: 0,
     published_at: new Date().toISOString(),
@@ -129,7 +130,7 @@ export async function getPublishedArticles(): Promise<Article[]> {
     image: art.cover_image || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
     imageAlt: `capa do artigo ${art.title}`,
     quote: art.age_summary || art.excerpt || "Curadoria diária de inteligência artificial.",
-    quoteBy: art.author || "desbuguei.ia",
+    quoteBy: art.author || MARCA.nome,
     sections: art.content || [],
   }));
 }
@@ -150,7 +151,7 @@ export async function getArticleBySlug(slug: string) {
     cover_image: staticArt.image,
     status: "published" as const,
     category: staticArt.category,
-    author: "desbuguei.ia",
+    author: MARCA.nome,
     reading_minutes: parseInt(staticArt.readTime, 10) || 5,
     view_count: 0,
     published_at: new Date().toISOString(),

@@ -3,15 +3,16 @@ import Link from "next/link";
 import { FooterBrandMark, SiteHeader } from "@/components/SiteHeader";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { articles } from "@/lib/editorial";
+import { MARCA } from "@/lib/marca";
 
 const faqs = [
   {
     q: "O que eu vou receber ao me inscrever?",
-    a: "Uma edição diária da desbuguei.ia com o resumo das principais notícias, novos modelos e ferramentas úteis de IA, acompanhada de sugestões práticas e ganchos de automação.",
+    a: `Uma edição diária da ${MARCA.nome} com o que mudou em imigração para os Estados Unidos: regras, prazos, decisões e o que isso significa para brasileiros — sempre com a fonte oficial ao lado.`,
   },
   {
     q: "A newsletter é gratuita?",
-    a: "Sim, 100% gratuita. Você pode ler pelo e-mail ou diretamente aqui no portal desbuguei.ia a qualquer momento.",
+    a: `Sim, 100% gratuita. Você pode ler pelo e-mail ou aqui no portal ${MARCA.nome} a qualquer momento.`,
   },
   {
     q: "Com que frequência as edições são enviadas?",
@@ -29,14 +30,14 @@ function Hero() {
       <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-[#e5e7eb] bg-[#fafafa] px-3.5 py-1 text-xs font-semibold text-[#374151]">
         <span className="flex items-center gap-1.5 font-mono">
           <span className="flex h-4 w-4 items-center justify-center rounded-md bg-[#ff4a1c] text-[10px] font-black text-white">b.</span>
-          desbuguei.ia
+          {MARCA.nome}
         </span>
         <span className="text-gray-300">•</span>
         <span className="text-[#ff4a1c]">edição diária</span>
       </div>
 
       <h1 className="mx-auto mt-4 font-serif text-3xl font-bold leading-tight tracking-tight text-[#111827] sm:text-5xl">
-        Inteligência artificial desbugada, de forma clara, prática e direta
+        {MARCA.tagline}
       </h1>
 
       <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-[#4b5563] sm:text-lg">
@@ -145,7 +146,7 @@ function Footer() {
       <div className="mx-auto max-w-[760px] flex flex-wrap items-center justify-between gap-6">
         <div>
           <FooterBrandMark />
-          <p className="mt-2 text-xs">desbuguei.ia — Publicação sobre Inteligência Artificial, automação e ferramentas úteis.</p>
+          <p className="mt-2 text-xs">{MARCA.nome} — {MARCA.descricao}</p>
         </div>
 
         <nav aria-label="Links do rodapé" className="flex flex-wrap gap-6 text-xs font-medium text-[#374151]">
@@ -157,7 +158,7 @@ function Footer() {
       </div>
 
       <div className="mx-auto mt-8 max-w-[760px] border-t border-[#eaecf0] pt-6 text-xs text-[#9ca3af] flex justify-between">
-        <span>© 2026 desbuguei.ia. Todos os direitos reservados.</span>
+        <span>© 2026 {MARCA.nome}. Todos os direitos reservados.</span>
         <div className="flex gap-4">
           <Link href="/privacidade">Privacidade</Link>
           <Link href="/termos">Termos</Link>

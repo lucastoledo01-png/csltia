@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { automationPrinciples, automationStages, safeSources } from "@/lib/automation";
+import { MARCA } from "@/lib/marca";
 
 export default function AutomationPage() {
   return (
@@ -7,11 +8,11 @@ export default function AutomationPage() {
       <div className="editorial-container">
         <header className="mb-16 text-center md:mb-24">
           <div className="mb-10 flex items-center justify-between text-sm text-[var(--casaloti-secondary)]">
-            <Link className="font-semibold text-[var(--casaloti-primary)]" href="/">desbuguei.ia</Link>
+            <Link className="font-semibold text-[var(--casaloti-primary)]" href="/">{MARCA.nome}</Link>
             <Link className="smooth-link hover:text-[var(--casaloti-primary)]" href="/artigos">Blog</Link>
           </div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--casaloti-meta)]">Sistema editorial</p>
-          <h1 className="journal-title mt-4">Esteira autônoma desbuguei.ia</h1>
+          <h1 className="journal-title mt-4">Esteira autônoma {MARCA.nome}</h1>
           <div className="mx-auto mt-6 h-1 w-20 bg-[var(--casaloti-primary)]" />
           <p className="mx-auto mt-8 max-w-2xl text-lg leading-8 text-[var(--casaloti-secondary)]">
             Busca notícias de IA, escreve artigos, transforma em newsletter, cria publicação para Instagram e mede o resultado do ciclo.

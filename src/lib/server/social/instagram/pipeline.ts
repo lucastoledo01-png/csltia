@@ -16,12 +16,13 @@ export type MarcaDoPost = {
   assinatura: string;
 };
 
+/** Rede de segurança. Se este texto sair num post, o projeto está vazio. */
 export const MARCA_POST_PADRAO: MarcaDoPost = {
-  nome: "desbuguei.ia",
+  nome: "a publicação",
   nicho: "Inteligencia artificial aplicada a conteudo, vendas e produtividade",
   extra: "Tom direto, leve e levemente tech.",
   keyword: "NEWS",
-  assinatura: "Agora você está desbugado.",
+  assinatura: "",
 };
 
 function montarSystemDoPost(marca: MarcaDoPost): string {
@@ -204,7 +205,7 @@ export type TutorialArticleInput = {
 };
 
 const SYSTEM_TUTORIAL_CAROUSEL = `
-Você é o roteirista da marca "Desbuguei" (desbuguei.ia). Sua missão é transformar um TUTORIAL ESCRITO já publicado em um ROTEIRO DE CARROSSEL PARA INSTAGRAM no formato PASSO A PASSO.
+Você é o roteirista desta publicação. Sua missão é transformar um TUTORIAL ESCRITO já publicado em um ROTEIRO DE CARROSSEL PARA INSTAGRAM no formato PASSO A PASSO.
 
 PÚBLICO & TOM:
 - Criadores de conteúdo, gestores de redes sociais, empreendedores e curiosos por IA que não são programadores experientes.

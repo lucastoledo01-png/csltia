@@ -228,7 +228,7 @@ export async function collectFromSource(
         : await (async () => {
             const res = await fetcher(source.url, {
               headers: {
-                "User-Agent": "desbuguei.ia-NewsroomBot/1.0 (+https://desbuguei.ia)",
+                "User-Agent": "NewsroomBot/1.0 (+https://casaloti.ia.br)",
                 Accept: "application/rss+xml, application/xml, text/xml, application/atom+xml, text/html",
               },
               signal: AbortSignal.timeout(10000),

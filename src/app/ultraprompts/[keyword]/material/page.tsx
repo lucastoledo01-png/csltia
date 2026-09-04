@@ -6,6 +6,7 @@ import { getAdminSessionSecret } from "@/lib/server/env";
 import { loadLandingCampaign, recordFunnelEvent } from "@/lib/server/prompt-system/landing";
 import { materialCookieName, verifyMaterialAccess } from "@/lib/server/prompt-system/material-gate";
 import { validateKeyword } from "@/lib/prompt-system/keyword";
+import { MARCA } from "@/lib/marca";
 
 /**
  * Entrega da etapa 12, atrás do cookie assinado emitido na captura.
@@ -20,7 +21,7 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ keyword: string }> };
 
 export const metadata = {
-  title: "Seu material · desbuguei.ia",
+  title: `Seu material · ${MARCA.nome}`,
   robots: { index: false, follow: false },
 };
 
@@ -55,7 +56,7 @@ export default async function MaterialPage({ params }: Props) {
       <div className="mx-auto min-h-screen max-w-3xl px-5 py-16">
         <div className="mb-14 flex items-center justify-between text-sm">
           <Link className="font-sans text-xl font-bold tracking-[-0.03em] text-black" href="/">
-            desbuguei.ia
+            {MARCA.nome}
           </Link>
           <span className="rounded-full bg-black px-3 py-1 font-mono text-[11px] font-bold tracking-[0.14em] text-white">
             {keyword}

@@ -17,6 +17,7 @@ import { runNewsroomPipeline } from "./pipeline";
 import { rankAndFilterCandidates } from "./ranker";
 import { EditionContent } from "./schemas";
 import { sendAlert } from "../alerts";
+import { MARCA } from "@/lib/marca";
 
 export type RunNewsroomOptions = {
   /** Projeto para o qual a edição é produzida. Sem valor, usa o projeto semente. */
@@ -69,7 +70,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
   const storiesHtml = edition.stories
     .map((s, index) => {
       const whatsappText = encodeURIComponent(
-        `Olha essa novidade de IA sobre ${s.title}: \n\n"${s.summary.slice(0, 150)}..." \n\nVeja a edição completa na desbuguei.ia: https://desbuguei.ia/artigos/edicao-${todayStr}`
+        `${s.title}\n\n"${s.summary.slice(0, 150)}..."\n\nEdição completa: ${MARCA.site}/artigos/edicao-${todayStr}`
       );
       const whatsappShareUrl = `https://api.whatsapp.com/send?text=${whatsappText}`;
 
@@ -170,7 +171,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
           ${escapeHtml(dateFormatted)}
         </div>
         <div style="display: inline-block; background-color: #ff4a1c; color: #ffffff; font-weight: 900; font-family: monospace; font-size: 18px; padding: 6px 16px; border-radius: 8px; margin-bottom: 12px; letter-spacing: 0.05em;">
-          b. / desbuguei.ia
+          ${MARCA.nome}
         </div>
         <h1 style="font-size: 26px; font-weight: 900; margin: 10px 0 6px 0; color: #111827; line-height: 1.25;">
           ${escapeHtml(edition.headline)}
@@ -220,7 +221,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
             QUEM SOMOS
           </div>
           <h3 style="font-size: 26px; font-weight: 900; color: #111827; margin: 0 0 14px 0; letter-spacing: -0.02em;">
-            desbuguei.ia
+            ${MARCA.nome}
           </h3>
           <p style="font-size: 14px; line-height: 1.6; color: #374151; margin-bottom: 12px;">
             Mais inteligente em 5 minutos. Somos um jornal gratuito e diário, que tem por objetivo te trazer tudo o que você precisa saber para começar o seu dia bem e informado sobre Inteligência Artificial, redes sociais, vendas e produtividade.
@@ -242,7 +243,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
             powered by
           </div>
           <div style="display: inline-block; background-color: #ff4a1c; color: #ffffff; font-weight: 900; font-family: monospace; font-size: 18px; padding: 6px 14px; border-radius: 8px; margin-bottom: 16px;">
-            b. / desbuguei.ia
+            ${MARCA.nome}
           </div>
 
           <div style="margin: 16px 0; font-size: 13px; font-weight: 700; color: #111827;">
@@ -256,7 +257,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
           </div>
 
           <div style="font-size: 11px; color: #9ca3af; margin-top: 10px;">
-            © 2026 desbuguei.ia. Todos os direitos reservados.
+            © 2026 ${MARCA.nome}. Todos os direitos reservados.
           </div>
         </div>
 
@@ -426,7 +427,7 @@ export async function runNewsroom(
             content: pipelineResult.edition.stories,
             status: "published",
             category: "Edição Diária",
-            author: "desbuguei.ia",
+            author: MARCA.nome,
             reading_minutes: Math.ceil(wordCount / 200),
             published_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -456,7 +457,7 @@ export async function runNewsroom(
   if (createNewsletterCampaign) {
     try {
       const listmonk = createListmonkClient(env, fetcher);
-      const campaignName = `desbuguei.ia — Edição ${todayStr}`;
+      const campaignName = `${MARCA.nome} — Edição ${todayStr}`;
       // O portão olha `hallucination_risk`, não `passed`.
       //
       // `passed` é o veredito genérico que o checador autodeclara, e ele

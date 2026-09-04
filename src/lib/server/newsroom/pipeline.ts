@@ -34,11 +34,16 @@ export type MarcaEditorial = {
   assinatura: string;
 };
 
+/**
+ * Só a rede de segurança para quando o projeto não define a voz. Não é a
+ * marca de ninguém — se este texto aparecer numa edição publicada, o projeto
+ * está com os campos vazios.
+ */
 export const MARCA_PADRAO: MarcaEditorial = {
-  nome: "desbuguei.ia",
-  nicho: "Inteligencia artificial aplicada a conteudo, vendas e produtividade",
-  extra: "Tom informal, leve e pratico, como um cafe da manha com um amigo especialista.",
-  assinatura: "Agora você está desbugado. Bora iniciar o dia.",
+  nome: "a publicação",
+  nicho: "Noticias do dia",
+  extra: "Tom informativo, direto e humano.",
+  assinatura: "Até amanhã.",
 };
 
 export function montarSystemEditorial(marca: MarcaEditorial): string {
@@ -199,7 +204,7 @@ Requisitos obrigatórios:
   }
 
   const qaPrompt = `
-Você é o auditor de qualidade e fatos da desbuguei.ia.
+Você é o auditor de qualidade e de fatos desta publicação.
 
 Analise esta edição produzida contra os fatos originais fornecidos:
 

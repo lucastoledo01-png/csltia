@@ -151,7 +151,7 @@ export async function montarCarrosselDeCampanha(
     "",
     chamada,
     "",
-    "Agora você está desbugado.",
+    "",
   ].join("\n");
 
   return {
@@ -174,7 +174,7 @@ export async function montarCarrosselDeCampanha(
             ? aplicacoes.slice(0, 5).map((a) => limitar(a, 120))
             : ["Os prompts exatos, um por resultado", "O que trocar para adaptar ao seu caso"],
         cta_call: limitar(chamada, 150),
-        hashtags: ["#ia", "#prompts", "#inteligenciaartificial", "#desbuguei", "#criadoresdeconteudo"],
+        hashtags: ["#imigracao", "#estadosunidos", "#vistoamericano", "#greencard", "#brasileirosnoeua"],
         full_caption: limitar(aoMenos(legenda, 50, chamada), 2000),
       },
     },

@@ -16,6 +16,7 @@ import { DEFAULT_TOKENS } from "@/lib/carousel-templates/tokens";
 import { CAROUSEL_FORMATS, FORMAT_LABEL } from "@/lib/carousel-templates/types";
 import { SAMPLE_CAROUSEL } from "@/lib/carousel-templates/sample-data";
 import type { CarouselFormat, InstagramSlideType } from "@/lib/carousel-templates/types";
+import { MARCA } from "@/lib/marca";
 
 /**
  * Editor visual de layout: arrastar, redimensionar e ligar cada bloco a um slot.
@@ -639,7 +640,7 @@ function PainelDoBloco({
             <input
               className={entrada}
               value={bloco.textoFixo}
-              placeholder="ex.: desbuguei.ia"
+              placeholder={`ex.: ${MARCA.nome}`}
               onChange={(e) => onChange({ textoFixo: e.target.value })}
             />
           </Campo>

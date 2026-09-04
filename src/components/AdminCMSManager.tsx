@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { NewsletterRenderer } from "./NewsletterRenderer";
+import { MARCA } from "@/lib/marca";
 
 type ArticleRecord = {
   id?: string;
@@ -120,7 +121,7 @@ export function AdminCMSManager() {
       excerpt: "Resumo em destaque para a edição...",
       description: "Descrição completa...",
       category: "Radar",
-      author: "desbuguei.ia",
+      author: MARCA.nome,
       reading_minutes: 5,
       view_count: 0,
       status: "draft",
