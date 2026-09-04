@@ -40,13 +40,13 @@ export function NewsletterRenderer({
     <article className="mx-auto max-w-2xl bg-white px-4 py-8 text-black sm:px-6 md:py-12 shadow-[0_4px_30px_rgba(0,0,0,0.03)] rounded-[32px] border border-[#eaecf0]">
       {/* 1. Cabeçalho da edição */}
       <header className="border-b border-[#eaecf0] pb-8 text-center">
-        <div className="mx-auto inline-flex items-center gap-2 rounded-full bg-[#fef3c7] px-4 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#92400e]">
+        <div className="mx-auto inline-flex items-center gap-2 rounded-full bg-[#FDECEE] px-4 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#8C1226]">
           <span>{category}</span> • <span>{readTime} DE LEITURA</span>
         </div>
 
         {/* Brand Logo Header */}
         <div className="mt-6 flex justify-center">
-          <div className="rounded-2xl bg-[#ff4a1c] px-6 py-2 shadow-lg shadow-[#ff4a1c]/20">
+          <div className="rounded-2xl bg-[#E4344A] px-6 py-2 shadow-lg shadow-[#E4344A]/20">
             <span className="font-mono text-3xl font-black lowercase tracking-tighter text-white sm:text-4xl">
               {MARCA.nomeBase}
               <span style={{ color: MARCA.cor }}>{MARCA.nomeSufixo}</span>
@@ -69,7 +69,7 @@ export function NewsletterRenderer({
       </header>
 
       {/* 2. Bloco EM 60 SEGUNDOS */}
-      <section className="my-8 rounded-[24px] border border-[#fef08a] bg-[#fffde7] p-6 shadow-sm">
+      <section className="my-8 rounded-[24px] border border-[#C8D6EC] bg-[#EEF3FB] p-6 shadow-sm">
         <h2 className="font-mono text-xs font-black uppercase tracking-[0.18em] text-[#854d0e]">
           ⚡ EM 60 SEGUNDOS
         </h2>
@@ -96,7 +96,7 @@ export function NewsletterRenderer({
 
       {/* Citação Destacada */}
       {quote ? (
-        <blockquote className="my-8 rounded-2xl border-l-4 border-[#ff4a1c] bg-[#fafafa] p-6 text-xl font-black italic text-black">
+        <blockquote className="my-8 rounded-2xl border-l-4 border-[#E4344A] bg-[#fafafa] p-6 text-xl font-black italic text-black">
           <p>{`"${quote}"`}</p>
           <footer className="mt-3 font-mono text-xs font-bold uppercase tracking-wider text-[#667085]">
             — {quoteBy}
@@ -107,7 +107,7 @@ export function NewsletterRenderer({
       {/* 3. Conteúdo Principal da Edição */}
       {contentHtml && contentHtml.trim().length > 0 ? (
         <div
-          className="prose prose-lg max-w-none prose-headings:font-black prose-headings:tracking-tight prose-a:text-[#ff4a1c] prose-[#344054] my-8 leading-relaxed"
+          className="prose prose-lg max-w-none prose-headings:font-black prose-headings:tracking-tight prose-a:text-[#E4344A] prose-[#344054] my-8 leading-relaxed"
           dangerouslySetInnerHTML={{ __html: contentHtml }}
         />
       ) : (
@@ -148,13 +148,45 @@ export function NewsletterRenderer({
         </a>
       </div>
 
+      {/*
+        Convite para o Instagram.
+        Fica depois do conteúdo e antes do termômetro de propósito: quem chegou
+        até aqui leu a edição inteira, e é a essa pessoa que vale pedir o
+        seguir. Um convite no topo compete com a notícia que a pessoa abriu o
+        e-mail para ler.
+      */}
+      <section
+        className="my-10 rounded-[28px] p-7 text-center text-white shadow-sm"
+        style={{ background: MARCA.tintaEscura }}
+      >
+        <p className="font-mono text-xs font-black uppercase tracking-[0.16em]" style={{ color: "#9DB4D8" }}>
+          Todo dia no Instagram
+        </p>
+        <h3 className="mt-2 text-xl font-black">
+          A notícia do dia em uma imagem, antes de chegar no e-mail
+        </h3>
+        <p className="mx-auto mt-2 max-w-md text-sm text-[#C8D6EC]">
+          Mudança de regra, prazo e decisão que afeta brasileiros nos EUA — no formato
+          que dá para ler no ônibus e mandar para quem precisa.
+        </p>
+        <a
+          href={MARCA.instagram}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-5 inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-black text-white shadow-lg transition-all"
+          style={{ background: MARCA.cor }}
+        >
+          <span>Seguir {MARCA.instagramHandle} no Instagram</span>
+        </a>
+      </section>
+
       {/* 4. Termômetro de Opinião */}
       <section className="my-10 rounded-[28px] border border-[#d0d5dd] bg-[#fafafa] p-6 text-center shadow-sm">
-        <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-[#ff4a1c]">
+        <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-[#E4344A]">
           TERMÔMETRO DE AVALIAÇÃO
         </p>
         <h3 className="mt-2 text-xl font-black text-black">
-          Na sua opinião, esta edição ajudou você a desbugar a IA?
+          Esta edição te ajudou a entender o que muda?
         </h3>
 
         {pollVoted ? (
@@ -165,19 +197,19 @@ export function NewsletterRenderer({
           <div className="mt-5 grid gap-3 sm:grid-cols-3 text-xs font-bold">
             <button
               onClick={() => setPollVoted("Sim, muito útil")}
-              className="rounded-xl border border-[#d0d5dd] bg-white p-3 hover:border-[#ff4a1c] hover:bg-[#fff5f2] transition-colors"
+              className="rounded-xl border border-[#d0d5dd] bg-white p-3 hover:border-[#E4344A] hover:bg-[#FDECEE] transition-colors"
             >
               🟢 Sim, muito útil
             </button>
             <button
               onClick={() => setPollVoted("Interessante")}
-              className="rounded-xl border border-[#d0d5dd] bg-white p-3 hover:border-[#ff4a1c] hover:bg-[#fff5f2] transition-colors"
+              className="rounded-xl border border-[#d0d5dd] bg-white p-3 hover:border-[#E4344A] hover:bg-[#FDECEE] transition-colors"
             >
               🟡 Interessante
             </button>
             <button
               onClick={() => setPollVoted("Pode melhorar")}
-              className="rounded-xl border border-[#d0d5dd] bg-white p-3 hover:border-[#ff4a1c] hover:bg-[#fff5f2] transition-colors"
+              className="rounded-xl border border-[#d0d5dd] bg-white p-3 hover:border-[#E4344A] hover:bg-[#FDECEE] transition-colors"
             >
               🔵 Pode melhorar
             </button>

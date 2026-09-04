@@ -72,6 +72,20 @@ async function handle(req: NextRequest) {
   if (denied) return denied;
 
   const aguardar = req.nextUrl.searchParams.get("wait") === "1";
+
+  /**
+   * Chave de idempotência alternativa.
+   *
+   * O padrão é `daily-edition-<data>`, e é ele que impede o cron de duplicar a
+   * edição se disparar duas vezes. Enfraquecer essa guarda seria trocar um
+   * problema real (duas newsletters no mesmo dia para a lista inteira) por
+   * conveniência de operação.
+   *
+   * Passar uma chave própria diz explicitamente "esta é outra execução" — o
+   * caso de uso é refazer o dia depois de mudar pauta, fonte ou marca, que é
+   * quando a edição já gravada não serve mais.
+   */
+  const chave = req.nextUrl.searchParams.get("key")?.trim() || undefined;
   const disparadoEm = new Date().toISOString();
   const healthcheck = process.env.HEALTHCHECK_NEWSROOM_URL;
 
@@ -82,6 +96,7 @@ async function handle(req: NextRequest) {
     publishToPortal: true,
     createNewsletterCampaign: true,
     autoSend: true,
+    ...(chave ? { idempotencyKey: chave } : {}),
   });
 
   if (aguardar) {

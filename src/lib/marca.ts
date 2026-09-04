@@ -43,6 +43,21 @@ export const MARCA = {
   keyword: "VISTO",
 
   site: "https://casaloti.ia.br",
+  instagram: "https://instagram.com/immigra.us",
+  instagramHandle: "@immigra.us",
+
+  /**
+   * Paleta da bandeira aplicada à interface.
+   *
+   * `azul` é o Old Glory Blue oficial e serve de tinta escura. Os dois tons
+   * claros existem porque fundo de destaque precisa de contraste com texto
+   * preto — o vermelho e o azul cheios só funcionam com texto branco por cima.
+   */
+  tintaEscura: "#0A3161",
+  fundoRealce: "#EEF3FB",
+  bordaRealce: "#C8D6EC",
+  fundoAviso: "#FDECEE",
+  textoAviso: "#8C1226",
 } as const;
 
 /** Título de aba e metadados. */

@@ -166,11 +166,11 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
     <div style="max-width: 640px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; background-color: #ffffff; padding: 20px;">
       
       <!-- Cabeçalho Estilo The News -->
-      <header style="text-align: center; border-bottom: 3px solid #ff4a1c; padding-bottom: 18px; margin-bottom: 24px;">
+      <header style="text-align: center; border-bottom: 3px solid ${MARCA.cor}; padding-bottom: 18px; margin-bottom: 24px;">
         <div style="font-size: 11px; font-weight: 800; color: #6b7280; letter-spacing: 0.1em; margin-bottom: 8px;">
           ${escapeHtml(dateFormatted)}
         </div>
-        <div style="display: inline-block; background-color: #ff4a1c; color: #ffffff; font-weight: 900; font-family: monospace; font-size: 18px; padding: 6px 16px; border-radius: 8px; margin-bottom: 12px; letter-spacing: 0.05em;">
+        <div style="display: inline-block; background-color: ${MARCA.cor}; color: #ffffff; font-weight: 900; font-family: monospace; font-size: 18px; padding: 6px 16px; border-radius: 8px; margin-bottom: 12px; letter-spacing: 0.05em;">
           ${MARCA.nome}
         </div>
         <h1 style="font-size: 26px; font-weight: 900; margin: 10px 0 6px 0; color: #111827; line-height: 1.25;">
@@ -183,7 +183,7 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
 
       <!-- Saudação & Abertura -->
       <div style="font-size: 16px; line-height: 1.65; color: #1f2937; margin-bottom: 24px; background-color: #fafafa; padding: 16px 18px; border-radius: 12px; border: 1px solid #f3f4f6;">
-        <p style="margin: 0 0 10px 0; font-weight: 800; color: #ff4a1c; text-transform: uppercase; font-size: 13px; letter-spacing: 0.08em;">
+        <p style="margin: 0 0 10px 0; font-weight: 800; color: ${MARCA.cor}; text-transform: uppercase; font-size: 13px; letter-spacing: 0.08em;">
           ☕ Bom dia!
         </p>
         ${escapeHtml(edition.intro)}
@@ -237,19 +237,44 @@ export function renderEditionToHtml(edition: EditionContent, coverImages: string
           </p>
         </div>
 
+        <!--
+          Convite para o Instagram. Vem depois do conteúdo de propósito: quem
+          chegou aqui leu a edição, e é a essa pessoa que vale pedir o seguir.
+          No topo, competiria com a notícia que fez a pessoa abrir o e-mail.
+        -->
+        <div style="background-color: ${MARCA.tintaEscura}; border-radius: 20px; padding: 28px 24px; text-align: center; margin-bottom: 28px;">
+          <div style="font-family: monospace; font-size: 12px; font-weight: 900; letter-spacing: 0.16em; text-transform: uppercase; color: #9DB4D8;">
+            Todo dia no Instagram
+          </div>
+          <div style="font-size: 20px; font-weight: 900; color: #ffffff; margin-top: 8px; line-height: 1.3;">
+            A notícia do dia em uma imagem
+          </div>
+          <div style="font-size: 14px; color: #C8D6EC; margin-top: 8px; line-height: 1.5;">
+            Mudança de regra, prazo e decisão que afeta brasileiros nos EUA — no formato
+            que dá para ler no ônibus e mandar para quem precisa.
+          </div>
+          <a href="${MARCA.instagram}" target="_blank" style="display: inline-block; margin-top: 18px; background-color: ${MARCA.cor}; color: #ffffff; font-weight: 900; font-size: 14px; padding: 13px 28px; border-radius: 999px; text-decoration: none;">
+            Seguir ${MARCA.instagramHandle}
+          </a>
+        </div>
+
         <!-- Seção Powered By & Links de Redes / Inscrição -->
         <div style="text-align: center; margin-bottom: 24px;">
           <div style="font-size: 12px; font-style: italic; color: #6b7280; margin-bottom: 8px;">
             powered by
           </div>
-          <div style="display: inline-block; background-color: #ff4a1c; color: #ffffff; font-weight: 900; font-family: monospace; font-size: 18px; padding: 6px 14px; border-radius: 8px; margin-bottom: 16px;">
+          <div style="display: inline-block; background-color: ${MARCA.cor}; color: #ffffff; font-weight: 900; font-family: monospace; font-size: 18px; padding: 6px 14px; border-radius: 8px; margin-bottom: 16px;">
             ${MARCA.nome}
           </div>
 
+          <!--
+            Só o perfil que existe. Antes daqui os três links apontavam para
+            instagram.com, linkedin.com e youtube.com — a home dos sites, não a
+            conta. Link que leva a lugar nenhum gasta a confiança de quem
+            clicou e não devolve nada.
+          -->
           <div style="margin: 16px 0; font-size: 13px; font-weight: 700; color: #111827;">
-            <a href="https://instagram.com" target="_blank" style="margin: 0 8px; text-decoration: none; color: #111827;">Instagram</a> •
-            <a href="https://linkedin.com" target="_blank" style="margin: 0 8px; text-decoration: none; color: #111827;">LinkedIn</a> •
-            <a href="https://youtube.com" target="_blank" style="margin: 0 8px; text-decoration: none; color: #111827;">YouTube</a>
+            <a href="${MARCA.instagram}" target="_blank" style="margin: 0 8px; text-decoration: none; color: #111827;">${MARCA.instagramHandle} no Instagram</a>
           </div>
 
           <div style="font-size: 12px; color: #6b7280; margin-top: 20px;">
