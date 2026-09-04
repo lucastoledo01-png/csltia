@@ -10,6 +10,7 @@ import {
   type Layout,
 } from "@/lib/carousel-templates/layout";
 import { renderLayout } from "@/lib/carousel-templates/layout-render";
+import { layoutInicial } from "@/lib/carousel-templates/layouts-iniciais";
 import { DEFAULT_TOKENS } from "@/lib/carousel-templates/tokens";
 import { CAROUSEL_FORMATS, FORMAT_LABEL } from "@/lib/carousel-templates/types";
 import { SAMPLE_CAROUSEL } from "@/lib/carousel-templates/sample-data";
@@ -144,6 +145,23 @@ export function AdminLayoutEditor() {
   function atualizar(id: string, patch: Partial<Bloco>) {
     setBlocos((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
     setSujo(true);
+  }
+
+  /**
+   * Traz o esqueleto do tipo de slide para a mesa.
+   *
+   * Tela em branco é o pior ponto de partida para desenhar: a primeira decisão
+   * vira "onde fica o título?", quando a resposta que já funciona está no ar.
+   * Não grava nada — quem gostar salva, quem não gostar apaga e desenha do
+   * zero.
+   */
+  function comecarDoPadrao() {
+    const base = layoutInicial(tipo);
+    setBlocos(base.blocks);
+    setCanvas(base.canvas);
+    setSelecionado(null);
+    setSujo(true);
+    setAviso("Ponto de partida carregado. Ajuste e salve — nada foi gravado ainda.");
   }
 
   function adicionar(tipoDeBloco: Bloco["tipo"]) {
@@ -418,12 +436,20 @@ export function AdminLayoutEditor() {
 
               {blocos.length === 0 ? (
                 <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-[11px] text-slate-400">
-                  Sem desenho. Este slide usa o template de código. Adicione um bloco para começar.
+                  Sem desenho — este slide usa o template de código. Comece do padrão e
+                  ajuste, ou monte bloco a bloco.
                 </p>
               ) : null}
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                onClick={comecarDoPadrao}
+                className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-700"
+                title="Carrega o esqueleto deste tipo de slide para você ajustar. Não grava nada."
+              >
+                {blocos.length === 0 ? "Começar do padrão" : "Recomeçar do padrão"}
+              </button>
               <button
                 onClick={() => adicionar("texto")}
                 className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
