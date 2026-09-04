@@ -93,6 +93,16 @@ export const BlocoSchema = z.object({
   alinhamentoVertical: z.enum(["start", "center", "end"]).default("start"),
   caixaAlta: z.boolean().default(false),
   ajuste: z.enum(["encolher", "cortar"]).default("encolher"),
+  /**
+   * Pinta, dentro deste texto, o trecho que a IA marcou como destaque.
+   *
+   * É o "235 mil" em amarelo no meio da manchete branca. Sem isto, destacar
+   * exigiria um bloco separado posicionado sobre a palavra — impossível, porque
+   * a palavra muda de lugar a cada notícia.
+   */
+  realcarDestaque: z.boolean().default(false),
+  /** Cor do trecho realçado. Vazio usa o accent do tema. */
+  corDoRealce: z.string().default(""),
 
   // --- imagem ---
   imagem: z.enum(FONTES_DE_IMAGEM).optional(),
@@ -106,6 +116,14 @@ export const BlocoSchema = z.object({
   padding: z.number().min(0).max(200).default(0),
   /** Escurece a imagem para o texto por cima ficar legível. */
   veu: z.number().min(0).max(1).default(0),
+  /**
+   * Como o véu cobre a imagem.
+   *
+   * `solido` escurece tudo por igual e lava a foto. `base` é um degradê que
+   * nasce embaixo e some no meio — escurece só onde o texto está e deixa o
+   * rosto da foto intacto, que é o que os posts de notícia fazem.
+   */
+  veuTipo: z.enum(["solido", "base"]).default("solido"),
   rotacao: z.number().min(-180).max(180).default(0),
 });
 

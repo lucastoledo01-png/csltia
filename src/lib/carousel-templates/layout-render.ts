@@ -67,7 +67,38 @@ function familia(b: Bloco, tokens: CarouselTokens): string {
   return FONTS[tokens.fonts[b.fonte]]?.stack ?? FONTS[tokens.fonts.body]?.stack ?? "sans-serif";
 }
 
-function blocoDeTexto(b: Bloco, texto: string, tokens: CarouselTokens): string {
+/**
+ * Pinta o trecho de destaque dentro do texto.
+ *
+ * O escape vem primeiro, nos dois, e a busca é feita já no texto escapado: se
+ * eu injetasse o `<span>` antes de escapar, o escape comeria a própria tag; se
+ * escapasse depois, o destaque com `&` ou `<` não casaria. Escapar os dois e
+ * procurar um dentro do outro é o único jeito em que as duas coisas continuam
+ * verdadeiras.
+ *
+ * Só a primeira ocorrência. Uma manchete que repete a palavra ficaria com o
+ * texto inteiro salpicado de cor, que é o oposto de destacar.
+ */
+function comRealce(textoEscapado: string, destaque: string, cor: string): string {
+  const alvo = esc(destaque.trim());
+  if (!alvo) return textoEscapado;
+
+  const posicao = textoEscapado.toLowerCase().indexOf(alvo.toLowerCase());
+  if (posicao < 0) return textoEscapado;
+
+  const antes = textoEscapado.slice(0, posicao);
+  const meio = textoEscapado.slice(posicao, posicao + alvo.length);
+  const depois = textoEscapado.slice(posicao + alvo.length);
+
+  return `${antes}<span style="color:${esc(cor)}">${meio}</span>${depois}`;
+}
+
+function blocoDeTexto(
+  b: Bloco,
+  texto: string,
+  tokens: CarouselTokens,
+  destaque = "",
+): string {
   // Bloco de texto vazio não deixa buraco: some. Um slot que a IA não
   // preencheu — `destaque` num slide sem destaque — apareceria como uma caixa
   // de fundo flutuando no meio do post.
@@ -99,10 +130,15 @@ function blocoDeTexto(b: Bloco, texto: string, tokens: CarouselTokens): string {
     .filter(Boolean)
     .join(";");
 
+  const escapado = esc(conteudo).replace(/\n/g, "<br>");
+  const corpo = b.realcarDestaque
+    ? comRealce(escapado, destaque, b.corDoRealce || tokens.colors.accent)
+    : escapado;
+
   return (
     `<div class="lay-bloco lay-texto" data-ajuste="${b.ajuste}" ` +
     `data-min="${b.tamanhoMinimo}" data-max="${b.tamanho}" ` +
-    `${atributoDeEstilo(estilo)}><span>${esc(conteudo).replace(/\n/g, "<br>")}</span></div>`
+    `${atributoDeEstilo(estilo)}><span>${corpo}</span></div>`
   );
 }
 
@@ -116,10 +152,20 @@ function blocoDeImagem(b: Bloco, urlDoFundo: string): string {
   // `veu` é o que torna texto sobre foto legível sem depender da foto. Sem ele,
   // uma manchete branca some numa imagem clara — e qual imagem vai sair é
   // decisão da IA, não de quem desenhou o layout.
-  const veu = b.veu > 0
-    ? `<div style="position:absolute;inset:0;background:rgba(0,0,0,${b.veu});` +
-      `border-radius:${b.raio}px"></div>`
-    : "";
+  // Degradê da base é o padrão dos posts de notícia: escurece onde o texto
+  // fica e não toca o rosto na foto. O sólido lava a imagem inteira.
+  const pintura =
+    b.veuTipo === "base"
+      ? `linear-gradient(to top, rgba(0,0,0,${b.veu}) 0%, ` +
+        `rgba(0,0,0,${(b.veu * 0.88).toFixed(3)}) 30%, ` +
+        `rgba(0,0,0,${(b.veu * 0.42).toFixed(3)}) 52%, rgba(0,0,0,0) 76%)`
+      : `rgba(0,0,0,${b.veu})`;
+
+  const veu =
+    b.veu > 0
+      ? `<div style="position:absolute;inset:0;background:${pintura};` +
+        `border-radius:${b.raio}px"></div>`
+      : "";
 
   return (
     `<div class="lay-bloco" ${atributoDeEstilo(`${estiloComum(b)};overflow:hidden`)}>` +
@@ -214,7 +260,12 @@ export function renderLayout(
     .map((b) => {
       if (b.tipo === "imagem") return blocoDeImagem(b, fundo);
       if (b.tipo === "forma") return blocoDeForma(b);
-      return blocoDeTexto(b, slots[(b.slot ?? "titulo") as SlotDeTexto] ?? "", ctx.tokens);
+      return blocoDeTexto(
+        b,
+        slots[(b.slot ?? "titulo") as SlotDeTexto] ?? "",
+        ctx.tokens,
+        slots.destaque,
+      );
     })
     .join("");
 
