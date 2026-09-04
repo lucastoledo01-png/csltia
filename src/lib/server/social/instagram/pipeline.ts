@@ -1,11 +1,13 @@
 import { callOpenAIJSON, getAIProviderConfig, type AITokenUsage } from "../../newsroom/ai-provider";
 import { EditionContent } from "../../newsroom/schemas";
-import { InstagramCarouselContent, InstagramCarouselSchema } from "./schemas";
+import { aparaSlidesParaFormato, InstagramCarouselContent, InstagramCarouselSchema } from "./schemas";
 
 const SYSTEM_INSTAGRAM_PROMPT = `
 Você é o estrategista sênior de crescimento (growth), redes sociais e roteirista da marca "Desbuguei" (desbuguei.ia).
 
-Sua missão é transformar a edição diária da newsletter em um ROTEIRO DE CARROSSEL PARA INSTAGRAM (5 a 8 slides) viral, otimizado para SEO do Instagram, com capa magnética de altíssimo clique e uma chamada para ação (CTA) FOCADA EM CAPTAÇÃO DE LEADS VIA COMENTÁRIOS (ex: ManyChat / automação de comentários).
+Sua missão é transformar a edição diária da newsletter em um POST DE IMAGEM ÚNICA para Instagram: **uma capa só**, magnética, de altíssimo clique, com a legenda carregando todo o desenvolvimento e a chamada para ação de captação por comentário.
+
+NÃO é carrossel. Você gera exatamente 1 slide, do tipo "cover". Qualquer slide além dele é recusado na validação.
 
 PÚBLICO-ALVO & TOM DA MARCA DESBUGUEI:
 - Público: Criadores de conteúdo, gestores de redes sociais, empreendedores, profissionais de vendas e leigos que querem usar IA para crescer e produzir mais.
@@ -13,7 +15,7 @@ PÚBLICO-ALVO & TOM DA MARCA DESBUGUEI:
 - Vocabulário sutil de branding: use jargões leves como "desbugar", "update", "modo debug", "hotfix" na medida certa.
 
 REGRA DE OURO (1 CARROSSEL = 1 ÚNICA NOTÍCIA):
-- NUNCA misture múltiplos assuntos em um mesmo carrossel. Escolha a NOTÍCIA DE MAIOR IMPACTO da edição diária e aprofunde exclusivamente nela durante todos os slides do carrossel.
+- NUNCA misture múltiplos assuntos. Escolha a NOTÍCIA DE MAIOR IMPACTO da edição diária e desenvolva exclusivamente ela — na capa e na legenda.
 
 ESTRUTURA DE CAPA BASEADA EM AIDA (ATENÇÃO, INTERESSE, DESEJO, AÇÃO):
 - SLIDE 1 (cover):
@@ -26,12 +28,10 @@ REGRAS PARA A IMAGEM DA CAPA (cover_image_prompt):
 - Se a notícia envolver PESSOAS PÚBLICAS, CEOS OU POLÍTICOS (ex: Sam Altman, Dario Amodei, Mark Zuckerberg, Elon Musk, políticos ou ministros): descreva a figura pública de forma realista/editorial em um estúdio com o logotipo da empresa (ex: "Editorial photorealistic portrait of Sam Altman with the glowing OpenAI logo, dark studio lighting, 4k cinematic render, no text").
 - Se a notícia for sobre PLATAFORMAS OU FERRAMENTAS (ex: Anthropic Claude, WhatsApp, Instagram, Google Gemini, Apple): descreva o logotipo 3D da marca com interface holográfica ou smartphone futurista.
 
-REGRAS DOS SLIDES SEGUINTES:
-1. SLIDE 2 (intro / contexto): O que aconteceu em detalhes. Por que a grande empresa/plataforma lançou essa novidade e qual problema ela resolve.
-2. SLIDE 3 (content / detalhes): Como a ferramenta/novidade funciona na prática. 3 a 4 bullet points explicando as funções principais e o diferencial.
-3. SLIDE 4 (practical_impact): Como aplicar isso HOJE no seu perfil, conteúdo ou vendas. Passo a passo prático, direto e acionável.
-4. SLIDE 5 (cta / automação): Chamada forte para o leitor comentar "NEWS" e receber a edição completa com todas as notícias no Direct:
-   - cta_text: "Comente NEWS para receber no Direct"
+NÃO EXISTEM SLIDES SEGUINTES:
+- O post é a capa. Tudo que antes ia para os slides de contexto, detalhe e
+  aplicação prática agora vive na legenda, que é longa de propósito.
+- A chamada para comentar a palavra-chave vai na legenda, não num slide de CTA.
 
 REGRAS DA LEGENDA (CAPTION FOCADA EM VIRALIDADE & SEO):
 - Otimização para busca no Instagram (SEO): inclua termos-chave nos primeiros parágrafos (Inteligência Artificial, Instagram, Redes Sociais, Vendas, Produtividade).
@@ -155,7 +155,7 @@ As demais pautas acima servem apenas de contexto do dia. Desenvolva exclusivamen
     : "Selecione a pauta de maior impacto da edicao e aprofunde exclusivamente nela."
 }
 
-Gere o carrossel (5 a 8 slides) com o CTA final pedindo pro leitor comentar "NEWS" para receber a newsletter no Direct, e legenda 100% otimizada para SEO e viralidade no Instagram.
+Gere o post de imagem única — exatamente 1 slide do tipo "cover" — com a legenda desenvolvendo a notícia por completo, pedindo pro leitor comentar "NEWS" para receber a newsletter no Direct, e 100% otimizada para SEO e viralidade no Instagram.
 `;
 
   const aiResult = await callOpenAIJSON<InstagramCarouselContent>(
@@ -170,13 +170,13 @@ Gere o carrossel (5 a 8 slides) com o CTA final pedindo pro leitor comentar "NEW
 
   let parsedCarousel: InstagramCarouselContent;
   try {
-    parsedCarousel = InstagramCarouselSchema.parse(aiResult.data);
+    parsedCarousel = InstagramCarouselSchema.parse(aparaSlidesParaFormato(aiResult.data));
   } catch (err) {
     console.warn("[INSTAGRAM PIPELINE] Validação Zod ajustada no fallback...");
     const raw = aiResult.data as any;
     if (!raw.edition_date) raw.edition_date = editionDateStr;
     if (!raw.slides || !Array.isArray(raw.slides)) raw.slides = [];
-    parsedCarousel = InstagramCarouselSchema.parse(raw);
+    parsedCarousel = InstagramCarouselSchema.parse(aparaSlidesParaFormato(raw));
   }
 
   parsedCarousel.format = "noticia";
@@ -285,14 +285,14 @@ Extraia os passos executáveis das seções acima (com os comandos reais), monte
 
   let parsedCarousel: InstagramCarouselContent;
   try {
-    parsedCarousel = InstagramCarouselSchema.parse(aiResult.data);
+    parsedCarousel = InstagramCarouselSchema.parse(aparaSlidesParaFormato(aiResult.data));
   } catch {
     console.warn("[TUTORIAL CAROUSEL] Validação Zod ajustada no fallback...");
     const raw = aiResult.data as any;
     if (!raw.edition_date) raw.edition_date = editionDateStr;
     if (!raw.primary_topic) raw.primary_topic = article.primaryTopic;
     if (!raw.slides || !Array.isArray(raw.slides)) raw.slides = [];
-    parsedCarousel = InstagramCarouselSchema.parse(raw);
+    parsedCarousel = InstagramCarouselSchema.parse(aparaSlidesParaFormato(raw));
   }
 
   parsedCarousel.format = "tutorial";

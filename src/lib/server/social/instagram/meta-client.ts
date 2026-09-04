@@ -98,6 +98,57 @@ export async function createCarouselItemContainer(
   }
 }
 
+/**
+ * Container de imagem única — post que não é carrossel.
+ *
+ * Difere do item de carrossel em duas coisas que precisam andar juntas: não
+ * leva `is_carousel_item`, e a legenda vai aqui, porque não haverá container
+ * pai para carregá-la. Mandar `is_carousel_item=true` num post solo cria uma
+ * mídia que nunca aparece no feed — fica pendurada esperando um carrossel que
+ * não vem.
+ *
+ * Usado pelo formato `noticia`, que é capa só.
+ */
+export async function createSingleImageContainer(
+  imageUrl: string,
+  caption: string,
+  env: Record<string, string | undefined> = process.env,
+  fetcher: typeof fetch = fetch,
+): Promise<MetaPublishItemResult> {
+  const { accountId, accessToken, isConfigured } = getMetaConfig(env);
+
+  if (!isConfigured || !accountId || !accessToken) {
+    return { ok: false, error: "Credenciais de Meta Instagram não configuradas." };
+  }
+
+  try {
+    const url = `https://graph.facebook.com/v22.0/${accountId}/media`;
+    const params = new URLSearchParams();
+    params.set("image_url", imageUrl);
+    params.set("caption", caption);
+    params.set("access_token", accessToken);
+
+    const response = await fetcher(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
+
+    const json = await response.json().catch(() => ({}));
+
+    if (!response.ok || !json.id) {
+      return {
+        ok: false,
+        error: json.error?.message || `Falha ao criar container de imagem única (${response.status})`,
+      };
+    }
+
+    return { ok: true, creationId: json.id };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 export async function createCarouselContainer(
   childrenIds: string[],
   caption: string,

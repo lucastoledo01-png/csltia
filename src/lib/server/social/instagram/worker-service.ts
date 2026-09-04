@@ -4,6 +4,7 @@ import { loadEdition } from "./edition-loader";
 import {
   createCarouselContainer,
   createCarouselItemContainer,
+  createSingleImageContainer,
   publishContainer,
   waitForContainerReady,
 } from "./meta-client";
@@ -110,15 +111,31 @@ async function renderAndUploadSlides(
   return uploaded;
 }
 
-/** Publica o carrossel, aguardando o container ficar pronto. */
-async function publishCarousel(
+/**
+ * Publica o post, aguardando o container ficar pronto.
+ *
+ * Um slide vira post de imagem única; dois ou mais viram carrossel. A escolha
+ * sai da quantidade de slides, não do formato: é a contagem que a API da Meta
+ * exige que case com o tipo de container, e derivar dela evita um formato
+ * novo publicar pelo caminho errado sem ninguém lembrar de atualizar aqui.
+ */
+async function publishPost(
   imageUrls: string[],
   caption: string,
   env: Record<string, string | undefined>,
   fetcher: typeof fetch,
 ): Promise<string> {
-  if (imageUrls.length < 2) {
-    throw new Error(`Um carrossel precisa de ao menos 2 slides; foram gerados ${imageUrls.length}.`);
+  if (imageUrls.length === 0) {
+    throw new Error("Nenhum slide foi renderizado — não há o que publicar.");
+  }
+
+  if (imageUrls.length === 1) {
+    return publicarContainer(
+      await createSingleImageContainer(imageUrls[0], caption, env, fetcher),
+      "imagem única",
+      env,
+      fetcher,
+    );
   }
 
   const containerIds: string[] = [];
@@ -131,17 +148,31 @@ async function publishCarousel(
     containerIds.push(item.creationId);
   }
 
-  const carouselContainer = await createCarouselContainer(containerIds, caption, env, fetcher);
-  if (!carouselContainer.ok || !carouselContainer.creationId) {
-    throw new Error(`Falha ao criar o container do carrossel: ${carouselContainer.error}`);
+  return publicarContainer(
+    await createCarouselContainer(containerIds, caption, env, fetcher),
+    "carrossel",
+    env,
+    fetcher,
+  );
+}
+
+/** Espera o container ficar pronto e publica. Comum aos dois tipos de post. */
+async function publicarContainer(
+  container: { ok: boolean; creationId?: string; error?: string },
+  tipo: string,
+  env: Record<string, string | undefined>,
+  fetcher: typeof fetch,
+): Promise<string> {
+  if (!container.ok || !container.creationId) {
+    throw new Error(`Falha ao criar o container de ${tipo}: ${container.error}`);
   }
 
-  const pronto = await waitForContainerReady(carouselContainer.creationId, env, fetcher);
+  const pronto = await waitForContainerReady(container.creationId, env, fetcher);
   if (!pronto.ok) {
     throw new Error(`Container não ficou pronto para publicação: ${pronto.error}`);
   }
 
-  const publicado = await publishContainer(carouselContainer.creationId, env, fetcher);
+  const publicado = await publishContainer(container.creationId, env, fetcher);
   if (!publicado.ok || !publicado.mediaId) {
     throw new Error(`Falha na publicação final: ${publicado.error}`);
   }
@@ -237,7 +268,7 @@ export async function processScheduledPost(
     // ou a env como semente. O meta-client lê env.INSTAGRAM_ACCESS_TOKEN.
     const igEnv = { ...env, INSTAGRAM_ACCESS_TOKEN: await resolveInstagramToken(projectId, env) };
 
-    const mediaId = await publishCarousel(
+    const mediaId = await publishPost(
       slides.map((s) => s.url),
       pipelineResult.carousel.caption.full_caption,
       igEnv,
