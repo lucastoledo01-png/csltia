@@ -598,3 +598,51 @@ O registro do painel está pronto para uso, e o schema protegido contra as
 formas de corrupção silenciosa que o loop editorial mais sofreria — keyword que
 não casa, funil inflado por reprocessamento, lead contado duas vezes e taxa de
 conversão divergindo dos contadores que a geraram.
+
+---
+
+## Fase 3 — geração visual e prompt como asset (2026-09-04)
+
+`src/lib/server/prompt-system/visual.ts` mais a rota
+`POST /api/admin/prompt-system/campaigns/[id]/generate-assets` e um botão na
+linha da campanha no painel.
+
+O que roda: para cada aplicação do conceito, monta o prompt a partir da
+`visual_direction` fixada, gera a imagem (`gpt-image-1`, retrato 1024×1536),
+sobe para o Storage e grava um `prompt_assets` com o prompt, o modelo, a URL e
+a nota do que substituir.
+
+### O invariante da etapa 5, garantido por estrutura
+
+"O prompt exato de cada imagem é persistido no momento da geração, nunca
+reconstruído depois." Aqui isso não é uma promessa em comentário:
+`montarPrompt` é chamada **uma vez** por imagem, o resultado vai para uma
+constante, e essa mesma constante segue para a API e para o banco. Não existe
+caminho em que os dois divirjam.
+
+`montarPrompt` também é determinística — ordem fixa dos atributos, campos
+vazios ignorados — então a mesma direção e a mesma aplicação dão sempre a mesma
+string. É o que permite conferir depois que o prompt gravado é o que gerou a
+imagem.
+
+### Três decisões
+
+**Falha de uma aplicação não derruba as outras.** Campanha com quatro imagens
+de cinco é publicável; abortar tudo por uma recusa do modelo custaria o post do
+dia.
+
+**O asset é gravado mesmo quando a imagem falha**, com `image_url` nulo. O
+prompt é o produto entregue e a imagem é a demonstração dele — perder o prompt
+porque a ilustração não saiu seria perder a parte que importa.
+
+**Re-executar é seguro.** O upsert por `(campaign_id, label)` torna a rota
+idempotente, o que importa porque ela pode ser cortada no meio: são N gerações
+em série e cada uma leva segundos.
+
+### O que ainda falta para o formato `prompt` rodar sozinho
+
+Os assets alimentam os slides de tela cheia, mas nada liga um ao outro
+automaticamente: o `bg_image_url` dos slides `gallery` continua vindo do
+roteiro da IA, não de `prompt_assets`. E o conceito com aplicações e direção
+visual ainda é criado à mão — as etapas 1 a 3 (trend intelligence, trend
+jacking, guardrail de PI) são a fase 4.
