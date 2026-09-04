@@ -162,6 +162,42 @@ comentário com keyword → private reply (exceção que a Meta permite
 explicitamente). Não vale reinvestigar "mandar DM no follow" até a Meta abrir
 isso como capacidade geral da Graph API.
 
+### Guardrail de PI barrava a declaração da boa prática — duas vezes
+
+**Sintoma.** Em 2026-09-04 o Sistema PROMPT tinha 2 conceitos no banco e os
+dois `blocked`; zero assets, zero campanhas publicáveis. Sem conceito não há
+aplicações, sem aplicações não há imagem, sem imagem não há post: o funil
+inteiro parado por causa do portão.
+
+**Causa.** O guardrail casava os termos proibidos sem olhar o contexto. Um
+conceito que escreve `"sem marcas ou logotipos visíveis"` ou `"Não inserir
+logos"` — que é exatamente o que se quer que ele escreva — era barrado por
+*mencionar* o termo. A primeira correção acrescentou janela de negação e
+fronteira de palavra (`"logo de"` casava com `"logo depois"`).
+
+Sobrou um caso: `"aparência de recriação autoral, nunca de material oficial"`.
+A lista de negações tinha `jamais` — a variante rara — e **não tinha `nunca`**.
+
+**Corrigido.** `nunca`, `em vez de`, `no lugar de`, `nada de` na lista de
+negações. Testes usam os textos reais dos conceitos bloqueados em produção, não
+exemplos inventados.
+
+**O segundo problema, maior que o primeiro.** O veredito é **gravado** no
+registro, não recalculado na leitura. Afrouxar a regra não alcança o que já
+está no banco: os dois conceitos continuariam barrados para sempre, e o
+conserto seria `UPDATE` na mão em produção. Daí a rota
+`/api/admin/prompt-system/concepts/reavaliar` e o botão no painel.
+
+A reavaliação **só afrouxa** de propósito: conceito que passou a ser reprovado
+sob a regra nova continua `draft`. Rebaixar conteúdo já aprovado — possivelmente
+já publicado — é decisão editorial, não efeito colateral de um botão.
+
+**Lição.** Portão cujo veredito é persistido precisa nascer com o caminho de
+reavaliação. Sem ele, cada calibração do critério deixa um rastro de registros
+presos numa regra que não existe mais. E quando um guardrail bloqueia texto,
+teste com o texto que ele **deve** aprovar, não só com o que deve barrar — a
+falha aqui não foi deixar passar o proibido, foi barrar o recomendado.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta
