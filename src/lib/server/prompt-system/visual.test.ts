@@ -89,14 +89,18 @@ describe("nota de substituição", () => {
     const nota = notaDeSubstituicao("retrato de casal", {
       provedor: "pexels",
       fotografo: "Ana Lima",
-      fotografoUrl: "",
-      fotoUrl: "",
-      atribuicao: "Foto de Ana Lima no Pexels",
+      fotografoUrl: "https://pexels.com/@ana",
+      fotoUrl: "https://pexels.com/photo/1",
     });
 
     expect(nota).toContain("partiu de uma foto real");
-    expect(nota).toContain("Ana Lima");
     expect(nota).toMatch(/foto sua/i);
+
+    // Método declarado, crédito não: a licença do Pexels não exige atribuição
+    // e a decisão editorial é não creditar no post. O nome do fotógrafo fica
+    // só no registro interno de proveniência.
+    expect(nota).not.toContain("Ana Lima");
+    expect(nota).not.toMatch(/pexels/i);
   });
 
   it("não inventa foto de base quando a imagem foi gerada do zero", () => {

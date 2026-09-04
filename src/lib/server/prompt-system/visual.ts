@@ -120,13 +120,16 @@ export function notaDeSubstituicao(aplicacao: string, credito?: CreditoDaFoto | 
 
   if (!credito) return base;
 
-  // Omitir isto quebraria o invariante do módulo. Quem recebe o prompt e gera
-  // do zero não chega nesta imagem — ela partiu de uma foto. Dizer o método
-  // real é o que mantém o material honesto, e de quebra é a instrução que
-  // faz a pessoa conseguir reproduzir: com a foto DELA no lugar.
+  // Sem o nome do fotógrafo: a licença do Pexels não exige atribuição, e a
+  // decisão editorial é não creditar no post.
+  //
+  // O *método*, porém, continua declarado, e isso não é a mesma coisa que
+  // crédito. Quem recebe o prompt e gera do zero não chega nesta imagem —
+  // ela partiu de uma foto. Omitir isso entregaria um prompt que não
+  // reproduz o post, que é justamente o que este módulo existe para impedir.
   return (
-    `${base} Esta imagem partiu de uma foto real transformada pelo prompt ` +
-    `(${credito.atribuicao}) — use uma foto sua como base para o mesmo efeito.`
+    `${base} Esta imagem partiu de uma foto real transformada pelo prompt — ` +
+    `use uma foto sua como base para o mesmo efeito.`
   );
 }
 

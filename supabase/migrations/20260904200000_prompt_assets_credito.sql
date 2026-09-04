@@ -1,12 +1,12 @@
--- `prompt_assets` guarda o crédito da foto de origem.
+-- `prompt_assets` guarda a proveniência da foto de origem.
 --
--- Quando a imagem é gerada a partir de uma foto de banco (Pexels, Unsplash), a
--- licença dos dois exige atribuição ao fotógrafo. Sem um lugar para guardar o
--- crédito no momento em que a foto é usada, a atribuição depende de alguém
--- lembrar depois — e ninguém lembra.
+-- Registro interno, não texto a publicar: a decisão editorial é não creditar
+-- o fotógrafo no post, e a licença do Pexels não exige atribuição. O que esta
+-- coluna resolve é outra coisa — saber de onde veio cada imagem é o que
+-- permite responder a uma contestação depois.
 --
 -- Mesmo princípio do `prompt_text`: o dado que comprova a origem é gravado no
--- ato, nunca reconstruído.
+-- ato, nunca reconstruído. A mesma busca amanhã devolve outra foto.
 --
 -- Nulo significa imagem gerada do zero, sem foto de base.
 
