@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Moveable from "react-moveable";
 import {
   ROTULO_DO_SLOT,
   SLOTS_DE_TEXTO,
@@ -53,12 +54,7 @@ type LayoutSalvo = {
 const CANVAS_PADRAO = { width: 1080, height: 1440 };
 
 /** Largura do canvas na tela. A altura sai da proporção. */
-const LARGURA_NA_TELA = 300;
-
-type Arraste =
-  | { modo: "mover"; id: string; dx: number; dy: number }
-  | { modo: "redimensionar"; id: string; x0: number; y0: number; w0: number; h0: number }
-  | null;
+const LARGURA_NA_TELA = 340;
 
 export function AdminLayoutEditor() {
   const [formato, setFormato] = useState<CarouselFormat>("noticia");
@@ -73,8 +69,17 @@ export function AdminLayoutEditor() {
   const [aviso, setAviso] = useState("");
   const [sujo, setSujo] = useState(false);
 
-  const areaRef = useRef<HTMLDivElement>(null);
-  const arrasteRef = useRef<Arraste>(null);
+  // Blocos "assentados": a cópia que alimenta o preview, atualizada só quando o
+  // arraste para. Sem isso o `srcDoc` do iframe trocava a cada quadro — foram
+  // 11 recargas medidas num arraste de meio segundo, cada uma rebuscando as
+  // fontes do Google e reexecutando o script de encaixe. O preview piscava em
+  // branco o tempo todo, e a sensação era de que o bloco sumia.
+  const [assentados, setAssentados] = useState<Bloco[]>([]);
+
+  // Elemento em estado, não em ref: o Moveable precisa do nó durante o render
+  // para se ancorar, e ler `ref.current` ali é justamente o que o React proíbe
+  // (o valor pode estar defasado numa renderização concorrente).
+  const [areaEl, setAreaEl] = useState<HTMLDivElement | null>(null);
 
   // A aba corrente vive também em ref porque `carregar` é estável (useCallback
   // sem dependências) e precisa saber qual aba posicionar quando a resposta
@@ -93,7 +98,9 @@ export function AdminLayoutEditor() {
    */
   function aplicar(lista: LayoutSalvo[], f: CarouselFormat, t: InstagramSlideType) {
     const salvo = lista.find((l) => l.format === f && l.slide_type === t);
-    setBlocos(salvo ? structuredClone(salvo.blocks) : []);
+    const desenho = salvo ? structuredClone(salvo.blocks) : [];
+    setBlocos(desenho);
+    setAssentados(desenho);
     setCanvas(salvo?.canvas ?? CANVAS_PADRAO);
     setSelecionado(null);
     setSujo(false);
@@ -142,9 +149,26 @@ export function AdminLayoutEditor() {
 
   const bloco = blocos.find((b) => b.id === selecionado) ?? null;
 
-  function atualizar(id: string, patch: Partial<Bloco>) {
-    setBlocos((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+  /**
+   * `assentar: false` durante o arraste — o preview só acompanha quando para.
+   * Todo o resto (campo numérico, cor, slot) assenta na hora: são mudanças
+   * pontuais, e ver o efeito imediatamente é o ponto de ter um preview.
+   */
+  function atualizar(id: string, patch: Partial<Bloco>, assentar = true) {
+    setBlocos((prev) => {
+      const proximo = prev.map((b) => (b.id === id ? { ...b, ...patch } : b));
+      if (assentar) setAssentados(proximo);
+      return proximo;
+    });
     setSujo(true);
+  }
+
+  /** Fim de arraste ou de redimensionamento: agora o preview pode acompanhar. */
+  function assentarAgora() {
+    setBlocos((prev) => {
+      setAssentados(prev);
+      return prev;
+    });
   }
 
   /**
@@ -158,6 +182,7 @@ export function AdminLayoutEditor() {
   function comecarDoPadrao() {
     const base = layoutInicial(tipo);
     setBlocos(base.blocks);
+    setAssentados(base.blocks);
     setCanvas(base.canvas);
     setSelecionado(null);
     setSujo(true);
@@ -167,65 +192,50 @@ export function AdminLayoutEditor() {
   function adicionar(tipoDeBloco: Bloco["tipo"]) {
     const z = blocos.length === 0 ? 1 : Math.max(...blocos.map((b) => b.z)) + 1;
     const novo = blocoNovo(tipoDeBloco, z);
-    setBlocos((prev) => [...prev, novo]);
+    setBlocos((prev) => {
+      const proximo = [...prev, novo];
+      setAssentados(proximo);
+      return proximo;
+    });
     setSelecionado(novo.id);
     setSujo(true);
   }
 
   function remover(id: string) {
-    setBlocos((prev) => prev.filter((b) => b.id !== id));
+    setBlocos((prev) => {
+      const proximo = prev.filter((b) => b.id !== id);
+      setAssentados(proximo);
+      return proximo;
+    });
     setSelecionado(null);
     setSujo(true);
   }
 
-  // --- arraste ---------------------------------------------------------------
+  // --- geometria -------------------------------------------------------------
 
-  function paraPercentual(e: { clientX: number; clientY: number }) {
-    const r = areaRef.current?.getBoundingClientRect();
-    if (!r) return { x: 0, y: 0 };
-    return { x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 };
+  /** Retângulo do canvas na tela. Tudo que vem do Moveable é px e vira %. */
+  function caixaDaArea() {
+    return areaEl?.getBoundingClientRect() ?? new DOMRect(0, 0, 1, 1);
   }
 
-  function iniciarMover(e: React.PointerEvent, b: Bloco) {
-    e.stopPropagation();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    const p = paraPercentual(e);
-    arrasteRef.current = { modo: "mover", id: b.id, dx: p.x - b.x, dy: p.y - b.y };
-    setSelecionado(b.id);
+  function pxParaPercentual(px: { x?: number; y?: number; w?: number; h?: number }) {
+    const r = caixaDaArea();
+    // Duas casas: a prancheta tem 340px de largura, então 0,01% é um terço de
+    // pixel — abaixo disso é ruído de arraste, não posicionamento. E campo
+    // numérico mostrando "13,0573%" atrapalha quem quer digitar um valor.
+    const cento = (v: number, base: number) => Math.round((v / base) * 10000) / 100;
+    return {
+      ...(px.x !== undefined ? { x: cento(px.x, r.width) } : {}),
+      ...(px.y !== undefined ? { y: cento(px.y, r.height) } : {}),
+      ...(px.w !== undefined ? { w: cento(px.w, r.width) } : {}),
+      ...(px.h !== undefined ? { h: cento(px.h, r.height) } : {}),
+    };
   }
 
-  function iniciarRedimensionar(e: React.PointerEvent, b: Bloco) {
-    e.stopPropagation();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    const p = paraPercentual(e);
-    arrasteRef.current = { modo: "redimensionar", id: b.id, x0: p.x, y0: p.y, w0: b.w, h0: b.h };
-    setSelecionado(b.id);
-  }
-
-  function aoMover(e: React.PointerEvent) {
-    const a = arrasteRef.current;
-    if (!a) return;
-    const p = paraPercentual(e);
-
-    // Encaixe de 1% com Shift solto; livre com Shift pressionado. O passo
-    // grosso é o padrão porque alinhar blocos a olho nu num canvas de 300px é
-    // o que faz o resultado sair torto.
-    const passo = e.shiftKey ? 0.1 : 1;
-    const encaixar = (v: number) => Math.round(v / passo) * passo;
-
-    if (a.modo === "mover") {
-      atualizar(a.id, { x: encaixar(p.x - a.dx), y: encaixar(p.y - a.dy) });
-    } else {
-      atualizar(a.id, {
-        w: Math.max(2, encaixar(a.w0 + (p.x - a.x0))),
-        h: Math.max(2, encaixar(a.h0 + (p.y - a.y0))),
-      });
-    }
-  }
-
-  function soltar() {
-    arrasteRef.current = null;
-  }
+  /** Alvos de encaixe: os outros blocos. É o que alinha um ao outro sozinho. */
+  const guias = blocos
+    .filter((b) => b.id !== selecionado)
+    .map((b) => `[data-bloco="${b.id}"]`);
 
   // --- preview ---------------------------------------------------------------
 
@@ -234,9 +244,9 @@ export function AdminLayoutEditor() {
     // faz o auto-encolhimento aparecer aqui em vez de só na publicação.
     const amostra = SAMPLE_CAROUSEL[formato];
     const slide = amostra.slides.find((s) => s.type === tipo) ?? amostra.slides[0] ?? null;
-    if (!slide || blocos.length === 0) return "";
+    if (!slide || assentados.length === 0) return "";
 
-    const layout: Layout = { canvas, blocks: blocos };
+    const layout: Layout = { canvas, blocks: assentados };
     const corpo = renderLayout(layout, slide, {
       tokens: DEFAULT_TOKENS,
       eyebrowLabel: DEFAULT_TOKENS.eyebrows[formato].label,
@@ -253,7 +263,7 @@ export function AdminLayoutEditor() {
       `.lay-texto{overflow-wrap:break-word}.lay-texto>span{display:block;width:100%}</style>` +
       `</head><body>${corpo}</body></html>`
     );
-  }, [blocos, canvas, formato, tipo]);
+  }, [assentados, canvas, formato, tipo]);
 
   // --- persistência ----------------------------------------------------------
 
@@ -377,17 +387,14 @@ export function AdminLayoutEditor() {
           })}
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[auto_auto_1fr]">
+        <div className="mt-6 grid gap-6 xl:grid-cols-[auto_auto_minmax(300px,1fr)]">
           {/* ---- canvas de edição ---- */}
           <div>
             <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Desenho</p>
             <div
-              ref={areaRef}
-              onPointerMove={aoMover}
-              onPointerUp={soltar}
-              onPointerLeave={soltar}
+              ref={setAreaEl}
               onClick={() => setSelecionado(null)}
-              className="relative touch-none select-none rounded-xl border-2 border-dashed border-slate-300 bg-slate-100"
+              className="relative select-none rounded-xl border-2 border-dashed border-slate-300 bg-slate-100"
               style={{ width: LARGURA_NA_TELA, height: alturaNaTela }}
             >
               {[...blocos]
@@ -395,11 +402,13 @@ export function AdminLayoutEditor() {
                 .map((b) => (
                   <div
                     key={b.id}
-                    onPointerDown={(e) => iniciarMover(e, b)}
+                    data-bloco={b.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelecionado(b.id);
+                    }}
                     className={`absolute cursor-move overflow-hidden text-[9px] leading-tight ${
-                      selecionado === b.id
-                        ? "outline outline-2 outline-indigo-500"
-                        : "outline outline-1 outline-slate-400/60"
+                      selecionado === b.id ? "" : "outline outline-1 outline-slate-400/60"
                     }`}
                     style={{
                       left: `${b.x}%`,
@@ -424,13 +433,6 @@ export function AdminLayoutEditor() {
                             : "imagem fixa"
                           : "forma"}
                     </span>
-
-                    {selecionado === b.id ? (
-                      <span
-                        onPointerDown={(e) => iniciarRedimensionar(e, b)}
-                        className="absolute bottom-0 right-0 h-3 w-3 cursor-nwse-resize bg-indigo-500"
-                      />
-                    ) : null}
                   </div>
                 ))}
 
@@ -441,6 +443,50 @@ export function AdminLayoutEditor() {
                 </p>
               ) : null}
             </div>
+
+            {/*
+              O Moveable cuida de arrastar, redimensionar, encaixar e desenhar
+              as guias. Escrever isso à mão foi o erro anterior: o que parecia
+              "só matemática de porcentagem" tem alça, limite de área, snap,
+              linha-guia e captura de ponteiro — e cada pedaço tem um jeito
+              errado de dar errado.
+
+              Fica fora do canvas porque ele se posiciona sozinho pelo alvo.
+            */}
+            {bloco ? (
+              <Moveable
+                target={`[data-bloco="${bloco.id}"]`}
+                container={areaEl}
+                draggable
+                resizable
+                throttleDrag={0}
+                origin={false}
+                keepRatio={false}
+                snappable
+                snapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}
+                elementSnapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}
+                elementGuidelines={guias}
+                // Limites da área: um bloco arrastado para fora da prancheta
+                // continua no desenho e some da vista, o que parece bug.
+                bounds={{ left: 0, top: 0, right: 0, bottom: 0, position: "css" }}
+                snapThreshold={5}
+                onDrag={({ left, top }) => {
+                  atualizar(bloco.id, pxParaPercentual({ x: left, y: top }), false);
+                }}
+                onDragEnd={assentarAgora}
+                onResize={({ width, height, drag }) => {
+                  atualizar(
+                    bloco.id,
+                    {
+                      ...pxParaPercentual({ w: width, h: height }),
+                      ...pxParaPercentual({ x: drag.left, y: drag.top }),
+                    },
+                    false,
+                  );
+                }}
+                onResizeEnd={assentarAgora}
+              />
+            ) : null}
 
             <div className="mt-3 flex flex-wrap gap-2">
               <button
@@ -470,8 +516,9 @@ export function AdminLayoutEditor() {
               </button>
             </div>
             <p className="mt-2 text-[10px] text-slate-400">
-              Arraste para mover, o quadrado do canto redimensiona. Segure Shift para
-              posicionar sem o encaixe de 1%.
+              Clique para selecionar; arraste para mover; as alças redimensionam. Os
+              blocos se alinham sozinhos entre si e com o centro da arte — as linhas
+              rosa mostram o encaixe. O preview atualiza quando você solta.
             </p>
           </div>
 
