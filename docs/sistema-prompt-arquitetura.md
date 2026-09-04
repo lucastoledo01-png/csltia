@@ -741,3 +741,49 @@ não tem a rota de serviço (decisão D1). A pontuação mede o que existe.
 
 Só o fork do OpenReply. Sem ele o comentário no post não dispara Direct, e é o
 único elo que impede o funil de rodar sozinho.
+
+---
+
+## A campanha se fecha sozinha (2026-09-04)
+
+O desenho original tinha uma inversão de ordem: o painel pedia o **ID da mídia
+do Instagram** como campo obrigatório antes de criar a automação — mas esse ID
+só passa a existir depois da publicação. Seguir o fluxo exigia publicar à mão,
+copiar o número do Instagram e voltar ao painel. Não é fluxo, é contorção.
+
+A ordem que o sistema já segue naturalmente é:
+
+```
+campanha → imagens e prompts → post agendado → publicado → automação
+```
+
+`pos-publicacao.ts` fecha o último passo. O worker tem o `mediaId` em mãos no
+instante em que publica — é o único momento em que esse número existe sem
+ninguém ter que procurá-lo. Ali ele grava o ID na campanha, preenche a copy do
+Direct com o padrão da marca (`montarCopyDoDirect`, determinística e sem LLM:
+duas frases curtas cuja única variável é a keyword), registra o evento
+`publish` e cria a automação no OpenReply.
+
+### O painel virou override
+
+Os três campos — ID da mídia, mensagem de abertura, mensagem do Direct —
+deixaram de ser obrigatórios. Em branco, valem os padrões; escritos à mão,
+vencem os padrões. E um salvamento parcial não apaga o que já existe: campo
+vazio preserva o valor anterior, porque formulário de override que zera o resto
+é armadilha.
+
+O botão "Publicar no OpenReply" passa a ser **retentativa**, não etapa. Se a
+criação da automação falhar, a campanha fica com `ig_media_id` gravado e status
+`ready` — o clique reexecuta em vez de exigir preenchimento.
+
+### O status só avança com o ID
+
+`updateCampaignDmCopy` marca `ready` apenas quando há `ig_media_id`. Sem ele a
+publicação no OpenReply não tem como acontecer, e marcar `ready` mentiria sobre
+a campanha estar pronta.
+
+### Automação já existente não é recriada
+
+Post republicado ou vaga reprocessada atualiza o `ig_media_id` e sai. Criar uma
+segunda automação na mesma keyword faria o worker do OpenReply escolher uma
+arbitrariamente, e a outra pararia de entregar em silêncio.

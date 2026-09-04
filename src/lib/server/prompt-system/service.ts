@@ -116,16 +116,22 @@ export async function updateCampaignDmCopy(
     throw new Error(`Campanha está "${current.status}" — só dá pra editar a copy enquanto estiver em rascunho.`);
   }
 
+  // Campo vazio não apaga o que já existe: o formulário do painel é override,
+  // e um salvamento sem preencher tudo não pode zerar o resto. O status só
+  // avança para `ready` quando há media id — sem ele a publicação no OpenReply
+  // não tem como acontecer, e marcar `ready` mentiria sobre estar pronta.
+  const igMediaId = input.igMediaId?.trim() || current.ig_media_id || null;
+
   const { data, error } = await supabase
     .from("prompt_campaigns")
     .update({
-      ig_media_id: input.igMediaId,
-      dm_message: input.dmMessage,
-      opening_dm_message: input.openingDmMessage,
+      ig_media_id: igMediaId,
+      dm_message: input.dmMessage?.trim() || current.dm_message || null,
+      opening_dm_message: input.openingDmMessage?.trim() || current.opening_dm_message || null,
       follow_up_enabled: input.followUpEnabled,
       follow_up_delay_minutes: input.followUpDelayMinutes ?? null,
       follow_up_message: input.followUpMessage ?? null,
-      status: "ready",
+      status: igMediaId ? "ready" : "draft",
     })
     .eq("id", campaignId)
     .eq("project_id", projectId)
