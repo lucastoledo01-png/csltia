@@ -24,6 +24,15 @@ export const CreateManualCampaignSchema = z.object({
   format: z.enum(["noticia", "tutorial", "prompt"]).default("prompt"),
   theme: z.string().trim().min(1, "Tema é obrigatório."),
   concept: z.string().trim().default(""),
+  /**
+   * Conceito de origem (etapa 2). É o que liga a campanha às aplicações e à
+   * direção visual — e sem ele a geração de imagens não tem de onde partir,
+   * porque cada imagem é uma aplicação do conceito.
+   *
+   * Opcional para não quebrar a campanha criada à mão, mas uma campanha sem
+   * conceito não consegue gerar prompts nem virar post do formato `prompt`.
+   */
+  conceptId: z.string().trim().optional(),
 });
 
 export type CreateManualCampaignInput = z.infer<typeof CreateManualCampaignSchema>;

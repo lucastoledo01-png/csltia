@@ -11,6 +11,7 @@ import { AdminSocialPostsManager } from "@/components/AdminSocialPostsManager";
 import { AdminNewsSourcesManager } from "@/components/AdminNewsSourcesManager";
 import { AdminCarouselDesignManager } from "@/components/AdminCarouselDesignManager";
 import { AdminPromptSystemManager } from "@/components/AdminPromptSystemManager";
+import { AdminPromptTrendsManager } from "@/components/AdminPromptTrendsManager";
 
 type Tab = "newsroom" | "social" | "carousel" | "prompt-system" | "sources" | "cms" | "analytics" | "logs" | "comments";
 
@@ -301,7 +302,13 @@ export default function AdminPage() {
             {activeTab === "newsroom" ? <AdminNewsroomManager /> : null}
             {activeTab === "social" ? <AdminSocialPostsManager /> : null}
             {activeTab === "carousel" ? <AdminCarouselDesignManager /> : null}
-            {activeTab === "prompt-system" ? <AdminPromptSystemManager /> : null}
+            {activeTab === "prompt-system" ? (
+              // Na ordem do funil: tendência → conceito → campanha.
+              <div className="space-y-8">
+                <AdminPromptTrendsManager />
+                <AdminPromptSystemManager />
+              </div>
+            ) : null}
             {activeTab === "sources" ? <AdminNewsSourcesManager /> : null}
             {activeTab === "cms" ? <AdminCMSManager /> : null}
             {activeTab === "analytics" ? <AdminAnalyticsDashboard /> : null}

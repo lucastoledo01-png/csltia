@@ -231,9 +231,10 @@ export function AdminPromptSystemManager() {
         <div>
           <h3 className="text-2xl text-slate-900">Sistema PROMPT — Campanhas</h3>
           <p className="mt-1 text-sm text-slate-500">
-            Registro manual de campanha, copy do Direct (etapa 9/9b) e publicação da automação no
-            OpenReply (etapa 8 — falha até o fork mínimo existir do lado de lá). Ver{" "}
-            <code className="text-xs">docs/sistema-prompt-arquitetura.md</code>.
+            A campanha se fecha sozinha: o worker grava o ID da mídia e cria a automação no
+            OpenReply no instante em que publica o post. Os campos de copy são{" "}
+            <strong>override</strong> — em branco, valem os padrões da marca. O botão de publicar
+            no OpenReply é retentativa, não etapa obrigatória.
           </p>
         </div>
         <button

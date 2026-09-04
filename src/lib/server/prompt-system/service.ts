@@ -53,6 +53,7 @@ export async function createManualCampaign(
       campaign_type: input.campaignType,
       format: input.format,
       theme: input.theme,
+      concept_id: input.conceptId || null,
       status: "draft",
       source: "manual",
     })
