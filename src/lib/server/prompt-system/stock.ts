@@ -224,6 +224,49 @@ export function consultaDaCapa(promptDaCapa: string, titulo = ""): string {
 }
 
 /**
+ * Consulta para a foto de uma pauta da newsletter.
+ *
+ * O título da notícia é português e banco de imagem indexa em inglês — buscar
+ * "fila do green card chega a 179 anos" devolve praticamente nada, e o pouco
+ * que devolve não tem relação. Daí o mapa de conceito: o que importa para
+ * achar a foto não é a frase, é o assunto.
+ *
+ * A lista é curta de propósito. Termo genérico demais ("news", "government")
+ * traz a mesma foto para pautas diferentes, que é o problema que este mapa
+ * existe para resolver.
+ */
+const CONCEITOS: Array<{ termos: string[]; consulta: string }> = [
+  { termos: ["green card", "residencia permanente", "residente permanente"], consulta: "green card application documents" },
+  { termos: ["visto de trabalho", "h-1b", "h1b", "eb-2", "eb-3", "eb2", "eb3"], consulta: "office worker professional american" },
+  { termos: ["visto de estudante", "f-1", "intercambio", "universidade"], consulta: "university campus students america" },
+  { termos: ["ice", "deporta", "detid", "custodia", "fiscaliza"], consulta: "law enforcement officer uniform" },
+  { termos: ["fronteira", "border"], consulta: "border fence desert landscape" },
+  { termos: ["asilo", "refugiad"], consulta: "family suitcase airport waiting" },
+  { termos: ["cidadania", "naturaliza", "juramento"], consulta: "american flag ceremony people" },
+  { termos: ["uscis", "formulario", "peticao", "taxa", "processamento"], consulta: "paperwork forms desk office" },
+  { termos: ["consulad", "embaixad", "entrevista", "passaporte"], consulta: "passport travel documents" },
+  { termos: ["corte", "tribunal", "juiz", "decisao", "decreto", "lei", "regra"], consulta: "courthouse columns architecture" },
+  { termos: ["fila", "espera", "prazo", "boletim"], consulta: "waiting room chairs people" },
+  { termos: ["trump", "casa branca", "governo", "congresso", "senado"], consulta: "washington capitol building" },
+  { termos: ["dolar", "cambio", "custo", "economia", "salario"], consulta: "us dollars money finance" },
+];
+
+/** Foto padrão quando nada casa. Genérica, mas sempre do tema. */
+const CONSULTA_PADRAO = "american flag city skyline";
+
+export function consultaDaNoticia(titulo: string, categoria = ""): string {
+  const texto = `${titulo} ${categoria}`
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  for (const c of CONCEITOS) {
+    if (c.termos.some((t) => texto.includes(t))) return c.consulta;
+  }
+  return CONSULTA_PADRAO;
+}
+
+/**
  * Busca a foto de base. `null` quando não há chave, resultado ou a API falha.
  *
  * Pexels primeiro: é o provedor que não exige crédito nenhum, então a ordem
