@@ -55,6 +55,17 @@ const emptyDmCopy = {
   followUpMessage: "",
 };
 
+/** O que uma campanha produziu: o prompt e a imagem que ele gerou. */
+type AssetDaCampanha = {
+  id: string;
+  label: string;
+  promptText: string;
+  imageUrl: string | null;
+  substitutionNotes: string;
+  model: string;
+  origem: { provedor: string; fotografo: string } | null;
+};
+
 export function AdminPromptSystemManager() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +78,11 @@ export function AdminPromptSystemManager() {
   const [dmCopy, setDmCopy] = useState(emptyDmCopy);
   const [rowBusy, setRowBusy] = useState<string | null>(null);
   const [rowError, setRowError] = useState<Record<string, string>>({});
+
+  // Assets abertos por campanha. Carregados sob demanda: são imagens de vários
+  // MB, e baixar todas as campanhas de uma vez ao abrir o painel torraria a
+  // banda de quem só veio configurar o Direct.
+  const [assets, setAssets] = useState<Record<string, AssetDaCampanha[] | "carregando">>({});
 
   async function load() {
     setLoading(true);
@@ -197,6 +213,51 @@ export function AdminPromptSystemManager() {
       load();
     } finally {
       setRowBusy(null);
+    }
+  }
+
+  /**
+   * Abre (ou fecha) o que a campanha gerou.
+   *
+   * Sem isto o painel dizia "6 asset(s) gravado(s)" e não havia como ver
+   * nenhum: conferir o resultado exigia abrir a página de entrega, que é
+   * protegida pelo cookie do funil, ou consultar o banco. Quem decide se o
+   * post vai ao ar precisa olhar as imagens primeiro.
+   */
+  async function alternarAssets(campaignId: string) {
+    if (assets[campaignId]) {
+      setAssets((prev) => {
+        const next = { ...prev };
+        delete next[campaignId];
+        return next;
+      });
+      return;
+    }
+
+    setAssets((prev) => ({ ...prev, [campaignId]: "carregando" }));
+    try {
+      const res = await fetch(`/api/admin/prompt-system/campaigns/${campaignId}/assets`);
+      const json = await res.json();
+      if (res.ok && json.ok) {
+        setAssets((prev) => ({ ...prev, [campaignId]: json.assets as AssetDaCampanha[] }));
+      } else {
+        setAssets((prev) => {
+          const next = { ...prev };
+          delete next[campaignId];
+          return next;
+        });
+        setRowError((prev) => ({ ...prev, [campaignId]: json.error ?? "Erro ao carregar os assets." }));
+      }
+    } catch (err) {
+      setAssets((prev) => {
+        const next = { ...prev };
+        delete next[campaignId];
+        return next;
+      });
+      setRowError((prev) => ({
+        ...prev,
+        [campaignId]: `Não consegui carregar os assets: ${err instanceof Error ? err.message : String(err)}`,
+      }));
     }
   }
 
@@ -385,6 +446,13 @@ export function AdminPromptSystemManager() {
                     >
                       {rowBusy === c.id ? "Gerando..." : "Gerar prompts + imagens"}
                     </button>
+                    <button
+                      onClick={() => alternarAssets(c.id)}
+                      title="Vê os prompts e as imagens que esta campanha gerou"
+                      className="ml-2 rounded-lg bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 hover:bg-slate-200"
+                    >
+                      {assets[c.id] ? "Ocultar resultado" : "Ver resultado"}
+                    </button>
                     {c.status === "ready" ? (
                       <button
                         onClick={() => handlePublish(c.id)}
@@ -410,6 +478,57 @@ export function AdminPromptSystemManager() {
                   <tr key={`${c.id}-error`}>
                     <td colSpan={6} className="break-words bg-rose-50 px-5 py-2 text-xs font-semibold text-rose-600">
                       {rowError[c.id]}
+                    </td>
+                  </tr>
+                ) : null}
+                {assets[c.id] ? (
+                  <tr key={`${c.id}-assets`}>
+                    <td colSpan={6} className="bg-slate-50 px-5 py-5">
+                      {assets[c.id] === "carregando" ? (
+                        <p className="text-xs text-slate-500">Carregando o resultado…</p>
+                      ) : (assets[c.id] as AssetDaCampanha[]).length === 0 ? (
+                        <p className="text-xs text-slate-500">
+                          Nada gerado ainda. Use &quot;Gerar prompts + imagens&quot;.
+                        </p>
+                      ) : (
+                        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                          {(assets[c.id] as AssetDaCampanha[]).map((a) => (
+                            <div key={a.id} className="rounded-2xl border border-slate-200 bg-white p-3">
+                              {a.imageUrl ? (
+                                <a href={a.imageUrl} target="_blank" rel="noreferrer">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={a.imageUrl}
+                                    alt={a.label}
+                                    loading="lazy"
+                                    className="aspect-[3/4] w-full rounded-xl object-cover"
+                                  />
+                                </a>
+                              ) : (
+                                // O asset é gravado mesmo quando a imagem falha:
+                                // o prompt é o produto, a imagem é a demonstração.
+                                <div className="flex aspect-[3/4] w-full items-center justify-center rounded-xl bg-rose-50 px-3 text-center text-xs font-semibold text-rose-600">
+                                  Imagem não gerada — o prompt está salvo
+                                </div>
+                              )}
+
+                              <p className="mt-3 font-mono text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                                {a.label}
+                              </p>
+
+                              <p className="mt-2 max-h-24 overflow-y-auto whitespace-pre-wrap text-[11px] leading-4 text-slate-600">
+                                {a.promptText}
+                              </p>
+
+                              <p className="mt-2 text-[10px] text-slate-400">
+                                {a.origem
+                                  ? `base: foto do ${a.origem.provedor}`
+                                  : "gerada do zero, sem foto de base"}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ) : null}
