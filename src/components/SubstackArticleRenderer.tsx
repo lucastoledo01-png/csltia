@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { MARCA } from "@/lib/marca";
 
 type SubstackArticleRendererProps = {
   title: string;
@@ -27,13 +28,13 @@ export function SubstackArticleRenderer({
   contentHtml,
   sections,
   quote,
-  quoteBy = "desbuguei.ia",
-  author = "desbuguei.ia Editorial",
+  quoteBy = MARCA.nome,
+  author = `${MARCA.nome} Editorial`,
 }: SubstackArticleRendererProps) {
   const [pollVoted, setPollVoted] = useState<string | null>(null);
 
   const whatsappShareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(
-    `Confira esta leitura no desbuguei.ia: ${title}`
+    `Confira esta leitura no ${MARCA.nome}: ${title}`
   )}`;
 
   return (

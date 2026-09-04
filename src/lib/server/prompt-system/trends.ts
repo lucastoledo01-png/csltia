@@ -61,7 +61,7 @@ export async function coletarGoogleTrends(
 ): Promise<TendenciaBruta[]> {
   try {
     const res = await fetcher(GOOGLE_TRENDS_BR, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; desbuguei.ia/1.0)" },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsroomBot/1.0)" },
     });
     if (!res.ok) {
       console.warn(`[TRENDS] Google Trends respondeu ${res.status}`);

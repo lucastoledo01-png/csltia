@@ -73,7 +73,7 @@ export function bancoConfigurado(env: Record<string, string | undefined> = proce
  * registrado pode não ser o slug que eu escolheria.
  */
 function utmDoUnsplash(env: Record<string, string | undefined>): string {
-  const app = (env.UNSPLASH_APP_NAME ?? "desbuguei-ia").trim() || "desbuguei-ia";
+  const app = (env.UNSPLASH_APP_NAME ?? "immigra-us").trim() || "immigra-us";
   return `?utm_source=${encodeURIComponent(app)}&utm_medium=referral`;
 }
 

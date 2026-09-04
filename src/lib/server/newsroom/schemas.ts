@@ -29,10 +29,18 @@ export const EditionContentSchema = z.object({
   stories: z.array(EditionStorySchema).min(4).max(6),
   quick_bits: z.array(EditionQuickBitSchema).optional().default([]),
   closing: z.string().min(10),
-  final_line: z.string().refine(
-    (val) => val.includes("Agora você está desbugado. Bora iniciar o dia."),
-    { message: "A assinatura final obrigatória 'Agora você está desbugado. Bora iniciar o dia.' deve estar presente." }
-  ),
+  /**
+   * Assinatura de encerramento.
+   *
+   * Aqui só se exige que exista. Qual frase é depende da publicação, e a
+   * validação anterior tinha "Agora você está desbugado. Bora iniciar o dia."
+   * escrita dentro do refine — o que significa que toda edição de qualquer
+   * outra vertical seria **recusada na validação**, sem edição nenhuma no ar.
+   *
+   * Quem garante a frase certa é o pipeline: ele injeta `marca.assinatura`
+   * quando o modelo não devolve, e o prompt pede a frase exata.
+   */
+  final_line: z.string().min(3),
 });
 
 export const QAResultSchema = z.object({

@@ -111,7 +111,7 @@ ${photo(slide.bg_image_url)}
   <div>
     <div class="s-profile" style="margin-bottom:22px">
       <span class="s-avatar">b.</span>
-      <div><div class="s-pname">Desbuguei IA <span class="s-check">✓</span></div><div class="s-phandle">@desbuguei.ia</div></div>
+      <div><div class="s-pname">immigra.us <span class="s-check">✓</span></div><div class="s-phandle">@immigra.us</div></div>
     </div>
     <div class="s-title" style="color:#fff;text-shadow:0 4px 20px rgba(0,0,0,0.7)">${esc(slide.title)}</div>
   </div>
@@ -130,8 +130,8 @@ const coverBrandCard: SlideVariant = {
   <div class="s-title">${esc(slide.title)}</div>
   ${slide.body ? `<div class="s-sub">${esc(slide.body)}</div>` : ""}
   <div class="s-card dark" style="min-height:360px;justify-content:flex-end">
-    <div class="s-phandle" style="color:#a1a1aa">@desbuguei.ia</div>
-    <div style="font-family:'Playfair Display',serif;font-size:40px;font-weight:800;color:#fff">${esc(slide.eyebrow || "Desbuguei Intel")}</div>
+    <div class="s-phandle" style="color:#a1a1aa">@immigra.us</div>
+    <div style="font-family:'Playfair Display',serif;font-size:40px;font-weight:800;color:#fff">${esc(slide.eyebrow || "immigra.us")}</div>
   </div>
 </div>`,
   }),

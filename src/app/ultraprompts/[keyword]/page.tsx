@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { UltraPromptLeadForm } from "@/components/UltraPromptLeadForm";
 import { loadLandingCampaign, recordFunnelEvent } from "@/lib/server/prompt-system/landing";
 import { validateKeyword } from "@/lib/prompt-system/keyword";
+import { MARCA } from "@/lib/marca";
 
 /**
  * Landing da etapa 10 — uma rota, todas as campanhas.
@@ -20,11 +21,11 @@ type Props = { params: Promise<{ keyword: string }> };
 export async function generateMetadata({ params }: Props) {
   const { keyword } = await params;
   const campanha = await loadLandingCampaign(keyword);
-  if (!campanha) return { title: "UltraPrompts · desbuguei.ia" };
+  if (!campanha) return { title: `UltraPrompts · ${MARCA.nome}` };
 
   const titulo = campanha.concept?.hook || campanha.theme || "Os prompts deste post";
   return {
-    title: `${titulo} · desbuguei.ia`,
+    title: `${titulo} · ${MARCA.nome}`,
     description: campanha.concept?.concept || "Receba os prompts exatos usados no post.",
     // A landing é destino de link de Direct, não de busca — indexá-la só
     // espalharia páginas de campanhas encerradas.
@@ -55,7 +56,7 @@ export default async function UltraPromptLanding({ params }: Props) {
       <div className="mx-auto min-h-screen max-w-3xl px-5 py-16">
         <div className="mb-14 flex items-center justify-between text-sm">
           <Link className="font-sans text-xl font-bold tracking-[-0.03em] text-black" href="/">
-            desbuguei.ia
+            {MARCA.nome}
           </Link>
           <span className="rounded-full bg-black px-3 py-1 font-mono text-[11px] font-bold tracking-[0.14em] text-white">
             {campanha.keyword}

@@ -13,6 +13,7 @@ import { AdminCarouselDesignManager } from "@/components/AdminCarouselDesignMana
 import { AdminLayoutEditor } from "@/components/AdminLayoutEditor";
 import { AdminPromptSystemManager } from "@/components/AdminPromptSystemManager";
 import { AdminPromptTrendsManager } from "@/components/AdminPromptTrendsManager";
+import { MARCA } from "@/lib/marca";
 
 type Tab = "newsroom" | "social" | "carousel" | "layout" | "prompt-system" | "sources" | "cms" | "analytics" | "logs" | "comments";
 
@@ -197,7 +198,7 @@ export default function AdminPage() {
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-600 text-sm font-black text-white">
             b.
           </span>
-          <span className="text-[20px] text-slate-900">desbuguei.ia</span>
+          <span className="text-[20px] text-slate-900">{MARCA.nome}</span>
         </div>
 
         <nav className="flex-1 space-y-2 px-4">
@@ -271,7 +272,7 @@ export default function AdminPage() {
                   Bem-vindo de volta
                 </span>
                 <h2 className="mt-3 text-[40px] leading-tight text-white sm:text-[48px]">
-                  Central Desbuguei.ia
+                  Central {MARCA.nome}
                 </h2>
                 <p className="mt-2 max-w-md text-sm text-indigo-100">
                   Redação automática, carrosséis do Instagram e newsletter, tudo num só lugar.

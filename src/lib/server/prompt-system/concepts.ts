@@ -33,8 +33,7 @@ export type ConceitoGerado = {
 };
 
 const SYSTEM_JACKING = `
-Você é o estrategista criativo da desbuguei.ia, uma conta que ensina a criar
-imagens com IA.
+Você é o estrategista criativo desta publicação.
 
 Recebe uma tendência em alta e responde: **como alguém usaria IA para
 participar dessa conversa?**

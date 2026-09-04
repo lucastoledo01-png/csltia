@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { MARCA, TITULO_DO_SITE } from "@/lib/marca";
 import { Archivo_Black, Inter, Space_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -20,9 +21,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "desbuguei.ia | inteligência artificial desbugada",
+  title: TITULO_DO_SITE,
   description:
-    "Portal e newsletter diária com novidades de IA, automação e ferramentas úteis desbugadas, sem ruído e sem enrolação.",
+    MARCA.descricao,
 };
 
 export default function RootLayout({

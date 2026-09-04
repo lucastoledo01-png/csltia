@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { runNewsroom } from "../lib/server/newsroom/newsroom-service";
+import { MARCA } from "@/lib/marca";
 
 // Carregar .env.local se disponível
 const envLocalPath = path.resolve(process.cwd(), ".env.local");
@@ -19,7 +20,7 @@ if (fs.existsSync(envLocalPath)) {
 }
 
 async function main() {
-  console.log("=== INICIANDO EXECUÇÃO DRY RUN DA REDAÇÃO desbuguei.ia ===");
+  console.log(`=== DRY RUN DA REDAÇÃO ${MARCA.nome} ===`);
   try {
     const result = await runNewsroom({ dryRun: true });
 

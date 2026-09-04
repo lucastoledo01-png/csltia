@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { MARCA } from "@/lib/marca";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -27,17 +28,17 @@ export function NewsletterRenderer({
   contentHtml,
   sections,
   quote,
-  quoteBy = "desbuguei.ia",
+  quoteBy = MARCA.nome,
 }: NewsletterRendererProps) {
   const [pollVoted, setPollVoted] = useState<string | null>(null);
 
   const whatsappShareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(
-    `Confira esta edição da desbuguei.ia: ${title}`
+    `Confira esta edição da ${MARCA.nome}: ${title}`
   )}`;
 
   return (
     <article className="mx-auto max-w-2xl bg-white px-4 py-8 text-black sm:px-6 md:py-12 shadow-[0_4px_30px_rgba(0,0,0,0.03)] rounded-[32px] border border-[#eaecf0]">
-      {/* 1. Header estilo desbuguei.ia */}
+      {/* 1. Cabeçalho da edição */}
       <header className="border-b border-[#eaecf0] pb-8 text-center">
         <div className="mx-auto inline-flex items-center gap-2 rounded-full bg-[#fef3c7] px-4 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#92400e]">
           <span>{category}</span> • <span>{readTime} DE LEITURA</span>
@@ -47,7 +48,8 @@ export function NewsletterRenderer({
         <div className="mt-6 flex justify-center">
           <div className="rounded-2xl bg-[#ff4a1c] px-6 py-2 shadow-lg shadow-[#ff4a1c]/20">
             <span className="font-mono text-3xl font-black lowercase tracking-tighter text-white sm:text-4xl">
-              b. <span className="text-[#fef08a]">/ desbuguei.ia</span>
+              {MARCA.nomeBase}
+              <span style={{ color: MARCA.cor }}>{MARCA.nomeSufixo}</span>
             </span>
           </div>
         </div>
@@ -73,7 +75,7 @@ export function NewsletterRenderer({
         </h2>
         <div className="mt-3 space-y-2 text-sm font-medium text-[#344054]">
           <p>
-            <mark className="bg-[#fef08a] px-1 font-bold text-black">O radar desbugado de IA</mark>: As principais novidades de modelos, ferramentas e automação filtradas para você testar no mesmo dia.
+            <mark className="px-1 font-bold text-white" style={{ background: MARCA.cor }}>O que mudou hoje</mark>: regras, prazos e decisões que afetam quem vai para os Estados Unidos — com a fonte oficial ao lado de cada fato.
           </p>
         </div>
       </section>
@@ -185,7 +187,12 @@ export function NewsletterRenderer({
 
       {/* 5. Footer da Edição */}
       <footer className="mt-12 border-t border-[#eaecf0] pt-8 text-center text-xs text-[#667085]">
-        <p className="font-bold text-black">desbuguei.ia — Publicação sobre Inteligência Artificial, automação e ferramentas úteis.</p>
+        <p className="font-bold text-black">{MARCA.nome} — {MARCA.descricao}</p>
+        <p className="mt-2 text-[11px] leading-4 text-gray-500">
+          Conteúdo informativo, não orientação jurídica. Regras de imigração mudam e
+          cada caso tem particularidades — confirme sempre na fonte oficial citada ou
+          com um advogado licenciado antes de tomar qualquer decisão.
+        </p>
         <p className="mt-2">Direto na sua caixa de entrada e no portal todos os dias.</p>
       </footer>
     </article>

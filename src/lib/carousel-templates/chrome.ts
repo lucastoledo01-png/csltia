@@ -16,8 +16,8 @@ import { pad2 } from "./util";
 
 export type ChromeKind = "editorial" | "social";
 
-const HANDLE = "@desbuguei.ia";
-const EDITORIAL_TAGLINE = "DESBUGUEI &middot; IA PARA REDES";
+const HANDLE = "@immigra.us";
+const EDITORIAL_TAGLINE = "IMMIGRA.US &middot; EUA SEM RUÍDO";
 
 /**
  * Ícones em SVG inline. O design de origem usa a biblioteca Iconify por
@@ -51,7 +51,7 @@ export function cantosEditorial(): string {
 export function chromeHeader(kind: ChromeKind, slideIndex: number, total: number): string {
   if (kind === "social") {
     return `<div class="c-head social">
-<span class="mark">desbuguei.ia</span>
+<span class="mark">immigra.us</span>
 <span class="pill">${pad2(slideIndex)}<i>/</i>${pad2(total)}</span>
 </div>`;
   }

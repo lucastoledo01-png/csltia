@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { TurnstileWidget } from "@/components/TurnstileWidget";
+import { MARCA } from "@/lib/marca";
 
 /**
  * Captura da etapa 11.
@@ -111,7 +112,7 @@ export function UltraPromptLeadForm({ keyword }: { keyword: string }) {
       </button>
 
       <p className="pt-1 text-center text-xs text-[#98a2b3]">
-        Sem spam. Você recebe o material e as novidades da desbuguei.ia.
+        Sem spam. Você recebe o material e as novidades da {MARCA.nome}.
       </p>
     </form>
   );

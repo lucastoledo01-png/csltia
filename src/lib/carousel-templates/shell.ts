@@ -44,5 +44,5 @@ ${chromeFooter(chrome, opts.slideIndex, opts.total)}
 
 /** Marca da conta sem contador — usada nas sobreposições das capas. */
 export function overlayBrand(): string {
-  return `<div class="s-header plain"><div class="s-brand"><span class="s-badge">b.</span><span class="s-wordmark">desbuguei.ia</span></div></div>`;
+  return `<div class="s-header plain"><div class="s-brand"><span class="s-badge">us</span><span class="s-wordmark">immigra.us</span></div></div>`;
 }

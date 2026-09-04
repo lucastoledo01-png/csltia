@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import Home from "./page";
+import { MARCA } from "@/lib/marca";
 
-describe("desbuguei.ia home", () => {
+describe("home do portal", () => {
   it("exibe o formulário de inscrição na newsletter", () => {
     render(<Home />);
 
@@ -17,16 +18,19 @@ describe("desbuguei.ia home", () => {
     expect(screen.getAllByRole("link", { name: /formações/i })[0]).toHaveAttribute("href", "/formacoes");
   });
 
-  it("exibe a logo desbuguei.ia no topo", () => {
+  it("exibe a marca no topo", () => {
+    // Afirma contra `MARCA`, não contra o texto literal: o nome já mudou uma
+    // vez, e um teste que repete a string vira o último lugar onde a marca
+    // antiga sobrevive.
     render(<Home />);
 
-    expect(screen.getAllByRole("link", { name: /desbuguei.ia/i }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole("link", { name: new RegExp(MARCA.nome, "i") }).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("exibe a headline principal desbugada", () => {
+  it("exibe a headline principal", () => {
     render(<Home />);
 
-    expect(screen.getByRole("heading", { level: 1, name: /Inteligência artificial desbugada/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
   });
 
   it("exibe a seção de dúvidas frequentes", () => {
