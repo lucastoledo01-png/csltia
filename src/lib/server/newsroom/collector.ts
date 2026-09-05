@@ -354,10 +354,17 @@ export function janelaDaFonte(source: NewsSourceConfig): number {
     }
   })();
 
-  if (dominio === "news.google.com") return 24;
-  if (source.category === "gov_us") return 72;
-  if (dominio.endsWith(".gov") || dominio.endsWith(".gov.br")) return 72;
-  return 24;
+  // Agregador é o único que fica em 24h. Ele republica o dia inteiro e o que
+  // tinha ontem já passou pela coleta de ontem.
+  if (dominio === "news.google.com" || dominio === "news.yahoo.com") return 24;
+
+  // O resto entra com 72h. Órgão público publica a cada dois ou três dias, e
+  // escritório de imigração publica análise duas vezes por semana: com 24h,
+  // essas fontes apareciam vazias em quase toda rodada, e são justamente as
+  // que entregam texto de verdade. Veículo de alto volume também ganha as 72h
+  // sem prejuízo, porque a deduplicação corta o repetido e a nota do frescor
+  // coloca o que é de hoje na frente.
+  return 72;
 }
 
 export async function collectAllNews(

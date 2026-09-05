@@ -83,11 +83,12 @@ describe("janelaDaFonte", () => {
     expect(janelaDaFonte({ ...base, url: "https://news.google.com/rss/search?q=x" })).toBe(24);
   });
 
-  it("mantém 24h para veículo comum", () => {
-    expect(janelaDaFonte({ ...base, url: "https://g1.globo.com/rss/g1/politica/" })).toBe(24);
+  it("dá 72h para veículo que publica direto, porque é ele que traz texto", () => {
+    expect(janelaDaFonte({ ...base, url: "https://g1.globo.com/rss/g1/politica/" })).toBe(72);
+    expect(janelaDaFonte({ ...base, url: "https://visalaw.com/feed/" })).toBe(72);
   });
 
   it("não quebra com URL inválida", () => {
-    expect(janelaDaFonte({ ...base, url: "não é url" })).toBe(24);
+    expect(janelaDaFonte({ ...base, url: "não é url" })).toBe(72);
   });
 });
