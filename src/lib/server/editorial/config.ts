@@ -76,6 +76,9 @@ export function carregarConfigEditorial(env: Ambiente = process.env): ConfigEdit
 export const MOTIVOS = {
   APROVADO_OPORTUNIDADE_EUA: "APPROVED_US_OPPORTUNITY",
   APROVADO_DESAFIO_BRASIL: "APPROVED_BRAZIL_CHALLENGE",
+  /** Pauta brasileira no eixo, sem carga negativa. Existe para o log não
+   *  chamar de "desafio" uma notícia boa e virar viés escondido em rótulo. */
+  APROVADO_CONTEXTO_BRASIL: "APPROVED_BRAZIL_CONTEXT",
   APROVADO_IMIGRACAO: "APPROVED_IMMIGRATION",
   REJEITADO_EUA_NEGATIVO: "REJECT_US_NEGATIVE",
   REJEITADO_URL_DUPLICADA: "REJECT_DUPLICATE_URL",

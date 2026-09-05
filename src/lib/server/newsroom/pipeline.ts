@@ -8,6 +8,8 @@ import type { ClaimNaoSustentada, PacoteFactual } from "../editorial/pacote-fact
 import { validarAncoragem } from "../editorial/pacote-factual";
 
 export type AncoragemDaPauta = {
+  /** Posição da pauta na edição, para casar com a lista de selecionadas. */
+  indice: number;
   titulo: string;
   ancorado: boolean;
   conferidos: number;
@@ -336,7 +338,7 @@ Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
     ? parsedEdition.stories.map((story, i) => {
         const pacote = pacotes.get(topRanked[i]?.group.primary.url ?? "");
         if (!pacote) {
-          return { titulo: story.title, ancorado: true, conferidos: 0, naoSustentadas: [] };
+          return { indice: i, titulo: story.title, ancorado: true, conferidos: 0, naoSustentadas: [] };
         }
 
         const texto = [
@@ -352,6 +354,7 @@ Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
 
         const r = validarAncoragem(texto, pacote);
         return {
+          indice: i,
           titulo: story.title,
           ancorado: r.ancorado,
           conferidos: r.conferidos,

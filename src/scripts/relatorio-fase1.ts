@@ -379,26 +379,43 @@ async function main() {
       escrever(`O que a matéria não diz: ${pacote.gaps.join("; ") || "nada registrado"}`);
       escrever();
 
-      const conferencia = edicao.ancoragem.find((a) =>
-        a.titulo.toLowerCase().includes(p.grupo.primary.title.slice(0, 15).toLowerCase())
-      );
+      // Casa por posição: o redator reescreve o título, então procurar por
+      // texto não encontra a matéria que veio desta pauta.
+      const posicao = resultado.selecionadas.indexOf(p);
+      const conferencia = edicao.ancoragem.find((a) => a.indice === posicao);
+
+      if (!conferencia) {
+        escrever("Conferência: não rodou para esta pauta.");
+        escrever();
+        continue;
+      }
+
+      escrever(`Matéria escrita a partir dela: "${conferencia.titulo}"`);
       escrever(
-        `Conferência: ${edicao.ancoragem.length === 0 ? "não rodou" : conferencia ? (conferencia.ancorado ? `${conferencia.conferidos} afirmações conferidas, todas sustentadas` : "AFIRMAÇÃO SEM LASTRO") : "pauta não casada com a matéria escrita"}`
+        `Conferência: ${conferencia.conferidos} afirmações conferidas, ` +
+          (conferencia.ancorado ? "nenhuma sem lastro" : "COM AFIRMAÇÃO SEM LASTRO")
       );
-      if (conferencia && !conferencia.ancorado) {
-        for (const c of conferencia.naoSustentadas) {
-          escrever(`- recusada: ${c.tipo} "${c.valor}" em "${c.onde}"`);
-        }
+      for (const c of conferencia.naoSustentadas) {
+        escrever(`- ${c.severidade}: ${c.tipo} "${c.valor}" em "${c.onde}"`);
       }
       escrever();
     }
 
     const semLastro = edicao.ancoragem.filter((a) => !a.ancorado);
+    const avisos = edicao.ancoragem.flatMap((a) =>
+      a.naoSustentadas.filter((c) => c.severidade === "aviso")
+    );
     escrever(
       semLastro.length === 0
-        ? "Nenhuma afirmação sem lastro. Em enforce, esta edição passaria pela ancoragem."
+        ? "Nenhuma afirmação de bloqueio. Em enforce, esta edição passaria pela ancoragem."
         : `${semLastro.length} matéria(s) com afirmação sem lastro. Em enforce, esta edição seria BLOQUEADA.`
     );
+    if (avisos.length > 0) {
+      escrever(
+        `${avisos.length} aviso(s): palavra com inicial maiúscula fora do material, sem bloquear. ` +
+          avisos.map((c) => `"${c.valor}"`).join(", ")
+      );
+    }
     escrever();
 
     escrever("### QA e custo da redação");

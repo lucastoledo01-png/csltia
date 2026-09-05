@@ -297,8 +297,11 @@ export function decidirPauta(c: Classificacao, config: ConfigEditorial): Decisao
     }
     return {
       aprovada: true,
-      motivo: MOTIVOS.APROVADO_DESAFIO_BRASIL,
-      explicacao: `Brasil, eixo ${c.eixo}, relevância ${c.relevancia}`,
+      motivo:
+        c.leitura === "desfavoravel"
+          ? MOTIVOS.APROVADO_DESAFIO_BRASIL
+          : MOTIVOS.APROVADO_CONTEXTO_BRASIL,
+      explicacao: `Brasil, eixo ${c.eixo}, leitura ${c.leitura}, relevância ${c.relevancia}`,
     };
   }
 

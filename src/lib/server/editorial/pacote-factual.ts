@@ -112,9 +112,22 @@ export type ClaimNaoSustentada = {
   tipo: "numero" | "data" | "nome";
   valor: string;
   onde: string;
+  /**
+   * Bloqueio ou aviso.
+   *
+   * Número, data e nome composto bloqueiam: foi assim que apareceram
+   * "Operação Compliance Zero" e um sobrenome que não existia no material.
+   *
+   * Palavra isolada com inicial maiúscula fica em aviso, porque português
+   * capitaliza no meio da frase o que não é nome de ninguém. A conferência
+   * acusou "duas Casas" como entidade inventada; bloquear a edição por causa
+   * disso seria trocar um erro por outro.
+   */
+  severidade: "bloqueio" | "aviso";
 };
 
 export type ResultadoDaAncoragem = {
+  /** Falso só quando há claim de bloqueio. Aviso não derruba a edição. */
   ancorado: boolean;
   naoSustentadas: ClaimNaoSustentada[];
   conferidos: number;
@@ -133,6 +146,25 @@ const MESES = [
   "janeiro", "fevereiro", "marco", "abril", "maio", "junho",
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ];
+
+/**
+ * Palavras institucionais e genéricas que o português capitaliza sem nomear
+ * ninguém em específico.
+ *
+ * Elas só chegam a ser conferidas quando NÃO estão no material: se a matéria
+ * fala em Senado, "Senado" no texto casa e nada acontece. O que esta lista
+ * decide é a severidade quando não casa. "Casas do Congresso" numa matéria que
+ * dizia "Câmara e Senado" é paráfrase, não invenção; "Operação Compliance
+ * Zero" numa matéria que não nomeia operação nenhuma é invenção.
+ */
+const GENERICAS = new Set([
+  "casa", "casas", "congresso", "camara", "senado", "governo", "presidencia",
+  "ministerio", "tribunal", "corte", "justica", "estado", "estados", "uniao",
+  "republica", "federal", "lei", "projeto", "programa", "norte", "sul", "leste",
+  "oeste", "pais", "paises", "cidade", "capital", "regiao", "poder", "poderes",
+  "executivo", "legislativo", "judiciario", "operacao", "decreto", "portaria",
+  "medida", "regra", "regras", "agencia", "orgao", "departamento", "servico",
+]);
 
 /**
  * Palavras que começam frase, viram título ou são o vocabulário da própria
@@ -187,7 +219,12 @@ export function validarAncoragem(
     const bruto = m[0].trim();
     conferidos += 1;
     if (!numeroSustentado(bruto, palheiro)) {
-      naoSustentadas.push({ tipo: "numero", valor: bruto, onde: trecho(textoGerado, m.index ?? 0) });
+      naoSustentadas.push({
+        tipo: "numero",
+        valor: bruto,
+        onde: trecho(textoGerado, m.index ?? 0),
+        severidade: "bloqueio",
+      });
     }
   }
 
@@ -198,7 +235,12 @@ export function validarAncoragem(
     conferidos += 1;
     const valor = m[0];
     if (!palheiro.includes(normalizar(valor)) && !parteDaDataSustentada(valor, palheiro)) {
-      naoSustentadas.push({ tipo: "data", valor, onde: trecho(textoGerado, m.index ?? 0) });
+      naoSustentadas.push({
+        tipo: "data",
+        valor,
+        onde: trecho(textoGerado, m.index ?? 0),
+        severidade: "bloqueio",
+      });
     }
   }
 
@@ -213,11 +255,17 @@ export function validarAncoragem(
 
     conferidos += 1;
     if (!nomeSustentado(chave, palheiro)) {
-      naoSustentadas.push({ tipo: "nome", valor: bruto, onde: trecho(textoGerado, m.index ?? 0) });
+      naoSustentadas.push({
+        tipo: "nome",
+        valor: bruto,
+        onde: trecho(textoGerado, m.index ?? 0),
+        severidade: severidadeDoNome(chave),
+      });
     }
   }
 
-  return { ancorado: naoSustentadas.length === 0, naoSustentadas, conferidos };
+  const bloqueios = naoSustentadas.filter((c) => c.severidade === "bloqueio");
+  return { ancorado: bloqueios.length === 0, naoSustentadas, conferidos };
 }
 
 function numeroSustentado(bruto: string, palheiro: string): boolean {
@@ -236,6 +284,18 @@ function numeroSustentado(bruto: string, palheiro: string): boolean {
 function parteDaDataSustentada(valor: string, palheiro: string): boolean {
   const partes = normalizar(valor).split(/\s+de\s+/);
   return partes.every((p) => palheiro.includes(p));
+}
+
+/**
+ * Palavra isolada é aviso: o português capitaliza no meio da frase o que não é
+ * nome de ninguém, e a conferência chegou a acusar "duas Casas" como entidade
+ * inventada. Nome composto é bloqueio, a menos que todas as suas palavras
+ * sejam genéricas, que é o caso de "Casas do Congresso".
+ */
+function severidadeDoNome(chave: string): "bloqueio" | "aviso" {
+  const palavras = chave.split(" ").filter((p) => p.length > 2 && !IGNORAR.has(p));
+  if (palavras.length <= 1) return "aviso";
+  return palavras.every((p) => GENERICAS.has(p)) ? "aviso" : "bloqueio";
 }
 
 function nomeSustentado(chave: string, palheiro: string): boolean {

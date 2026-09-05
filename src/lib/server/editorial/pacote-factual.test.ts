@@ -132,3 +132,36 @@ describe("montarPacoteFactual", () => {
     expect(p.source_urls).toEqual(["https://x.com/a"]);
   });
 });
+
+describe("severidade da claim", () => {
+  it("paráfrase institucional não bloqueia a edição", () => {
+    // "duas Casas" foi acusada como entidade inventada na edição de validação.
+    // A matéria falava em Câmara e Senado: é paráfrase, não invenção.
+    const soCamaraSenado: PacoteFactual = {
+      ...pacote,
+      organizations: ["Câmara", "Senado"],
+      texto_de_origem: "O texto foi aprovado pela Câmara e pelo Senado na quarta-feira.",
+    };
+    const r = validarAncoragem("O texto passou pelas duas Casas do Congresso.", soCamaraSenado);
+    expect(r.ancorado).toBe(true);
+    expect(r.naoSustentadas.every((c) => c.severidade === "aviso")).toBe(true);
+  });
+
+  it("palavra isolada capitalizada e desconhecida é aviso", () => {
+    const r = validarAncoragem("A decisão saiu em Wisconsin.", pacote);
+    const achado = r.naoSustentadas.find((c) => c.valor === "Wisconsin");
+    expect(achado?.severidade).toBe("aviso");
+    expect(r.ancorado).toBe(true);
+  });
+
+  it("nome composto sem lastro continua bloqueando", () => {
+    const r = validarAncoragem("A apuração corre na Operação Compliance Zero.", pacote);
+    expect(r.ancorado).toBe(false);
+    expect(r.naoSustentadas.some((c) => c.severidade === "bloqueio")).toBe(true);
+  });
+
+  it("número inventado bloqueia mesmo sozinho", () => {
+    const r = validarAncoragem("O desvio soma 4,7 bilhões.", pacote);
+    expect(r.ancorado).toBe(false);
+  });
+});
