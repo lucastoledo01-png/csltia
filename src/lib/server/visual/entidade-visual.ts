@@ -1,6 +1,7 @@
 import type { EntidadeVisual } from "./tipos";
 import { normalizarEntidade } from "./tipos";
 import { resolverEntidadeNoWikidata } from "./wikidata";
+import { escolherPorCentralidade } from "./centralidade";
 
 /**
  * Qual é o assunto visual da pauta.
@@ -63,8 +64,12 @@ export async function escolherEntidadeVisual(
     lugares: string[];
     acontecimento: string[];
     pais?: string;
-    /** Título e resumo, que é o que decide lugar ambíguo. */
+    /** Título e resumo juntos, para desambiguar lugar. */
     contexto?: string;
+    /** O título sozinho. É o sinal mais forte de centralidade. */
+    titulo?: string;
+    /** O texto da matéria. A abertura dele indica o sujeito do fato. */
+    resumo?: string;
   },
   opcoes: { env?: Record<string, string | undefined>; fetcher?: typeof fetch } = {}
 ): Promise<EscolhaDeEntidade> {
@@ -119,58 +124,49 @@ export async function escolherEntidadeVisual(
   }
 
   /*
-   * Quem está no título é o assunto visual.
+   * A mesma entidade achada duas vezes não é empate.
    *
-   * A matéria "Dólar fecha a R$ 5,1300 e Ibovespa recua" cita o Datafolha no
-   * corpo, como causa do movimento, e o Datafolha venceu a escolha por ser uma
-   * instituição bem documentada. Ilustrar a cotação com uma foto do instituto
-   * de pesquisa é escolher o coadjuvante.
-   *
-   * Estar no título não é um sinal fraco: é onde a redação disse do que a
-   * matéria trata.
+   * A matéria cita "ICE" e "Immigration and Customs Enforcement", e as duas
+   * resolvem para o mesmo QID. Sem juntar, isso vira "duas entidades
+   * igualmente centrais" e a pauta sai sem foto por um empate que não existe.
    */
-  const tituloNormalizado = normalizarEntidade(classificacao.contexto?.split(".")[0] ?? "");
-  const apareceNoTitulo = (e: EntidadeVisual): boolean => {
-    if (!tituloNormalizado) return false;
-    const nome = normalizarEntidade(e.nome);
-    if (tituloNormalizado.includes(nome)) return true;
-    // Nome longo do Wikidata ("Serviço de Imigração e Controle...") raramente
-    // aparece inteiro: basta uma palavra significativa.
-    return nome
-      .split(" ")
-      .filter((p) => p.length > 4)
-      .some((p) => tituloNormalizado.includes(p));
-  };
+  const unicas = new Map<string, EntidadeVisual>();
+  for (const e of resolvidas) {
+    const chave = e.qid ?? normalizarEntidade(e.nome);
+    if (!unicas.has(chave)) unicas.set(chave, e);
+  }
+  const distintas = [...unicas.values()];
 
-  const porPrioridade = (e: EntidadeVisual): number => {
-    if (e.tipo === "politician" || e.tipo === "public_official") return 0;
-    if (e.tipo === "person") return 1;
-    if (e.tipo === "government_agency") return 2;
-    if (e.tipo === "institution") return 3;
-    if (e.tipo === "company") return 4;
-    if (e.tipo === "place") return 5;
-    return 6;
-  };
+  /*
+   * Centralidade decide, e não popularidade no Wikidata.
+   *
+   * Dois erros reais: o Datafolha venceu numa pauta de cotação porque é
+   * instituição bem documentada, e o Palácio do Planalto venceu numa pauta
+   * cujo título aponta para STF, PF e Congresso. Nos dois casos a entidade
+   * escolhida só aparecia no corpo.
+   */
+  const escolhaCentral = escolherPorCentralidade(distintas, {
+    titulo: classificacao.titulo ?? "",
+    resumo: classificacao.resumo ?? classificacao.contexto ?? "",
+    atores,
+  });
 
-  // Entre entidades do mesmo tipo, a que tem imagem declarada no Wikidata vem
-  // primeiro: é a que tem foto certa garantida.
-  const escolhida = [...resolvidas].sort((a, b) => {
-    const t = Number(apareceNoTitulo(b)) - Number(apareceNoTitulo(a));
-    if (t !== 0) return t;
-    const p = porPrioridade(a) - porPrioridade(b);
-    if (p !== 0) return p;
-    return Number(Boolean(b.imagemPrincipal)) - Number(Boolean(a.imagemPrincipal));
-  })[0];
+  if (!escolhaCentral.escolhida) {
+    tentativas.push({ candidato: "centralidade", resultado: escolhaCentral.detalhe });
+    return { entidade: null, tentativas, ambigua: escolhaCentral.ambigua };
+  }
+
+  const escolhida = escolhaCentral.escolhida;
 
   return {
     entidade: {
       ...escolhida,
-      origem: `${escolhida.origem}; escolhida entre ${resolvidas.length} candidata(s) por tipo ${escolhida.tipo}`,
+      origem: `${escolhida.origem}; ${escolhaCentral.detalhe}`,
+      confianca: Math.min(100, Math.round((escolhida.confianca + (escolhaCentral.nota?.valor ?? 0)) / 2)),
       evidencias: [
         ...escolhida.evidencias,
-        apareceNoTitulo(escolhida)
-          ? "citada no título da matéria"
-          : `ator ou lugar principal da matéria entre ${resolvidas.length} candidata(s)`,
+        `centralidade: ${escolhaCentral.nota?.motivo ?? "não avaliada"}`,
+        `escolhida entre ${distintas.length} candidata(s) distinta(s)`,
       ],
     },
     tentativas,

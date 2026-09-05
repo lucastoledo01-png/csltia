@@ -81,7 +81,12 @@ export async function resolveVisualAsset(
 
   // 1. Quem é o assunto visual.
   const escolha = await escolherEntidadeVisual(
-    { ...pauta.classificacao, contexto: `${pauta.titulo} ${pauta.resumo ?? ""} ${pauta.categoria}` },
+    {
+      ...pauta.classificacao,
+      titulo: pauta.titulo,
+      resumo: pauta.resumo ?? "",
+      contexto: `${pauta.titulo} ${pauta.resumo ?? ""} ${pauta.categoria}`,
+    },
     { env, fetcher: opcoes.fetcher }
   );
 

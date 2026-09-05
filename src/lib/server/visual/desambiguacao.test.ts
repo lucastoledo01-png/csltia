@@ -158,12 +158,14 @@ describe("quem está no título é o assunto", () => {
         lugares: [],
         acontecimento: ["queda"],
         pais: "Brasil",
+        titulo: "Dólar fecha a R$ 5,13 e Ibovespa recua",
+        resumo: "O movimento veio após pesquisa Datafolha divulgada nesta sexta.",
         contexto: "Dólar fecha a R$ 5,13 e Ibovespa recua. O movimento veio após pesquisa Datafolha.",
       },
       { fetcher }
     );
 
     expect(r.entidade?.nome).toBe("Ibovespa");
-    expect(r.entidade?.evidencias.join(" ")).toContain("citada no título");
+    expect(r.entidade?.evidencias.join(" ")).toContain("centralidade: citada no título");
   });
 });
