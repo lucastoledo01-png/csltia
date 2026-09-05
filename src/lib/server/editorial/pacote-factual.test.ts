@@ -165,3 +165,20 @@ describe("severidade da claim", () => {
     expect(r.ancorado).toBe(false);
   });
 });
+
+describe("início de frase", () => {
+  it("não acusa a primeira palavra da frase como nome próprio", () => {
+    const r = validarAncoragem(
+      "A Polícia Federal investiga o caso. Brasileiros acompanham. Desde então, nada mudou.",
+      pacote
+    );
+    const nomes = r.naoSustentadas.filter((c) => c.tipo === "nome").map((c) => c.valor);
+    expect(nomes).not.toContain("Brasileiros");
+    expect(nomes).not.toContain("Desde");
+  });
+
+  it("continua pegando nome próprio no meio da frase", () => {
+    const r = validarAncoragem("O caso corre com a Operação Compliance Zero em andamento.", pacote);
+    expect(r.ancorado).toBe(false);
+  });
+});

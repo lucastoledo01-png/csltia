@@ -252,6 +252,10 @@ export function validarAncoragem(
     const chave = normalizar(bruto);
     if (IGNORAR.has(chave)) continue;
     if (chave.length < 3) continue;
+    // Início de frase capitaliza qualquer palavra. "Brasileiros que acompanham"
+    // e "Desde a decisão" viraram avisos na conferência, e nenhum dos dois é
+    // nome de coisa nenhuma.
+    if (!chave.includes(" ") && comecaFrase(textoGerado, m.index ?? 0)) continue;
 
     conferidos += 1;
     if (!nomeSustentado(chave, palheiro)) {
@@ -306,6 +310,12 @@ function nomeSustentado(chave: string, palheiro: string): boolean {
   const palavras = chave.split(" ").filter((p) => p.length > 3 && !IGNORAR.has(p));
   if (palavras.length === 0) return true;
   return palavras.some((p) => palheiro.includes(p));
+}
+
+function comecaFrase(texto: string, indice: number): boolean {
+  const antes = texto.slice(0, indice).trimEnd();
+  if (antes.length === 0) return true;
+  return /[.!?:;]$/.test(antes) || antes.endsWith("\n");
 }
 
 function trecho(texto: string, indice: number): string {
