@@ -213,6 +213,7 @@ export async function avaliarPautas(
       quantasFontesConfirmam: a.grupo.secondary_sources.length,
       publicadoEm: a.grupo.primary.published_at,
       semelhancaComHistorico: veredito.score,
+      temCorpoFactual: (a.grupo.primary.description || "").trim().length >= 120,
     });
 
     candidatas.push({

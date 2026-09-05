@@ -30,6 +30,8 @@ export type EntradaDePontuacao = {
   publicadoEm: string;
   /** Maior semelhança encontrada contra o histórico, de 0 a 1. */
   semelhancaComHistorico: number;
+  /** A fonte trouxe corpo, ou só a manchete? */
+  temCorpoFactual: boolean;
 };
 
 export type Pontuacao = {
@@ -39,6 +41,8 @@ export type Pontuacao = {
     ineditismo: number;
     credibilidade: number;
     frescor: number;
+    /** Desconto por pauta que chegou só com a manchete. Zero ou negativo. */
+    corpo: number;
   };
   explicacao: string;
 };
@@ -67,20 +71,39 @@ export function pontuarPauta(entrada: EntradaDePontuacao): Pontuacao {
   if (horas > 48) frescor = 5;
   if (horas > 96) frescor = 0;
 
+  /*
+   * Pauta sem corpo perde.
+   *
+   * O agregador entrega manchete e nada mais em boa parte dos itens. A pauta
+   * até pode ser boa, mas escrever a partir só do título produz o parágrafo
+   * que a edição de hoje mostrou três vezes: "a fonte não informa qual é a
+   * regra, quem é afetado ou quando começa". Entre duas pautas parecidas,
+   * ganha a que veio com texto.
+   *
+   * É desconto, não veto: num dia magro, manchete relevante ainda é melhor do
+   * que edição vazia.
+   */
+  const descontoSemCorpo = entrada.temCorpoFactual ? 0 : 12;
+
   const partes = {
     relevancia: Math.round(relevancia),
     ineditismo: Math.round(ineditismo),
     credibilidade: Math.round(credibilidade),
     frescor,
+    corpo: -descontoSemCorpo,
   };
-  const total = partes.relevancia + partes.ineditismo + partes.credibilidade + partes.frescor;
+  const total = Math.max(
+    0,
+    partes.relevancia + partes.ineditismo + partes.credibilidade + partes.frescor - descontoSemCorpo,
+  );
 
   return {
     total,
     partes,
     explicacao:
       `${total} = rel ${partes.relevancia} + ined ${partes.ineditismo} + ` +
-      `cred ${partes.credibilidade} + fresc ${partes.frescor}`,
+      `cred ${partes.credibilidade} + fresc ${partes.frescor}` +
+      (descontoSemCorpo > 0 ? ` - ${descontoSemCorpo} (só manchete)` : ""),
   };
 }
 

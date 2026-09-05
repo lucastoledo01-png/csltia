@@ -32,6 +32,7 @@ describe("pontuarPauta", () => {
       quantasFontesConfirmam: 2,
       publicadoEm: agora,
       semelhancaComHistorico: 0,
+      temCorpoFactual: true,
     });
     const baixa = pontuarPauta({
       classificacao: classificacao({ relevancia: 2 }),
@@ -39,6 +40,7 @@ describe("pontuarPauta", () => {
       quantasFontesConfirmam: 0,
       publicadoEm: agora,
       semelhancaComHistorico: 0,
+      temCorpoFactual: true,
     });
     expect(alta.total).toBeGreaterThan(baixa.total);
   });
@@ -49,6 +51,7 @@ describe("pontuarPauta", () => {
       prioridadeDaFonte: 1 as const,
       quantasFontesConfirmam: 1,
       publicadoEm: agora,
+      temCorpoFactual: true,
     };
     const inedita = pontuarPauta({ ...base, semelhancaComHistorico: 0 });
     const parecida = pontuarPauta({ ...base, semelhancaComHistorico: 0.75 });
@@ -63,6 +66,7 @@ describe("pontuarPauta", () => {
       quantasFontesConfirmam: 1,
       publicadoEm: new Date(Date.now() - 120 * 60 * 60 * 1000).toISOString(),
       semelhancaComHistorico: 0,
+      temCorpoFactual: true,
     });
     expect(velha.partes.frescor).toBe(0);
   });
@@ -74,6 +78,7 @@ describe("pontuarPauta", () => {
       quantasFontesConfirmam: 5,
       publicadoEm: agora,
       semelhancaComHistorico: 0,
+      temCorpoFactual: true,
     });
     expect(p.total).toBeLessThanOrEqual(100);
   });
@@ -92,6 +97,7 @@ describe("ordenarESelecionar", () => {
         quantasFontesConfirmam: 1,
         publicadoEm: agora,
         semelhancaComHistorico: 0,
+      temCorpoFactual: true,
       }),
     };
   }
@@ -132,6 +138,7 @@ describe("ordenarESelecionar", () => {
           quantasFontesConfirmam: 1,
           publicadoEm: agora,
           semelhancaComHistorico: 0,
+      temCorpoFactual: true,
         }),
       };
     }
@@ -155,6 +162,24 @@ describe("ordenarESelecionar", () => {
       pauta("c", 9, "Casa Branca", "mesmo.com"),
     ];
     expect(ordenarESelecionar(lista, config)).toHaveLength(2);
+  });
+});
+
+describe("pauta que chegou só com a manchete", () => {
+  it("perde para a que veio com texto, sem ser vetada", () => {
+    const base = {
+      classificacao: classificacao({ relevancia: 7 }),
+      prioridadeDaFonte: 1 as const,
+      quantasFontesConfirmam: 1,
+      publicadoEm: agora,
+      semelhancaComHistorico: 0,
+    };
+    const comTexto = pontuarPauta({ ...base, temCorpoFactual: true });
+    const soManchete = pontuarPauta({ ...base, temCorpoFactual: false });
+
+    expect(soManchete.total).toBeLessThan(comTexto.total);
+    expect(soManchete.total).toBeGreaterThan(0);
+    expect(soManchete.explicacao).toContain("só manchete");
   });
 });
 

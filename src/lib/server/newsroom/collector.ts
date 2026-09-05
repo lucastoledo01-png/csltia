@@ -32,9 +32,34 @@ export type NewsCandidate = {
  * errada é informação errada.
  */
 
+/**
+ * Desfaz as entidades antes de tirar as tags.
+ *
+ * O feed do Google News entrega a descrição com o HTML JÁ ESCAPADO:
+ * `&lt;a href="..."&gt;Título&lt;/a&gt;&amp;nbsp;&lt;font&gt;Veículo&lt;/font&gt;`.
+ * O removedor de tags não via tag nenhuma ali, então essa sopa inteira passava
+ * adiante como se fosse o resumo da notícia. Ela virou o texto enviado ao
+ * classificador, ao gerador de vetor e ao redator, o que explica as edições
+ * dizendo "a fonte não informa" em toda pauta: a fonte informava, o que chegou
+ * ao modelo é que era marcação.
+ */
+function decodificarEntidades(texto: string): string {
+  return texto
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    // O & fica por último, senão desfaz as próprias entidades acima.
+    .replace(/&amp;/g, "&");
+}
+
 function cleanText(html: string): string {
   if (!html) return "";
-  return html
+  // Duas passadas: a primeira desfaz o escape, a segunda pega o que estava
+  // escapado dentro do escape, que é o caso do Google News.
+  return decodificarEntidades(decodificarEntidades(html))
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
     .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, "")
@@ -43,6 +68,39 @@ function cleanText(html: string): string {
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * O que sobra da descrição depois de tirar o que é repetição do título.
+ *
+ * Agregador devolve descrição que é o título de novo mais o nome do veículo.
+ * Isso não é resumo: é a manchete escrita duas vezes. Deixar passar como se
+ * fosse conteúdo faz o classificador julgar pelo título achando que leu a
+ * matéria, e faz o redator escrever "a fonte não informa" parágrafo após
+ * parágrafo.
+ *
+ * Devolve vazio nesse caso. Vazio é verdade, e quem lê o vazio decide o que
+ * fazer com ele.
+ */
+export function corpoUtil(descricao: string, titulo: string): string {
+  const limpo = descricao.trim();
+  if (!limpo) return "";
+
+  const normalizar = (t: string) =>
+    t
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9 ]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const semTitulo = normalizar(limpo).replace(normalizar(titulo), "").trim();
+  // Sobrando menos que meia dúzia de palavras, o que ficou é o nome do
+  // veículo e resto de marcação, não informação.
+  if (semTitulo.split(" ").filter(Boolean).length < 6) return "";
+
+  return limpo;
 }
 
 function generateDedupeKey(title: string, url: string): string {
@@ -60,9 +118,12 @@ function generateDedupeKey(title: string, url: string): string {
   }
 }
 
+/**
+ * Lê os itens do feed. Não recebe mais a fonte: ela só era usada para
+ * escolher a foto de reserva por hash do título, que deixou de existir.
+ */
 export function parseRSSItems(
-  xml: string,
-  source: NewsSourceConfig
+  xml: string
 ): Array<{ title: string; url: string; publishedAt: string; description: string; content: string; author?: string; imageUrl?: string }> {
   const items: Array<{ title: string; url: string; publishedAt: string; description: string; content: string; author?: string; imageUrl?: string }> = [];
 
@@ -116,12 +177,15 @@ export function parseRSSItems(
       const pubDate = rawDate ? new Date(rawDate) : new Date();
       const validDate = isNaN(pubDate.getTime()) ? new Date() : pubDate;
 
+      const titulo = cleanText(rawTitle);
+      const corpo = corpoUtil(cleanText(rawDesc), titulo);
+
       items.push({
-        title: cleanText(rawTitle),
+        title: titulo,
         url: rawLink,
         publishedAt: validDate.toISOString(),
-        description: cleanText(rawDesc).slice(0, 600),
-        content: cleanText(rawDesc).slice(0, 1500),
+        description: corpo.slice(0, 600),
+        content: corpo.slice(0, 1500),
         author: rawAuthor ? cleanText(rawAuthor) : undefined,
         imageUrl: extractedImgUrl || "",
       });
@@ -236,7 +300,7 @@ export async function collectFromSource(
             }
 
             const xmlText = await res.text();
-            return parseRSSItems(xmlText, source);
+            return parseRSSItems(xmlText);
           })();
 
     const filtered = rawItems.filter((item) => matchesKeywords(item, source.keywords));

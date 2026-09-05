@@ -1,16 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseRSSItems } from "./collector";
-import type { NewsSourceConfig } from "./news-sources";
+import { corpoUtil, parseRSSItems } from "./collector";
 
-const source: NewsSourceConfig = {
-  id: "test-source",
-  name: "Fonte de Teste",
-  type: "rss",
-  url: "https://example.com/feed",
-  enabled: true,
-  priority: 1,
-  category: "tech_media",
-};
 
 describe("parseRSSItems", () => {
   it("ignora media:content de vídeo e usa fallback em vez de quebrar o <img>", () => {
@@ -24,7 +14,7 @@ describe("parseRSSItems", () => {
       </item>
     </channel></rss>`;
 
-    const items = parseRSSItems(xml, source);
+    const items = parseRSSItems(xml);
 
     expect(items).toHaveLength(1);
     expect(items[0].imageUrl).toBeDefined();
@@ -42,8 +32,34 @@ describe("parseRSSItems", () => {
       </item>
     </channel></rss>`;
 
-    const items = parseRSSItems(xml, source);
+    const items = parseRSSItems(xml);
 
     expect(items[0].imageUrl).toBe("https://example.com/capa.jpg");
+  });
+});
+
+describe("corpo da notícia", () => {
+  it("desfaz o HTML escapado do Google News em vez de tratá-lo como texto", () => {
+    const xml = `<rss><channel><item>
+      <title>USCIS amplia prazo do EAD</title>
+      <link>https://news.google.com/rss/articles/ABC?oc=5</link>
+      <pubDate>${new Date().toUTCString()}</pubDate>
+      <description>&amp;lt;a href="https://news.google.com/x"&amp;gt;USCIS amplia prazo do EAD&amp;lt;/a&amp;gt;&amp;amp;nbsp;&amp;lt;font color="#6f6f6f"&amp;gt;Reuters&amp;lt;/font&amp;gt;</description>
+    </item></channel></rss>`;
+
+    const [item] = parseRSSItems(xml);
+    expect(item.description).not.toContain("href");
+    expect(item.description).not.toContain("&lt;");
+  });
+
+  it("descarta descrição que é só o título repetido mais o veículo", () => {
+    expect(corpoUtil("USCIS amplia prazo do EAD Reuters", "USCIS amplia prazo do EAD")).toBe("");
+  });
+
+  it("preserva descrição que traz informação além do título", () => {
+    const corpo =
+      "O prazo de renovação automática da permissão de trabalho passou de 180 para 540 dias, " +
+      "segundo aviso publicado pelo órgão nesta quinta-feira.";
+    expect(corpoUtil(corpo, "USCIS amplia prazo do EAD")).toBe(corpo);
   });
 });

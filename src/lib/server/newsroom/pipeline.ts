@@ -136,7 +136,7 @@ ESTRUTURA DO JSON DE SAÍDA (retorne exclusivamente este JSON estrito):
   "quick_bits": [
     { "title": "Nota Rápida", "text": "Super resumo completo de 1 a 2 frases sobre outra novidade útil de IA ou redes sociais.", "url": "URL opcional" }
   ],
-  "closing": "Recado final estimulando o leitor a compartilhar a newsletter com um amigo que quer aprender IA.",
+  "closing": "Recado final convidando o leitor a compartilhar a edição com alguém que se interessa pelo assunto do briefing editorial. Não cite tema que não seja o desta publicação.",
   "final_line": "A assinatura exata definida no briefing."
 }
 `;

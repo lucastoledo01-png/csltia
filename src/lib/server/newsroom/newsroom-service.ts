@@ -701,7 +701,7 @@ export async function runNewsroom(
           // pela ordem das pautas publicadas, e casar por posição em outra
           // lista foi o que já ilustrou uma pauta com a foto de outra.
           const registros = pipelineResult.edition.stories
-            .map((story, i) => {
+            .map((story) => {
               const pauta = porUrl.get(story.source_url);
               if (!pauta) return null;
               return registroDaPauta(pauta, {

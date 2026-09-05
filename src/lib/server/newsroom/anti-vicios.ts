@@ -42,6 +42,10 @@ export function semTravessao(texto: string): string {
       .replace(/,\s*,/g, ",")
       .replace(/\s+,/g, ",")
       .replace(/,\s*\./g, ".")
+      // E pode gerar ".," quando o travessão vinha logo depois de um ponto,
+      // que é o caso da assinatura: "Até amanhã. — imigra.us" virava
+      // "Até amanhã., imigra.us" e ia assim para a caixa de entrada.
+      .replace(/\.\s*,\s*/g, ". ")
   );
 }
 
