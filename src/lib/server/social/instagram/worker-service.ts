@@ -20,6 +20,7 @@ import { getArticleBySlug } from "../../articles-service";
 import { montarCarrosselDeCampanha } from "../../prompt-system/carrossel-de-campanha";
 import { concluirCampanhaPublicada } from "../../prompt-system/pos-publicacao";
 import { garantirFunilPermanente } from "../../prompt-system/funil-permanente";
+import { garantirLegendaSocial, type ContextoDaLegenda } from "../legenda";
 import { formatError, sendAlert } from "../../alerts";
 import type { CarouselFormat, InstagramCarouselContent } from "./schemas";
 import type { AITokenUsage } from "../../newsroom/ai-provider";
@@ -44,29 +45,45 @@ export type InstagramRunResult = {
   error?: string;
 };
 
+type CarrosselGerado = {
+  carousel: InstagramCarouselContent;
+  usage: AITokenUsage;
+  /** Do que a pauta trata, para a hashtag sair do assunto e não do perfil. */
+  contexto: Omit<ContextoDaLegenda, "fechamentoDaNewsletter">;
+};
+
 /**
  * Gera o roteiro do post conforme o formato. Cada um parte de uma origem
  * diferente: notícia da edição diária, tutorial de um artigo já revisado,
  * prompt dos assets já gerados da campanha.
  */
-async function generateCarouselForPost(
+async function gerarCarrossel(
   format: CarouselFormat,
   meta: Record<string, unknown>,
   project: Project,
   editionDate: string,
   env: Record<string, string | undefined>,
   fetcher: typeof fetch,
-): Promise<{ carousel: InstagramCarouselContent; usage: AITokenUsage }> {
+): Promise<CarrosselGerado> {
   if (format === "prompt") {
     const campaignId = String(meta.campaign_id ?? "").trim();
     if (!campaignId) throw new Error("Post de prompt sem campaign_id no content_json.");
 
     // Sem LLM: parte de dados que já existem (hook do conceito, aplicações e
     // as imagens geradas). Ver `carrossel-de-campanha.ts`.
-    const { carousel } = await montarCarrosselDeCampanha(campaignId);
+    const { carousel, campanha } = await montarCarrosselDeCampanha(campaignId);
     // Zerado porque não houve chamada de modelo — o custo deste formato está
     // na geração das imagens (etapa 4), contabilizada lá.
-    return { carousel, usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 } };
+    return {
+      carousel,
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 },
+      contexto: {
+        titulo: carousel.title,
+        resumo: carousel.caption.intro_summary,
+        categoria: carousel.primary_topic,
+        keyword: campanha.keyword,
+      },
+    };
   }
 
   if (format === "tutorial") {
@@ -84,7 +101,16 @@ async function generateCarouselForPost(
       sections: article.content,
       keyword: String(meta.keyword ?? "TUTORIAL"),
     };
-    return generateTutorialCarouselPipeline(input, editionDate, env, fetcher);
+    const gerado = await generateTutorialCarouselPipeline(input, editionDate, env, fetcher);
+    return {
+      ...gerado,
+      contexto: {
+        titulo: article.title,
+        resumo: article.excerpt,
+        categoria: article.category ?? "",
+        keyword: input.keyword,
+      },
+    };
   }
 
   const storyIndex = Number((meta.story_index as number) ?? 0);
@@ -98,13 +124,65 @@ async function generateCarouselForPost(
   // A marca vem do projeto pelo mesmo motivo da redação: o sistema é
   // multi-projeto e o nome, o público e a keyword do CTA estavam escritos
   // dentro da constante do prompt.
-  return generateInstagramCarouselPipeline(edition, editionDate, env, fetcher, story, {
+  const keyword = String(project.settings?.instagram_keyword ?? "").trim() || "NEWS";
+
+  /*
+   * A assinatura da newsletter NÃO entra aqui.
+   *
+   * Ela entrava, como `assinatura`, e o prompt mandava encerrar a legenda com
+   * ela: foi assim que "Até amanhã. Equipe imigra.us." apareceu embaixo do CTA
+   * de um post. Newsletter tem uma despedida por dia; um perfil que publica
+   * várias vezes por dia não tem nenhuma. O fechamento do e-mail agora só
+   * aparece no `garantirLegendaSocial`, como texto a remover.
+   */
+  const gerado = await generateInstagramCarouselPipeline(edition, editionDate, env, fetcher, story, {
     nome: project.brand.displayName || project.name,
     nicho: project.niche,
     extra: project.editorialPromptExtra,
-    keyword: String(project.settings?.instagram_keyword ?? "").trim() || "NEWS",
-    assinatura: String(project.settings?.final_line ?? "").trim() || "",
+    keyword,
   });
+
+  return {
+    ...gerado,
+    contexto: {
+      titulo: story.title,
+      resumo: `${story.summary} ${story.context ?? ""}`.trim(),
+      categoria: story.category,
+      keyword,
+    },
+  };
+}
+
+/**
+ * O roteiro do post, com a legenda já auditada.
+ *
+ * Ponto único: os três formatos passam por aqui antes de a legenda ser gravada
+ * em `social_posts` e antes de ir para a Meta. Era a falta desse ponto que
+ * permitia a um formato sair com hashtag fixa e a outro sair sem nenhuma.
+ */
+async function generateCarouselForPost(
+  format: CarouselFormat,
+  meta: Record<string, unknown>,
+  project: Project,
+  editionDate: string,
+  env: Record<string, string | undefined>,
+  fetcher: typeof fetch,
+): Promise<{ carousel: InstagramCarouselContent; usage: AITokenUsage }> {
+  const gerado = await gerarCarrossel(format, meta, project, editionDate, env, fetcher);
+
+  const auditada = garantirLegendaSocial(gerado.carousel, {
+    ...gerado.contexto,
+    fechamentoDaNewsletter: String(project.settings?.final_line ?? "").trim(),
+  });
+
+  for (const problema of auditada.problemas) {
+    console.warn(`[INSTAGRAM LEGENDA] ${problema.motivo}: ${problema.detalhe}`);
+  }
+  if (auditada.reparos.length > 0) {
+    console.log(`[INSTAGRAM LEGENDA] Reparos aplicados: ${auditada.reparos.join(" ; ")}.`);
+  }
+
+  return { carousel: auditada.carousel, usage: gerado.usage };
 }
 
 /**
