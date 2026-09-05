@@ -20,7 +20,6 @@ export type MarcaDoPost = {
   extra: string;
   /** Palavra que o leitor comenta para receber o material. */
   keyword: string;
-  assinatura: string;
 };
 
 /** Rede de segurança. Se este texto sair num post, o projeto está vazio. */
@@ -39,7 +38,6 @@ export const MARCA_POST_PADRAO: MarcaDoPost = {
   nicho: "Inteligencia artificial aplicada a conteudo, vendas e produtividade",
   extra: "Tom direto, leve e levemente tech.",
   keyword: "NEWS",
-  assinatura: "",
 };
 
 function montarSystemDoPost(marca: MarcaDoPost): string {
@@ -90,15 +88,28 @@ REGRAS DA LEGENDA:
     ver o caso, e prometê-la num post é o tipo de coisa que gera reclamação.
   * Nunca diga que a pessoa se qualifica, nem estime chance, prazo ou custo.
   * Nada de urgência inventada ("últimas vagas", "regra muda amanhã").
-- Encerre com a assinatura da marca: "${marca.assinatura}"
-- De 5 a 10 hashtags do nicho, misturando volume alto e termo específico.
+- CANAL: isto aqui e' Instagram, nao newsletter. O perfil publica varias vezes
+  por dia, entao a legenda NAO tem despedida. Proibido "Ate amanha", "Nos vemos
+  amanha", "Ate a proxima", "Equipe ${marca.nome}", "Boa leitura" e qualquer
+  assinatura de e-mail, em qualquer ponto do texto. A legenda termina no CTA e
+  nas hashtags, nessa ordem.
+- ORDEM DA LEGENDA: gancho, informacao principal, contexto, ressalva factual
+  quando necessaria, CTA e hashtags. Nada depois das hashtags.
+- HASHTAGS: de 4 a 7, especificas DESTA pauta, no fim da "full_caption", numa
+  linha so, depois do CTA. Devolva as mesmas no campo "hashtags".
+  * Misture, quando fizer sentido: assunto especifico, visto ou programa citado,
+    orgao citado, imigracao, Estados Unidos, profissao ou setor.
+  * Hashtag de visto (#GreenCard, #EB2NIW, #VistoAmericano) so quando a pauta
+    fala de visto. Em pauta economica ou de politica do Brasil elas sao isca.
+  * Nao repita o mesmo conjunto todo dia: se a hashtag serviria para qualquer
+    post do perfil, ela nao descreve esta pauta.
 - LEGENDA CURTA. Ninguem le legenda longa no feed; o que nao for lido nos
   primeiros segundos nao existe. Alvos:
   * "headline": ate 70 caracteres. E' a primeira linha, antes do "mais".
   * "intro_summary": 2 frases, ate 200 caracteres.
   * "key_takeaways": 3 itens, cada um ate 60 caracteres.
-  * "full_caption": entre 400 e 700 caracteres no total, ja incluindo o CTA.
-    Nao repita a manchete que ja esta na arte.
+  * "full_caption": entre 400 e 700 caracteres no total, ja incluindo o CTA e o
+    bloco de hashtags no fim. Nao repita a manchete que ja esta na arte.
 - LIMITES RIGIDOS (o que passar e' cortado): headline 100, intro_summary 300,
   cta_call 150, full_caption 2000, key_takeaways no maximo 5 itens.
 - RIGOR FACTUAL: número, prazo, taxa e requisito só entram se estiverem no pacote da edição. Não estime, não arredonde, não deduza.
@@ -125,8 +136,8 @@ ESTRUTURA DO JSON DE SAÍDA:
     "intro_summary": "Duas ou três frases dizendo o que mudou e para quem",
     "key_takeaways": ["Ponto 1", "Ponto 2", "Ponto 3"],
     "cta_call": "👇 Comente ${marca.keyword} e receba a avaliação de perfil no Direct",
-    "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5"],
-    "full_caption": "Legenda completa, longa, com o desenvolvimento inteiro da notícia"
+    "hashtags": ["4 a 7 hashtags desta pauta, nao do perfil"],
+    "full_caption": "Legenda completa: gancho, notícia, contexto, CTA e, na última linha, as mesmas hashtags"
   }
 }
 `;
@@ -280,7 +291,7 @@ REGRAS:
 - Os comandos têm que ser os REAIS do tutorial de origem — não invente sintaxe.
 - Não force número de slides: se o tutorial tem 3 passos, são 3 slides "step".
 
-LEGENDA ("caption"): headline com gancho, intro_summary, 2-5 key_takeaways com emoji, cta_call pedindo pra comentar a keyword, 5-10 hashtags, full_caption completa. Encerre a full_caption com "Agora você está desbugado.".
+LEGENDA ("caption"): headline com gancho, intro_summary, 2-5 key_takeaways com emoji, cta_call pedindo pra comentar a keyword, 4 a 7 hashtags do assunto do tutorial, full_caption completa terminando no CTA e, na última linha, nas hashtags. Sem despedida e sem assinatura: isto é Instagram, não e-mail.
 
 FORMATO DE SAÍDA — APENAS um objeto JSON:
 {
