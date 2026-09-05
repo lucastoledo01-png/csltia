@@ -224,7 +224,14 @@ async function main() {
   escrever(`- selecionadas: ${resultado.selecionadas.length}`);
   escrever(`- recusadas: ${resultado.recusadas.length}`);
   escrever(`- edição viável: ${resultado.viavel ? "sim" : `não, ${resultado.motivoDaInviabilidade}`}`);
-  escrever(`- custo da classificação nesta rodada: US$ ${resultado.custoUsd.toFixed(4)}`);
+  escrever(
+    `- classificação: ${resultado.tokens.prompt} tokens de entrada, ${resultado.tokens.completion} de saída`
+  );
+  escrever(`- vetores gerados nesta rodada: ${resultado.vetoresGerados}`);
+  escrever(
+    `- custo estimado da classificação: US$ ${resultado.custoUsd.toFixed(4)} ` +
+      "(tabela de preço da família 4o escrita no código; o modelo configurado é outro, então isto é referência, não fatura)"
+  );
   escrever();
 
   // ------------------------------------------------------------- edição

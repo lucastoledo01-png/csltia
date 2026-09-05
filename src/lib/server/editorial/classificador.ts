@@ -156,9 +156,27 @@ export async function classificarPautas(
   pautas: PautaClassificavel[],
   env: Record<string, string | undefined> = process.env,
   fetcher: typeof fetch = fetch
-): Promise<{ classificacoes: Map<string, Classificacao>; custoUsd: number; lotesComFalha: string[] }> {
+): Promise<{
+  classificacoes: Map<string, Classificacao>;
+  custoUsd: number;
+  /**
+   * Tokens gastos, separados do custo de propósito.
+   *
+   * `custoUsd` sai de uma tabela de preço escrita no código para os modelos da
+   * família 4o. O modelo configurado hoje é outro, então aquele número é uma
+   * referência, não uma fatura. Token é medida, e é o que serve para projetar
+   * custo com o preço real de quem estiver atendendo.
+   */
+  tokens: { prompt: number; completion: number; total: number };
+  lotesComFalha: string[];
+}> {
   if (pautas.length === 0) {
-    return { classificacoes: new Map(), custoUsd: 0, lotesComFalha: [] };
+    return {
+      classificacoes: new Map(),
+      custoUsd: 0,
+      tokens: { prompt: 0, completion: 0, total: 0 },
+      lotesComFalha: [],
+    };
   }
 
   const modelo = env.OPENAI_MODEL_TRIAGE || "gpt-4o-mini";
@@ -170,6 +188,7 @@ export async function classificarPautas(
   const mapa = new Map<string, Classificacao>();
   const lotesComFalha: string[] = [];
   let custoUsd = 0;
+  const tokens = { prompt: 0, completion: 0, total: 0 };
 
   for (let i = 0; i < lotes.length; i += CHAMADAS_EM_PARALELO) {
     const rodada = lotes.slice(i, i + CHAMADAS_EM_PARALELO);
@@ -188,23 +207,38 @@ export async function classificarPautas(
 
           const parsed = RespostaDoClassificadorSchema.safeParse(data);
           if (!parsed.success) {
-            return { erro: `lote ${i + j + 1}: formato inválido, ${parsed.error.issues[0]?.message ?? ""}`, custo: usage.estimatedCostUsd, itens: [] as Classificacao[] };
+            return {
+              erro: `lote ${i + j + 1}: formato inválido, ${parsed.error.issues[0]?.message ?? ""}`,
+              custo: usage.estimatedCostUsd,
+              usage,
+              itens: [] as Classificacao[],
+            };
           }
-          return { erro: null, custo: usage.estimatedCostUsd, itens: parsed.data.pautas };
+          return { erro: null, custo: usage.estimatedCostUsd, usage, itens: parsed.data.pautas };
         } catch (erro) {
-          return { erro: `lote ${i + j + 1}: ${(erro as Error).message}`, custo: 0, itens: [] as Classificacao[] };
+          return {
+            erro: `lote ${i + j + 1}: ${(erro as Error).message}`,
+            custo: 0,
+            usage: null,
+            itens: [] as Classificacao[],
+          };
         }
       })
     );
 
     for (const r of respostas) {
       custoUsd += r.custo;
+      if (r.usage) {
+        tokens.prompt += r.usage.promptTokens;
+        tokens.completion += r.usage.completionTokens;
+        tokens.total += r.usage.totalTokens;
+      }
       if (r.erro) lotesComFalha.push(r.erro);
       for (const c of r.itens) mapa.set(c.id, c);
     }
   }
 
-  return { classificacoes: mapa, custoUsd, lotesComFalha };
+  return { classificacoes: mapa, custoUsd, tokens, lotesComFalha };
 }
 
 export function entidadesDaClassificacao(c: Classificacao): Entidades {

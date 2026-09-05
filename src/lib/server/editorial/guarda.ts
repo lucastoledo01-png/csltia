@@ -55,6 +55,9 @@ export type ResultadoDaGuarda = {
   viavel: boolean;
   motivoDaInviabilidade: string;
   custoUsd: number;
+  /** Volume medido. O custo em dólar depende do preço do modelo em uso. */
+  tokens: { prompt: number; completion: number; total: number };
+  vetoresGerados: number;
   linhasDeLog: string[];
 };
 
@@ -85,11 +88,13 @@ export async function avaliarPautas(
       viavel: false,
       motivoDaInviabilidade: "nenhuma candidata coletada",
       custoUsd: 0,
+      tokens: { prompt: 0, completion: 0, total: 0 },
+      vetoresGerados: 0,
       linhasDeLog: ["[GUARDA] nenhuma candidata coletada"],
     };
   }
 
-  const { classificacoes, custoUsd, lotesComFalha } = await classificarPautas(
+  const { classificacoes, custoUsd, tokens, lotesComFalha } = await classificarPautas(
     grupos.map((g) => ({
       id: g.primary.id,
       titulo: g.primary.title,
@@ -252,6 +257,8 @@ export async function avaliarPautas(
     viavel: viabilidade.viavel,
     motivoDaInviabilidade: viabilidade.viavel ? "" : viabilidade.motivo,
     custoUsd,
+    tokens,
+    vetoresGerados: vetores.length,
     linhasDeLog: linhas,
   };
 }
