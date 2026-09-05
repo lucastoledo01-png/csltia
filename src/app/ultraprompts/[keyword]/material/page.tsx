@@ -64,7 +64,7 @@ export default async function MaterialPage({ params }: Props) {
         </div>
 
         <header>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#ff4a1c]">Liberado</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#E4344A]">Liberado</p>
           <h1 className="mt-4 text-[clamp(2.4rem,6vw,3.8rem)] font-black leading-[0.95] tracking-[-0.06em] text-black">
             {campanha.theme || "Seus prompts"}
           </h1>

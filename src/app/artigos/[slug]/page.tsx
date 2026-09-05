@@ -24,7 +24,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 
       <div className="mx-auto max-w-[720px] px-4 pb-20 pt-6 sm:px-6 md:pt-10">
         <div className="mb-6">
-          <Link className="inline-flex items-center gap-1 text-xs font-semibold text-[#ff4a1c] hover:underline" href="/artigos">
+          <Link className="inline-flex items-center gap-1 text-xs font-semibold text-[#E4344A] hover:underline" href="/artigos">
             ← Voltar para todos os artigos
           </Link>
         </div>

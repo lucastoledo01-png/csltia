@@ -9,13 +9,13 @@ function SubstackFeedCard({ article }: { article: Article }) {
     <article className="group border-b border-[#f3f4f6] pb-8 pt-6 transition-all">
       <div className="grid gap-6 md:grid-cols-[1fr_240px] items-center">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#ff4a1c]">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#E4344A]">
             <span>{article.category}</span>
             <span className="text-gray-300">•</span>
             <span className="text-[#6b7280] font-normal lowercase">{article.readTime}</span>
           </div>
 
-          <h2 className="mt-2 font-serif text-2xl font-bold tracking-tight text-[#111827] group-hover:text-[#ff4a1c] transition-colors">
+          <h2 className="mt-2 font-serif text-2xl font-bold tracking-tight text-[#111827] group-hover:text-[#E4344A] transition-colors">
             <Link href={`/artigos/${article.slug}`}>{article.title}</Link>
           </h2>
 
@@ -26,7 +26,7 @@ function SubstackFeedCard({ article }: { article: Article }) {
           <div className="mt-4 flex items-center gap-4 text-xs font-medium text-[#6b7280]">
             <span>{article.date}</span>
             <span>•</span>
-            <Link className="font-semibold text-[#111827] hover:text-[#ff4a1c]" href={`/artigos/${article.slug}`}>
+            <Link className="font-semibold text-[#111827] hover:text-[#E4344A]" href={`/artigos/${article.slug}`}>
               Ler artigo →
             </Link>
           </div>

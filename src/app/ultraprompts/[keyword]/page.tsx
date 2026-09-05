@@ -64,7 +64,7 @@ export default async function UltraPromptLanding({ params }: Props) {
         </div>
 
         <header className="text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#ff4a1c]">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#E4344A]">
             Você comentou {campanha.keyword}
           </p>
           <h1 className="mt-4 text-[clamp(2.6rem,7vw,4.5rem)] font-black leading-[0.95] tracking-[-0.06em] text-black">

@@ -77,7 +77,7 @@ export function UltraPromptLeadForm({ keyword }: { keyword: string }) {
         onChange={(e) => setNome(e.target.value)}
         placeholder="Seu nome"
         autoComplete="name"
-        className="w-full rounded-xl border border-black/15 bg-white px-4 py-3.5 text-base text-black placeholder:text-[#98a2b3] focus:border-[#ff4a1c] focus:outline-none"
+        className="w-full rounded-xl border border-black/15 bg-white px-4 py-3.5 text-base text-black placeholder:text-[#98a2b3] focus:border-[#E4344A] focus:outline-none"
       />
       <input
         required
@@ -86,7 +86,7 @@ export function UltraPromptLeadForm({ keyword }: { keyword: string }) {
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Seu melhor e-mail"
         autoComplete="email"
-        className="w-full rounded-xl border border-black/15 bg-white px-4 py-3.5 text-base text-black placeholder:text-[#98a2b3] focus:border-[#ff4a1c] focus:outline-none"
+        className="w-full rounded-xl border border-black/15 bg-white px-4 py-3.5 text-base text-black placeholder:text-[#98a2b3] focus:border-[#E4344A] focus:outline-none"
       />
       <input
         value={whatsapp}
@@ -94,7 +94,7 @@ export function UltraPromptLeadForm({ keyword }: { keyword: string }) {
         placeholder="WhatsApp (opcional)"
         inputMode="tel"
         autoComplete="tel"
-        className="w-full rounded-xl border border-black/15 bg-white px-4 py-3.5 text-base text-black placeholder:text-[#98a2b3] focus:border-[#ff4a1c] focus:outline-none"
+        className="w-full rounded-xl border border-black/15 bg-white px-4 py-3.5 text-base text-black placeholder:text-[#98a2b3] focus:border-[#E4344A] focus:outline-none"
       />
 
       <TurnstileWidget
@@ -106,7 +106,7 @@ export function UltraPromptLeadForm({ keyword }: { keyword: string }) {
       <button
         type="submit"
         disabled={enviando}
-        className="w-full rounded-xl bg-[#ff4a1c] py-4 text-base font-black tracking-[-0.02em] text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+        className="w-full rounded-xl bg-[#E4344A] py-4 text-base font-black tracking-[-0.02em] text-white transition-opacity hover:opacity-90 disabled:opacity-60"
       >
         {enviando ? "Liberando..." : "Quero os prompts"}
       </button>

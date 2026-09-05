@@ -18,13 +18,24 @@ export type NewsCandidate = {
   window_hours: number;
 };
 
+/*
+ * Reserva de capa, quando a fonte nao traz imagem.
+ *
+ * A lista anterior era de fotos de codigo, servidor e circuito, da vertical de
+ * IA. Ela nao some sozinha na troca de nicho: foi ela que colocou uma placa de
+ * circuito na materia sobre o ICE de hoje, porque a escolha e por hash do
+ * titulo e nao tem nada a ver com o assunto.
+ *
+ * Segue sendo reserva, nao caminho normal. O pipeline busca no banco de
+ * imagens primeiro; isto so aparece quando nada mais aparece.
+ */
 const DEFAULT_EDITORIAL_IMAGES = [
-  "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1200&q=80",
+  "https://images.pexels.com/photos/1550337/pexels-photo-1550337.jpeg?auto=compress&cs=tinysrgb&w=1200",
+  "https://images.pexels.com/photos/1051075/pexels-photo-1051075.jpeg?auto=compress&cs=tinysrgb&w=1200",
+  "https://images.pexels.com/photos/6077326/pexels-photo-6077326.jpeg?auto=compress&cs=tinysrgb&w=1200",
+  "https://images.pexels.com/photos/5668858/pexels-photo-5668858.jpeg?auto=compress&cs=tinysrgb&w=1200",
+  "https://images.pexels.com/photos/373912/pexels-photo-373912.jpeg?auto=compress&cs=tinysrgb&w=1200",
+  "https://images.pexels.com/photos/5473955/pexels-photo-5473955.jpeg?auto=compress&cs=tinysrgb&w=1200",
 ];
 
 function getRandomFallbackImage(seedStr: string): string {
