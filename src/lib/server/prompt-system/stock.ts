@@ -61,6 +61,17 @@ type Opts = {
   fetcher?: typeof fetch;
 };
 
+/**
+ * Toda chamada ao banco de imagem tem prazo.
+ *
+ * Estas eram as únicas chamadas de rede do pipeline sem `AbortSignal`. Uma
+ * conexão que abre e não responde deixaria a redação inteira pendurada sem
+ * consumir CPU e sem erro, e a única pista seria a requisição que nunca
+ * termina. Foto é o item mais dispensável da edição: se o banco demorar, a
+ * pauta sai sem imagem.
+ */
+const TEMPO_LIMITE_MS = 15_000;
+
 export function bancoConfigurado(env: Record<string, string | undefined> = process.env): boolean {
   return Boolean(env.PEXELS_API_KEY?.trim() || env.UNSPLASH_ACCESS_KEY?.trim());
 }
@@ -114,7 +125,10 @@ async function buscarNoPexels(
       `https://api.pexels.com/v1/search?per_page=1&orientation=portrait&query=` +
       encodeURIComponent(consulta);
 
-    const res = await fetcher(url, { headers: { Authorization: chave } });
+    const res = await fetcher(url, {
+      headers: { Authorization: chave },
+      signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
+    });
     if (!res.ok) {
       console.warn(`[BANCO] Pexels respondeu ${res.status}`);
       return null;
@@ -153,7 +167,10 @@ async function buscarNoUnsplash(
       `https://api.unsplash.com/search/photos?per_page=1&orientation=portrait&query=` +
       encodeURIComponent(consulta);
 
-    const res = await fetcher(url, { headers: { Authorization: `Client-ID ${chave}` } });
+    const res = await fetcher(url, {
+      headers: { Authorization: `Client-ID ${chave}` },
+      signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
+    });
     if (!res.ok) {
       console.warn(`[BANCO] Unsplash respondeu ${res.status}`);
       return null;
@@ -168,7 +185,10 @@ async function buscarNoUnsplash(
     const downloadLocation = foto?.links?.download_location;
     if (downloadLocation) {
       void Promise.resolve(
-        fetcher(String(downloadLocation), { headers: { Authorization: `Client-ID ${chave}` } }),
+        fetcher(String(downloadLocation), {
+          headers: { Authorization: `Client-ID ${chave}` },
+          signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
+        }),
       ).catch(() => console.warn("[BANCO] Não consegui registrar o download no Unsplash."));
     }
 
