@@ -29,6 +29,8 @@ import { criarProvedorOpenAI } from "../editorial/embeddings";
 import { criarHistoricoStore, gerarStoryId } from "../editorial/history";
 import { avaliarPautas, registroDaPauta } from "../editorial/guarda";
 import { descreverModo, modoDaGuarda } from "../editorial/modo";
+import { montarPacotesDasPautas } from "../editorial/pacote-factual";
+import type { PacoteFactual } from "../editorial/pacote-factual";
 import type { PautaAvaliada } from "../editorial/guarda";
 import type { RankedCandidate } from "./ranker";
 
@@ -554,6 +556,30 @@ export async function runNewsroom(
     }
   }
 
+  /*
+   * Pacote factual das pautas escolhidas.
+   *
+   * Só existe quando a guarda selecionou: é ela que traz o texto da matéria
+   * enriquecido, e sem esse texto o extrator leria a manchete de novo.
+   */
+  const pacotes = new Map<string, PacoteFactual>();
+  if (pautasDaGuarda.length > 0) {
+    const r = await montarPacotesDasPautas(
+      pautasDaGuarda.map((p) => ({
+        url: p.grupo.primary.url,
+        titulo: p.grupo.primary.title,
+        texto: p.enriquecimento.texto,
+        urls: [p.grupo.primary.url, ...p.grupo.secondary_urls],
+      })),
+      env,
+      fetcher,
+    );
+
+    for (const [url, pacote] of r.pacotes) pacotes.set(url, pacote);
+    console.log(`[NEWSROOM] Pacote factual montado para ${r.pacotes.size} de ${pautasDaGuarda.length} pautas.`);
+    for (const falha of r.falhas) console.warn(`[NEWSROOM] Pacote factual falhou: ${falha}`);
+  }
+
   console.log("[NEWSROOM] Executando pipeline editorial da OpenAI...");
 
   // A voz da edição vem do projeto, não de uma constante no código. Sem isto,
@@ -576,7 +602,41 @@ export async function runNewsroom(
     pautasDaGuarda.length > 0
       ? { minimo: configEditorial.minimoDePautas, maximo: configEditorial.maximoDePautas }
       : { minimo: 4, maximo: 6 },
+    pacotes,
   );
+
+  /*
+   * Afirmação sem sustentação é bloqueio, não apontamento.
+   *
+   * A conferência é determinística e roda depois do auditor: ela compara nome
+   * próprio, número e data do texto contra o pacote. Em enforce, uma única
+   * afirmação sem lastro impede a edição de sair, mesmo com nota alta. Errar
+   * um requisito de imigração custa o status migratório de alguém, e nota 90
+   * não conserta um número inventado.
+   */
+  const semLastro = pipelineResult.ancoragem.filter((a) => !a.ancorado);
+  if (semLastro.length > 0) {
+    const detalhe = semLastro
+      .map((a) => `"${a.titulo}": ${a.naoSustentadas.map((c) => `${c.tipo} ${c.valor}`).join(", ")}`)
+      .join(" | ");
+
+    console.error(`[NEWSROOM] Afirmações sem lastro no pacote factual: ${detalhe}`);
+
+    if (modo === "enforce") {
+      throw new Error(
+        `Edição bloqueada por afirmação sem lastro no pacote factual (REJECT_UNGROUNDED_CLAIM): ${detalhe}`,
+      );
+    }
+  }
+
+  if (pipelineResult.qaResult.hallucination_risk && modo === "enforce") {
+    // Bloqueio absoluto, independente da nota. O portão antigo só segurava o
+    // envio automático e deixava a edição ser gravada e publicada no portal.
+    throw new Error(
+      `Edição bloqueada pelo QA por risco de alucinação (nota ${pipelineResult.qaResult.score}): ` +
+        pipelineResult.qaResult.issues.join(" | "),
+    );
+  }
 
   /*
    * Uma foto por pauta, endereçada pela identidade da pauta.

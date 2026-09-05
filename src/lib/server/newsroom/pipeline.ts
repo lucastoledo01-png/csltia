@@ -4,12 +4,23 @@ import { DeduplicatedGroup } from "./deduplicator";
 import { RankedCandidate } from "./ranker";
 import { EditionContent, EditionContentSchema, QAResult, QAResultSchema } from "./schemas";
 import { limparVicios } from "./anti-vicios";
+import type { ClaimNaoSustentada, PacoteFactual } from "../editorial/pacote-factual";
+import { validarAncoragem } from "../editorial/pacote-factual";
+
+export type AncoragemDaPauta = {
+  titulo: string;
+  ancorado: boolean;
+  conferidos: number;
+  naoSustentadas: ClaimNaoSustentada[];
+};
 
 export type PipelineResult = {
   edition: EditionContent;
   qaResult: QAResult;
   selectedCandidates: NewsCandidate[];
   totalUsage: AITokenUsage;
+  /** Vazio quando nenhum pacote factual estruturado foi fornecido. */
+  ancoragem: AncoragemDaPauta[];
 };
 
 /**
@@ -161,6 +172,13 @@ export async function runNewsroomPipeline(
   /** Identidade da publicação. Ausente cai na marca padrão. */
   marca: MarcaEditorial = MARCA_PADRAO,
   limites: LimitesDaEdicao = LIMITES_PADRAO,
+  /**
+   * Pacote factual por URL da pauta.
+   *
+   * Sem ele o redator recebe o resumo cru do feed e a checagem de ancoragem
+   * não roda, que é como a edição saiu com uma operação policial inventada.
+   */
+  pacotes: Map<string, PacoteFactual> = new Map(),
 ): Promise<PipelineResult> {
   const config = getAIProviderConfig(env);
 
@@ -173,17 +191,41 @@ export async function runNewsroomPipeline(
 
   const selectedCandidates = topRanked.map((r) => r.group.primary);
 
-  const factualPackage = topRanked.map((item, index) => ({
-    rank: index + 1,
-    title: item.group.primary.title,
-    source: item.group.primary.source_name,
-    url: item.group.primary.url,
-    secondary_sources: item.group.secondary_sources,
-    category: item.group.primary.category,
-    published_at: item.group.primary.published_at,
-    facts_summary: item.group.primary.description,
-    full_content: item.group.primary.content.slice(0, 1000),
-  }));
+  const factualPackage = topRanked.map((item, index) => {
+    const pacote = pacotes.get(item.group.primary.url);
+    const base = {
+      rank: index + 1,
+      title: item.group.primary.title,
+      source: item.group.primary.source_name,
+      url: item.group.primary.url,
+      secondary_sources: item.group.secondary_sources,
+      category: item.group.primary.category,
+      published_at: item.group.primary.published_at,
+    };
+
+    if (!pacote) {
+      return {
+        ...base,
+        facts_summary: item.group.primary.description,
+        full_content: item.group.primary.content.slice(0, 1000),
+      };
+    }
+
+    return {
+      ...base,
+      verified_facts: pacote.verified_facts,
+      people: pacote.people,
+      organizations: pacote.organizations,
+      places: pacote.places,
+      dates: pacote.dates,
+      numbers: pacote.numbers,
+      /** O que a matéria não diz. Está aqui para o redator não preencher. */
+      gaps: pacote.gaps,
+      source_urls: pacote.source_urls,
+    };
+  });
+
+  const temPacoteEstruturado = topRanked.some((item) => pacotes.has(item.group.primary.url));
 
   let totalPromptTokens = 0;
   let totalCompletionTokens = 0;
@@ -194,6 +236,14 @@ Por favor, redija a edição de hoje da ${marca.nome} no estilo do "The News", 1
 
 Pacote factual fornecido:
 ${JSON.stringify(factualPackage, null, 2)}
+
+REGRA DE FATO, acima de qualquer outra:
+- Nome próprio, número, data, valor, prazo, cargo, programa, operação, lei e órgão só podem aparecer se estiverem no pacote factual acima. Nenhuma exceção.
+- Você NÃO tem conhecimento próprio sobre estes assuntos. O que não está no pacote não aconteceu.
+- Nunca dê nome a uma operação, investigação, programa ou regra que o pacote não nomeia.
+- Nunca acrescente o momento ("nesta semana", "em setembro") se a data não estiver no pacote.
+- Nunca complete o que está em "gaps". Se o leitor precisa daquilo, escreva que a fonte não informou.
+- Transição, ordem das ideias, tom e o significado prático para o leitor são seus. Fato, não.
 
 Requisitos obrigatórios:
 - Gere exatamente ${topRanked.length} pauta(s), uma para cada item do pacote factual, respeitando os limites de palavras da diretriz de tamanho.
@@ -235,8 +285,8 @@ Você é o auditor de qualidade e de fatos desta publicação.
 
 Analise esta edição produzida contra os fatos originais fornecidos:
 
-PACOTE FACTUAL ORIGINAL:
-${JSON.stringify(factualPackage.map((f) => ({ title: f.title, facts: f.facts_summary })), null, 2)}
+PACOTE FACTUAL ORIGINAL (é a íntegra do que a redação recebeu; o que não está aqui não foi fornecido):
+${JSON.stringify(factualPackage, null, 2)}
 
 EDIÇÃO PRODUZIDA:
 ${JSON.stringify(parsedEdition, null, 2)}
@@ -269,9 +319,51 @@ Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
 
   const parsedQA = QAResultSchema.parse(qaResponse.data);
 
+  /*
+   * Ancoragem: conferência determinística, depois do auditor.
+   *
+   * O auditor é outro modelo lendo o texto, e um modelo pode deixar passar.
+   * Esta parte não lê: ela compara nome próprio, número e data do texto
+   * gerado contra o pacote, e o que não estiver lá aparece com o trecho em
+   * que apareceu. Foi assim que "Operação Compliance Zero" seria pega mesmo
+   * se o auditor tivesse aprovado.
+   *
+   * Sem pacote estruturado não há contra o que conferir, e a lista volta
+   * vazia. Vazio aqui significa "não conferido", não "aprovado", e quem
+   * chama precisa saber a diferença: por isso `temPacoteEstruturado`.
+   */
+  const ancoragem: AncoragemDaPauta[] = temPacoteEstruturado
+    ? parsedEdition.stories.map((story, i) => {
+        const pacote = pacotes.get(topRanked[i]?.group.primary.url ?? "");
+        if (!pacote) {
+          return { titulo: story.title, ancorado: true, conferidos: 0, naoSustentadas: [] };
+        }
+
+        const texto = [
+          story.title,
+          story.summary,
+          story.context,
+          story.why_it_matters,
+          story.practical_impact,
+          story.humor_line ?? "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        const r = validarAncoragem(texto, pacote);
+        return {
+          titulo: story.title,
+          ancorado: r.ancorado,
+          conferidos: r.conferidos,
+          naoSustentadas: r.naoSustentadas,
+        };
+      })
+    : [];
+
   return {
     edition: parsedEdition,
     qaResult: parsedQA,
+    ancoragem,
     selectedCandidates,
     totalUsage: {
       promptTokens: totalPromptTokens,

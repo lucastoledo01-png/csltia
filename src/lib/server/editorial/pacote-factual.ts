@@ -1,0 +1,297 @@
+import { z } from "zod";
+import { callOpenAIJSON } from "../newsroom/ai-provider";
+
+/**
+ * O que o redator pode afirmar.
+ *
+ * A edição de validação inventou uma operação policial com nome próprio e o
+ * sobrenome de um banqueiro. Nenhum dos dois estava no material. O QA pegou,
+ * e pegar depois é a última linha de defesa, não a primeira.
+ *
+ * A primeira é esta: o redator recebe uma lista fechada de fatos, nomes,
+ * organizações, lugares, datas e números extraídos da matéria, e a instrução
+ * de que fora dessa lista não existe fato. Contexto e transição ele escreve;
+ * fato, não inventa.
+ */
+
+const listaDeTexto = z.preprocess(
+  (v) => {
+    if (typeof v === "string") return v.trim() ? [v] : [];
+    if (Array.isArray(v)) return v.filter((x) => typeof x === "string");
+    return [];
+  },
+  z.array(z.string()).default([])
+);
+
+export const PacoteFactualSchema = z.object({
+  /** Frases do que aconteceu, cada uma sustentada pela matéria. */
+  verified_facts: listaDeTexto,
+  people: listaDeTexto,
+  organizations: listaDeTexto,
+  places: listaDeTexto,
+  dates: listaDeTexto,
+  numbers: listaDeTexto,
+  /** O que a matéria explicitamente NÃO diz. Serve para o redator não supor. */
+  gaps: listaDeTexto,
+});
+
+export type PacoteFactual = z.infer<typeof PacoteFactualSchema> & {
+  source_urls: string[];
+  /** Texto de origem, guardado para a verificação de ancoragem. */
+  texto_de_origem: string;
+};
+
+export function montarSystemDoExtrator(): string {
+  return `
+Você extrai fatos de uma matéria jornalística. Não resume, não interpreta, não completa.
+
+Devolva JSON com:
+
+verified_facts: frases curtas, cada uma afirmando algo que ESTÁ ESCRITO na matéria. Uma informação por frase. Não junte duas informações numa frase. Não escreva nada que exija conhecimento externo.
+
+people: nomes de pessoas citados, exatamente como aparecem.
+organizations: órgãos, empresas, tribunais e entidades citados, exatamente como aparecem.
+places: cidades, estados e países citados.
+dates: datas e períodos citados, como aparecem ("31 de agosto", "2026", "nesta quinta-feira").
+numbers: números citados com o que eles medem ("540 dias", "1,2 milhão de pedidos", "US$ 3 mil").
+gaps: o que a matéria NÃO informa e um leitor perguntaria. Só liste lacuna real.
+
+Regras:
+- Se um nome, número ou data não está na matéria, ele não entra. Não deduza, não converta, não estime.
+- Não traduza nomes próprios de órgãos: mantenha como está escrito.
+- Lista vazia é uma resposta válida e correta quando a matéria não traz aquilo.
+`.trim();
+}
+
+export async function montarPacoteFactual(
+  pauta: { titulo: string; texto: string; urls: string[] },
+  env: Record<string, string | undefined> = process.env,
+  fetcher: typeof fetch = fetch
+): Promise<{ pacote: PacoteFactual; custoUsd: number; tokens: number }> {
+  const modelo = env.OPENAI_MODEL_TRIAGE || "gpt-4o-mini";
+
+  const { data, usage } = await callOpenAIJSON<unknown>(
+    [
+      { role: "system", content: montarSystemDoExtrator() },
+      {
+        role: "user",
+        content: `Título: ${pauta.titulo}\n\nMatéria:\n${pauta.texto.slice(0, 8000)}`,
+      },
+    ],
+    modelo,
+    env,
+    fetcher
+  );
+
+  const parsed = PacoteFactualSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error(`Extrator devolveu formato inválido: ${parsed.error.issues[0]?.message ?? ""}`);
+  }
+
+  // As listas aceitam formato torto e viram vazio quando o modelo erra a
+  // forma. Isso é bom para não perder o resto do pacote e péssimo se passar
+  // despercebido: pacote sem fato nenhum faz TODA afirmação do texto parecer
+  // não sustentada, e a edição inteira é recusada por um erro de extração.
+  // Melhor falhar aqui, onde o motivo ainda é legível.
+  if (parsed.data.verified_facts.length === 0) {
+    throw new Error("Extrator não devolveu nenhum fato verificado para esta pauta.");
+  }
+
+  return {
+    pacote: { ...parsed.data, source_urls: pauta.urls, texto_de_origem: pauta.texto },
+    custoUsd: usage.estimatedCostUsd,
+    tokens: usage.totalTokens,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Ancoragem                                                           */
+/* ------------------------------------------------------------------ */
+
+export type ClaimNaoSustentada = {
+  tipo: "numero" | "data" | "nome";
+  valor: string;
+  onde: string;
+};
+
+export type ResultadoDaAncoragem = {
+  ancorado: boolean;
+  naoSustentadas: ClaimNaoSustentada[];
+  conferidos: number;
+};
+
+function normalizar(t: string): string {
+  return t
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const MESES = [
+  "janeiro", "fevereiro", "marco", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+/**
+ * Palavras que começam frase, viram título ou são o vocabulário da própria
+ * publicação. Capitalizadas, e não são nome de nada.
+ */
+const IGNORAR = new Set([
+  "a", "o", "as", "os", "um", "uma", "e", "ou", "mas", "se", "para", "por", "com", "sem",
+  "no", "na", "nos", "nas", "do", "da", "dos", "das", "ao", "aos", "que", "quando", "onde",
+  "isso", "isto", "ele", "ela", "eles", "elas", "este", "esta", "esse", "essa", "aquele",
+  "bom", "boa", "dia", "hoje", "ontem", "amanha", "fonte", "leia", "veja", "segundo",
+  "quem", "como", "porque", "ja", "ainda", "agora", "entao", "assim", "tambem", "so",
+  "acompanhe", "confirme", "responda", "compartilhe", "nao", "sim", "the", "of", "in",
+]);
+
+/**
+ * O texto gerado afirma só o que o pacote sustenta?
+ *
+ * Confere três classes, e cada uma erra de um jeito diferente:
+ *
+ *   números e datas   exatos. "540 dias" ou está no material ou foi inventado.
+ *   nomes próprios    aceita casamento parcial, porque o redator escreve em
+ *                     português sobre matéria em inglês e "Departamento de
+ *                     Segurança Interna" é o "Department of Homeland Security"
+ *                     da fonte. Exigir literalidade acusaria tradução como
+ *                     invenção.
+ *
+ * O material de comparação é o pacote MAIS o texto de origem. O pacote é uma
+ * extração e pode ter deixado algo de fora; o texto é o que existe.
+ */
+export function validarAncoragem(
+  textoGerado: string,
+  pacote: PacoteFactual
+): ResultadoDaAncoragem {
+  const palheiro = normalizar(
+    [
+      pacote.texto_de_origem,
+      ...pacote.verified_facts,
+      ...pacote.people,
+      ...pacote.organizations,
+      ...pacote.places,
+      ...pacote.dates,
+      ...pacote.numbers,
+    ].join(" ")
+  );
+
+  const naoSustentadas: ClaimNaoSustentada[] = [];
+  let conferidos = 0;
+
+  // Números: dígitos com separador, incluindo o que vem colado a "mil" ou
+  // "milhão", que é como número grande aparece em português.
+  for (const m of textoGerado.matchAll(/\b\d[\d.,]*\b(\s*(?:mil|milh[õo]es|milh[ãa]o|bilh[õo]es|bilh[ãa]o))?/gi)) {
+    const bruto = m[0].trim();
+    conferidos += 1;
+    if (!numeroSustentado(bruto, palheiro)) {
+      naoSustentadas.push({ tipo: "numero", valor: bruto, onde: trecho(textoGerado, m.index ?? 0) });
+    }
+  }
+
+  // Datas por extenso.
+  for (const m of textoGerado.matchAll(
+    new RegExp(`\\b(\\d{1,2}\\s+de\\s+(?:${MESES.join("|")})|(?:${MESES.join("|")})\\s+de\\s+\\d{4})\\b`, "gi")
+  )) {
+    conferidos += 1;
+    const valor = m[0];
+    if (!palheiro.includes(normalizar(valor)) && !parteDaDataSustentada(valor, palheiro)) {
+      naoSustentadas.push({ tipo: "data", valor, onde: trecho(textoGerado, m.index ?? 0) });
+    }
+  }
+
+  // Nomes próprios: sequências de palavras capitalizadas, siglas incluídas.
+  for (const m of textoGerado.matchAll(
+    /\b([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][\wÁÀÂÃÉÊÍÓÔÕÚÇáàâãéêíóôõúç]+(?:\s+(?:d[aeo]s?\s+)?[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][\wÁÀÂÃÉÊÍÓÔÕÚÇáàâãéêíóôõúç]+)*|[A-Z]{2,}(?:-\d+)?)\b/g
+  )) {
+    const bruto = m[0].trim();
+    const chave = normalizar(bruto);
+    if (IGNORAR.has(chave)) continue;
+    if (chave.length < 3) continue;
+
+    conferidos += 1;
+    if (!nomeSustentado(chave, palheiro)) {
+      naoSustentadas.push({ tipo: "nome", valor: bruto, onde: trecho(textoGerado, m.index ?? 0) });
+    }
+  }
+
+  return { ancorado: naoSustentadas.length === 0, naoSustentadas, conferidos };
+}
+
+function numeroSustentado(bruto: string, palheiro: string): boolean {
+  const so = normalizar(bruto);
+  if (palheiro.includes(so)) return true;
+
+  // "1,2 milhão" na fonte e "1.2 milhão" no texto são o mesmo número.
+  const digitos = so.replace(/[^\d]/g, "");
+  if (digitos && palheiro.replace(/[^\d ]/g, "").split(/\s+/).includes(digitos)) return true;
+
+  // Número solto dentro de outra grafia ("540" em "540 dias").
+  const soDigito = so.match(/^\d[\d.,]*/)?.[0]?.replace(/[.,]$/, "");
+  return Boolean(soDigito && palheiro.includes(soDigito));
+}
+
+function parteDaDataSustentada(valor: string, palheiro: string): boolean {
+  const partes = normalizar(valor).split(/\s+de\s+/);
+  return partes.every((p) => palheiro.includes(p));
+}
+
+function nomeSustentado(chave: string, palheiro: string): boolean {
+  if (palheiro.includes(chave)) return true;
+
+  // Casamento parcial para nome composto: o redator traduz e reordena. Basta
+  // uma palavra significativa aparecer na origem.
+  const palavras = chave.split(" ").filter((p) => p.length > 3 && !IGNORAR.has(p));
+  if (palavras.length === 0) return true;
+  return palavras.some((p) => palheiro.includes(p));
+}
+
+function trecho(texto: string, indice: number): string {
+  return texto.slice(Math.max(0, indice - 40), indice + 60).replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Um pacote por pauta selecionada.
+ *
+ * Roda só sobre o punhado que vai ser escrito, então é sequencial de
+ * propósito: paralelizar duas ou três chamadas economiza segundos e complica
+ * o tratamento de erro.
+ *
+ * Falha em uma pauta não derruba as outras. A pauta sem pacote chega ao
+ * redator sem lista fechada de fatos e sem conferência de ancoragem, e quem
+ * chama precisa tratar isso como risco, não como aprovação.
+ */
+export async function montarPacotesDasPautas(
+  pautas: Array<{ url: string; titulo: string; texto: string; urls: string[] }>,
+  env: Record<string, string | undefined> = process.env,
+  fetcher: typeof fetch = fetch
+): Promise<{
+  pacotes: Map<string, PacoteFactual>;
+  custoUsd: number;
+  tokens: number;
+  falhas: string[];
+}> {
+  const pacotes = new Map<string, PacoteFactual>();
+  const falhas: string[] = [];
+  let custoUsd = 0;
+  let tokens = 0;
+
+  for (const pauta of pautas) {
+    try {
+      const r = await montarPacoteFactual(
+        { titulo: pauta.titulo, texto: pauta.texto, urls: pauta.urls },
+        env,
+        fetcher
+      );
+      pacotes.set(pauta.url, r.pacote);
+      custoUsd += r.custoUsd;
+      tokens += r.tokens;
+    } catch (erro) {
+      falhas.push(`${pauta.titulo.slice(0, 60)}: ${(erro as Error).message}`);
+    }
+  }
+
+  return { pacotes, custoUsd, tokens, falhas };
+}

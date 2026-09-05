@@ -50,6 +50,56 @@ export type PautaParaVerificar = {
 
 export type Confianca = "alta" | "media" | "baixa";
 
+/**
+ * Os sinais conferidos, com nome fixo.
+ *
+ * Nome fixo porque estes valores vão para o log e para o relatório, e um
+ * relatório em que o mesmo sinal aparece escrito de três jeitos não dá para
+ * ler em série. `null` quer dizer "não deu para conferir", que é diferente de
+ * `false`: um registro sem entidade não é um registro com entidade diferente.
+ */
+export type SinaisDeRepeticao = {
+  semantic_similarity: number | null;
+  title_similarity: number | null;
+  same_source: boolean | null;
+  same_event_type: boolean | null;
+  shared_entities: boolean | null;
+  same_location: boolean | null;
+  /** Dias entre o que saiu e o que chegou. */
+  time_distance: number | null;
+  canonical_match: boolean;
+};
+
+export function sinaisVazios(): SinaisDeRepeticao {
+  return {
+    semantic_similarity: null,
+    title_similarity: null,
+    same_source: null,
+    same_event_type: null,
+    shared_entities: null,
+    same_location: null,
+    time_distance: null,
+    canonical_match: false,
+  };
+}
+
+/** Linha legível a partir dos sinais, para o log e o relatório. */
+export function descreverSinais(s: SinaisDeRepeticao): string {
+  const partes: string[] = [];
+  const num = (v: number | null, casas = 2) => (v === null ? "n/d" : v.toFixed(casas));
+  const bool = (v: boolean | null) => (v === null ? "n/d" : v ? "sim" : "não");
+
+  partes.push(`semantic_similarity=${num(s.semantic_similarity, 3)}`);
+  partes.push(`title_similarity=${num(s.title_similarity)}`);
+  partes.push(`same_source=${bool(s.same_source)}`);
+  partes.push(`same_event_type=${bool(s.same_event_type)}`);
+  partes.push(`shared_entities=${bool(s.shared_entities)}`);
+  partes.push(`same_location=${bool(s.same_location)}`);
+  partes.push(`time_distance=${s.time_distance === null ? "n/d" : `${s.time_distance}d`}`);
+  partes.push(`canonical_match=${s.canonical_match ? "sim" : "não"}`);
+  return partes.join(" ");
+}
+
 export type Veredito = {
   repetida: boolean;
   motivo: Motivo | null;
@@ -66,8 +116,10 @@ export type Veredito = {
    * merece confiança, e o relatório precisa saber a diferença para calibrar.
    */
   confianca: Confianca;
-  /** Sinais conferidos, com o que cada um disse. Vai inteiro para o log. */
-  sinais: string[];
+  /** Nome do campo em `duplicate_confidence`, para o log e o relatório. */
+  duplicate_confidence: Confianca;
+  /** Sinais conferidos, um a um. */
+  sinais: SinaisDeRepeticao;
   /** Linha pronta para o log, com o número que interessa. */
   explicacao: string;
 };
@@ -76,7 +128,7 @@ function aprovado(
   camada: Veredito["camada"],
   score: number,
   explicacao: string,
-  sinais: string[] = []
+  sinais: SinaisDeRepeticao = sinaisVazios()
 ): Veredito {
   return {
     repetida: false,
@@ -85,6 +137,7 @@ function aprovado(
     camada,
     score,
     confianca: "alta",
+    duplicate_confidence: "alta",
     sinais,
     explicacao,
   };
@@ -112,7 +165,8 @@ export function verificarRepeticao(
         camada: "url",
         score: 1,
         confianca: "alta",
-        sinais: ["url canônica idêntica"],
+        duplicate_confidence: "alta",
+        sinais: { ...sinaisVazios(), canonical_match: true, time_distance: diasAtras(conflito) },
         explicacao: `mesma URL canônica de "${conflito.titulo}" (${diasAtras(conflito)}d)`,
       };
     }
@@ -135,7 +189,12 @@ export function verificarRepeticao(
       camada: "titulo",
       score: melhorTitulo,
       confianca: "alta",
-      sinais: [`título ${melhorTitulo.toFixed(2)}`],
+      duplicate_confidence: "alta",
+      sinais: {
+        ...sinaisVazios(),
+        title_similarity: melhorTitulo,
+        time_distance: diasAtras(candidatoTitulo),
+      },
       explicacao: `título ${melhorTitulo.toFixed(2)} contra "${candidatoTitulo.titulo}" (${diasAtras(candidatoTitulo)}d)`,
     };
   }
@@ -167,7 +226,15 @@ export function verificarRepeticao(
           camada: "fonte",
           score: 1,
           confianca: "alta",
-          sinais: [`mesma fonte (${dominioDaPauta})`, "mesmo tipo de acontecimento"],
+          duplicate_confidence: "alta",
+          sinais: {
+            ...sinaisVazios(),
+            same_source: true,
+            same_event_type: true,
+            shared_entities: true,
+            title_similarity: semelhancaDeTitulo(pauta.titulo, h.titulo),
+            time_distance: diasAtras(h),
+          },
           explicacao: `mesma fonte e mesmo tipo de acontecimento de "${h.titulo}" (${diasAtras(h)}d)`,
         };
       }
@@ -180,7 +247,15 @@ export function verificarRepeticao(
           camada: "entidade",
           score: 1,
           confianca: "alta",
-          sinais: ["ator e acontecimento coincidem"],
+          duplicate_confidence: "alta",
+          sinais: {
+            ...sinaisVazios(),
+            shared_entities: true,
+            same_event_type: true,
+            same_location: cruzaLugar(pauta.entidades, dele),
+            title_similarity: semelhancaDeTitulo(pauta.titulo, h.titulo),
+            time_distance: diasAtras(h),
+          },
           explicacao: `mesmo ator e acontecimento de "${h.titulo}" (${diasAtras(h)}d)`,
         };
       }
@@ -210,7 +285,13 @@ export function verificarRepeticao(
         camada: "semantica",
         score: melhorVetor,
         confianca: "alta",
-        sinais: [`vetor ${melhorVetor.toFixed(3)}, acima da faixa de certeza`],
+        duplicate_confidence: "alta",
+        sinais: {
+          ...sinaisVazios(),
+          semantic_similarity: melhorVetor,
+          title_similarity: semelhancaDeTitulo(pauta.titulo, candidatoVetor.titulo),
+          time_distance: diasAtras(candidatoVetor),
+        },
         explicacao: `semelhança ${melhorVetor.toFixed(3)} com "${candidatoVetor.titulo}" (${diasAtras(candidatoVetor)}d)`,
       };
     }
@@ -236,81 +317,83 @@ export function verificarRepeticao(
      */
     if (candidatoVetor && melhorVetor >= config.limiarSemantico) {
       const doHistorico = entidadesDoRegistro(candidatoVetor);
-      const sinais: string[] = [`vetor ${melhorVetor.toFixed(3)} na faixa de suspeita`];
-      let aFavor = 0;
-      let conferiveis = 0;
-
-      if (pauta.entidades && doHistorico) {
-        conferiveis += 2;
-        const mesmoEvento = mesmoTipoDeAcontecimento(pauta.entidades, doHistorico);
-        sinais.push(mesmoEvento ? "mesmo tipo de acontecimento" : "acontecimento diferente");
-
-        if (!mesmoEvento) {
-          // A única saída da faixa: os dois lados descrevem o evento e os
-          // eventos são outros. Assunto vizinho, episódio diferente.
-          return aprovado(
-            "semantica",
-            melhorVetor,
-            `semelhante (${melhorVetor.toFixed(3)}) a "${candidatoVetor.titulo}", mas acontecimento diferente`,
-            sinais
-          );
-        }
-        aFavor += 2;
-
-        const lugarEmComum = cruzaLugar(pauta.entidades, doHistorico);
-        conferiveis += 1;
-        if (lugarEmComum) {
-          aFavor += 1;
-          sinais.push("mesmo lugar");
-        } else {
-          sinais.push("lugar diferente ou ausente");
-        }
-      } else {
-        sinais.push("sem entidade dos dois lados para conferir");
-      }
-
-      const tituloContra = semelhancaDeTitulo(pauta.titulo, candidatoVetor.titulo);
-      conferiveis += 1;
-      if (tituloContra >= 0.4) {
-        aFavor += 1;
-        sinais.push(`título ${tituloContra.toFixed(2)}`);
-      } else {
-        sinais.push(`título distante ${tituloContra.toFixed(2)}`);
-      }
-
-      if (pauta.resumo && candidatoVetor.resumo) {
-        const resumoContra = semelhancaDeTitulo(pauta.resumo, candidatoVetor.resumo);
-        conferiveis += 1;
-        if (resumoContra >= 0.35) {
-          aFavor += 1;
-          sinais.push(`resumo ${resumoContra.toFixed(2)}`);
-        } else {
-          sinais.push(`resumo distante ${resumoContra.toFixed(2)}`);
-        }
-      }
-
-      if (dominioDaPauta && candidatoVetor.dominio) {
-        conferiveis += 1;
-        if (dominioDaPauta === candidatoVetor.dominio) {
-          aFavor += 1;
-          sinais.push("mesma fonte");
-        } else {
-          sinais.push("fonte diferente");
-        }
-      }
-
       const dias = diasAtras(candidatoVetor);
-      conferiveis += 1;
-      if (dias <= 3) {
-        aFavor += 1;
-        sinais.push(`${dias}d de distância`);
-      } else {
-        sinais.push(`${dias}d de distância, fato já antigo`);
+      const tituloContra = semelhancaDeTitulo(pauta.titulo, candidatoVetor.titulo);
+      const mesmaFonte =
+        dominioDaPauta && candidatoVetor.dominio ? dominioDaPauta === candidatoVetor.dominio : null;
+
+      const sinais: SinaisDeRepeticao = {
+        semantic_similarity: melhorVetor,
+        title_similarity: tituloContra,
+        same_source: mesmaFonte,
+        same_event_type:
+          pauta.entidades && doHistorico
+            ? mesmoTipoDeAcontecimento(pauta.entidades, doHistorico)
+            : null,
+        shared_entities:
+          pauta.entidades && doHistorico ? cruzaAtor(pauta.entidades, doHistorico) : null,
+        same_location: pauta.entidades && doHistorico ? cruzaLugar(pauta.entidades, doHistorico) : null,
+        time_distance: dias,
+        canonical_match: false,
+      };
+
+      // Evidência contrária explícita: os dois lados descrevem o evento e os
+      // eventos são outros. Assunto vizinho, episódio diferente.
+      if (sinais.same_event_type === false) {
+        return aprovado(
+          "semantica",
+          melhorVetor,
+          `semelhante (${melhorVetor.toFixed(3)}) a "${candidatoVetor.titulo}", mas acontecimento diferente`,
+          sinais
+        );
       }
 
-      const proporcao = conferiveis > 0 ? aFavor / conferiveis : 0;
-      const confianca: Confianca =
-        conferiveis >= 4 && proporcao >= 0.6 ? "alta" : proporcao >= 0.4 ? "media" : "baixa";
+      /*
+       * Confiança pelo número de sinais que corroboram, e não pela proporção.
+       *
+       * Proporção punia o registro sem entidade duas vezes: ele já não tem o
+       * sinal, e ainda entrava no denominador. Agora conta quantos sinais
+       * efetivamente apontam para repetição.
+       */
+      const corroboram = [
+        sinais.same_event_type === true,
+        sinais.shared_entities === true,
+        sinais.same_location === true,
+        sinais.same_source === true,
+        (sinais.title_similarity ?? 0) >= 0.4,
+        dias <= 3,
+        resumoParecido(pauta.resumo, candidatoVetor.resumo),
+      ].filter(Boolean).length;
+
+      const confianca: Confianca = corroboram >= 3 ? "alta" : corroboram === 2 ? "media" : "baixa";
+
+      /*
+       * Confiança baixa não bloqueia.
+       *
+       * Só o vetor, entre 0.72 e 0.85, sem nenhum outro sinal apontando para o
+       * mesmo fato, é semelhança de assunto. Bloquear aí custa pauta boa todo
+       * dia por causa de um número que a calibração mostrou ambíguo: repetição
+       * real apareceu em 0.729 e pautas distintas do mesmo ator em 0.760.
+       *
+       * O que faz a diferença nesses casos é entidade, e o histórico
+       * reconstruído não tem. Quando tiver, o mesmo caso volta com dois ou
+       * três sinais e cai na faixa que bloqueia.
+       */
+      if (confianca === "baixa") {
+        return {
+          repetida: false,
+          motivo: null,
+          conflito: candidatoVetor,
+          camada: "semantica",
+          score: melhorVetor,
+          confianca,
+          duplicate_confidence: confianca,
+          sinais,
+          explicacao:
+            `suspeita não confirmada: ${melhorVetor.toFixed(3)} com "${candidatoVetor.titulo}" (${dias}d), ` +
+            `${corroboram} sinal(is) a favor, confiança baixa, o vetor sozinho não basta`,
+        };
+      }
 
       return {
         repetida: true,
@@ -319,10 +402,11 @@ export function verificarRepeticao(
         camada: "semantica",
         score: melhorVetor,
         confianca,
+        duplicate_confidence: confianca,
         sinais,
         explicacao:
           `semelhança ${melhorVetor.toFixed(3)} com "${candidatoVetor.titulo}" (${dias}d), ` +
-          `${aFavor} de ${conferiveis} sinais a favor, confiança ${confianca}`,
+          `${corroboram} sinais a favor, confiança ${confianca}`,
       };
     }
 
@@ -384,6 +468,17 @@ export function identidadeDeImagem(url: string): string {
   if (!canonica) return "";
   const semQuery = canonica.split("?")[0];
   return semQuery;
+}
+
+function cruzaAtor(a: Entidades, b: Entidades): boolean {
+  if (a.atores.length === 0 || b.atores.length === 0) return false;
+  const A = new Set(a.atores.map((x) => x.trim().toLowerCase()).filter(Boolean));
+  return b.atores.some((x) => A.has(x.trim().toLowerCase()));
+}
+
+function resumoParecido(a?: string, b?: string): boolean {
+  if (!a || !b) return false;
+  return semelhancaDeTitulo(a, b) >= 0.35;
 }
 
 function cruzaLugar(a: Entidades, b: Entidades): boolean {

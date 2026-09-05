@@ -10,9 +10,11 @@ import type { Canal, RegistroHistorico } from "./history";
 import { gerarStoryId } from "./history";
 import type { Pontuacao } from "./pontuacao";
 import { edicaoViavel, ordenarESelecionar, pontuarPauta } from "./pontuacao";
-import { verificarRepeticao } from "./repeticao";
-import type { Veredito } from "./repeticao";
+import { descreverSinais, verificarRepeticao } from "./repeticao";
+import type { SinaisDeRepeticao, Veredito } from "./repeticao";
 import { dominioDe } from "./url-canonica";
+import type { ResultadoDoEnriquecimento } from "./enriquecimento";
+import { enriquecerPauta, temFatosSuficientes } from "./enriquecimento";
 
 /**
  * A guarda editorial: quem decide o que entra na edição.
@@ -32,6 +34,8 @@ export type PautaAvaliada = {
   grupo: DeduplicatedGroup;
   storyId: string;
   classificacao: Classificacao;
+  /** De onde veio o texto que sustenta esta pauta, e quanto texto é. */
+  enriquecimento: ResultadoDoEnriquecimento;
   /** Por que a linha editorial aceitou esta pauta. Vai para o banco. */
   motivoDaAprovacao: Motivo;
   veredito: Veredito;
@@ -47,6 +51,8 @@ export type Recusa = {
   explicacao: string;
   /** Só nas recusas por repetição, para separar certeza de palpite. */
   confianca?: "alta" | "media" | "baixa";
+  /** Os sinais conferidos, quando a recusa foi por repetição. */
+  sinais?: SinaisDeRepeticao;
 };
 
 export type ResultadoDaGuarda = {
@@ -63,6 +69,8 @@ export type ResultadoDaGuarda = {
 
 export type OpcoesDaGuarda = {
   canal: Canal;
+  /** Quantas páginas buscar por rodada. Protege a fonte e o relógio. */
+  limiteDeEnriquecimento?: number;
   historico: RegistroHistorico[];
   config: ConfigEditorial;
   provedorDeVetor?: ProvedorDeEmbedding | null;
@@ -105,6 +113,9 @@ export async function avaliarPautas(
     env,
     fetcher
   );
+
+  let custoTotal = custoUsd;
+  const tokensTotais = { ...tokens };
 
   linhas.push(
     `[GUARDA] ${classificacoes.size} de ${grupos.length} candidatas classificadas (US$ ${custoUsd.toFixed(4)})`
@@ -152,16 +163,144 @@ export async function avaliarPautas(
     aprovadasNoFiltro.push({ grupo, classificacao: c, motivo: decisao.motivo });
   }
 
-  // Um vetor por pauta aprovada, numa chamada só. Falha de embedding não
-  // derruba a edição: as outras três camadas continuam valendo, e o relatório
-  // registra que a semântica ficou de fora.
+  /*
+   * Enriquecimento.
+   *
+   * Roda só sobre o que passou pelo filtro editorial, e não sobre as duzentas
+   * candidatas: buscar duzentas páginas por dia castiga os veículos e demora,
+   * e a maioria delas ia ser recusada de qualquer jeito.
+   *
+   * Pauta que continua sem corpo depois da tentativa não vai para o redator.
+   * Escrever a partir da manchete produz três parágrafos dizendo que a fonte
+   * não informou, e a fonte informou: quem não leu foi o robô.
+   */
+  const limite = opcoes.limiteDeEnriquecimento ?? 40;
+  const enriquecidas: Array<{
+    grupo: DeduplicatedGroup;
+    classificacao: Classificacao;
+    motivo: Motivo;
+    enriquecimento: ResultadoDoEnriquecimento;
+  }> = [];
+
+  let buscasFeitas = 0;
+  for (const a of aprovadasNoFiltro) {
+    const jaTemCorpo = (a.grupo.primary.description || "").length >= 400;
+
+    const enriquecimento =
+      jaTemCorpo || buscasFeitas < limite
+        ? await enriquecerPauta(
+            {
+              titulo: a.grupo.primary.title,
+              descricao: a.grupo.primary.description || "",
+              url: a.grupo.primary.url,
+              urlsSecundarias: a.grupo.secondary_urls,
+            },
+            fetcher
+          )
+        : {
+            texto: a.grupo.primary.description || "",
+            contentSource: "feed" as const,
+            contentLength: (a.grupo.primary.description || "").length,
+            enrichmentStatus: "origem_inacessivel" as const,
+            enrichmentSources: [],
+            notas: ["limite de buscas da rodada atingido"],
+          };
+
+    if (!jaTemCorpo && enriquecimento.enrichmentSources.length > 0) buscasFeitas += 1;
+
+    linhas.push(
+      `[GUARDA] conteúdo ${enriquecimento.enrichmentStatus} (${enriquecimento.contentLength} car., ` +
+        `origem ${enriquecimento.contentSource}) :: ${a.grupo.primary.title.slice(0, 60)}` +
+        (enriquecimento.notas.length > 0 ? ` :: ${enriquecimento.notas.join("; ")}` : "")
+    );
+
+    if (!temFatosSuficientes(enriquecimento)) {
+      recusadas.push({
+        titulo: a.grupo.primary.title,
+        url: a.grupo.primary.url,
+        fonte: a.grupo.primary.source_name,
+        motivo: MOTIVOS.REJEITADO_SEM_FATOS,
+        explicacao:
+          `${enriquecimento.contentLength} caracteres depois da tentativa ` +
+          `(${enriquecimento.enrichmentStatus}): ${enriquecimento.notas.join("; ")}`,
+      });
+      continue;
+    }
+
+    enriquecidas.push({ ...a, enriquecimento });
+  }
+
+  linhas.push(
+    `[GUARDA] ${enriquecidas.length} pautas com corpo suficiente, ${buscasFeitas} páginas buscadas`
+  );
+
+  /*
+   * Segunda classificação, agora com a matéria na mão.
+   *
+   * A primeira leu manchete. Uma notícia cujo título é neutro pode ser
+   * desfavorável no corpo, e é o corpo que o leitor vai receber. Reclassificar
+   * o punhado que sobrou custa pouco e é o que faz o filtro editorial julgar o
+   * texto que existe, e não o que o agregador resumiu.
+   */
+  const reclassificaveis = enriquecidas.filter((e) => e.enriquecimento.enrichmentStatus === "enriquecida");
+  if (reclassificaveis.length > 0) {
+    const segunda = await classificarPautas(
+      reclassificaveis.map((e) => ({
+        id: e.grupo.primary.id,
+        titulo: e.grupo.primary.title,
+        descricao: e.enriquecimento.texto.slice(0, 4000),
+        fonte: e.grupo.primary.source_name,
+        url: e.grupo.primary.url,
+      })),
+      env,
+      fetcher
+    );
+
+    custoTotal += segunda.custoUsd;
+    tokensTotais.prompt += segunda.tokens.prompt;
+    tokensTotais.completion += segunda.tokens.completion;
+    tokensTotais.total += segunda.tokens.total;
+
+    for (const e of reclassificaveis) {
+      const nova = segunda.classificacoes.get(e.grupo.primary.id);
+      if (!nova) continue;
+
+      const decisao = decidirPauta(nova, config);
+      if (nova.leitura !== e.classificacao.leitura || nova.relevancia !== e.classificacao.relevancia) {
+        linhas.push(
+          `[GUARDA] releitura com a matéria: ${e.classificacao.leitura}/${e.classificacao.relevancia} ` +
+            `virou ${nova.leitura}/${nova.relevancia} :: ${e.grupo.primary.title.slice(0, 60)}`
+        );
+      }
+
+      e.classificacao = nova;
+      e.motivo = decisao.motivo;
+
+      if (!decisao.aprovada) {
+        recusadas.push({
+          titulo: e.grupo.primary.title,
+          url: e.grupo.primary.url,
+          fonte: e.grupo.primary.source_name,
+          motivo: decisao.motivo,
+          explicacao: `na releitura com a matéria: ${decisao.explicacao}`,
+        });
+      }
+    }
+  }
+
+  const paraAvaliar = enriquecidas.filter((e) => {
+    const decisao = decidirPauta(e.classificacao, config);
+    return decisao.aprovada;
+  });
+
+  // Um vetor por pauta, numa chamada só, e sobre o texto que de fato existe.
+  // Falha de embedding não derruba a edição: as outras camadas continuam
+  // valendo, e o relatório registra que a semântica ficou de fora.
   let vetores: Vetor[] = [];
-  if (opcoes.provedorDeVetor && aprovadasNoFiltro.length > 0) {
+  if (opcoes.provedorDeVetor && paraAvaliar.length > 0) {
     try {
       vetores = await opcoes.provedorDeVetor.gerar(
-        aprovadasNoFiltro.map((a) =>
-          textoParaVetor(a.grupo.primary.title, a.grupo.primary.description || "")
-        )
+        paraAvaliar.map((a) => textoParaVetor(a.grupo.primary.title, a.enriquecimento.texto))
       );
     } catch (erro) {
       linhas.push(`[GUARDA] vetores indisponíveis, camada semântica desligada: ${(erro as Error).message}`);
@@ -176,7 +315,7 @@ export async function avaliarPautas(
     pontuacao: Pontuacao;
   }> = [];
 
-  aprovadasNoFiltro.forEach((a, i) => {
+  paraAvaliar.forEach((a, i) => {
     const vetor = vetores[i] ?? null;
     const entidades = entidadesDaClassificacao(a.classificacao);
 
@@ -184,7 +323,7 @@ export async function avaliarPautas(
       {
         titulo: a.grupo.primary.title,
         url: a.grupo.primary.url,
-        resumo: a.grupo.primary.description || "",
+        resumo: a.enriquecimento.texto,
         publicadoEm: a.grupo.primary.published_at,
         entidades,
         vetor,
@@ -197,7 +336,7 @@ export async function avaliarPautas(
     linhas.push(
       `[GUARDA] repetição ${veredito.repetida ? "SIM" : "não"} (${veredito.camada} ${veredito.score.toFixed(2)}, confiança ${veredito.confianca}) ` +
         `:: ${a.grupo.primary.title.slice(0, 70)} :: ${veredito.explicacao}` +
-        (veredito.sinais.length > 0 ? ` :: sinais: ${veredito.sinais.join("; ")}` : "")
+        ` :: ${descreverSinais(veredito.sinais)}`
     );
 
     if (veredito.repetida && veredito.motivo) {
@@ -206,8 +345,9 @@ export async function avaliarPautas(
         url: a.grupo.primary.url,
         fonte: a.grupo.primary.source_name,
         motivo: veredito.motivo,
-        explicacao: `${veredito.explicacao} :: ${veredito.sinais.join("; ")}`,
+        explicacao: `${veredito.explicacao} :: ${descreverSinais(veredito.sinais)}`,
         confianca: veredito.confianca,
+        sinais: veredito.sinais,
       });
       return;
     }
@@ -218,7 +358,7 @@ export async function avaliarPautas(
       quantasFontesConfirmam: a.grupo.secondary_sources.length,
       publicadoEm: a.grupo.primary.published_at,
       semelhancaComHistorico: veredito.score,
-      temCorpoFactual: (a.grupo.primary.description || "").trim().length >= 120,
+      temCorpoFactual: a.enriquecimento.contentLength >= 400,
     });
 
     candidatas.push({
@@ -230,6 +370,7 @@ export async function avaliarPautas(
           titulo: a.grupo.primary.title,
         }),
         classificacao: a.classificacao,
+        enriquecimento: a.enriquecimento,
         motivoDaAprovacao: a.motivo,
         veredito,
         pontuacao,
@@ -256,8 +397,8 @@ export async function avaliarPautas(
     recusadas,
     viavel: viabilidade.viavel,
     motivoDaInviabilidade: viabilidade.viavel ? "" : viabilidade.motivo,
-    custoUsd,
-    tokens,
+    custoUsd: custoTotal,
+    tokens: tokensTotais,
     vetoresGerados: vetores.length,
     linhasDeLog: linhas,
   };

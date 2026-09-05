@@ -86,6 +86,10 @@ export const MOTIVOS = {
   REJEITADO_FONTE: "REJECT_LOW_SOURCE_QUALITY",
   REJEITADO_RELEVANCIA: "REJECT_LOW_RELEVANCE",
   REJEITADO_SEM_CLASSIFICACAO: "REJECT_UNCLASSIFIED",
+  /** Nem o feed nem a página da matéria deram o que aconteceu. */
+  REJEITADO_SEM_FATOS: "REJECT_INSUFFICIENT_FACTS",
+  /** O texto gerado afirma algo que não está no pacote factual. */
+  REJEITADO_SEM_ANCORAGEM: "REJECT_UNGROUNDED_CLAIM",
 } as const;
 
 export type Motivo = (typeof MOTIVOS)[keyof typeof MOTIVOS];

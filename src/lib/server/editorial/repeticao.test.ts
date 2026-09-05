@@ -105,7 +105,7 @@ describe("verificarRepeticao", () => {
     );
     expect(v.repetida).toBe(false);
     expect(v.score).toBeCloseTo(0);
-    expect(v.explicacao).toContain("suspeita a partir de");
+    expect(v.explicacao).toContain("mais próxima");
   });
 
   it("na faixa do meio, acontecimento diferente livra a pauta", () => {
@@ -151,26 +151,60 @@ describe("verificarRepeticao", () => {
       config
     );
     expect(v.repetida).toBe(true);
-    expect(v.sinais).toContain("mesmo tipo de acontecimento");
+    expect(v.sinais.same_event_type).toBe(true);
     expect(v.confianca).not.toBe("baixa");
   });
 
-  it("sem entidade no histórico, a faixa do meio recusa em vez de arriscar repetir", () => {
+  it("sem entidade no histórico e sem outro sinal, o vetor sozinho não bloqueia", () => {
     const v = verificarRepeticao(
       {
         titulo: "Cirurgião mexicano aprovado em EB-2 NIW",
         entidades: { atores: ["EB-2 NIW"], lugares: ["EUA"], acontecimento: ["aprovação"] },
         vetor: [0.76, 0.65, 0],
       },
-      [registro({ urlCanonica: "outro.com/eb2", titulo: "Outro título", vetor: [1, 0, 0] })],
+      [
+        registro({
+          urlCanonica: "outro.com/eb2",
+          dominio: "outro.com",
+          titulo: "Assunto vizinho sem nada em comum no título",
+          publicadoEm: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+          vetor: [1, 0, 0],
+        }),
+      ],
       "newsletter",
       config
     );
-    // Sem entidade a decisão continua sendo "não repete", mas assumida como
-    // palpite: a confiança cai e o motivo fica no log para calibração.
+
+    // Um sinal só (nenhum) não sustenta bloqueio. A suspeita fica registrada.
+    expect(v.repetida).toBe(false);
+    expect(v.duplicate_confidence).toBe("baixa");
+    expect(v.explicacao).toContain("o vetor sozinho não basta");
+    expect(v.sinais.shared_entities).toBeNull();
+  });
+
+  it("sem entidade no histórico, mas com fonte, título e data juntos, bloqueia", () => {
+    const v = verificarRepeticao(
+      {
+        titulo: "USCIS amplia prazo de renovação do EAD",
+        url: "https://uscis.gov/outra-materia",
+        entidades: { atores: ["USCIS"], lugares: ["EUA"], acontecimento: ["prorrogação"] },
+        vetor: [0.76, 0.65, 0],
+      },
+      [
+        registro({
+          urlCanonica: "uscis.gov/ead-540",
+          dominio: "uscis.gov",
+          titulo: "USCIS amplia prazo de renovação automática do EAD para 540 dias",
+          vetor: [1, 0, 0],
+        }),
+      ],
+      "newsletter",
+      config
+    );
+
     expect(v.repetida).toBe(true);
-    expect(v.sinais).toContain("sem entidade dos dois lados para conferir");
-    expect(["media", "baixa"]).toContain(v.confianca);
+    expect(v.duplicate_confidence).not.toBe("baixa");
+    expect(v.sinais.same_source).toBe(true);
   });
 
   it("ignora registro sem entidades em vez de fingir que a camada rodou", () => {
@@ -254,8 +288,7 @@ describe("faixa de suspeita, sinais combinados", () => {
       config
     );
     expect(v.repetida).toBe(true);
-    expect(v.sinais.some((s) => s.startsWith("resumo "))).toBe(true);
-    expect(v.sinais).toContain("mesma fonte");
+    expect(v.sinais.same_source).toBe(true);
   });
 });
 

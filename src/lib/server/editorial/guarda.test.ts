@@ -8,7 +8,21 @@ import type { RegistroHistorico } from "./history";
 const config = carregarConfigEditorial({});
 const env = { OPENAI_API_KEY: "chave", OPENAI_MODEL_TRIAGE: "gpt-4o-mini" };
 
-function grupo(id: string, title: string, url: string): DeduplicatedGroup {
+/**
+ * Corpo de verdade nas fixtures.
+ *
+ * Depois que o enriquecimento entrou, pauta sem corpo é recusada antes de
+ * chegar à repetição, então fixture com "resumo da pauta" testaria o caminho
+ * errado.
+ */
+const CORPO =
+  "O United States Citizenship and Immigration Services informou nesta quinta-feira que o prazo de " +
+  "renovação automática da permissão de trabalho passa de 180 para 540 dias. A mudança vale para " +
+  "pedidos protocolados a partir de outubro e alcança asilo, ajuste de status e renovação por " +
+  "casamento. O órgão afirmou que a fila soma 1,2 milhão de pedidos e que a medida evita a " +
+  "interrupção do vínculo de trabalho durante a análise. A publicação saiu no Federal Register.";
+
+function grupo(id: string, title: string, url: string, corpo = CORPO): DeduplicatedGroup {
   return {
     primary: {
       id,
@@ -17,7 +31,7 @@ function grupo(id: string, title: string, url: string): DeduplicatedGroup {
       source_name: "Fonte",
       priority: 1,
       published_at: new Date().toISOString(),
-      description: "resumo da pauta",
+      description: corpo,
       content: "",
       category: "imigracao",
       score: 0,
@@ -149,6 +163,59 @@ describe("avaliarPautas", () => {
     expect(r.selecionadas).toHaveLength(1);
     expect(r.viavel).toBe(false);
     expect(r.motivoDaInviabilidade).toContain("mínimo 2");
+  });
+});
+
+describe("conteúdo insuficiente", () => {
+  it("recusa a pauta que chegou só com a manchete e não pôde ser buscada", async () => {
+    const r = await avaliarPautas(
+      [grupo("1", "USCIS amplia prazo", "https://news.google.com/rss/articles/ABC?oc=5", "")],
+      {
+        canal: "newsletter",
+        historico: [],
+        config,
+        env,
+        fetcher: fetcherCom([classificacao({ id: "1" })]),
+      }
+    );
+
+    expect(r.selecionadas).toHaveLength(0);
+    expect(r.recusadas[0].motivo).toBe(MOTIVOS.REJEITADO_SEM_FATOS);
+    expect(r.recusadas[0].explicacao).toContain("agregador_sem_link_direto");
+  });
+
+  it("busca a página quando o feed veio curto e segue com a pauta", async () => {
+    const pagina = `<html><body><article><p>${CORPO}</p></article></body></html>`;
+    let chamadas = 0;
+
+    const fetcher = (async (url: string) => {
+      if (String(url).includes("api.openai.com")) {
+        chamadas += 1;
+        return new Response(
+          JSON.stringify({
+            id: "x",
+            choices: [{ message: { content: JSON.stringify({ pautas: [classificacao({ id: "1" })] }) } }],
+            usage: { prompt_tokens: 5, completion_tokens: 5, total_tokens: 10 },
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response(pagina, { status: 200, headers: { "content-type": "text/html" } });
+    }) as unknown as typeof fetch;
+
+    const r = await avaliarPautas([grupo("1", "USCIS amplia prazo", "https://veiculo.com/materia", "")], {
+      canal: "newsletter",
+      historico: [],
+      config,
+      env,
+      fetcher,
+    });
+
+    expect(r.selecionadas).toHaveLength(1);
+    expect(r.selecionadas[0].enriquecimento.enrichmentStatus).toBe("enriquecida");
+    expect(r.selecionadas[0].enriquecimento.contentSource).toBe("pagina_original");
+    // Uma chamada para classificar, outra para reclassificar com a matéria.
+    expect(chamadas).toBe(2);
   });
 });
 
