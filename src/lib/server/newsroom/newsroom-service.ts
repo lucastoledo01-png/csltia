@@ -659,19 +659,18 @@ export async function runNewsroom(
     );
   }
 
-  if (!pipelineResult.aprovado && modo === "enforce") {
-    const motivos = pipelineResult.problemasRestantes.map((p) => p.descricao).join(" | ");
-    const codigo =
-      semLastro.length > 0
-        ? "REJECT_UNGROUNDED_CLAIM"
-        : claimsSoltas.length > 0
-          ? "UNGROUNDED_EDITORIAL_CLAIM"
-          : "REJECT_EDITORIAL_QA";
+  if (pipelineResult.problemasRestantes.length > 0) {
+    // Imprecisão que sobrou depois do reparo. Não bloqueia, mas fica no log:
+    // é o que aparece na errata de amanhã se ninguém olhar.
+    for (const p of pipelineResult.problemasRestantes) {
+      console.warn(`[NEWSROOM] apontamento não resolvido: ${p.descricao}`);
+    }
+  }
 
+  if (!pipelineResult.aprovado && modo === "enforce") {
     throw new Error(
       `Edição bloqueada depois de ${pipelineResult.tentativasDeReparo} tentativa(s) de correção ` +
-        `(${codigo}, QA ${pipelineResult.qaResult.score}, ` +
-        `risco de alucinação ${pipelineResult.qaResult.hallucination_risk}): ${motivos}`,
+        `(QA ${pipelineResult.qaResult.score}): ${pipelineResult.bloqueios.join(" | ")}`,
     );
   }
 

@@ -57,8 +57,10 @@ export type PipelineResult = {
   claimsSemanticas: ResultadoDeClaims;
   tentativasDeReparo: number;
   rodadasDeReparo: RodadaDeReparo[];
-  /** Passou em tudo? Falso significa que a edição não deve ser publicada. */
+  /** Passou nas conferências de fato? Falso significa que não deve publicar. */
   aprovado: boolean;
+  /** Por que não passou. Vazio quando aprovado. */
+  bloqueios: string[];
   /** O que sobrou depois da última tentativa. */
   problemasRestantes: ProblemaEditorial[];
 };
@@ -400,6 +402,11 @@ O QUE NÃO É:
 - Paráfrase fiel. Se o pacote diz que o texto foi aprovado pela Câmara e pelo Senado, escrever que ele "avançou no Congresso" é a mesma informação com outras palavras. Sinônimo, resumo, ordem diferente e escolha de verbo não são acréscimo.
 - Ressalva. Dizer que a fonte não informou algo é o comportamento correto, não um defeito.
 - Assunto e opções de assunto. São chamadas curtas e podem ser perguntas. Avalie se afirmam algo FALSO, não se resumem demais. "A taxa das blusinhas está no fim?" é pergunta legítima quando o pacote diz que o texto foi aprovado e aguarda sanção; "A taxa das blusinhas acabou" seria falso.
+- IMPRECISÃO DE REDAÇÃO. Chamar de "decisões" um conjunto que inclui um relatório, ou atribuir ao país o que uma juíza decidiu, é imprecisão: a informação existe no pacote e foi mal resumida. Isso vai para "issues" e derruba "passed", mas NÃO é alucinação.
+
+A pergunta que separa as duas coisas: a informação existe no pacote?
+- Não existe: alucinação, hallucination_risk = true.
+- Existe e foi mal descrita: imprecisão, hallucination_risk = false, e descreva em "issues".
 
 Na dúvida entre pedantismo e omissão, pergunte: um leitor que só tem o pacote factual seria induzido a acreditar em algo que não está nele? Se não, não é alucinação.
 
@@ -482,16 +489,36 @@ Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
       });
     }
 
-    if (qa.hallucination_risk) {
-      for (const issue of qa.issues) {
-        lista.push({ indice: -1, tipo: "qa", descricao: issue });
-      }
-      if (qa.issues.length === 0) {
-        lista.push({ indice: -1, tipo: "qa", descricao: "auditor marcou risco de alucinação sem detalhar" });
-      }
+    // Apontamento do auditor entra no reparo mesmo quando não bloqueia:
+    // imprecisão de redação merece uma tentativa de conserto. O que ela não
+    // faz é derrubar a edição, e quem decide isso é `bloqueia`, não esta lista.
+    for (const issue of qa.issues) {
+      lista.push({ indice: -1, tipo: "qa", descricao: issue });
+    }
+    if (qa.hallucination_risk && qa.issues.length === 0) {
+      lista.push({ indice: -1, tipo: "qa", descricao: "auditor marcou risco de alucinação sem detalhar" });
     }
 
     return lista;
+  };
+
+  /*
+   * O que impede a edição de sair.
+   *
+   * Diferente da lista de reparo. Fato inventado, conclusão sem lastro e risco
+   * de alucinação bloqueiam. Imprecisão de redação não: ela vira apontamento,
+   * o reparo tenta consertar, e se sobrar, sobra registrada.
+   */
+  const bloqueia = (anc: AncoragemDaPauta[], qa: QAResult, sem: ResultadoDeClaims): string[] => {
+    const motivos: string[] = [];
+    const duros = anc.filter((a) => !a.ancorado);
+    if (duros.length > 0) motivos.push(`REJECT_UNGROUNDED_CLAIM em ${duros.length} matéria(s)`);
+    if (sem.naoSustentadas.length > 0) {
+      motivos.push(`UNGROUNDED_EDITORIAL_CLAIM em ${sem.naoSustentadas.length} conclusão(ões)`);
+    }
+    if (qa.hallucination_risk) motivos.push("REJECT_EDITORIAL_QA: hallucination_risk");
+    if (sem.erro) motivos.push(`auditoria de conclusões não rodou: ${sem.erro}`);
+    return motivos;
   };
 
   let problemas = problemasDe(ancoragem, parsedQA, semantica);
@@ -535,7 +562,8 @@ Retorne EXCLUSIVAMENTE a edição inteira no mesmo formato JSON.
     problemas = restantes;
   }
 
-  const aprovado = problemas.length === 0;
+  const bloqueios = bloqueia(ancoragem, parsedQA, semantica);
+  const aprovado = bloqueios.length === 0;
 
   return {
     edition: parsedEdition,
@@ -545,6 +573,7 @@ Retorne EXCLUSIVAMENTE a edição inteira no mesmo formato JSON.
     tentativasDeReparo: tentativas,
     rodadasDeReparo: rodadas,
     aprovado,
+    bloqueios,
     problemasRestantes: problemas,
     selectedCandidates,
     totalUsage: {

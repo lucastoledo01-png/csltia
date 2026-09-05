@@ -468,13 +468,8 @@ async function main() {
     }
     escrever(`- custo da redação: US$ ${edicao.totalUsage.estimatedCostUsd.toFixed(4)} (${edicao.totalUsage.totalTokens} tokens)`);
     escrever();
-    const claimsSoltas = edicao.claimsSemanticas.naoSustentadas;
-    const motivos: string[] = [];
-    if (!resultado.viavel) motivos.push(`pautas insuficientes: ${resultado.motivoDaInviabilidade}`);
-    if (semLastro.length > 0) motivos.push(`REJECT_UNGROUNDED_CLAIM em ${semLastro.length} matéria(s)`);
-    if (claimsSoltas.length > 0) motivos.push(`UNGROUNDED_EDITORIAL_CLAIM em ${claimsSoltas.length} conclusão(ões)`);
-    if (edicao.qaResult.hallucination_risk) motivos.push("REJECT_EDITORIAL_QA: hallucination_risk");
-    if (edicao.claimsSemanticas.erro) motivos.push("auditoria de conclusões não rodou");
+    const motivos = [...edicao.bloqueios];
+    if (!resultado.viavel) motivos.unshift(`pautas insuficientes: ${resultado.motivoDaInviabilidade}`);
 
     escrever("## Editorial Guard");
     escrever();
@@ -482,6 +477,14 @@ async function main() {
     escrever();
     if (motivos.length === 0) {
       escrever("Passou nas três conferências: ancoragem dura, conclusões e auditoria.");
+      if (edicao.problemasRestantes.length > 0) {
+        escrever();
+        escrever(
+          `${edicao.problemasRestantes.length} apontamento(s) de precisão sobraram depois do reparo. ` +
+            "Não bloqueiam e ficam registrados:"
+        );
+        for (const p of edicao.problemasRestantes) escrever(`- ${p.descricao}`);
+      }
     } else {
       for (const m of motivos) escrever(`- ${m}`);
     }
