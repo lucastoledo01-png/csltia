@@ -22,7 +22,7 @@ const COLUNAS =
   "id,entity_name,entity_normalized,entity_type,source,source_asset_id,source_page_url,image_url," +
   "author,license,license_url,attribution,rights_statement,rights_status,rights_checked_at," +
   "source_last_checked_at,width,height,mime_type,storage_path,perceptual_hash,image_relevance_score," +
-  "status,usage_count,last_used_at,metadata_json";
+  "status,usage_count,last_used_at,metadata_json,image_context_type";
 
 type Linha = {
   id: string;
@@ -51,6 +51,7 @@ type Linha = {
   usage_count: number;
   last_used_at: string | null;
   metadata_json: Record<string, unknown>;
+  image_context_type: string | null;
 };
 
 function daLinha(l: Linha): AssetVisual & { id: string; usageCount: number; lastUsedAt: string | null } {
@@ -77,6 +78,7 @@ function daLinha(l: Linha): AssetVisual & { id: string; usageCount: number; last
     storagePath: l.storage_path,
     perceptualHash: l.perceptual_hash,
     imageRelevanceScore: Number(l.image_relevance_score ?? 0),
+    imageContextType: (l.image_context_type as AssetVisual["imageContextType"]) ?? "conceptual",
     metadata: l.metadata_json ?? {},
     usageCount: l.usage_count,
     lastUsedAt: l.last_used_at,
@@ -108,6 +110,9 @@ function paraLinha(a: AssetVisual) {
     storage_path: a.storagePath,
     perceptual_hash: a.perceptualHash,
     image_relevance_score: a.imageRelevanceScore,
+    image_context_type: a.imageContextType,
+    primary_entity_confidence: Math.round(a.entityConfidence ?? 0),
+    primary_entity_evidence: a.entityEvidence ?? [],
     metadata_json: a.metadata ?? {},
   };
 }

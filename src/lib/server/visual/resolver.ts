@@ -38,6 +38,8 @@ import { consultaConceitual } from "./conceitual";
 export type PautaParaImagem = {
   storyId: string;
   titulo: string;
+  /** Resumo da matéria. Entra no contexto que desambigua lugar. */
+  resumo?: string;
   categoria: string;
   /** `pais` desempata homônimo: sem ele, "ICE" numa pauta americana vira trem alemão. */
   classificacao: { atores: string[]; lugares: string[]; acontecimento: string[]; pais?: string };
@@ -78,21 +80,48 @@ export async function resolveVisualAsset(
   });
 
   // 1. Quem é o assunto visual.
-  const escolha = await escolherEntidadeVisual(pauta.classificacao, { env, fetcher: opcoes.fetcher });
+  const escolha = await escolherEntidadeVisual(
+    { ...pauta.classificacao, contexto: `${pauta.titulo} ${pauta.resumo ?? ""} ${pauta.categoria}` },
+    { env, fetcher: opcoes.fetcher }
+  );
+
+  /*
+   * Ambiguidade não vira palpite.
+   *
+   * Havendo dois lugares plausíveis e nada no contexto que decida, a pauta sai
+   * sem imagem. Foto do estado de Washington numa matéria sobre a embaixada em
+   * Washington D.C. é um erro que o leitor percebe.
+   */
+  if (!escolha.entidade && escolha.ambigua) {
+    fontesConsultadas.push({
+      fonte: "biblioteca_interna",
+      encontrados: 0,
+      nota: escolha.tentativas.map((t) => t.resultado).join(" ; "),
+    });
+    return semImagem(null, MOTIVOS_DE_RECUSA.ENTIDADE_AMBIGUA);
+  }
+
   const entidade =
     escolha.entidade ?? entidadeConceitual(pauta.classificacao.acontecimento, pauta.categoria);
 
   fontesConsultadas.push({
     fonte: "biblioteca_interna",
     encontrados: 0,
-    nota: `entidade: ${entidade.nome} (${entidade.tipo}) via ${entidade.origem}`,
+    nota:
+      `entidade: ${entidade.nome} (${entidade.tipo}), confiança ${entidade.confianca}, ` +
+      `via ${entidade.origem}`,
   });
 
   const piso = pisoDeRelevancia(entidade, config);
   const aprovar = (asset: AssetVisual, id?: string): ResultadoVisual => ({
     storyId: pauta.storyId,
     entidade,
-    asset: { ...asset, id: id ?? asset.id },
+    asset: {
+      ...asset,
+      id: id ?? asset.id,
+      entityConfidence: entidade.confianca,
+      entityEvidence: entidade.evidencias,
+    },
     status: "SELECTED",
     motivo: null,
     fontesConsultadas,
@@ -265,6 +294,7 @@ export async function resolveVisualAsset(
           storagePath: null,
           perceptualHash: null,
           imageRelevanceScore: 0,
+          imageContextType: "conceptual",
           metadata: { provedor: foto.credito.provedor, conceitual: true },
         });
       }

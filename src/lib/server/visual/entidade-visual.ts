@@ -53,13 +53,23 @@ export type EscolhaDeEntidade = {
   entidade: EntidadeVisual | null;
   /** Toda tentativa, na ordem, para o relatório. */
   tentativas: Array<{ candidato: string; resultado: string }>;
+  /** Houve candidato plausível, e nada no contexto decidiu qual era. */
+  ambigua: boolean;
 };
 
 export async function escolherEntidadeVisual(
-  classificacao: { atores: string[]; lugares: string[]; acontecimento: string[]; pais?: string },
+  classificacao: {
+    atores: string[];
+    lugares: string[];
+    acontecimento: string[];
+    pais?: string;
+    /** Título e resumo, que é o que decide lugar ambíguo. */
+    contexto?: string;
+  },
   opcoes: { env?: Record<string, string | undefined>; fetcher?: typeof fetch } = {}
 ): Promise<EscolhaDeEntidade> {
   const tentativas: Array<{ candidato: string; resultado: string }> = [];
+  let houveAmbiguidade = false;
 
   /*
    * Só nome próprio vira busca de imagem.
@@ -94,16 +104,18 @@ export async function escolherEntidadeVisual(
   const resolvidas: EntidadeVisual[] = [];
 
   for (const candidato of candidatos) {
-    const { entidade, nota } = await resolverEntidadeNoWikidata(candidato, {
+    const { entidade, nota, ambigua } = await resolverEntidadeNoWikidata(candidato, {
       ...opcoes,
       paisDaPauta: pais,
+      contexto: [classificacao.contexto ?? "", ...atores, ...lugares].join(" "),
     });
     tentativas.push({ candidato, resultado: nota });
+    if (ambigua) houveAmbiguidade = true;
     if (entidade) resolvidas.push(entidade);
   }
 
   if (resolvidas.length === 0) {
-    return { entidade: null, tentativas };
+    return { entidade: null, tentativas, ambigua: houveAmbiguidade };
   }
 
   const porPrioridade = (e: EntidadeVisual): number => {
@@ -128,8 +140,13 @@ export async function escolherEntidadeVisual(
     entidade: {
       ...escolhida,
       origem: `${escolhida.origem}; escolhida entre ${resolvidas.length} candidata(s) por tipo ${escolhida.tipo}`,
+      evidencias: [
+        ...escolhida.evidencias,
+        `ator ou lugar principal da matéria entre ${resolvidas.length} candidata(s)`,
+      ],
     },
     tentativas,
+    ambigua: false,
   };
 }
 
@@ -150,5 +167,7 @@ export function entidadeConceitual(acontecimento: string[], categoria: string): 
     categoriaCommons: null,
     siteOficial: null,
     origem: "sem entidade identificável, pauta tratada como conceitual",
+    confianca: 30,
+    evidencias: [`acontecimento "${acontecimento[0] ?? "não informado"}" e categoria "${categoria || "não informada"}"`],
   };
 }

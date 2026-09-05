@@ -150,6 +150,7 @@ describe("resolveVisualAsset", () => {
       storagePath: null,
       perceptualHash: null,
       imageRelevanceScore: 0,
+      imageContextType: "official_portrait" as const,
       metadata: { origem_declarada: true },
       usageCount: 3,
       lastUsedAt: null,
@@ -198,6 +199,7 @@ describe("resolveVisualAsset", () => {
           storagePath: null,
           perceptualHash: null,
           imageRelevanceScore: 0,
+          imageContextType: "entity_portrait" as const,
           metadata: {},
           usageCount: 1,
           lastUsedAt: ontem,
@@ -266,6 +268,8 @@ describe("pontuarImagem", () => {
     categoriaCommons: "Donald Trump",
     siteOficial: null,
     origem: "teste",
+    confianca: 100,
+    evidencias: ["fixture"],
   };
 
   const base: AssetVisual = {
@@ -290,6 +294,7 @@ describe("pontuarImagem", () => {
     storagePath: null,
     perceptualHash: null,
     imageRelevanceScore: 0,
+    imageContextType: "official_portrait",
     metadata: {},
   };
 
@@ -304,5 +309,77 @@ describe("pontuarImagem", () => {
       entidade
     );
     expect(conceitual.total).toBeLessThan(45);
+  });
+});
+
+describe("saber desistir", () => {
+  /** Wikidata que não devolve nada utilizável. */
+  const semNada = vi.fn(async (entrada: string | URL) => {
+    const url = String(entrada);
+    if (url.includes("wbsearchentities")) return new Response(JSON.stringify({ search: [] }), { status: 200 });
+    return new Response(JSON.stringify({ entities: {} }), { status: 200 });
+  }) as unknown as typeof fetch;
+
+  it("pessoa sem foto válida sai sem imagem, e não com foto conceitual", async () => {
+    const r = await resolveVisualAsset(pautaDePessoa, {
+      fetcher: fetcherFalso({ licenca: "All rights reserved" }),
+      env: { PEXELS_API_KEY: "chave" },
+      somenteLeitura: true,
+    });
+
+    expect(r.status).toBe("NO_VALID_IMAGE");
+    expect(r.asset).toBeNull();
+  });
+
+  it("sem entidade e sem banco configurado, sai sem imagem", async () => {
+    const r = await resolveVisualAsset(
+      {
+        storyId: "s9",
+        titulo: "Assunto sem entidade nenhuma",
+        categoria: "Geral",
+        classificacao: { atores: [], lugares: [], acontecimento: [] },
+      },
+      { fetcher: semNada, env: {}, somenteLeitura: true }
+    );
+
+    expect(r.status).toBe("NO_VALID_IMAGE");
+    expect(r.entidade?.tipo).toBe("conceptual");
+  });
+
+  it("nome comum que não é entidade não vira busca de imagem", async () => {
+    const r = await resolveVisualAsset(
+      {
+        storyId: "s10",
+        titulo: "Fila do green card chega a 1 milhão de indianos",
+        categoria: "Green card",
+        classificacao: { atores: ["indianos", "novos agentes"], lugares: [], acontecimento: ["fila"] },
+      },
+      { fetcher: semNada, env: {}, somenteLeitura: true }
+    );
+
+    // Nenhum dos dois é nome próprio, então nem chega ao Wikidata.
+    expect(r.entidade?.tipo).toBe("conceptual");
+    expect(r.status).toBe("NO_VALID_IMAGE");
+  });
+});
+
+describe("contexto da imagem", () => {
+  it("retrato oficial nunca é classificado como foto do acontecimento", async () => {
+    const r = await resolveVisualAsset(pautaDePessoa, {
+      fetcher: fetcherFalso({ p18: "Retrato.jpg" }),
+      somenteLeitura: true,
+    });
+
+    expect(r.asset?.imageContextType).toBe("official_portrait");
+    expect(r.asset?.imageContextType).not.toBe("exact_event");
+  });
+
+  it("foto de pessoa que não é a declarada vira retrato comum", async () => {
+    const r = await resolveVisualAsset(pautaDePessoa, {
+      fetcher: fetcherFalso({}),
+      somenteLeitura: true,
+    });
+
+    expect(r.asset?.imageContextType).toBe("entity_portrait");
   });
 });

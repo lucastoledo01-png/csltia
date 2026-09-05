@@ -133,6 +133,8 @@ export async function buscarEmFonteOficial(
         storagePath: null,
         perceptualHash: null,
         imageRelevanceScore: 0,
+        // Página institucional entrega imagem da instituição, não do fato.
+        imageContextType: entidade.tipo === "place" ? "place" : "institution",
         metadata: { declaracao: declaracao.nome, pagina: alvo.toString() },
       });
 

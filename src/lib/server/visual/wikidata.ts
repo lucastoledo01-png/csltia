@@ -93,7 +93,83 @@ export type ResolucaoDeEntidade = {
   entidade: EntidadeVisual | null;
   /** Toda tentativa, para o relatório dizer o que foi consultado. */
   nota: string;
+  /** Duas leituras plausíveis e nada no contexto que decida. */
+  ambigua?: boolean;
 };
+
+/**
+ * Marcadores de contexto federal e diplomático.
+ *
+ * Quando a matéria fala de embaixada, governo federal, Congresso ou Casa
+ * Branca, "Washington" é a capital, não o estado no noroeste. A lista descreve
+ * o CONTEXTO, não o lugar, e por isso vale para qualquer país: em pauta
+ * brasileira com os mesmos marcadores, a capital é Brasília.
+ */
+const CONTEXTO_DE_CAPITAL =
+  /embaixad|consulad|diplomat|governo federal|casa branca|white house|congresso|senado|c[âa]mara|capitol|federal government|planalto|minist[ée]rio|supremo|department of state|secret[áa]rio de estado/i;
+
+/** "estado de X" e "cidade de X" resolvem sozinhos, quando aparecem. */
+const QUALIFICADOR_DE_ESTADO = /\bestado d[eo]\s+|\bstate of\s+/i;
+const QUALIFICADOR_DE_CIDADE = /\bcidade d[eo]\s+|\bcity of\s+|\bmunic[íi]pio d[eo]\s+/i;
+
+/** Capitais já resolvidas nesta execução, para não repetir a consulta. */
+const capitaisEmCache = new Map<string, { qid: string; label: string } | null>();
+
+/**
+ * A capital do país, pelo próprio Wikidata (P36).
+ *
+ * Vale a consulta porque a capital NÃO aparece na busca por nome: procurar
+ * "Washington" devolve o estado, condados e um sobrenome, e Washington D.C.
+ * não está entre os resultados. Perguntar "qual é a capital dos Estados
+ * Unidos" é a única forma de chegar nela sem escrever o nome no código.
+ */
+async function capitalDoPais(
+  paisQid: string,
+  fetcher: typeof fetch,
+  cabecalho: Record<string, string>
+): Promise<{ qid: string; label: string } | null> {
+  if (capitaisEmCache.has(paisQid)) return capitaisEmCache.get(paisQid) ?? null;
+
+  try {
+    const url = new URL(API);
+    url.searchParams.set("action", "wbgetentities");
+    url.searchParams.set("ids", paisQid);
+    url.searchParams.set("props", "claims");
+    url.searchParams.set("format", "json");
+
+    const r = await fetcher(url, { headers: cabecalho, signal: AbortSignal.timeout(TEMPO_LIMITE_MS) });
+    if (!r.ok) return null;
+
+    const corpo = (await r.json()) as { entities?: Record<string, { claims?: Claims }> };
+    const qid = valores(corpo.entities?.[paisQid]?.claims ?? {}, "P36")[0];
+    if (!qid) {
+      capitaisEmCache.set(paisQid, null);
+      return null;
+    }
+
+    const rotulo = new URL(API);
+    rotulo.searchParams.set("action", "wbgetentities");
+    rotulo.searchParams.set("ids", qid);
+    rotulo.searchParams.set("props", "labels");
+    rotulo.searchParams.set("languages", "pt|en");
+    rotulo.searchParams.set("format", "json");
+
+    const r2 = await fetcher(rotulo, { headers: cabecalho, signal: AbortSignal.timeout(TEMPO_LIMITE_MS) });
+    if (!r2.ok) return null;
+
+    const c2 = (await r2.json()) as {
+      entities?: Record<string, { labels?: Record<string, { value?: string }> }>;
+    };
+    const labels = c2.entities?.[qid]?.labels ?? {};
+    const label = labels.pt?.value || labels.en?.value || "";
+
+    const achado = { qid, label };
+    capitaisEmCache.set(paisQid, achado);
+    return achado;
+  } catch {
+    return null;
+  }
+}
 
 /** País esperado da pauta, para desempatar homônimo. */
 const PAIS_PARA_QID: Record<string, string> = { EUA: "Q30", Brasil: "Q155" };
@@ -231,6 +307,8 @@ export async function resolverEntidadeNoWikidata(
     idioma?: string;
     /** "EUA" ou "Brasil", vindo da classificação da pauta. */
     paisDaPauta?: string;
+    /** Título, resumo e entidades da pauta, para desambiguar lugar. */
+    contexto?: string;
   } = {}
 ): Promise<ResolucaoDeEntidade> {
   const env = opcoes.env ?? process.env;
@@ -301,6 +379,93 @@ export async function resolverEntidadeNoWikidata(
     const siteOficial = valores(escolhido.claims, "P856")[0] ?? null;
     const tipo: TipoDeEntidade = tipoConhecido ?? (siteOficial ? "institution" : "conceptual");
 
+    const evidencias: string[] = [
+      `Wikidata ${escolhido.id}: ${escolhido.descricao || "sem descrição"}`,
+      `nota ${melhor.nota} entre ${candidatos.length} candidato(s)`,
+    ];
+    if (escolhido.temImagem) evidencias.push("entidade declara imagem própria (P18)");
+    if (escolhido.temCategoria) evidencias.push("entidade tem categoria no Commons (P373)");
+    if (siteOficial) evidencias.push(`site oficial declarado (P856): ${siteOficial}`);
+    if (paisEsperado && escolhido.pais.includes(paisEsperado)) {
+      evidencias.push(`país da entidade bate com o da pauta (${opcoes.paisDaPauta})`);
+    }
+
+    const contexto = opcoes.contexto ?? "";
+
+    /*
+     * Lugar ambíguo.
+     *
+     * "Washington" devolve o estado. Numa matéria sobre embaixada, a resposta
+     * certa é a capital, e ela nem aparece na busca por nome. Então a decisão
+     * não sai da lista de candidatos: sai do contexto da pauta mais a capital
+     * que o próprio Wikidata declara para o país.
+     *
+     * Sem contexto que decida, e havendo mais de um lugar plausível, a
+     * resposta é ambígua e a pauta fica sem imagem. Lugar errado numa matéria
+     * é pior que bloco sem foto.
+     */
+    if (tipo === "place") {
+      const outrosLugares = ranqueados
+        .slice(1)
+        .filter((r) => r.nota >= LIMIAR_DE_ACEITE && r.c.instancias.some((q) => INSTANCIA_PARA_TIPO[q] === "place"));
+
+      const pedeEstado = QUALIFICADOR_DE_ESTADO.test(contexto);
+      const pedeCidade = QUALIFICADOR_DE_CIDADE.test(contexto);
+      const pedeCapital = CONTEXTO_DE_CAPITAL.test(contexto);
+
+      if (pedeCapital && paisEsperado) {
+        const capital = await capitalDoPais(paisEsperado, fetcher, cabecalho);
+        if (capital && normalizarEntidade(capital.label).includes(normalizarEntidade(nome))) {
+          const det = new URL(API);
+          det.searchParams.set("action", "wbgetentities");
+          det.searchParams.set("ids", capital.qid);
+          det.searchParams.set("props", "claims");
+          det.searchParams.set("format", "json");
+
+          const rc = await fetcher(det, { headers: cabecalho, signal: AbortSignal.timeout(TEMPO_LIMITE_MS) });
+          if (rc.ok) {
+            const cc = (await rc.json()) as { entities?: Record<string, { claims?: Claims }> };
+            const claimsCapital = cc.entities?.[capital.qid]?.claims ?? {};
+            return {
+              entidade: {
+                nome: capital.label,
+                normalizado: normalizarEntidade(capital.label),
+                tipo: "place",
+                qid: capital.qid,
+                imagemPrincipal: valores(claimsCapital, "P18")[0] ?? null,
+                categoriaCommons: valores(claimsCapital, "P373")[0] ?? null,
+                siteOficial: valores(claimsCapital, "P856")[0] ?? null,
+                origem: `capital de ${opcoes.paisDaPauta} (P36), escolhida pelo contexto institucional da pauta`,
+                confianca: 85,
+                evidencias: [
+                  `"${nome}" é ambíguo e a pauta tem contexto federal ou diplomático`,
+                  `capital declarada de ${opcoes.paisDaPauta} no Wikidata (P36): ${capital.label}`,
+                ],
+              },
+              nota: `"${nome}" resolvido como capital ${capital.label} (${capital.qid}) pelo contexto`,
+            };
+          }
+        }
+      }
+
+      if (outrosLugares.length > 0 && !pedeEstado && !pedeCidade && !pedeCapital) {
+        return {
+          entidade: null,
+          ambigua: true,
+          nota:
+            `"${nome}" é ambíguo: ${[escolhido, ...outrosLugares.map((o) => o.c)]
+              .slice(0, 3)
+              .map((c) => `${c.id} (${c.descricao.slice(0, 30)})`)
+              .join(" | ")}. Nada no contexto decide.`,
+        };
+      }
+
+      if (pedeEstado) evidencias.push("a matéria diz \"estado de\"");
+      if (pedeCidade) evidencias.push("a matéria diz \"cidade de\"");
+    }
+
+    const confianca = Math.max(30, Math.min(100, melhor.nota));
+
     return {
       entidade: {
         nome: escolhido.label || nome,
@@ -311,6 +476,8 @@ export async function resolverEntidadeNoWikidata(
         categoriaCommons: valores(escolhido.claims, "P373")[0] ?? null,
         siteOficial,
         origem: `Wikidata ${escolhido.id}, nota ${melhor.nota} entre ${candidatos.length} candidatos`,
+        confianca,
+        evidencias,
       },
       nota: `${escolhido.id}: ${escolhido.descricao || "sem descrição"}, tipo ${tipo}, nota ${melhor.nota}`,
     };

@@ -1,5 +1,5 @@
 import type { AssetVisual, EntidadeVisual } from "./tipos";
-import { normalizarEntidade } from "./tipos";
+import { ehPessoa, normalizarEntidade } from "./tipos";
 import { avaliarLicenca, limparAutor, montarAtribuicao } from "./licencas";
 import { agenteDaWikimedia } from "./wikidata";
 
@@ -51,6 +51,27 @@ export type CandidatoDoCommons = {
   mime: string;
   data: string;
 };
+
+/**
+ * O que a foto representa.
+ *
+ * Retrato oficial é o arquivo que a própria entidade declara como sua imagem
+ * (P18) quando ela é pessoa; retrato comum é qualquer outra foto dela.
+ */
+function contextoDaImagem(
+  entidade: EntidadeVisual,
+  candidato: CandidatoDoCommons
+): AssetVisual["imageContextType"] {
+  const declarada = Boolean(
+    entidade.imagemPrincipal && candidato.arquivo.endsWith(entidade.imagemPrincipal)
+  );
+
+  if (ehPessoa(entidade.tipo)) return declarada ? "official_portrait" : "entity_portrait";
+  if (entidade.tipo === "company") return "company";
+  if (entidade.tipo === "place") return "place";
+  if (entidade.tipo === "institution" || entidade.tipo === "government_agency") return "institution";
+  return "conceptual";
+}
 
 function texto(em: Record<string, { value?: string }> | undefined, chave: string): string {
   return (em?.[chave]?.value ?? "").toString();
@@ -229,6 +250,15 @@ export function candidatoParaAsset(
       storagePath: null,
       perceptualHash: null,
       imageRelevanceScore: 0,
+      /*
+       * Nunca `exact_event`.
+       *
+       * Arquivo do Commons é acervo: uma foto real da pessoa, do prédio ou da
+       * cidade. Não temos como provar que ela foi feita no acontecimento que a
+       * matéria narra, e sem prova a classificação honesta é retrato ou
+       * instituição, não "foto do fato".
+       */
+      imageContextType: contextoDaImagem(entidade, candidato),
       metadata: {
         descricao: candidato.descricao,
         categorias: candidato.categorias,

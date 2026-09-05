@@ -30,6 +30,24 @@ export function ehPessoa(tipo: TipoDeEntidade): boolean {
   return TIPOS_DE_PESSOA.includes(tipo);
 }
 
+/**
+ * O que a foto representa, e o que ela NÃO representa.
+ *
+ * A distinção existe por um risco editorial: uma foto real do Trump é correta
+ * numa matéria sobre o Trump e quase nunca foi tirada no acontecimento que a
+ * matéria narra. `exact_event` exige prova de que a imagem é DAQUELE fato, e
+ * nós não temos como provar isso com material de arquivo. Então nada é
+ * classificado assim, e nenhuma legenda sugere que a foto é do fato narrado.
+ */
+export type TipoDeContextoDaImagem =
+  | "exact_event"
+  | "entity_portrait"
+  | "official_portrait"
+  | "institution"
+  | "place"
+  | "company"
+  | "conceptual";
+
 export type EntidadeVisual = {
   /** Nome como será buscado. */
   nome: string;
@@ -46,6 +64,16 @@ export type EntidadeVisual = {
   siteOficial: string | null;
   /** Como esta entidade foi escolhida entre as candidatas. */
   origem: string;
+  /**
+   * Quanta certeza existe de que é esta entidade, de 0 a 100.
+   *
+   * Existe porque "Washington" resolvido sem contexto e "Washington" resolvido
+   * com a embaixada citada na matéria não valem a mesma coisa, e a decisão de
+   * publicar depende disso.
+   */
+  confianca: number;
+  /** O que sustentou a escolha. Nunca uma caixa-preta que diz só o nome. */
+  evidencias: string[];
 };
 
 export type FonteDeImagem =
@@ -83,6 +111,11 @@ export type AssetVisual = {
   storagePath: string | null;
   perceptualHash: string | null;
   imageRelevanceScore: number;
+  /** O que a imagem representa. Nunca `exact_event` sem prova, e não temos. */
+  imageContextType: TipoDeContextoDaImagem;
+  /** Confiança e evidência da entidade que gerou esta escolha. */
+  entityConfidence?: number;
+  entityEvidence?: string[];
   metadata: Record<string, unknown>;
 };
 
@@ -95,6 +128,8 @@ export const MOTIVOS_DE_RECUSA = {
   RESOLUCAO_BAIXA: "LOW_RESOLUTION",
   FONTE_NAO_PERMITIDA: "SOURCE_NOT_ALLOWED",
   FALHA_AO_BUSCAR: "IMAGE_FETCH_FAILED",
+  /** Duas entidades plausíveis e nenhum contexto para decidir. */
+  ENTIDADE_AMBIGUA: "AMBIGUOUS_ENTITY",
   SEM_IMAGEM_VALIDA: "NO_VALID_IMAGE",
 } as const;
 

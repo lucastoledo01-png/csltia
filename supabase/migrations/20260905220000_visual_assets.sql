@@ -46,6 +46,14 @@ create table if not exists public.visual_assets (
   perceptual_hash text,
   content_hash text,
 
+  -- O que a imagem representa. Nunca 'exact_event' sem prova de que a foto é
+  -- daquele acontecimento, e material de arquivo não prova isso.
+  image_context_type text not null default 'conceptual',
+
+  -- Como a entidade foi escolhida, para a decisão não ser caixa-preta.
+  primary_entity_confidence integer not null default 0,
+  primary_entity_evidence jsonb not null default '[]'::jsonb,
+
   -- Uso
   image_relevance_score numeric not null default 0,
   status text not null default 'active',
@@ -60,6 +68,12 @@ create table if not exists public.visual_assets (
 
   constraint visual_assets_status_check
     check (status in ('active', 'blocked', 'retired')),
+
+  constraint visual_assets_context_check
+    check (image_context_type in (
+      'exact_event', 'entity_portrait', 'official_portrait',
+      'institution', 'place', 'company', 'conceptual'
+    )),
 
   -- O mesmo arquivo da mesma origem é uma linha só. É esta chave que faz a
   -- biblioteca crescer sem duplicar quando duas pautas acham a mesma foto.
