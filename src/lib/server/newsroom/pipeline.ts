@@ -365,23 +365,74 @@ Requisitos obrigatórios:
    * vazia. Vazio aqui significa "não conferido", não "aprovado", e por isso
    * existe `temPacoteEstruturado`.
    */
-  const conferirAncoragem = (edicao: EditionContent): AncoragemDaPauta[] =>
-    temPacoteEstruturado
-      ? edicao.stories.map((story, i) => {
-          const pacote = pacotes.get(topRanked[i]?.group.primary.url ?? "");
-          if (!pacote) {
-            return { indice: i, titulo: story.title, ancorado: true, conferidos: 0, naoSustentadas: [] };
-          }
-          const r = validarAncoragem(textoDaPauta(story), pacote);
-          return {
-            indice: i,
-            titulo: story.title,
-            ancorado: r.ancorado,
-            conferidos: r.conferidos,
-            naoSustentadas: r.naoSustentadas,
-          };
-        })
-      : [];
+  /*
+   * Pacote da edição inteira.
+   *
+   * Abertura, giro rápido e fechamento não pertencem a uma pauta só, e por
+   * isso ficavam sem conferência nenhuma. Foi lá que passou "os ganhos médios
+   * por hora subiram 0,3% em agosto", com o "em agosto" acrescentado: o
+   * auditor pegou no fim, depois de o reparo já ter gastado as tentativas em
+   * outra coisa. Conferir contra a união dos pacotes coloca esse texto na
+   * primeira rodada, junto com o resto.
+   */
+  const pacoteDaEdicao = (): PacoteFactual | null => {
+    const todos = [...pacotes.values()];
+    if (todos.length === 0) return null;
+    return {
+      verified_facts: todos.flatMap((p) => p.verified_facts),
+      people: todos.flatMap((p) => p.people),
+      organizations: todos.flatMap((p) => p.organizations),
+      places: todos.flatMap((p) => p.places),
+      dates: todos.flatMap((p) => p.dates),
+      numbers: todos.flatMap((p) => p.numbers),
+      gaps: todos.flatMap((p) => p.gaps),
+      source_urls: todos.flatMap((p) => p.source_urls),
+      texto_de_origem: todos.map((p) => p.texto_de_origem).join("\n\n"),
+    };
+  };
+
+  const textoAvulso = (edicao: EditionContent): string =>
+    [
+      edicao.intro,
+      ...(edicao.quick_bits ?? []).map((q) => `${q.title} ${q.text ?? ""}`),
+      edicao.closing,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+  const conferirAncoragem = (edicao: EditionContent): AncoragemDaPauta[] => {
+    if (!temPacoteEstruturado) return [];
+
+    const porPauta = edicao.stories.map((story, i) => {
+      const pacote = pacotes.get(topRanked[i]?.group.primary.url ?? "");
+      if (!pacote) {
+        return { indice: i, titulo: story.title, ancorado: true, conferidos: 0, naoSustentadas: [] };
+      }
+      const r = validarAncoragem(textoDaPauta(story), pacote);
+      return {
+        indice: i,
+        titulo: story.title,
+        ancorado: r.ancorado,
+        conferidos: r.conferidos,
+        naoSustentadas: r.naoSustentadas,
+      };
+    });
+
+    const uniao = pacoteDaEdicao();
+    if (!uniao) return porPauta;
+
+    const r = validarAncoragem(textoAvulso(edicao), uniao);
+    return [
+      ...porPauta,
+      {
+        indice: -1,
+        titulo: "abertura, giro rápido e fechamento",
+        ancorado: r.ancorado,
+        conferidos: r.conferidos,
+        naoSustentadas: r.naoSustentadas,
+      },
+    ];
+  };
 
   const auditarQA = async (edicao: EditionContent): Promise<QAResult> => {
     const qaPrompt = `
@@ -450,6 +501,16 @@ Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
         return pacote ? { indice: i, titulo: story.title, texto: textoDaPauta(story), pacote } : null;
       })
       .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    const uniao = pacoteDaEdicao();
+    if (uniao) {
+      auditaveis.push({
+        indice: -1,
+        titulo: "abertura, giro rápido e fechamento",
+        texto: textoAvulso(edicao),
+        pacote: uniao,
+      });
+    }
 
     const r = await auditarClaims(auditaveis, env, fetcher);
     totalCostUsd += r.custoUsd;

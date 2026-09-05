@@ -603,6 +603,7 @@ export async function runNewsroom(
       ? { minimo: configEditorial.minimoDePautas, maximo: configEditorial.maximoDePautas }
       : { minimo: 4, maximo: 6 },
     pacotes,
+    configEditorial.maximoDeReparos,
   );
 
   /*

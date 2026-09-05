@@ -43,6 +43,8 @@ export type ConfigEditorial = {
   maximoDePautasBrasil: number;
   /** Relevância máxima de uma pauta que é declaração, e não ato. */
   tetoDeDeclaracao: number;
+  /** Tentativas de correção antes de desistir da edição. */
+  maximoDeReparos: number;
 };
 
 export function carregarConfigEditorial(env: Ambiente = process.env): ConfigEditorial {
@@ -68,6 +70,10 @@ export function carregarConfigEditorial(env: Ambiente = process.env): ConfigEdit
     // Abaixo do piso de relevância, então na prática declaração só entra se o
     // teto for levantado de propósito.
     tetoDeDeclaracao: numeroDoAmbiente("EDITORIAL_TETO_DECLARACAO", 3, env),
+    // Duas, como combinado. Fica na configuração porque o número certo só
+    // aparece com rodadas: se o laço passar a convergir sempre na terceira,
+    // é decisão de operação, não de código.
+    maximoDeReparos: numeroDoAmbiente("MAX_EDITORIAL_REPAIR_ATTEMPTS", 2, env),
   };
 }
 

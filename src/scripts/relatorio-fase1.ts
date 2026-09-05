@@ -300,7 +300,8 @@ async function main() {
           `Até amanhã. Equipe ${project.brand.displayName || project.name}.`,
       },
       { minimo: config.minimoDePautas, maximo: config.maximoDePautas },
-      construcao.pacotes
+      construcao.pacotes,
+      config.maximoDeReparos
     );
 
     const e = edicao.edition;
@@ -426,7 +427,7 @@ async function main() {
 
     escrever("### Ciclo de correção");
     escrever();
-    escrever(`Tentativas: ${edicao.tentativasDeReparo} (teto ${2})`);
+    escrever(`Tentativas: ${edicao.tentativasDeReparo} (teto ${config.maximoDeReparos})`);
     for (const r of edicao.rodadasDeReparo) {
       escrever(
         `- tentativa ${r.tentativa}: recebeu ${r.problemasRecebidos.length} apontamento(s), ` +
