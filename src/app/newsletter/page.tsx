@@ -10,9 +10,9 @@ export default function NewsletterPage() {
         <header>
           <div className="mb-16 flex items-center justify-between text-sm">
             <Link className="font-bold tracking-[-0.03em] font-sans text-xl text-black" href="/">{MARCA.nome}</Link>
-            <Link className="font-medium hover:text-[#ff4a1c]" href="/artigos">Artigos</Link>
+            <Link className="font-medium hover:text-[#E4344A]" href="/artigos">Artigos</Link>
           </div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#ff4a1c]">Newsletter</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#E4344A]">Newsletter</p>
           <h1 className="mt-4 text-[clamp(3.5rem,9vw,6rem)] font-black leading-[0.9] tracking-[-0.08em] text-black">a news de IA para criar rotina</h1>
           <p className="mx-auto mt-8 max-w-2xl text-xl leading-8 text-[#667085]">
             Notícias de IA, prompts e ideias para abrir todo dia. Leitura rápida, tom humano e zero enrolação de robô.

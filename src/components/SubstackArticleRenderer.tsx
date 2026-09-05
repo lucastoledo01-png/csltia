@@ -41,7 +41,7 @@ export function SubstackArticleRenderer({
     <article className="mx-auto max-w-[680px] bg-white px-4 py-6 text-[#111827] sm:px-0">
       {/* 1. Header Estilo Substack */}
       <header className="border-b border-[#f3f4f6] pb-6">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#ff4a1c]">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#E4344A]">
           <span>{category}</span>
           <span className="text-gray-300">•</span>
           <span className="text-[#6b7280] font-normal lowercase">{readTime} de leitura</span>
@@ -60,7 +60,7 @@ export function SubstackArticleRenderer({
         {/* Avatar e Meta do Autor */}
         <div className="mt-6 flex items-center justify-between border-t border-[#f3f4f6] pt-4 text-xs">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ff4a1c] font-mono text-sm font-black text-white shadow-sm">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#E4344A] font-mono text-sm font-black text-white shadow-sm">
               b.
             </div>
             <div>
@@ -98,7 +98,7 @@ export function SubstackArticleRenderer({
 
       {/* 3. Destaque de Citação */}
       {quote ? (
-        <blockquote className="my-8 rounded-r-xl border-l-4 border-[#ff4a1c] bg-[#fafafa] p-5 font-serif text-lg italic text-[#1f2937]">
+        <blockquote className="my-8 rounded-r-xl border-l-4 border-[#E4344A] bg-[#fafafa] p-5 font-serif text-lg italic text-[#1f2937]">
           <p>{`"${quote}"`}</p>
           <footer className="mt-2 font-sans text-xs font-semibold not-italic text-[#6b7280]">
             — {quoteBy}
@@ -109,7 +109,7 @@ export function SubstackArticleRenderer({
       {/* 4. Corpo do Artigo em HTML Fluido ou Seções */}
       {contentHtml && contentHtml.trim().length > 0 ? (
         <div
-          className="prose prose-neutral max-w-none text-base leading-relaxed text-[#374151] prose-headings:font-serif prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-[#111827] prose-a:text-[#ff4a1c] prose-a:no-underline hover:prose-a:underline my-6"
+          className="prose prose-neutral max-w-none text-base leading-relaxed text-[#374151] prose-headings:font-serif prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-[#111827] prose-a:text-[#E4344A] prose-a:no-underline hover:prose-a:underline my-6"
           dangerouslySetInnerHTML={{ __html: contentHtml }}
         />
       ) : (
@@ -141,19 +141,19 @@ export function SubstackArticleRenderer({
           <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs font-medium">
             <button
               onClick={() => setPollVoted("Excelente")}
-              className="rounded-full border border-[#e5e7eb] bg-white px-4 py-1.5 text-[#374151] hover:border-[#ff4a1c] hover:bg-[#fff5f2] transition-colors"
+              className="rounded-full border border-[#e5e7eb] bg-white px-4 py-1.5 text-[#374151] hover:border-[#E4344A] hover:bg-[#FDECEE] transition-colors"
             >
               💡 Excelente
             </button>
             <button
               onClick={() => setPollVoted("Útil")}
-              className="rounded-full border border-[#e5e7eb] bg-white px-4 py-1.5 text-[#374151] hover:border-[#ff4a1c] hover:bg-[#fff5f2] transition-colors"
+              className="rounded-full border border-[#e5e7eb] bg-white px-4 py-1.5 text-[#374151] hover:border-[#E4344A] hover:bg-[#FDECEE] transition-colors"
             >
               👍 Útil
             </button>
             <button
               onClick={() => setPollVoted("Pode melhorar")}
-              className="rounded-full border border-[#e5e7eb] bg-white px-4 py-1.5 text-[#374151] hover:border-[#ff4a1c] hover:bg-[#fff5f2] transition-colors"
+              className="rounded-full border border-[#e5e7eb] bg-white px-4 py-1.5 text-[#374151] hover:border-[#E4344A] hover:bg-[#FDECEE] transition-colors"
             >
               🤔 Pode melhorar
             </button>

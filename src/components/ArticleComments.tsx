@@ -97,7 +97,7 @@ export function ArticleComments({ articleSlug }: { articleSlug: string }) {
     <section className="mt-16 border-t border-[#e5e7eb] pt-10">
       <div className="flex items-center justify-between gap-4">
         <h3 className="text-2xl font-black tracking-[-0.04em] text-black">
-          comentários dos leitores <span className="ml-2 font-mono text-base font-normal text-[#ff4a1c]">({comments.length})</span>
+          comentários dos leitores <span className="ml-2 font-mono text-base font-normal text-[#E4344A]">({comments.length})</span>
         </h3>
       </div>
 
@@ -121,7 +121,7 @@ export function ArticleComments({ articleSlug }: { articleSlug: string }) {
               placeholder="ex: Maria Silva"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-[#d0d5dd] bg-white px-4 py-2.5 text-sm focus:border-[#ff4a1c] focus:outline-none"
+              className="mt-1.5 w-full rounded-xl border border-[#d0d5dd] bg-white px-4 py-2.5 text-sm focus:border-[#E4344A] focus:outline-none"
             />
           </div>
           <div>
@@ -132,7 +132,7 @@ export function ArticleComments({ articleSlug }: { articleSlug: string }) {
               placeholder="seuemail@exemplo.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-[#d0d5dd] bg-white px-4 py-2.5 text-sm focus:border-[#ff4a1c] focus:outline-none"
+              className="mt-1.5 w-full rounded-xl border border-[#d0d5dd] bg-white px-4 py-2.5 text-sm focus:border-[#E4344A] focus:outline-none"
             />
           </div>
         </div>
@@ -145,14 +145,14 @@ export function ArticleComments({ articleSlug }: { articleSlug: string }) {
             placeholder="O que você achou desta notícia ou como aplicou isso na sua rotina?"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="mt-1.5 w-full rounded-xl border border-[#d0d5dd] bg-white px-4 py-2.5 text-sm focus:border-[#ff4a1c] focus:outline-none"
+            className="mt-1.5 w-full rounded-xl border border-[#d0d5dd] bg-white px-4 py-2.5 text-sm focus:border-[#E4344A] focus:outline-none"
           />
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="mt-4 rounded-full bg-[#ff4a1c] px-6 py-2.5 text-sm font-black text-white hover:bg-[#e03e13] disabled:opacity-50"
+          className="mt-4 rounded-full bg-[#E4344A] px-6 py-2.5 text-sm font-black text-white hover:bg-[#e03e13] disabled:opacity-50"
         >
           {loading ? "Enviando..." : "Publicar Comentário"}
         </button>

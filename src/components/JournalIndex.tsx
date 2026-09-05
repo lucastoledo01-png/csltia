@@ -29,11 +29,11 @@ function Hero() {
     <section className="mx-auto max-w-[760px] px-4 pb-16 pt-12 text-center sm:px-6 md:pb-24 md:pt-20" id="inscrever">
       <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-[#e5e7eb] bg-[#fafafa] px-3.5 py-1 text-xs font-semibold text-[#374151]">
         <span className="flex items-center gap-1.5 font-mono">
-          <span className="flex h-4 w-4 items-center justify-center rounded-md bg-[#ff4a1c] text-[10px] font-black text-white">b.</span>
+          <span className="flex h-4 w-4 items-center justify-center rounded-md bg-[#E4344A] text-[10px] font-black text-white">b.</span>
           {MARCA.nome}
         </span>
         <span className="text-gray-300">•</span>
-        <span className="text-[#ff4a1c]">edição diária</span>
+        <span className="text-[#E4344A]">edição diária</span>
       </div>
 
       <h1 className="mx-auto mt-4 font-serif text-3xl font-bold leading-tight tracking-tight text-[#111827] sm:text-5xl">
@@ -64,7 +64,7 @@ function RecentArticlesFeed({ listaDeArtigos }: { listaDeArtigos: Article[] }) {
             <h2 className="font-serif text-2xl font-bold text-[#111827]">Últimas Edições</h2>
             <p className="mt-0.5 text-xs text-[#6b7280]">Análises recentes publicadas no portal.</p>
           </div>
-          <Link href="/artigos" className="text-xs font-semibold text-[#ff4a1c] hover:underline">
+          <Link href="/artigos" className="text-xs font-semibold text-[#E4344A] hover:underline">
             Ver todas →
           </Link>
         </div>
@@ -74,13 +74,13 @@ function RecentArticlesFeed({ listaDeArtigos }: { listaDeArtigos: Article[] }) {
             <article key={art.slug} className="group py-6">
               <div className="grid gap-6 md:grid-cols-[1fr_200px] items-center">
                 <div>
-                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#ff4a1c]">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#E4344A]">
                     <span>{art.category}</span>
                     <span className="text-gray-300">•</span>
                     <span className="text-[#6b7280] font-normal lowercase">{art.readTime}</span>
                   </div>
 
-                  <h3 className="mt-2 font-serif text-xl font-bold text-[#111827] group-hover:text-[#ff4a1c] transition-colors">
+                  <h3 className="mt-2 font-serif text-xl font-bold text-[#111827] group-hover:text-[#E4344A] transition-colors">
                     <Link href={`/artigos/${art.slug}`}>{art.title}</Link>
                   </h3>
 
@@ -91,7 +91,7 @@ function RecentArticlesFeed({ listaDeArtigos }: { listaDeArtigos: Article[] }) {
                   <div className="mt-3 flex items-center gap-3 text-xs font-medium text-[#6b7280]">
                     <span>{art.date}</span>
                     <span>•</span>
-                    <Link href={`/artigos/${art.slug}`} className="font-semibold text-[#111827] hover:text-[#ff4a1c]">
+                    <Link href={`/artigos/${art.slug}`} className="font-semibold text-[#111827] hover:text-[#E4344A]">
                       Ler edição →
                     </Link>
                   </div>
@@ -150,10 +150,10 @@ function Footer() {
         </div>
 
         <nav aria-label="Links do rodapé" className="flex flex-wrap gap-6 text-xs font-medium text-[#374151]">
-          <Link href="/artigos" className="hover:text-[#ff4a1c]">Artigos</Link>
-          <Link href="/ultraprompts" className="hover:text-[#ff4a1c]">UltraPrompts</Link>
-          <Link href="/formacoes" className="hover:text-[#ff4a1c]">Formações</Link>
-          <Link href="#duvidas" className="hover:text-[#ff4a1c]">Dúvidas</Link>
+          <Link href="/artigos" className="hover:text-[#E4344A]">Artigos</Link>
+          <Link href="/ultraprompts" className="hover:text-[#E4344A]">UltraPrompts</Link>
+          <Link href="/formacoes" className="hover:text-[#E4344A]">Formações</Link>
+          <Link href="#duvidas" className="hover:text-[#E4344A]">Dúvidas</Link>
         </nav>
       </div>
 

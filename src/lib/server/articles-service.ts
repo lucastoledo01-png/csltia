@@ -127,7 +127,11 @@ export async function getPublishedArticles(): Promise<Article[]> {
     description: art.description,
     date: art.published_at ? new Date(art.published_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "20 Ago 2026",
     readTime: `${art.reading_minutes || 5} min`,
-    image: art.cover_image || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
+    // Reserva do tema. A anterior era uma foto de codigo em laptop, da
+    // vertical de IA, e aparecia em qualquer artigo de imigracao sem capa.
+    image:
+      art.cover_image ||
+      "https://images.pexels.com/photos/1550337/pexels-photo-1550337.jpeg?auto=compress&cs=tinysrgb&w=1200",
     imageAlt: `capa do artigo ${art.title}`,
     quote: art.age_summary || art.excerpt || "Curadoria diária de inteligência artificial.",
     quoteBy: art.author || MARCA.nome,

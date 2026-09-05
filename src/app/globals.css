@@ -3,10 +3,17 @@
 :root {
   --background: #ffffff;
   --foreground: #050505;
-  --casaloti-orange-start: #ff7a1a;
-  --casaloti-orange: #ff4a1c;
-  --casaloti-orange-dark: #e92a12;
-  --casaloti-gradient: linear-gradient(135deg, #ff7a1a 0%, #ff4a1c 52%, #e92a12 100%);
+  /*
+   * Paleta da bandeira. Os nomes com "orange" ficam porque estao referenciados
+   * em dezenas de lugares, e renomear tudo agora seria uma troca de risco sem
+   * ganho: o que importa e o valor. Sao a variavel de acento e as duas do
+   * degrade, nao uma cor literal.
+   */
+  --casaloti-orange-start: #E4344A;
+  --casaloti-orange: #E4344A;
+  --casaloti-orange-dark: #B31942;
+  --casaloti-gradient: linear-gradient(135deg, #E4344A 0%, #C41E3A 55%, #B31942 100%);
+  --us-azul: #0A3161;
   --casaloti-black: #050505;
   --casaloti-muted: #667085;
   --casaloti-line: #e5e7eb;
@@ -35,7 +42,7 @@ body {
 
 ::selection {
   background: #050505;
-  color: #ff4a1c;
+  color: #E4344A;
 }
 
 a {
@@ -58,7 +65,7 @@ select {
 }
 
 .cta-gradient {
-  background-color: #ff4a1c;
+  background-color: #E4344A;
   background-image: var(--casaloti-gradient);
 }
 
