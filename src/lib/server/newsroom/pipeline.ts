@@ -393,7 +393,15 @@ ${JSON.stringify(factualPackage, null, 2)}
 EDIÇÃO PRODUZIDA:
 ${JSON.stringify(edicao, null, 2)}
 
-Marque "hallucination_risk" como true quando o texto afirmar QUALQUER coisa que o pacote não sustente, inclusive consequência, impacto, causa, comparação, tendência e previsão. Ressalva explícita de que a fonte não informou algo NÃO é alucinação: é o comportamento correto.
+O QUE É ALUCINAÇÃO AQUI:
+Marque "hallucination_risk" como true quando o texto ACRESCENTAR informação que o pacote não tem: um fato, um nome, um número, uma data, uma consequência, um efeito, uma comparação ou uma previsão que não estejam ali.
+
+O QUE NÃO É:
+- Paráfrase fiel. Se o pacote diz que o texto foi aprovado pela Câmara e pelo Senado, escrever que ele "avançou no Congresso" é a mesma informação com outras palavras. Sinônimo, resumo, ordem diferente e escolha de verbo não são acréscimo.
+- Ressalva. Dizer que a fonte não informou algo é o comportamento correto, não um defeito.
+- Assunto e opções de assunto. São chamadas curtas e podem ser perguntas. Avalie se afirmam algo FALSO, não se resumem demais. "A taxa das blusinhas está no fim?" é pergunta legítima quando o pacote diz que o texto foi aprovado e aguarda sanção; "A taxa das blusinhas acabou" seria falso.
+
+Na dúvida entre pedantismo e omissão, pergunte: um leitor que só tem o pacote factual seria induzido a acreditar em algo que não está nele? Se não, não é alucinação.
 
 Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
 {
