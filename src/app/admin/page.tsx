@@ -262,30 +262,30 @@ export default function AdminPage() {
         </header>
 
         <main className="flex-1 space-y-8 px-6 py-8 lg:px-8">
-          {/* Hero */}
-          <section className="admin-hero relative overflow-hidden rounded-[2.5rem] p-10 text-white">
-            <div className="pointer-events-none absolute -right-10 -top-10 h-56 w-56 rounded-full bg-white/20 blur-[60px]" />
-            <div className="pointer-events-none absolute -bottom-16 left-1/3 h-56 w-56 rounded-full bg-purple-300/30 blur-[60px]" />
-            <div className="relative flex flex-wrap items-center justify-between gap-6">
-              <div>
-                <span className="inline-block rounded-full bg-white/20 px-3 py-1 text-[11px] font-semibold backdrop-blur-md">
-                  Bem-vindo de volta
-                </span>
-                <h2 className="mt-3 text-[40px] leading-tight text-white sm:text-[48px]">
-                  Central {MARCA.nome}
-                </h2>
-                <p className="mt-2 max-w-md text-sm text-indigo-100">
-                  Redação automática, carrosséis do Instagram e newsletter, tudo num só lugar.
-                </p>
-              </div>
-              <button
-                onClick={handleQuickTest}
-                disabled={runningQuick}
-                className="rounded-full bg-white px-6 py-3 text-sm font-bold text-indigo-700 shadow-xl hover:bg-indigo-50 disabled:opacity-60"
-              >
-                {runningQuick ? "Testando..." : "⚡ Testar Redação Agora"}
-              </button>
+          {/*
+            O banner de boas-vindas saiu.
+            Ele ocupava a primeira dobra inteira em toda visita, com texto que
+            so' se le uma vez. Quem abre o painel vem operar, e o que interessa
+            e' o numero do dia e o botao de acao, que agora aparecem sem
+            rolagem.
+
+            O botao de teste da redacao continua: ele era a unica parte util do
+            bloco. Foi para a barra de acoes junto das metricas.
+          */}
+          <section className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl text-slate-900">Central {MARCA.nome}</h2>
+              <p className="mt-0.5 text-sm text-slate-500">
+                Redacao, carrosseis e newsletter do dia.
+              </p>
             </div>
+            <button
+              onClick={handleQuickTest}
+              disabled={runningQuick}
+              className="rounded-full bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {runningQuick ? "Testando..." : "⚡ Testar Redação Agora"}
+            </button>
           </section>
 
           {/* Stats grid */}
