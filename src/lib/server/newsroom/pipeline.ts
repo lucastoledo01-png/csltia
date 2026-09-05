@@ -150,6 +150,12 @@ Varie a estrutura entre as opções, não repita sempre o mesmo formato. Exemplo
 - pergunta sobre mudança: "a era concorde vai voltar?"
 - choque entre dois conceitos: "ganhar menos para sorrir mais?"
 
+O ASSUNTO PODE SER CURTO E CURIOSO, MAS NÃO PODE INVERTER O FATO:
+- Curiosidade não autoriza ambiguidade sobre o que aconteceu. Se o leitor pode entender o contrário do fato lendo só o assunto, o assunto está errado.
+- O caso que motivou esta regra: uma liminar suspendeu uma ordem que RESTRINGIA a cidadania por nascimento, e o assunto saiu como "cidadania em pausa", que sugere que a cidadania foi suspensa. Aconteceu o oposto.
+- Quando o fato é a suspensão de uma restrição, o assunto não pode sugerir que o direito foi suspenso. Prefira a forma factual e curta: "Justiça suspende ordem que restringia cidadania por nascimento", ou uma redução equivalente que preserve quem suspendeu o quê.
+- Vale para toda inversão do mesmo tipo: barrar uma taxa não é criar uma taxa, adiar um prazo não é encerrar um prazo, negar um recurso não é conceder.
+
 PROIBIDO em subject_options e subject:
 - travessão (—) e dois-pontos (:)
 - formato "Empresa X anuncia Y: entenda o impacto"
