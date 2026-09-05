@@ -4,6 +4,7 @@ import { limparVicios } from "../../newsroom/anti-vicios";
 import {
   aparaLegenda,
   aparaSlidesParaFormato,
+  legendaDeEmergencia,
   InstagramCarouselContent,
   InstagramCarouselSchema,
 } from "./schemas";
@@ -23,6 +24,16 @@ export type MarcaDoPost = {
 };
 
 /** Rede de segurança. Se este texto sair num post, o projeto está vazio. */
+/** Hashtags de reserva, para quando a legenda precisa ser remontada. */
+const HASHTAGS_DE_RESERVA = [
+  "#imigracao",
+  "#estadosunidos",
+  "#vistoamericano",
+  "#greencard",
+  "#brasileirosnoeua",
+  "#morarnoseua",
+];
+
 export const MARCA_POST_PADRAO: MarcaDoPost = {
   nome: "a publicação",
   nicho: "Inteligencia artificial aplicada a conteudo, vendas e produtividade",
@@ -203,7 +214,15 @@ Gere o post de imagem única — exatamente 1 slide do tipo "cover" — com a le
     const raw = aiResult.data as any;
     if (!raw.edition_date) raw.edition_date = editionDateStr;
     if (!raw.slides || !Array.isArray(raw.slides)) raw.slides = [];
-    parsedCarousel = InstagramCarouselSchema.parse(limparVicios(aparaLegenda(aparaSlidesParaFormato(raw))));
+
+    // A legenda ausente derrubava o post inteiro. A arte já estava pronta e a
+    // pauta certa; perder a publicação do dia por um objeto que o modelo
+    // esqueceu é o pior desfecho possível.
+    const comLegenda = legendaDeEmergencia(raw, marca.keyword, HASHTAGS_DE_RESERVA);
+
+    parsedCarousel = InstagramCarouselSchema.parse(
+      limparVicios(aparaLegenda(aparaSlidesParaFormato(comLegenda))),
+    );
   }
 
   parsedCarousel.format = "noticia";
@@ -319,7 +338,15 @@ Extraia os passos executáveis das seções acima (com os comandos reais), monte
     if (!raw.edition_date) raw.edition_date = editionDateStr;
     if (!raw.primary_topic) raw.primary_topic = article.primaryTopic;
     if (!raw.slides || !Array.isArray(raw.slides)) raw.slides = [];
-    parsedCarousel = InstagramCarouselSchema.parse(limparVicios(aparaLegenda(aparaSlidesParaFormato(raw))));
+
+    // A legenda ausente derrubava o post inteiro. A arte já estava pronta e a
+    // pauta certa; perder a publicação do dia por um objeto que o modelo
+    // esqueceu é o pior desfecho possível.
+    const comLegenda = legendaDeEmergencia(raw, MARCA_POST_PADRAO.keyword, HASHTAGS_DE_RESERVA);
+
+    parsedCarousel = InstagramCarouselSchema.parse(
+      limparVicios(aparaLegenda(aparaSlidesParaFormato(comLegenda))),
+    );
   }
 
   parsedCarousel.format = "tutorial";

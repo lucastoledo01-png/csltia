@@ -196,3 +196,56 @@ export function aparaLegenda(bruto: unknown): unknown {
   console.warn(`[INSTAGRAM] Legenda aparada: ${cortados.join(", ")}.`);
   return { ...obj, caption: legenda };
 }
+
+/**
+ * Reconstrói a legenda quando o modelo não devolve o objeto `caption`.
+ *
+ * Aconteceu em produção: o modelo entregou os slides e simplesmente omitiu a
+ * legenda, nas duas tentativas. A validação recusou, e o custo foi o post do
+ * dia inteiro — a arte estava pronta, a pauta estava certa, e nada foi ao ar
+ * por causa de um objeto ausente.
+ *
+ * O que se monta aqui é modesto de propósito: título e corpo do slide, o CTA
+ * e um punhado de hashtags. Não substitui uma legenda escrita, mas é
+ * infinitamente melhor que não publicar. Quando o modelo devolve a legenda,
+ * nada disto roda.
+ */
+export function legendaDeEmergencia(
+  bruto: unknown,
+  keyword: string,
+  hashtags: string[],
+): unknown {
+  if (!bruto || typeof bruto !== "object") return bruto;
+
+  const obj = bruto as { caption?: unknown; slides?: unknown; title?: unknown };
+  if (obj.caption && typeof obj.caption === "object") return bruto;
+
+  const capa = (Array.isArray(obj.slides) ? obj.slides[0] : null) as
+    | { title?: unknown; body?: unknown }
+    | null;
+
+  const titulo = String(capa?.title ?? obj.title ?? "").trim();
+  const corpo = String(capa?.body ?? "").trim();
+
+  if (!titulo) return bruto;
+
+  const cta = `Comente ${keyword} e receba a análise de perfil no Direct.`;
+  const resumo = corpo || titulo;
+
+  console.warn("[INSTAGRAM] Modelo não devolveu legenda; montada a partir da capa.");
+
+  return {
+    ...obj,
+    caption: {
+      headline: titulo.slice(0, 100),
+      intro_summary: resumo.slice(0, 300),
+      key_takeaways: [titulo.slice(0, 60), resumo.slice(0, 60)],
+      cta_call: cta.slice(0, 150),
+      hashtags: hashtags.slice(0, 12),
+      full_caption: [titulo, resumo, "", cta, "", hashtags.join(" ")]
+        .filter(Boolean)
+        .join("\n")
+        .slice(0, 2000),
+    },
+  };
+}
