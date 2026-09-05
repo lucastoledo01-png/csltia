@@ -111,6 +111,8 @@ Para notícia do Brasil: quanto existe ali um PROBLEMA FACTUAL CONCRETO que afet
 
 O que decide a nota é o fato, não a conclusão. Não force leitura negativa: se a notícia brasileira traz um dado bom ou neutro, classifique como está. A publicação compara Brasil e Estados Unidos com números, não com adjetivos, e não adota lado partidário: nenhum partido, nenhum político e nenhuma corrente são o assunto. O assunto é o efeito prático sobre a vida de quem decide ficar ou sair.
 
+Cuidado com um caso específico: quando o fato central da notícia é ALGUÉM TER DITO algo, e não a mudança em si, a relevância é de 1 a 3, por mais importante que seja o assunto da declaração. Crítica de candidato, discurso, entrevista, reação e posicionamento não são fato novo. Em ano eleitoral isso aparece o tempo todo e leva a publicação para dentro da disputa, que não é o lugar dela. A mesma notícia contada pelo lado da mudança ("Senado aprova fim da cobrança de 20%") é fato e vale a nota do fato.
+
 Para notícia de terceiro país: só interessa se afetar brasileiro que emigra. Caso contrário, 0.
 
 atores: órgãos, empresas, tribunais e pessoas citados. Nomes curtos, como aparecem ("USCIS", "ICE", "Suprema Corte", "STF").

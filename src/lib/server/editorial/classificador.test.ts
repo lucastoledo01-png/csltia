@@ -205,6 +205,12 @@ describe("montarSystemDoClassificador, régua de relevância", () => {
     expect(s).toContain("Não force leitura negativa");
     expect(s).toContain("não adota lado partidário");
   });
+
+  it("rebaixa declaração de político, que em ano eleitoral domina o feed", () => {
+    const s = montarSystemDoClassificador();
+    expect(s).toContain("ALGUÉM TER DITO algo");
+    expect(s).toContain("Crítica de candidato");
+  });
 });
 
 describe("entidadesDaClassificacao", () => {
