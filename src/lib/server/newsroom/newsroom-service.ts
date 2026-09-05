@@ -976,6 +976,17 @@ export async function runNewsroom(
     projectId: project.id,
     projectSlug: project.slug,
     dryRun,
+    /*
+     * O modo que o processo REALMENTE leu, normalizado.
+     *
+     * Sem isto, distinguir "variável não configurada" de "escrita errada" de
+     * "contêiner subiu com o ambiente antigo" exigia inferir pelo formato da
+     * edição, e a inferência falha justamente quando mais importa. Vai o modo
+     * normalizado, nunca o valor bruto da variável.
+     */
+    editorialGuardMode: modo,
+    minEditorialQaScore: configEditorial.notaMinimaDeQA,
+    maxEditorialRepairAttempts: configEditorial.maximoDeReparos,
     publishedToPortal: Boolean(createdArticleSlug),
     articleSlug: createdArticleSlug,
     listmonkCampaignId: createdCampaignId,
