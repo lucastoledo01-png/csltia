@@ -108,7 +108,7 @@ eixo: o assunto central.
 - "oportunidade": abertura de caminho, programa, vaga, benefício.
 - "processo": trâmite, formulário, prazo, taxa, consulado.
 - "decisao_judicial": corte, juiz, liminar, processo criminal.
-- "custo_de_vida": moradia, salário, imposto, câmbio.
+- "custo_de_vida": o que muda o bolso de quem lê. Moradia, salário, imposto sobre renda ou patrimônio, câmbio, juros, preço ao consumidor. NÃO entra aqui disputa comercial entre países, preço de commodity, cotação de exportação nem resultado de empresa: isso é economia setorial, e o leitor não é produtor nem investidor institucional. Só entra se a matéria disser o efeito no preço que o leitor paga.
 - "deterioracao_brasil": fato brasileiro com efeito prático sobre patrimônio, empresa, carreira ou segurança. Instituições, tributação, economia, segurança jurídica e violência entram aqui quando há fato, e não quando há apenas opinião ou disputa política.
 - "outro": o que não couber acima.
 
@@ -116,7 +116,7 @@ relevancia: 0 a 10, e a régua depende do país.
 
 Para notícia dos EUA: quanto o fato muda, na prática, o plano de quem quer morar lá. Nomeação de cargo sem efeito prático é 1. Mudança de prazo de um formulário que milhares usam é 8. Nova categoria de visto ou decisão que destrava uma fila é 9.
 
-Para notícia do Brasil: quanto existe ali um PROBLEMA FACTUAL CONCRETO que afeta quem tem patrimônio, empresa ou carreira. Vale de 6 a 9 quando há fato verificável com alcance: mudança de alíquota, decisão que muda regra do jogo, número de inflação, câmbio, juros, dado de violência, decisão institucional com efeito prático. Fofoca de bastidor, disputa de cargo, declaração de político e pesquisa eleitoral isolada valem 1 a 3.
+Para notícia do Brasil: quanto existe ali um PROBLEMA FACTUAL CONCRETO que afeta quem tem patrimônio, empresa ou carreira, e que pesa na decisão de ficar ou sair. Notícia setorial, disputa comercial, safra, exportação e balanço de empresa não pesam nessa decisão: valem 1 a 3, por maior que seja o número envolvido. Vale de 6 a 9 quando há fato verificável com alcance: mudança de alíquota, decisão que muda regra do jogo, número de inflação, câmbio, juros, dado de violência, decisão institucional com efeito prático. Fofoca de bastidor, disputa de cargo, declaração de político e pesquisa eleitoral isolada valem 1 a 3.
 
 O que decide a nota é o fato, não a conclusão. Não force leitura negativa: se a notícia brasileira traz um dado bom ou neutro, classifique como está. A publicação compara Brasil e Estados Unidos com números, não com adjetivos, e não adota lado partidário: nenhum partido, nenhum político e nenhuma corrente são o assunto. O assunto é o efeito prático sobre a vida de quem decide ficar ou sair.
 

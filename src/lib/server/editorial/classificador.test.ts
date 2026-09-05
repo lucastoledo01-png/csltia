@@ -262,3 +262,11 @@ describe("montarSystemDoClassificador", () => {
     expect(s).toContain("não o tom do texto");
   });
 });
+
+describe("eixo Brasil, o que é custo de vida do leitor", () => {
+  it("descarta disputa comercial e commodity do eixo de custo de vida", () => {
+    const s = montarSystemDoClassificador();
+    expect(s).toContain("NÃO entra aqui disputa comercial entre países");
+    expect(s).toContain("Notícia setorial");
+  });
+});
