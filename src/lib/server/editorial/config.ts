@@ -8,7 +8,9 @@
  * quando cada número mora num canto do código.
  */
 
-function numeroDoAmbiente(nome: string, padrao: number, env = process.env): number {
+type Ambiente = Record<string, string | undefined>;
+
+function numeroDoAmbiente(nome: string, padrao: number, env: Ambiente = process.env): number {
   const bruto = env[nome];
   if (!bruto) return padrao;
   const n = Number(bruto);
@@ -30,9 +32,11 @@ export type ConfigEditorial = {
   /** Palavras por matéria. */
   minimoDePalavras: number;
   maximoDePalavras: number;
+  /** Abaixo disto a pauta não muda a vida de ninguém e não ocupa espaço. */
+  relevanciaMinima: number;
 };
 
-export function carregarConfigEditorial(env = process.env): ConfigEditorial {
+export function carregarConfigEditorial(env: Ambiente = process.env): ConfigEditorial {
   return {
     // 0.82 é o ponto de partida combinado. O score de cada comparação vai para
     // o log justamente para permitir ajustar isto com dado, não com palpite.
@@ -44,6 +48,7 @@ export function carregarConfigEditorial(env = process.env): ConfigEditorial {
     maximoDePautas: numeroDoAmbiente("EDITORIAL_MAX_PAUTAS", 4, env),
     minimoDePalavras: numeroDoAmbiente("EDITORIAL_MIN_PALAVRAS", 60, env),
     maximoDePalavras: numeroDoAmbiente("EDITORIAL_MAX_PALAVRAS", 100, env),
+    relevanciaMinima: numeroDoAmbiente("EDITORIAL_RELEVANCIA_MINIMA", 4, env),
   };
 }
 
