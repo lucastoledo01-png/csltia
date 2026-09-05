@@ -97,6 +97,9 @@ const PAIS_PARA_QID: Record<string, string> = { EUA: "Q30", Brasil: "Q155" };
  */
 const LIMIAR_DE_ACEITE = 55;
 
+/** Os dois países que esta publicação cobre. */
+const PAISES_DA_PUBLICACAO = ["Q30", "Q155"];
+
 type Candidato = {
   id: string;
   label: string;
@@ -159,6 +162,16 @@ function pontuarCandidato(c: Candidato, termo: string, paisEsperado: string | nu
   if (paisEsperado) {
     if (c.pais.includes(paisEsperado)) nota += 20;
     else if (c.pais.length > 0) nota -= 40;
+  } else if (c.pais.length > 0 && !c.pais.some((q) => PAISES_DA_PUBLICACAO.includes(q))) {
+    /*
+     * Sem país declarado na pauta, ainda dá para descartar o que não é desta
+     * publicação. Ela cobre Estados Unidos e Brasil; entidade sediada na
+     * Alemanha ou na Suécia aparecendo numa busca por sigla é homônimo.
+     *
+     * Foi o que sobrou depois do primeiro ajuste: pautas sem lugar citado
+     * continuavam devolvendo o trem alemão para "ICE".
+     */
+    nota -= 25;
   }
   if (c.temImagem) nota += 10;
   // Categoria no Commons vale sempre: entre dois itens do mesmo órgão, o que
