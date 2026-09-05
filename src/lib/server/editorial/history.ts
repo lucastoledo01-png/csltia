@@ -43,6 +43,8 @@ export type RegistroHistorico = {
   imagemCredito?: string | null;
   imagemAssetId?: string | null;
   imagemUrlCanonica?: string | null;
+  /** Qual arquivo da biblioteca visual ilustrou esta publicação. */
+  visualAssetId?: string | null;
   newsletterId?: string | null;
   instagramPostId?: string | null;
   /** pipeline | backfill:<origem>. Distingue o reconstruído do coletado. */
@@ -138,6 +140,7 @@ function paraBanco(r: RegistroHistorico) {
     image_attribution: r.imagemCredito ?? null,
     image_asset_id: r.imagemAssetId ?? null,
     image_canonical_url: r.imagemUrlCanonica ?? null,
+    visual_asset_id: r.visualAssetId ?? null,
     newsletter_id: r.newsletterId ?? null,
     instagram_post_id: r.instagramPostId ?? null,
     provenance: r.procedencia ?? "pipeline",

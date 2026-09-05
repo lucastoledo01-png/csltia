@@ -31,6 +31,12 @@ import type { RegistroHistorico } from "../editorial/history";
 import { avaliarPautas, registroDaPauta } from "../editorial/guarda";
 import { descreverModo, modoDaGuarda } from "../editorial/modo";
 import { paraRenderizacao, resolverImagens } from "../editorial/imagens";
+import { descreverModoVisual, diagnosticoVazio, modoDoResolvedorVisual } from "../visual/modo";
+import type { DiagnosticoVisual } from "../visual/modo";
+import { resolveVisualAsset } from "../visual/resolver";
+import { criarBiblioteca } from "../visual/biblioteca";
+import type { ResultadoVisual } from "../visual/tipos";
+import { extrairEntidades } from "../editorial/classificador";
 import { montarPacotesDasPautas } from "../editorial/pacote-factual";
 import type { PacoteFactual } from "../editorial/pacote-factual";
 import type { PautaAvaliada } from "../editorial/guarda";
@@ -78,6 +84,15 @@ export type RunNewsroomOptions = {
  */
 export type ImagensDaEdicao = Map<string, string>;
 
+/**
+ * Crédito por pauta, quando a licença exige.
+ *
+ * Mapa separado e opcional: sem ele o template desenha exatamente o que
+ * desenhava antes. Licença que pede atribuição pede embaixo da foto, e isso
+ * não é negociável por estética.
+ */
+export type LegendasDaEdicao = Map<string, string>;
+
 /** A mesma identidade usada no histórico editorial, para as duas pontas casarem. */
 export function identidadeDaPauta(story: { source_url?: string; title: string }): string {
   return gerarStoryId({ url: story.source_url || undefined, titulo: story.title });
@@ -87,6 +102,7 @@ export function renderEditionToHtml(
   edition: EditionContent,
   imagens: ImagensDaEdicao = new Map(),
   paraWeb = false,
+  legendas: LegendasDaEdicao = new Map(),
 ): string {
   const todayStr = new Date().toISOString().split("T")[0];
 
@@ -159,6 +175,11 @@ export function renderEditionToHtml(
         `${s.title}\n\n${MARCA.site}/artigos/edicao-${todayStr}`,
       );
       const imagem = safeHttpUrl(imagens.get(identidadeDaPauta(s)) || "", "");
+      const credito = legendas.get(identidadeDaPauta(s)) || "";
+      const creditoHtml =
+        imagem && credito
+          ? `<p style="font-family:${fonte};font-size:11px;line-height:1.4;color:#8A8A8F;margin:-8px 0 14px 0;">${escapeHtml(credito)}</p>`
+          : "";
       const fonteUrl = safeHttpUrl(s.source_url);
 
       const linhaDaFonte = `
@@ -178,7 +199,7 @@ export function renderEditionToHtml(
         </h2>
         ${
           imagem
-            ? `<img src="${escapeHtml(imagem)}" alt="" width="600" style="width:100%;max-width:600px;height:auto;display:block;border-radius:10px;margin:0 0 14px 0;" />`
+            ? `<img src="${escapeHtml(imagem)}" alt="" width="600" style="width:100%;max-width:600px;height:auto;display:block;border-radius:10px;margin:0 0 14px 0;" />${creditoHtml}`
             : ""
         }
         <p style="font-family:${fonte};font-size:15px;line-height:1.7;color:${TINTA_SUAVE};margin:0 0 12px 0;">
@@ -200,7 +221,7 @@ export function renderEditionToHtml(
 
         ${
           imagem
-            ? `<img src="${escapeHtml(imagem)}" alt="" width="600" style="width:100%;max-width:600px;height:auto;display:block;border-radius:10px;margin:0 0 18px 0;" />`
+            ? `<img src="${escapeHtml(imagem)}" alt="" width="600" style="width:100%;max-width:600px;height:auto;display:block;border-radius:10px;margin:0 0 18px 0;" />${creditoHtml}`
             : ""
         }
 
@@ -684,32 +705,147 @@ export async function runNewsroom(
   /*
    * Uma foto por pauta, endereçada pela identidade da pauta.
    *
-   * A escolha inteira mora em `resolverImagens`, e não aqui, porque o mesmo
-   * caminho precisa rodar no preview de validação. Preview que exercita outro
-   * código não valida nada.
+   * Dois caminhos, e nunca os dois decidindo ao mesmo tempo. O da fase 1
+   * escolhe por assunto no banco de imagem. O V2 escolhe pela entidade da
+   * pauta, com licença verificada. Quem manda é `VISUAL_RESOLVER_V2`, e em
+   * `enforce` a decisão final vem só de `resolveVisualAsset`.
    */
-  const escolhasDeImagem = await resolverImagens(
-    pipelineResult.edition.stories.map((story, i) => ({
-      titulo: story.title,
-      categoria: story.category,
-      sourceUrl: story.source_url,
-      imagemDoFeed: pipelineResult.selectedCandidates[i]?.image_url ?? "",
-    })),
-    { historico: historicoDaGuarda, janelaEmDias: configEditorial.janelaDeImagemEmDias, env },
-  );
+  const modoVisual = modoDoResolvedorVisual(env);
+  console.log(`[NEWSROOM] Resolvedor de imagem ${descreverModoVisual(modoVisual)} (VISUAL_RESOLVER_V2=${modoVisual}).`);
 
-  for (const escolha of escolhasDeImagem.values()) {
-    console.log(
-      `[NEWSROOM] imagem ${escolha.imageSource} :: ${escolha.titulo.slice(0, 60)} :: ${escolha.motivo}` +
-        (escolha.descartadaPorRepeticao ? ` :: descartada: ${escolha.descartadaPorRepeticao}` : ""),
+  const diagnosticoVisual: DiagnosticoVisual = diagnosticoVazio();
+  const resultadosVisuais: ResultadoVisual[] = [];
+  const imagensV2: ImagensDaEdicao = new Map();
+  const legendasV2: LegendasDaEdicao = new Map();
+
+  if (modoVisual !== "off") {
+    /*
+     * A entidade vem da classificação que a guarda já fez.
+     *
+     * Quando a guarda não rodou (ela pode estar em dry_run ou off), a
+     * classificação não existe, e aí as entidades são extraídas das próprias
+     * matérias, numa chamada só. É o mesmo extrator da fase 1.
+     */
+    const classificacaoPorUrl = new Map(
+      pautasDaGuarda.map((p) => [p.grupo.primary.url, p.classificacao]),
     );
+
+    const semClassificacao = pipelineResult.edition.stories
+      .map((story, i) => ({ story, i }))
+      .filter(({ story }) => !classificacaoPorUrl.has(story.source_url));
+
+    let extraidas = new Map<string, { atores: string[]; lugares: string[]; acontecimento: string[] }>();
+    if (semClassificacao.length > 0) {
+      const r = await extrairEntidades(
+        semClassificacao.map(({ story, i }) => ({
+          id: String(i),
+          titulo: story.title,
+          resumo: `${story.summary} ${story.context ?? ""}`.slice(0, 800),
+          fonte: story.source_name,
+        })),
+        env,
+        fetcher,
+      );
+      extraidas = r.entidades;
+      if (r.falhas.length > 0) {
+        console.warn(`[NEWSROOM] Entidades não extraídas: ${r.falhas.join(" | ")}`);
+      }
+    }
+
+    const biblioteca = criarBiblioteca(getSupabaseAdminClient());
+    const usadosNestaEdicao = new Set<string>();
+
+    for (const [i, story] of pipelineResult.edition.stories.entries()) {
+      const daGuarda = classificacaoPorUrl.get(story.source_url);
+      const classificacao = daGuarda
+        ? {
+            atores: daGuarda.atores,
+            lugares: daGuarda.lugares,
+            acontecimento: daGuarda.acontecimento,
+            pais: daGuarda.pais,
+          }
+        : (extraidas.get(String(i)) ?? { atores: [], lugares: [], acontecimento: [] });
+
+      const resultado = await resolveVisualAsset(
+        {
+          storyId: identidadeDaPauta(story),
+          titulo: story.title,
+          resumo: story.summary,
+          categoria: story.category,
+          classificacao,
+        },
+        {
+          client: getSupabaseAdminClient(),
+          biblioteca,
+          env,
+          fetcher,
+          jaUsadosNestaEdicao: usadosNestaEdicao,
+          // Grava só quando o V2 manda de verdade e a execução publica.
+          somenteLeitura: modoVisual !== "enforce" || dryRun,
+        },
+      );
+
+      resultadosVisuais.push(resultado);
+      diagnosticoVisual.storiesProcessed += 1;
+
+      if (resultado.status === "SELECTED" && resultado.asset) {
+        diagnosticoVisual.assetsSelected += 1;
+        const fonte = resultado.asset.source;
+        diagnosticoVisual.sourcesUsed[fonte] = (diagnosticoVisual.sourcesUsed[fonte] ?? 0) + 1;
+        imagensV2.set(identidadeDaPauta(story), resultado.asset.imageUrl);
+        if (resultado.asset.attribution) legendasV2.set(identidadeDaPauta(story), resultado.asset.attribution);
+      } else {
+        diagnosticoVisual.noValidImage += 1;
+        if (resultado.motivo === "AMBIGUOUS_ENTITY") diagnosticoVisual.ambiguousEntity += 1;
+      }
+
+      console.log(
+        `[NEWSROOM] imagem V2 ${resultado.status} :: ${story.title.slice(0, 55)} :: ` +
+          `entidade ${resultado.entidade?.nome ?? "nenhuma"} (${resultado.entidade?.tipo ?? "n/d"})` +
+          (resultado.asset
+            ? ` :: ${resultado.asset.source}, ${resultado.asset.license}, contexto ${resultado.asset.imageContextType}`
+            : ` :: ${resultado.motivo}`),
+      );
+    }
   }
 
-  const imagensDaEdicao: ImagensDaEdicao = paraRenderizacao(escolhasDeImagem);
+  /*
+   * O caminho da fase 1 só roda quando o V2 não está no comando.
+   *
+   * Em `enforce`, a decisão final vem de uma interface só. Encadear os dois
+   * resolvedores mais um fallback é como a foto errada aparecia antes: cada
+   * camada tapando o buraco da anterior com o que tivesse à mão.
+   */
+  let imagensDaEdicao: ImagensDaEdicao;
+  let legendasDaEdicao: LegendasDaEdicao = new Map();
 
-  const htmlContent = renderEditionToHtml(pipelineResult.edition, imagensDaEdicao);
+  if (modoVisual === "enforce") {
+    imagensDaEdicao = imagensV2;
+    legendasDaEdicao = legendasV2;
+  } else {
+    const escolhasDeImagem = await resolverImagens(
+      pipelineResult.edition.stories.map((story, i) => ({
+        titulo: story.title,
+        categoria: story.category,
+        sourceUrl: story.source_url,
+        imagemDoFeed: pipelineResult.selectedCandidates[i]?.image_url ?? "",
+      })),
+      { historico: historicoDaGuarda, janelaEmDias: configEditorial.janelaDeImagemEmDias, env },
+    );
+
+    for (const escolha of escolhasDeImagem.values()) {
+      console.log(
+        `[NEWSROOM] imagem ${escolha.imageSource} :: ${escolha.titulo.slice(0, 60)} :: ${escolha.motivo}` +
+          (escolha.descartadaPorRepeticao ? ` :: descartada: ${escolha.descartadaPorRepeticao}` : ""),
+      );
+    }
+
+    imagensDaEdicao = paraRenderizacao(escolhasDeImagem);
+  }
+
+  const htmlContent = renderEditionToHtml(pipelineResult.edition, imagensDaEdicao, false, legendasDaEdicao);
   // Versão sem o cromo de e-mail, para o corpo do artigo no portal.
-  const htmlParaPortal = renderEditionToHtml(pipelineResult.edition, imagensDaEdicao, true);
+  const htmlParaPortal = renderEditionToHtml(pipelineResult.edition, imagensDaEdicao, true, legendasDaEdicao);
   const wordCount = htmlContent.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
   const executionTimeMs = Date.now() - startTime;
 
@@ -790,17 +926,41 @@ export async function runNewsroom(
           // Percorre as pautas da edição, não as da guarda: a foto é indexada
           // pela ordem das pautas publicadas, e casar por posição em outra
           // lista foi o que já ilustrou uma pauta com a foto de outra.
+          const visualPorStory = new Map(resultadosVisuais.map((r) => [r.storyId, r]));
+
           const registros = pipelineResult.edition.stories
             .map((story) => {
               const pauta = porUrl.get(story.source_url);
               if (!pauta) return null;
-              return registroDaPauta(pauta, {
+
+              const identidade = identidadeDaPauta(story);
+              const visual = visualPorStory.get(identidade);
+              const asset = modoVisual === "enforce" ? (visual?.asset ?? null) : null;
+
+              const registro = registroDaPauta(pauta, {
                 projectId: project.id,
                 canal: "newsletter",
                 newsletterId: editionId,
-                imagemUrl: imagensDaEdicao.get(identidadeDaPauta(story)) || null,
+                imagemUrl: imagensDaEdicao.get(identidade) || null,
                 publicadoEm: new Date().toISOString(),
               });
+
+              /*
+               * Com o V2 no comando, a publicação guarda de onde a foto veio e
+               * sob que licença. Antes só a URL era gravada, e uma URL sozinha
+               * não responde se a imagem podia ser publicada.
+               */
+              if (asset) {
+                registro.visualAssetId = asset.id ?? null;
+                registro.imagemFonte = asset.source;
+                registro.imagemLicenca = asset.license;
+                registro.imagemAutor = asset.author;
+                registro.imagemCredito = asset.attribution;
+                registro.imagemAssetId = asset.sourceAssetId;
+                registro.imagemUrlCanonica = asset.imageUrl;
+              }
+
+              return registro;
             })
             .filter((r): r is NonNullable<typeof r> => r !== null);
 
@@ -985,6 +1145,9 @@ export async function runNewsroom(
      * normalizado, nunca o valor bruto da variável.
      */
     editorialGuardMode: modo,
+    /** Modo efetivo do resolvedor de imagem, normalizado, lido pelo processo. */
+    visualResolverMode: modoVisual,
+    visualResolution: diagnosticoVisual,
     minEditorialQaScore: configEditorial.notaMinimaDeQA,
     maxEditorialRepairAttempts: configEditorial.maximoDeReparos,
     publishedToPortal: Boolean(createdArticleSlug),
