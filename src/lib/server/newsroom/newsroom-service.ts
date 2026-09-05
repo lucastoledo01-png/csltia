@@ -27,8 +27,10 @@ import {
 import { carregarConfigEditorial } from "../editorial/config";
 import { criarProvedorOpenAI } from "../editorial/embeddings";
 import { criarHistoricoStore, gerarStoryId } from "../editorial/history";
+import type { RegistroHistorico } from "../editorial/history";
 import { avaliarPautas, registroDaPauta } from "../editorial/guarda";
 import { descreverModo, modoDaGuarda } from "../editorial/modo";
+import { paraRenderizacao, resolverImagens } from "../editorial/imagens";
 import { montarPacotesDasPautas } from "../editorial/pacote-factual";
 import type { PacoteFactual } from "../editorial/pacote-factual";
 import type { PautaAvaliada } from "../editorial/guarda";
@@ -484,10 +486,13 @@ export async function runNewsroom(
 
   let ranked: RankedCandidate[];
   let pautasDaGuarda: PautaAvaliada[] = [];
+  // Guardado para a escolha de imagem, que precisa saber o que já foi usado.
+  let historicoDaGuarda: RegistroHistorico[] = [];
 
   if (modo !== "off") {
     const store = criarHistoricoStore(getSupabaseAdminClient());
     const historico = await store.janela(project.id, configEditorial.janelaDeDias);
+    historicoDaGuarda = historico;
     console.log(
       `[NEWSROOM] ${historico.length} registros no histórico de ${configEditorial.janelaDeDias} dias.`,
     );
@@ -604,6 +609,7 @@ export async function runNewsroom(
       : { minimo: 4, maximo: 6 },
     pacotes,
     configEditorial.maximoDeReparos,
+    configEditorial.notaMinimaDeQA,
   );
 
   /*
@@ -678,41 +684,28 @@ export async function runNewsroom(
   /*
    * Uma foto por pauta, endereçada pela identidade da pauta.
    *
-   * Três coisas estavam erradas aqui, e as três produziam a mesma cena: pauta
-   * ilustrada com a foto de outra coisa.
-   *
-   * A imagem vinha do RSS, e feed de agregador traz a arte genérica do
-   * publicador. Foi assim que uma matéria sobre custódia do ICE saiu com uma
-   * estante de livros e outra sobre o USCIS com uma placa de circuito. A foto
-   * agora sai do banco de imagem, buscada pelo assunto; a do feed é reserva.
-   *
-   * O array era posicional e um `.filter(Boolean)` deslocava os índices, então
-   * a pauta 1 sem foto fazia a foto da 2 aparecer nela e assim por diante.
-   * Agora a chave é a identidade da pauta.
-   *
-   * E não há mais foto de enfeite: quando nada é encontrado, a pauta sai sem
-   * imagem. Ilustração aleatória em notícia de imigração não é decoração, é
-   * informação errada ao lado de uma informação certa.
+   * A escolha inteira mora em `resolverImagens`, e não aqui, porque o mesmo
+   * caminho precisa rodar no preview de validação. Preview que exercita outro
+   * código não valida nada.
    */
-  const usarBanco = bancoConfigurado();
-  const imagensDaEdicao: ImagensDaEdicao = new Map();
+  const escolhasDeImagem = await resolverImagens(
+    pipelineResult.edition.stories.map((story, i) => ({
+      titulo: story.title,
+      categoria: story.category,
+      sourceUrl: story.source_url,
+      imagemDoFeed: pipelineResult.selectedCandidates[i]?.image_url ?? "",
+    })),
+    { historico: historicoDaGuarda, janelaEmDias: configEditorial.janelaDeImagemEmDias, env },
+  );
 
-  for (const [i, story] of pipelineResult.edition.stories.entries()) {
-    const identidade = identidadeDaPauta(story);
-    let escolhida = "";
-
-    if (usarBanco) {
-      try {
-        const foto = await buscarFotoDeBanco(consultaDaNoticia(story.title, story.category));
-        if (foto) escolhida = foto.imagemUrl;
-      } catch {
-        /* banco fora do ar não pode custar a edição */
-      }
-    }
-
-    if (!escolhida) escolhida = pipelineResult.selectedCandidates[i]?.image_url ?? "";
-    if (escolhida) imagensDaEdicao.set(identidade, escolhida);
+  for (const escolha of escolhasDeImagem.values()) {
+    console.log(
+      `[NEWSROOM] imagem ${escolha.imageSource} :: ${escolha.titulo.slice(0, 60)} :: ${escolha.motivo}` +
+        (escolha.descartadaPorRepeticao ? ` :: descartada: ${escolha.descartadaPorRepeticao}` : ""),
+    );
   }
+
+  const imagensDaEdicao: ImagensDaEdicao = paraRenderizacao(escolhasDeImagem);
 
   const htmlContent = renderEditionToHtml(pipelineResult.edition, imagensDaEdicao);
   // Versão sem o cromo de e-mail, para o corpo do artigo no portal.

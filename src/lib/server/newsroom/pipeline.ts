@@ -222,6 +222,8 @@ export async function runNewsroomPipeline(
    */
   pacotes: Map<string, PacoteFactual> = new Map(),
   maxTentativasDeReparo: number = MAX_TENTATIVAS_DE_REPARO,
+  /** Nota mínima do auditor. Abaixo dela a edição não sai. */
+  notaMinimaDeQA: number = 85,
 ): Promise<PipelineResult> {
   const config = getAIProviderConfig(env);
 
@@ -551,8 +553,9 @@ Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
     }
 
     // Apontamento do auditor entra no reparo mesmo quando não bloqueia:
-    // imprecisão de redação merece uma tentativa de conserto. O que ela não
-    // faz é derrubar a edição, e quem decide isso é `bloqueia`, não esta lista.
+    // imprecisão de redação merece uma tentativa de conserto, e nota baixa
+    // costuma vir de imprecisão acumulada. O que o apontamento não faz é
+    // derrubar a edição sozinho: quem decide isso é `bloqueia`.
     for (const issue of qa.issues) {
       lista.push({ indice: -1, tipo: "qa", descricao: issue });
     }
@@ -578,6 +581,9 @@ Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
       motivos.push(`UNGROUNDED_EDITORIAL_CLAIM em ${sem.naoSustentadas.length} conclusão(ões)`);
     }
     if (qa.hallucination_risk) motivos.push("REJECT_EDITORIAL_QA: hallucination_risk");
+    if (qa.score < notaMinimaDeQA) {
+      motivos.push(`REJECT_EDITORIAL_QA: nota ${qa.score} abaixo do piso ${notaMinimaDeQA}`);
+    }
     if (sem.erro) motivos.push(`auditoria de conclusões não rodou: ${sem.erro}`);
     return motivos;
   };

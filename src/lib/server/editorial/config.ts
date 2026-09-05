@@ -45,6 +45,8 @@ export type ConfigEditorial = {
   tetoDeDeclaracao: number;
   /** Tentativas de correção antes de desistir da edição. */
   maximoDeReparos: number;
+  /** Nota mínima do auditor para a edição poder sair. */
+  notaMinimaDeQA: number;
 };
 
 export function carregarConfigEditorial(env: Ambiente = process.env): ConfigEditorial {
@@ -74,6 +76,7 @@ export function carregarConfigEditorial(env: Ambiente = process.env): ConfigEdit
     // aparece com rodadas: se o laço passar a convergir sempre na terceira,
     // é decisão de operação, não de código.
     maximoDeReparos: numeroDoAmbiente("MAX_EDITORIAL_REPAIR_ATTEMPTS", 2, env),
+    notaMinimaDeQA: numeroDoAmbiente("MIN_EDITORIAL_QA_SCORE", 85, env),
   };
 }
 

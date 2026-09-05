@@ -4,6 +4,8 @@ import { DEFAULT_PROJECT_ID, getProjectNewsSources, requireActiveProject } from 
 import { collectAllNews } from "../lib/server/newsroom/collector";
 import { deduplicateCandidates } from "../lib/server/newsroom/deduplicator";
 import { runNewsroomPipeline } from "../lib/server/newsroom/pipeline";
+import { identidadeDaPauta, renderEditionToHtml } from "../lib/server/newsroom/newsroom-service";
+import { paraRenderizacao, resolverImagens } from "../lib/server/editorial/imagens";
 import { getSupabaseAdminClient } from "../lib/server/supabase-admin";
 import { carregarConfigEditorial } from "../lib/server/editorial/config";
 import { criarProvedorOpenAI } from "../lib/server/editorial/embeddings";
@@ -43,6 +45,11 @@ function carregarEnv(): void {
 }
 
 type Linha = string;
+
+/** Escape mínimo para o preview, que é HTML gerado aqui e não pela edição. */
+function e_(t: string): string {
+  return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
 
 async function main() {
   carregarEnv();
@@ -471,6 +478,67 @@ async function main() {
     escrever();
     const motivos = [...edicao.bloqueios];
     if (!resultado.viavel) motivos.unshift(`pautas insuficientes: ${resultado.motivoDaInviabilidade}`);
+
+    /*
+     * Caminho real de imagem e renderização.
+     *
+     * Chama exatamente o que o pipeline chama: `resolverImagens` e
+     * `renderEditionToHtml`. Preview que exercita outro código não valida
+     * nada. O que NÃO acontece aqui é gravar, publicar ou enviar.
+     */
+    const escolhas = await resolverImagens(
+      edicao.edition.stories.map((story, i) => ({
+        titulo: story.title,
+        categoria: story.category,
+        sourceUrl: story.source_url,
+        imagemDoFeed: edicao.selectedCandidates[i]?.image_url ?? "",
+      })),
+      { historico, janelaEmDias: config.janelaDeImagemEmDias }
+    );
+
+    escrever("## Imagens");
+    escrever();
+    for (const [i, story] of edicao.edition.stories.entries()) {
+      const id = identidadeDaPauta(story);
+      const e = escolhas.get(id);
+      escrever(`### ${i + 1}. ${story.title}`);
+      escrever();
+      escrever(`- story_id: ${id}`);
+      escrever(`- image_url: ${e?.imagemUrl || "nenhuma"}`);
+      escrever(`- image_source: ${e?.imageSource ?? "nenhuma"}`);
+      escrever(`- identidade da foto: ${e?.imagemCanonica || "n/d"}`);
+      escrever(`- motivo da escolha: ${e?.motivo ?? "n/d"}`);
+      escrever(`- já usada antes: ${e?.descartadaPorRepeticao ?? "não"}`);
+      escrever(
+        `- crédito: ${e?.credito ? `${e.credito.provedor}, ${e.credito.fotografo}` : "não exigido ou inexistente"}`
+      );
+      escrever(`- vínculo: mapa story_id -> url, consultado pelo renderizador com a mesma identidade`);
+      escrever();
+    }
+
+    const comFoto = [...escolhas.values()].filter((e) => e.imagemUrl);
+    const canonicas = new Set(comFoto.map((e) => e.imagemCanonica));
+    escrever(`Pautas com foto: ${comFoto.length} de ${edicao.edition.stories.length}`);
+    escrever(`Fotos distintas: ${canonicas.size} (se for menor que o número acima, houve repetição)`);
+    escrever();
+
+    const html = renderEditionToHtml(edicao.edition, paraRenderizacao(escolhas));
+    const caminhoHtml = (saida ?? "preview.md").replace(/\.md$/, "") + ".html";
+    fs.writeFileSync(
+      path.resolve(process.cwd(), caminhoHtml),
+      `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">` +
+        `<title>${e_(edicao.edition.subject)}</title>` +
+        `<meta name="description" content="${e_(edicao.edition.preheader)}"></head><body>` +
+        `<div style="max-width:680px;margin:0 auto;padding:16px;font-family:system-ui,sans-serif;background:#F4F4F5;">` +
+        `<p style="font:12px/1.5 system-ui;color:#555;margin:0 0 12px 0;">` +
+        `<strong>Assunto:</strong> ${e_(edicao.edition.subject)}<br>` +
+        `<strong>Preheader:</strong> ${e_(edicao.edition.preheader)}</p></div>` +
+        html +
+        `</body></html>`,
+      "utf-8"
+    );
+    escrever(`Render salvo em ${caminhoHtml}. Nada foi enviado nem publicado.`);
+    escrever();
 
     escrever("## Editorial Guard");
     escrever();
