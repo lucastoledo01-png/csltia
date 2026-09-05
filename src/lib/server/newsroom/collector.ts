@@ -328,33 +328,58 @@ export async function collectFromSource(
   }
 }
 
+/**
+ * Quanto tempo para trás cada fonte enxerga.
+ *
+ * A janela era uma só, de 24h, e só abria quando sobravam menos de QUATRO
+ * candidatas no total. Como as buscas de fiscalização trazem sessenta itens
+ * por dia sozinhas, o total nunca ficava abaixo de quatro, e a janela nunca
+ * abria. O resultado é que fonte oficial, que publica a cada dois ou três
+ * dias, ficava permanentemente de fora: no dia em que ela tinha algo, o
+ * agregador já tinha enchido a cota.
+ *
+ * Agora a janela é da fonte. Órgão público entra com 72h porque publica devagar
+ * e o que publica continua valendo; agregador fica em 24h porque o que ele tem
+ * de ontem já foi visto.
+ *
+ * Isso não faz notícia velha ganhar da nova: a nota do frescor cai com as
+ * horas, e uma pauta de 72h só é escolhida quando não há melhor.
+ */
+export function janelaDaFonte(source: NewsSourceConfig): number {
+  const dominio = (() => {
+    try {
+      return new URL(source.url).hostname.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
+  })();
+
+  if (dominio === "news.google.com") return 24;
+  if (source.category === "gov_us") return 72;
+  if (dominio.endsWith(".gov") || dominio.endsWith(".gov.br")) return 72;
+  return 24;
+}
+
 export async function collectAllNews(
   sources: NewsSourceConfig[],
   fetcher: typeof fetch = fetch
 ): Promise<{ candidates: NewsCandidate[]; sourcesAttempted: number; windowHours: number }> {
   const activeSources = sources.filter((s) => s.enabled);
-  const results = await Promise.all(activeSources.map((source) => collectFromSource(source, fetcher)));
+  const results = await Promise.all(
+    activeSources.map(async (source) => {
+      const janela = janelaDaFonte(source);
+      const itens = await collectFromSource(source, fetcher);
+      return filterByWindow(itens, Date.now(), janela).map((c) => ({ ...c, window_hours: janela }));
+    }),
+  );
 
-  const allCollected = results.flat();
-  const now = Date.now();
-
-  let windowHours = 24;
-  let filtered = filterByWindow(allCollected, now, windowHours);
-
-  if (filtered.length < 4) {
-    windowHours = 36;
-    filtered = filterByWindow(allCollected, now, windowHours);
-  }
-
-  if (filtered.length < 4) {
-    windowHours = 48;
-    filtered = filterByWindow(allCollected, now, windowHours);
-  }
+  const filtered = results.flat();
+  const janelaMaxima = activeSources.reduce((maior, s) => Math.max(maior, janelaDaFonte(s)), 24);
 
   return {
-    candidates: filtered.map((c) => ({ ...c, window_hours: windowHours })),
+    candidates: filtered,
     sourcesAttempted: activeSources.length,
-    windowHours,
+    windowHours: janelaMaxima,
   };
 }
 

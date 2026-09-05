@@ -100,14 +100,16 @@ eixo: o assunto central.
 - "processo": trâmite, formulário, prazo, taxa, consulado.
 - "decisao_judicial": corte, juiz, liminar, processo criminal.
 - "custo_de_vida": moradia, salário, imposto, câmbio.
-- "deterioracao_brasil": instituições, tributação, economia, segurança jurídica ou insegurança no Brasil.
+- "deterioracao_brasil": fato brasileiro com efeito prático sobre patrimônio, empresa, carreira ou segurança. Instituições, tributação, economia, segurança jurídica e violência entram aqui quando há fato, e não quando há apenas opinião ou disputa política.
 - "outro": o que não couber acima.
 
 relevancia: 0 a 10, e a régua depende do país.
 
 Para notícia dos EUA: quanto o fato muda, na prática, o plano de quem quer morar lá. Nomeação de cargo sem efeito prático é 1. Mudança de prazo de um formulário que milhares usam é 8. Nova categoria de visto ou decisão que destrava uma fila é 9.
 
-Para notícia do Brasil: quanto o fato mostra que ficar no Brasil ficou mais difícil ou mais arriscado para quem tem patrimônio, empresa ou carreira. Crise institucional, decisão do STF que muda regra do jogo, mudança tributária, alta de imposto sobre investimento ou herança, câmbio, juros, insegurança jurídica e violência são o eixo desta publicação e valem de 6 a 9 conforme o alcance. Fofoca de bastidor político, disputa de cargo e pesquisa eleitoral isolada valem 1 a 3.
+Para notícia do Brasil: quanto existe ali um PROBLEMA FACTUAL CONCRETO que afeta quem tem patrimônio, empresa ou carreira. Vale de 6 a 9 quando há fato verificável com alcance: mudança de alíquota, decisão que muda regra do jogo, número de inflação, câmbio, juros, dado de violência, decisão institucional com efeito prático. Fofoca de bastidor, disputa de cargo, declaração de político e pesquisa eleitoral isolada valem 1 a 3.
+
+O que decide a nota é o fato, não a conclusão. Não force leitura negativa: se a notícia brasileira traz um dado bom ou neutro, classifique como está. A publicação compara Brasil e Estados Unidos com números, não com adjetivos, e não adota lado partidário: nenhum partido, nenhum político e nenhuma corrente são o assunto. O assunto é o efeito prático sobre a vida de quem decide ficar ou sair.
 
 Para notícia de terceiro país: só interessa se afetar brasileiro que emigra. Caso contrário, 0.
 
@@ -321,4 +323,90 @@ export function decidirPauta(c: Classificacao, config: ConfigEditorial): Decisao
     motivo: MOTIVOS.APROVADO_OPORTUNIDADE_EUA,
     explicacao: `EUA, leitura ${c.leitura}, eixo ${c.eixo}, relevância ${c.relevancia}`,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Extração de entidade sobre material já publicado                    */
+/* ------------------------------------------------------------------ */
+
+const EntidadesExtraidasSchema = z.object({
+  pautas: z.array(
+    z.object({
+      id: z.string(),
+      atores: listaDeTexto,
+      lugares: listaDeTexto,
+      acontecimento: listaDeTexto,
+    })
+  ),
+});
+
+export function montarSystemDoExtratorDeEntidades(): string {
+  return `
+Você extrai entidades de notícias já publicadas, para um índice interno.
+
+Para cada item, devolva:
+
+atores: órgãos, empresas, tribunais, cargos e pessoas que PARTICIPAM do fato, como aparecem no texto ("USCIS", "ICE", "STF", "Suprema Corte"). NÃO inclua o veículo que publicou nem quem apenas noticiou o fato: jornal, agência, site e revista ficam de fora, mesmo citados no texto. Se o único nome do texto for o do veículo, a lista fica vazia.
+lugares: cidades, estados e países CITADOS no texto recebido.
+acontecimento: 1 a 3 substantivos do que aconteceu, usando as palavras do próprio texto ("prorrogação", "liminar", "prisão", "aumento de taxa").
+
+Regra única e absoluta: só entra o que está escrito no material recebido. Não deduza o órgão responsável, não complete o país, não infira o tipo de evento a partir do assunto. Se o texto não diz, a lista fica vazia. Lista vazia é resposta correta.
+
+Devolva JSON: {"pautas": [{"id": "...", "atores": [], "lugares": [], "acontecimento": []}]}, preservando o id recebido.
+`.trim();
+}
+
+export async function extrairEntidades(
+  pautas: Array<{ id: string; titulo: string; resumo: string; fonte: string }>,
+  env: Record<string, string | undefined> = process.env,
+  fetcher: typeof fetch = fetch
+): Promise<{ entidades: Map<string, Entidades>; custoUsd: number; tokens: number; falhas: string[] }> {
+  const saida = new Map<string, Entidades>();
+  const falhas: string[] = [];
+  let custoUsd = 0;
+  let tokens = 0;
+
+  if (pautas.length === 0) return { entidades: saida, custoUsd, tokens, falhas };
+
+  const modelo = env.OPENAI_MODEL_TRIAGE || "gpt-4o-mini";
+
+  for (let i = 0; i < pautas.length; i += PAUTAS_POR_CHAMADA) {
+    const lote = pautas.slice(i, i + PAUTAS_POR_CHAMADA);
+    const corpo = lote
+      .map((p) => `id: ${p.id}\ntitulo: ${p.titulo}\nfonte: ${p.fonte}\ntexto: ${p.resumo.slice(0, 800)}`)
+      .join("\n\n---\n\n");
+
+    try {
+      const { data, usage } = await callOpenAIJSON<unknown>(
+        [
+          { role: "system", content: montarSystemDoExtratorDeEntidades() },
+          { role: "user", content: `Extraia as entidades dos ${lote.length} itens abaixo.\n\n${corpo}` },
+        ],
+        modelo,
+        env,
+        fetcher
+      );
+
+      custoUsd += usage.estimatedCostUsd;
+      tokens += usage.totalTokens;
+
+      const parsed = EntidadesExtraidasSchema.safeParse(data);
+      if (!parsed.success) {
+        falhas.push(`lote ${i / PAUTAS_POR_CHAMADA + 1}: ${parsed.error.issues[0]?.message ?? "formato"}`);
+        continue;
+      }
+
+      for (const p of parsed.data.pautas) {
+        saida.set(p.id, {
+          atores: p.atores,
+          lugares: p.lugares,
+          acontecimento: p.acontecimento,
+        });
+      }
+    } catch (erro) {
+      falhas.push(`lote ${i / PAUTAS_POR_CHAMADA + 1}: ${(erro as Error).message}`);
+    }
+  }
+
+  return { entidades: saida, custoUsd, tokens, falhas };
 }

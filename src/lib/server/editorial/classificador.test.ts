@@ -194,10 +194,16 @@ describe("tolerância ao formato que o modelo devolve", () => {
 });
 
 describe("montarSystemDoClassificador, régua de relevância", () => {
-  it("mede pauta brasileira pelo eixo de deterioração, não pelo efeito no visto", () => {
+  it("mede pauta brasileira pelo problema factual, não pelo efeito no visto", () => {
     const s = montarSystemDoClassificador();
     expect(s).toContain("Para notícia do Brasil");
-    expect(s).toContain("insegurança jurídica");
+    expect(s).toContain("PROBLEMA FACTUAL CONCRETO");
+  });
+
+  it("proíbe forçar leitura negativa e proíbe lado partidário", () => {
+    const s = montarSystemDoClassificador();
+    expect(s).toContain("Não force leitura negativa");
+    expect(s).toContain("não adota lado partidário");
   });
 });
 

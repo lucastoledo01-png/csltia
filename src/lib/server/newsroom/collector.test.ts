@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { corpoUtil, parseRSSItems } from "./collector";
+import { corpoUtil, janelaDaFonte, parseRSSItems } from "./collector";
 
 
 describe("parseRSSItems", () => {
@@ -61,5 +61,33 @@ describe("corpo da notícia", () => {
       "O prazo de renovação automática da permissão de trabalho passou de 180 para 540 dias, " +
       "segundo aviso publicado pelo órgão nesta quinta-feira.";
     expect(corpoUtil(corpo, "USCIS amplia prazo do EAD")).toBe(corpo);
+  });
+});
+
+describe("janelaDaFonte", () => {
+  const base = {
+    id: "x",
+    name: "x",
+    type: "rss" as const,
+    enabled: true,
+    priority: 1 as const,
+    category: "us_media" as const,
+  };
+
+  it("dá 72h para órgão público, que publica devagar", () => {
+    expect(janelaDaFonte({ ...base, url: "https://www.federalregister.gov/api/v1/documents.rss", category: "gov_us" })).toBe(72);
+    expect(janelaDaFonte({ ...base, url: "https://www.state.gov/rss-feed/press-releases/feed/" })).toBe(72);
+  });
+
+  it("mantém 24h para agregador, cujo conteúdo de ontem já foi visto", () => {
+    expect(janelaDaFonte({ ...base, url: "https://news.google.com/rss/search?q=x" })).toBe(24);
+  });
+
+  it("mantém 24h para veículo comum", () => {
+    expect(janelaDaFonte({ ...base, url: "https://g1.globo.com/rss/g1/politica/" })).toBe(24);
+  });
+
+  it("não quebra com URL inválida", () => {
+    expect(janelaDaFonte({ ...base, url: "não é url" })).toBe(24);
   });
 });

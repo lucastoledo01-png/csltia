@@ -9,7 +9,12 @@ export type NewsSourceConfig = {
   url: string;
   enabled: boolean;
   priority: 1 | 2;
-  category: "lab" | "tech_media" | "research" | "general_ai" | "br_media";
+  /**
+   * O tipo de fonte, e não o assunto. `gov_us` recebe janela de 72h em
+   * `janelaDaFonte`, porque órgão público publica devagar e o que publica
+   * continua valendo.
+   */
+  category: "lab" | "tech_media" | "research" | "general_ai" | "br_media" | "us_media" | "gov_us";
   region?: "global" | "br";
   /** Filtro opcional: só entram candidatos cujo texto contenha uma destas palavras. */
   keywords?: string[];

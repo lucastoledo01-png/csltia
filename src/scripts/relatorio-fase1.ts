@@ -11,6 +11,10 @@ import { criarHistoricoStore } from "../lib/server/editorial/history";
 import { avaliarPautas } from "../lib/server/editorial/guarda";
 import { dominioDe } from "../lib/server/editorial/url-canonica";
 import { linkDaNewsletter } from "../lib/visamatch";
+import { montarPacotesDasPautas } from "../lib/server/editorial/pacote-factual";
+import type { PacoteFactual } from "../lib/server/editorial/pacote-factual";
+import { descreverSinais } from "../lib/server/editorial/repeticao";
+import { modoDaGuarda } from "../lib/server/editorial/modo";
 import type { RankedCandidate } from "../lib/server/newsroom/ranker";
 
 /**
@@ -61,7 +65,10 @@ async function main() {
 
   escrever(`# Validação da fase 1, ${new Date().toISOString().slice(0, 16).replace("T", " ")}`);
   escrever();
-  escrever(`Projeto ${project.slug}. Nada foi publicado, enviado ou gravado.`);
+  escrever(
+    `Projeto ${project.slug}. Guarda em \`${modoDaGuarda()}\`. ` +
+      "Nada foi publicado, enviado ou gravado."
+  );
   escrever();
 
   // ---------------------------------------------------------------- histórico
@@ -139,8 +146,17 @@ async function main() {
     escrever(`- repetição: ${p.veredito.explicacao} (confiança ${p.veredito.confianca})`);
     escrever(`- entidades: atores ${c.atores.join(", ") || "nenhum"}; lugares ${c.lugares.join(", ") || "nenhum"}; acontecimento ${c.acontecimento.join(", ") || "nenhum"}`);
     escrever(`- story_id: ${p.storyId}`);
+    escrever(
+      `- conteúdo: ${p.enriquecimento.enrichmentStatus}, ${p.enriquecimento.contentLength} caracteres, ` +
+        `origem ${p.enriquecimento.contentSource}`
+    );
+    if (p.enriquecimento.enrichmentSources.length > 0) {
+      escrever(`- páginas buscadas: ${p.enriquecimento.enrichmentSources.join(", ")}`);
+    }
+    escrever(`- sinais de repetição: ${descreverSinais(p.veredito.sinais)}`);
+    escrever(`- duplicate_confidence: ${p.veredito.duplicate_confidence}`);
     escrever();
-    escrever(`Resumo factual da fonte: ${(item.description || "").slice(0, 500)}`);
+    escrever(`Conteúdo factual usado (início): ${p.enriquecimento.texto.slice(0, 700)}`);
     escrever();
   });
 
@@ -159,7 +175,7 @@ async function main() {
     escrever();
     for (const r of lista.slice(0, 6)) {
       escrever(`- ${r.titulo.slice(0, 110)}`);
-      escrever(`  ${r.fonte} :: ${r.explicacao.slice(0, 200)}${r.confianca ? ` :: confiança ${r.confianca}` : ""}`);
+      escrever(`  ${r.fonte} :: ${r.explicacao.slice(0, 260)}${r.confianca ? ` :: duplicate_confidence ${r.confianca}` : ""}`);
     }
     escrever();
   }
@@ -251,6 +267,16 @@ async function main() {
       reasoning: p.pontuacao.explicacao,
     }));
 
+    const construcao = await montarPacotesDasPautas(
+      resultado.selecionadas.map((p) => ({
+        url: p.grupo.primary.url,
+        titulo: p.grupo.primary.title,
+        texto: p.enriquecimento.texto,
+        urls: [p.grupo.primary.url, ...p.grupo.secondary_urls],
+      }))
+    );
+    for (const f of construcao.falhas) escrever(`Pacote factual falhou: ${f}`);
+
     const edicao = await runNewsroomPipeline(
       ranked,
       process.env,
@@ -263,7 +289,8 @@ async function main() {
           String(project.settings?.final_line ?? "").trim() ||
           `Até amanhã. Equipe ${project.brand.displayName || project.name}.`,
       },
-      { minimo: config.minimoDePautas, maximo: config.maximoDePautas }
+      { minimo: config.minimoDePautas, maximo: config.maximoDePautas },
+      construcao.pacotes
     );
 
     const e = edicao.edition;
@@ -328,16 +355,73 @@ async function main() {
     escrever();
     escrever(e.final_line);
     escrever();
+    escrever("## Fact grounding");
+    escrever();
+    for (const p of resultado.selecionadas) {
+      const pacote: PacoteFactual | undefined = construcao.pacotes.get(p.grupo.primary.url);
+      escrever(`### ${p.grupo.primary.title.slice(0, 90)}`);
+      escrever();
+      if (!pacote) {
+        escrever("Pacote factual não foi montado para esta pauta. O texto dela não foi conferido.");
+        escrever();
+        continue;
+      }
+      escrever(`Fonte dos fatos: ${pacote.source_urls.join(", ")}`);
+      escrever();
+      escrever("Fatos utilizados:");
+      for (const f of pacote.verified_facts) escrever(`- ${f}`);
+      escrever();
+      escrever(`Pessoas: ${pacote.people.join(", ") || "nenhuma"}`);
+      escrever(`Organizações: ${pacote.organizations.join(", ") || "nenhuma"}`);
+      escrever(`Lugares: ${pacote.places.join(", ") || "nenhum"}`);
+      escrever(`Datas: ${pacote.dates.join(", ") || "nenhuma"}`);
+      escrever(`Números: ${pacote.numbers.join(", ") || "nenhum"}`);
+      escrever(`O que a matéria não diz: ${pacote.gaps.join("; ") || "nada registrado"}`);
+      escrever();
+
+      const conferencia = edicao.ancoragem.find((a) =>
+        a.titulo.toLowerCase().includes(p.grupo.primary.title.slice(0, 15).toLowerCase())
+      );
+      escrever(
+        `Conferência: ${edicao.ancoragem.length === 0 ? "não rodou" : conferencia ? (conferencia.ancorado ? `${conferencia.conferidos} afirmações conferidas, todas sustentadas` : "AFIRMAÇÃO SEM LASTRO") : "pauta não casada com a matéria escrita"}`
+      );
+      if (conferencia && !conferencia.ancorado) {
+        for (const c of conferencia.naoSustentadas) {
+          escrever(`- recusada: ${c.tipo} "${c.valor}" em "${c.onde}"`);
+        }
+      }
+      escrever();
+    }
+
+    const semLastro = edicao.ancoragem.filter((a) => !a.ancorado);
+    escrever(
+      semLastro.length === 0
+        ? "Nenhuma afirmação sem lastro. Em enforce, esta edição passaria pela ancoragem."
+        : `${semLastro.length} matéria(s) com afirmação sem lastro. Em enforce, esta edição seria BLOQUEADA.`
+    );
+    escrever();
+
     escrever("### QA e custo da redação");
     escrever();
-    escrever(`- QA: ${edicao.qaResult.score}/100, passou: ${edicao.qaResult.passed}, risco de alucinação: ${edicao.qaResult.hallucination_risk}`);
+    escrever(`- score: ${edicao.qaResult.score}/100`);
+    escrever(`- passed: ${edicao.qaResult.passed}`);
+    escrever(`- hallucination_risk: ${edicao.qaResult.hallucination_risk}`);
+    escrever(`- tone_check_passed: ${edicao.qaResult.tone_check_passed}`);
+    escrever(`- grammar_passed: ${edicao.qaResult.grammar_passed}`);
+    escrever(`- story_count_valid: ${edicao.qaResult.story_count_valid}`);
+    if (edicao.qaResult.hallucination_risk) {
+      escrever("- em enforce, hallucination_risk bloqueia a edição sozinho, qualquer que seja a nota.");
+    }
     if (edicao.qaResult.issues.length > 0) {
       for (const i of edicao.qaResult.issues) escrever(`- apontamento: ${i}`);
     }
     escrever(`- custo da redação: US$ ${edicao.totalUsage.estimatedCostUsd.toFixed(4)} (${edicao.totalUsage.totalTokens} tokens)`);
     escrever();
     escrever(
-      `**Custo total desta rodada: US$ ${(resultado.custoUsd + edicao.totalUsage.estimatedCostUsd).toFixed(4)}**`
+      "**Custo estimado desta rodada: US$ " +
+        (resultado.custoUsd + edicao.totalUsage.estimatedCostUsd + construcao.custoUsd).toFixed(4) +
+        `** (classificação ${resultado.custoUsd.toFixed(4)}, pacote factual ${construcao.custoUsd.toFixed(4)}, ` +
+        `redação ${edicao.totalUsage.estimatedCostUsd.toFixed(4)}), pela tabela de preço da família 4o escrita no código`
     );
     escrever();
   }
