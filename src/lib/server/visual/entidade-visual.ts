@@ -39,7 +39,7 @@ export type EscolhaDeEntidade = {
 };
 
 export async function escolherEntidadeVisual(
-  classificacao: { atores: string[]; lugares: string[]; acontecimento: string[] },
+  classificacao: { atores: string[]; lugares: string[]; acontecimento: string[]; pais?: string },
   opcoes: { env?: Record<string, string | undefined>; fetcher?: typeof fetch } = {}
 ): Promise<EscolhaDeEntidade> {
   const tentativas: Array<{ candidato: string; resultado: string }> = [];
@@ -50,11 +50,22 @@ export async function escolherEntidadeVisual(
 
   const lugares = classificacao.lugares.map((l) => l.trim()).filter((l) => l.length > 2);
 
-  const candidatos = [...atores, ...lugares].slice(0, MAXIMO_DE_CONSULTAS);
+  /*
+   * Nome específico antes de sigla.
+   *
+   * "Immigration and Customs Enforcement" resolve para a agência. "ICE"
+   * resolve para metanfetamina, que é o que o Wikidata considera mais popular
+   * com esse nome. Quando a classificação traz os dois, o longo vai primeiro.
+   */
+  const porEspecificidade = (a: string, b: string) => b.length - a.length;
+  const candidatos = [...atores.sort(porEspecificidade), ...lugares].slice(0, MAXIMO_DE_CONSULTAS);
   const resolvidas: EntidadeVisual[] = [];
 
   for (const candidato of candidatos) {
-    const { entidade, nota } = await resolverEntidadeNoWikidata(candidato, opcoes);
+    const { entidade, nota } = await resolverEntidadeNoWikidata(candidato, {
+      ...opcoes,
+      paisDaPauta: classificacao.pais,
+    });
     tentativas.push({ candidato, resultado: nota });
     if (entidade) resolvidas.push(entidade);
   }
