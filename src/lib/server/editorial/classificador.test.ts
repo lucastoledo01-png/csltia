@@ -101,15 +101,55 @@ describe("classificarPautas", () => {
     expect(classificacoes.get("abc")?.pais).toBe("EUA");
   });
 
-  it("interrompe quando o formato não bate, em vez de seguir sem filtro", async () => {
+  it("deixa a pauta fora do mapa quando o lote volta em formato inválido", async () => {
     const fetcher = vi.fn(async () => respostaOpenAI({ pautas: [{ id: "abc" }] }));
-    await expect(
-      classificarPautas(
-        [{ id: "abc", titulo: "t", descricao: "d", fonte: "f", url: "u" }],
-        env,
-        fetcher as unknown as typeof fetch
-      )
-    ).rejects.toThrow(/formato inválido/);
+    const { classificacoes, lotesComFalha } = await classificarPautas(
+      [{ id: "abc", titulo: "t", descricao: "d", fonte: "f", url: "u" }],
+      env,
+      fetcher as unknown as typeof fetch
+    );
+    // Sem classificação a guarda recusa a pauta, então o resultado prático
+    // continua sendo "não publica", com o motivo registrado.
+    expect(classificacoes.has("abc")).toBe(false);
+    expect(lotesComFalha[0]).toContain("formato inválido");
+  });
+
+  it("um lote que falha não derruba os outros", async () => {
+    let chamada = 0;
+    const fetcher = vi.fn(async () => {
+      chamada += 1;
+      if (chamada === 1) throw new Error("timeout");
+      return respostaOpenAI({ pautas: [classificacao({ id: "b21" })] });
+    });
+
+    const pautas = Array.from({ length: 21 }, (_, i) => ({
+      id: i === 20 ? "b21" : `a${i}`,
+      titulo: "t",
+      descricao: "d",
+      fonte: "f",
+      url: "u",
+    }));
+
+    const { classificacoes, lotesComFalha } = await classificarPautas(
+      pautas,
+      env,
+      fetcher as unknown as typeof fetch
+    );
+    expect(classificacoes.has("b21")).toBe(true);
+    expect(lotesComFalha).toHaveLength(1);
+  });
+
+  it("quebra a coleta em lotes em vez de mandar tudo numa chamada", async () => {
+    const fetcher = vi.fn(async () => respostaOpenAI({ pautas: [] }));
+    const pautas = Array.from({ length: 61 }, (_, i) => ({
+      id: `a${i}`,
+      titulo: "t",
+      descricao: "d",
+      fonte: "f",
+      url: "u",
+    }));
+    await classificarPautas(pautas, env, fetcher as unknown as typeof fetch);
+    expect(fetcher).toHaveBeenCalledTimes(4);
   });
 
   it("não chama o modelo sem pauta nenhuma", async () => {
@@ -117,6 +157,47 @@ describe("classificarPautas", () => {
     const { classificacoes } = await classificarPautas([], env, fetcher as unknown as typeof fetch);
     expect(classificacoes.size).toBe(0);
     expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
+describe("tolerância ao formato que o modelo devolve", () => {
+  const env = { OPENAI_API_KEY: "chave" };
+
+  it("aceita ator no singular sem derrubar as outras pautas do lote", async () => {
+    const fetcher = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          id: "x",
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  pautas: [{ ...classificacao({ id: "a" }), atores: "USCIS", lugares: "EUA" }],
+                }),
+              },
+            },
+          ],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        }),
+        { status: 200 }
+      )
+    );
+
+    const { classificacoes, lotesComFalha } = await classificarPautas(
+      [{ id: "a", titulo: "t", descricao: "d", fonte: "f", url: "u" }],
+      env,
+      fetcher as unknown as typeof fetch
+    );
+    expect(classificacoes.get("a")?.atores).toEqual(["USCIS"]);
+    expect(lotesComFalha).toHaveLength(0);
+  });
+});
+
+describe("montarSystemDoClassificador, régua de relevância", () => {
+  it("mede pauta brasileira pelo eixo de deterioração, não pelo efeito no visto", () => {
+    const s = montarSystemDoClassificador();
+    expect(s).toContain("Para notícia do Brasil");
+    expect(s).toContain("insegurança jurídica");
   });
 });
 

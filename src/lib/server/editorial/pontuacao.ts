@@ -114,6 +114,7 @@ export function ordenarESelecionar<T>(
 
   const porAtor: Record<string, number> = {};
   const porDominio: Record<string, number> = {};
+  let doBrasil = 0;
   const escolhidas: Array<PautaOrdenavel<T>> = [];
 
   for (const p of ordenadas) {
@@ -124,6 +125,14 @@ export function ordenarESelecionar<T>(
 
     if (ator && (porAtor[ator] ?? 0) >= maximoPorAtor) continue;
     if (dominio && (porDominio[dominio] ?? 0) >= maximoPorDominio) continue;
+
+    // Num dia de crise no STF, as pautas brasileiras dominam a nota e a
+    // edição inteira sai falando do Brasil. O leitor abriu o e-mail para ler
+    // sobre os EUA: o Brasil é o contraste, não o assunto.
+    if (p.classificacao.pais === "Brasil") {
+      if (doBrasil >= config.maximoDePautasBrasil) continue;
+      doBrasil += 1;
+    }
 
     if (ator) porAtor[ator] = (porAtor[ator] ?? 0) + 1;
     if (dominio) porDominio[dominio] = (porDominio[dominio] ?? 0) + 1;

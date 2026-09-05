@@ -21,6 +21,23 @@ import type { Entidades } from "./fingerprint";
  * porque a camada de repetição por ator e acontecimento depende delas.
  */
 
+/**
+ * Lista de texto tolerante ao que o modelo devolve de verdade.
+ *
+ * Com um ator só, ele escreve `"atores": "USCIS"` em vez de `["USCIS"]`. Isso
+ * derrubava o lote inteiro na validação: dois lotes por rodada, vinte pautas
+ * jogadas fora e pagas. O formato certo continua sendo a lista; aqui só se
+ * aceita o singular sem perder as outras dezoito.
+ */
+const listaDeTexto = z.preprocess(
+  (v) => {
+    if (typeof v === "string") return v.trim() ? [v] : [];
+    if (Array.isArray(v)) return v.filter((x) => typeof x === "string");
+    return [];
+  },
+  z.array(z.string()).default([])
+);
+
 export const ClassificacaoSchema = z.object({
   id: z.string(),
   /** EUA, Brasil ou outro. "outro" cobre terceiro país e assunto sem país. */
@@ -42,9 +59,9 @@ export const ClassificacaoSchema = z.object({
   ]),
   /** 0 a 10, o quanto muda a vida de quem planeja a mudança. */
   relevancia: z.number().min(0).max(10),
-  atores: z.array(z.string()).default([]),
-  lugares: z.array(z.string()).default([]),
-  acontecimento: z.array(z.string()).default([]),
+  atores: listaDeTexto,
+  lugares: listaDeTexto,
+  acontecimento: listaDeTexto,
   justificativa: z.string().default(""),
 });
 
@@ -86,7 +103,13 @@ eixo: o assunto central.
 - "deterioracao_brasil": instituições, tributação, economia, segurança jurídica ou insegurança no Brasil.
 - "outro": o que não couber acima.
 
-relevancia: 0 a 10. Quanto o fato muda, na prática, o plano de quem quer morar nos EUA. Nomeação de cargo sem efeito prático é 1. Mudança de prazo de um formulário que milhares usam é 8.
+relevancia: 0 a 10, e a régua depende do país.
+
+Para notícia dos EUA: quanto o fato muda, na prática, o plano de quem quer morar lá. Nomeação de cargo sem efeito prático é 1. Mudança de prazo de um formulário que milhares usam é 8. Nova categoria de visto ou decisão que destrava uma fila é 9.
+
+Para notícia do Brasil: quanto o fato mostra que ficar no Brasil ficou mais difícil ou mais arriscado para quem tem patrimônio, empresa ou carreira. Crise institucional, decisão do STF que muda regra do jogo, mudança tributária, alta de imposto sobre investimento ou herança, câmbio, juros, insegurança jurídica e violência são o eixo desta publicação e valem de 6 a 9 conforme o alcance. Fofoca de bastidor político, disputa de cargo e pesquisa eleitoral isolada valem 1 a 3.
+
+Para notícia de terceiro país: só interessa se afetar brasileiro que emigra. Caso contrário, 0.
 
 atores: órgãos, empresas, tribunais e pessoas citados. Nomes curtos, como aparecem ("USCIS", "ICE", "Suprema Corte", "STF").
 lugares: cidades, estados e países citados.
@@ -110,39 +133,78 @@ export function montarUserDoClassificador(pautas: PautaClassificavel[]): string 
 }
 
 /**
- * Classifica em uma chamada só.
+ * Quantas pautas por chamada.
  *
- * Falha aqui interrompe. A alternativa seria seguir sem classificação, e
- * seguir sem classificação é publicar sem o filtro editorial, que é o
- * contrário do que este módulo existe para fazer.
+ * Mandar as 201 candidatas de uma vez devolveu 38 classificadas, sem erro: o
+ * modelo simplesmente parou no meio e o JSON veio válido e curto. Como pauta
+ * sem classificação é recusada por precaução, isso jogaria fora 80% da coleta
+ * todo dia, e o log diria apenas "não classificada".
+ */
+const PAUTAS_POR_CHAMADA = 20;
+/** Chamadas simultâneas. Acima disso a API começa a devolver 429. */
+const CHAMADAS_EM_PARALELO = 4;
+
+/**
+ * Classifica todas as pautas, em lotes.
+ *
+ * Um lote que falha não derruba os outros: ele volta como pauta ausente do
+ * mapa, e quem chama recusa essas pautas por falta de classificação. Seguir
+ * sem classificação seria publicar sem o filtro editorial, que é o contrário
+ * do que este módulo existe para fazer.
  */
 export async function classificarPautas(
   pautas: PautaClassificavel[],
   env: Record<string, string | undefined> = process.env,
   fetcher: typeof fetch = fetch
-): Promise<{ classificacoes: Map<string, Classificacao>; custoUsd: number }> {
-  if (pautas.length === 0) return { classificacoes: new Map(), custoUsd: 0 };
+): Promise<{ classificacoes: Map<string, Classificacao>; custoUsd: number; lotesComFalha: string[] }> {
+  if (pautas.length === 0) {
+    return { classificacoes: new Map(), custoUsd: 0, lotesComFalha: [] };
+  }
 
   const modelo = env.OPENAI_MODEL_TRIAGE || "gpt-4o-mini";
-  const { data, usage } = await callOpenAIJSON<unknown>(
-    [
-      { role: "system", content: montarSystemDoClassificador() },
-      { role: "user", content: montarUserDoClassificador(pautas) },
-    ],
-    modelo,
-    env,
-    fetcher
-  );
-
-  const parsed = RespostaDoClassificadorSchema.safeParse(data);
-  if (!parsed.success) {
-    throw new Error(`Classificador devolveu formato inválido: ${parsed.error.message}`);
+  const lotes: PautaClassificavel[][] = [];
+  for (let i = 0; i < pautas.length; i += PAUTAS_POR_CHAMADA) {
+    lotes.push(pautas.slice(i, i + PAUTAS_POR_CHAMADA));
   }
 
   const mapa = new Map<string, Classificacao>();
-  for (const c of parsed.data.pautas) mapa.set(c.id, c);
+  const lotesComFalha: string[] = [];
+  let custoUsd = 0;
 
-  return { classificacoes: mapa, custoUsd: usage.estimatedCostUsd };
+  for (let i = 0; i < lotes.length; i += CHAMADAS_EM_PARALELO) {
+    const rodada = lotes.slice(i, i + CHAMADAS_EM_PARALELO);
+    const respostas = await Promise.all(
+      rodada.map(async (lote, j) => {
+        try {
+          const { data, usage } = await callOpenAIJSON<unknown>(
+            [
+              { role: "system", content: montarSystemDoClassificador() },
+              { role: "user", content: montarUserDoClassificador(lote) },
+            ],
+            modelo,
+            env,
+            fetcher
+          );
+
+          const parsed = RespostaDoClassificadorSchema.safeParse(data);
+          if (!parsed.success) {
+            return { erro: `lote ${i + j + 1}: formato inválido, ${parsed.error.issues[0]?.message ?? ""}`, custo: usage.estimatedCostUsd, itens: [] as Classificacao[] };
+          }
+          return { erro: null, custo: usage.estimatedCostUsd, itens: parsed.data.pautas };
+        } catch (erro) {
+          return { erro: `lote ${i + j + 1}: ${(erro as Error).message}`, custo: 0, itens: [] as Classificacao[] };
+        }
+      })
+    );
+
+    for (const r of respostas) {
+      custoUsd += r.custo;
+      if (r.erro) lotesComFalha.push(r.erro);
+      for (const c of r.itens) mapa.set(c.id, c);
+    }
+  }
+
+  return { classificacoes: mapa, custoUsd, lotesComFalha };
 }
 
 export function entidadesDaClassificacao(c: Classificacao): Entidades {

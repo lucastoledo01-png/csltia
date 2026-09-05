@@ -117,3 +117,18 @@ export function mesmoAcontecimento(a: Entidades, b: Entidades): boolean {
 
   return atores && evento && (lugares || semLugar);
 }
+
+/**
+ * Os dois textos falam do mesmo tipo de acontecimento?
+ *
+ * Mais frouxo que `mesmoAcontecimento` de propósito, e serve a outra pergunta.
+ * Ali, ator e evento juntos identificam o fato. Aqui, quem já disse que as
+ * duas pautas tratam do mesmo assunto foi o vetor, e o que falta saber é se é
+ * o mesmo episódio: duas notícias da AWS, uma sobre integração e outra sobre
+ * benchmark, são assuntos vizinhos e episódios diferentes.
+ */
+export function mesmoTipoDeAcontecimento(a: Entidades, b: Entidades): boolean {
+  const A = new Set(a.acontecimento.map(normalizar).filter(Boolean));
+  if (A.size === 0) return false;
+  return b.acontecimento.map(normalizar).some((v) => v && A.has(v));
+}

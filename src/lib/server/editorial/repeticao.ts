@@ -2,7 +2,7 @@ import type { ConfigEditorial } from "./config";
 import { MOTIVOS } from "./config";
 import type { Motivo } from "./config";
 import type { Entidades } from "./fingerprint";
-import { mesmoAcontecimento, semelhancaDeTitulo } from "./fingerprint";
+import { mesmoAcontecimento, mesmoTipoDeAcontecimento, semelhancaDeTitulo } from "./fingerprint";
 import { urlCanonica } from "./url-canonica";
 import type { Vetor } from "./embeddings";
 import { cosseno } from "./embeddings";
@@ -137,7 +137,7 @@ export function verificarRepeticao(
         candidatoVetor = h;
       }
     }
-    if (candidatoVetor && melhorVetor >= config.limiarSemantico) {
+    if (candidatoVetor && melhorVetor >= config.limiarSemanticoCerto) {
       return {
         repetida: true,
         motivo: MOTIVOS.REJEITADO_SEMANTICO,
@@ -147,11 +147,55 @@ export function verificarRepeticao(
         explicacao: `semelhança ${melhorVetor.toFixed(3)} com "${candidatoVetor.titulo}" (${diasAtras(candidatoVetor)}d)`,
       };
     }
+
+    /*
+     * Faixa do meio, onde os dois erros moram.
+     *
+     * Os pares do histórico mostram a mesma matéria voltando no dia seguinte a
+     * 0.729, e duas matérias diferentes do mesmo ator a 0.760. As faixas se
+     * sobrepõem, então nenhum número único acerta os dois casos: baixar a
+     * régua bloqueia pauta nova, subir deixa passar repetição.
+     *
+     * Quem desempata é o tipo de acontecimento. O vetor já disse que as duas
+     * falam do mesmo assunto; falta saber se é o mesmo episódio. Duas
+     * notícias da AWS, uma de integração e outra de benchmark, são assunto
+     * vizinho e episódio diferente.
+     *
+     * Quando o registro antigo não tem entidade, e nenhum registro do backfill
+     * tem, não há como desempatar. Aí vale não repetir: perder uma pauta custa
+     * uma pauta, repetir custa a confiança de quem lê.
+     */
+    if (candidatoVetor && melhorVetor >= config.limiarSemantico) {
+      const doHistorico = entidadesDoRegistro(candidatoVetor);
+      const temComoConferir = Boolean(pauta.entidades && doHistorico);
+
+      if (
+        !temComoConferir ||
+        (pauta.entidades && doHistorico && mesmoTipoDeAcontecimento(pauta.entidades, doHistorico))
+      ) {
+        return {
+          repetida: true,
+          motivo: MOTIVOS.REJEITADO_SEMANTICO,
+          conflito: candidatoVetor,
+          camada: "semantica",
+          score: melhorVetor,
+          explicacao:
+            `semelhança ${melhorVetor.toFixed(3)} com "${candidatoVetor.titulo}" (${diasAtras(candidatoVetor)}d), ` +
+            (temComoConferir ? "mesmo tipo de acontecimento" : "sem entidade para conferir"),
+        };
+      }
+
+      return aprovado(
+        "semantica",
+        melhorVetor,
+        `semelhante (${melhorVetor.toFixed(3)}) a "${candidatoVetor.titulo}", mas acontecimento diferente`
+      );
+    }
     if (candidatoVetor) {
       return aprovado(
         "semantica",
         melhorVetor,
-        `mais próxima: ${melhorVetor.toFixed(3)} com "${candidatoVetor.titulo}", limiar ${config.limiarSemantico}`
+        `mais próxima: ${melhorVetor.toFixed(3)} com "${candidatoVetor.titulo}", suspeita a partir de ${config.limiarSemantico}`
       );
     }
   }

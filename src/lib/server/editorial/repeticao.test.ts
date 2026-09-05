@@ -105,7 +105,68 @@ describe("verificarRepeticao", () => {
     );
     expect(v.repetida).toBe(false);
     expect(v.score).toBeCloseTo(0);
-    expect(v.explicacao).toContain("limiar");
+    expect(v.explicacao).toContain("suspeita a partir de");
+  });
+
+  it("na faixa do meio, acontecimento diferente livra a pauta", () => {
+    const v = verificarRepeticao(
+      {
+        titulo: "AWS conecta agentes a dados em contas diferentes",
+        entidades: { atores: ["AWS"], lugares: [], acontecimento: ["integração"] },
+        vetor: [0.76, 0.65, 0],
+      },
+      [
+        registro({
+          titulo: "AWS cria régua para testar agentes",
+          urlCanonica: "aws.com/regua",
+          entidades: { atores: ["AWS"], lugares: [], acontecimento: ["benchmark"] },
+          vetor: [1, 0, 0],
+        }),
+      ],
+      "newsletter",
+      config
+    );
+    expect(v.repetida).toBe(false);
+    expect(v.explicacao).toContain("acontecimento diferente");
+  });
+
+  it("na faixa do meio, mesmo acontecimento é repetição", () => {
+    const v = verificarRepeticao(
+      {
+        titulo: "Cirurgião mexicano aprovado em EB-2 NIW",
+        entidades: { atores: ["USCIS"], lugares: ["EUA"], acontecimento: ["aprovação"] },
+        vetor: [0.76, 0.65, 0],
+      },
+      [
+        registro({
+          titulo: "Aprovação de EB-2 NIW para cirurgião do México",
+          urlCanonica: "outro.com/eb2",
+          // Ator diferente, então a camada de entidade não pega. Quem decide
+          // é o vetor mais o tipo de acontecimento.
+          entidades: { atores: ["National Law Review"], lugares: ["EUA"], acontecimento: ["aprovação"] },
+          vetor: [1, 0, 0],
+        }),
+      ],
+      "newsletter",
+      config
+    );
+    expect(v.repetida).toBe(true);
+    expect(v.explicacao).toContain("mesmo tipo de acontecimento");
+  });
+
+  it("sem entidade no histórico, a faixa do meio recusa em vez de arriscar repetir", () => {
+    const v = verificarRepeticao(
+      {
+        titulo: "Cirurgião mexicano aprovado em EB-2 NIW",
+        entidades: { atores: ["EB-2 NIW"], lugares: ["EUA"], acontecimento: ["aprovação"] },
+        vetor: [0.76, 0.65, 0],
+      },
+      [registro({ urlCanonica: "outro.com/eb2", titulo: "Outro título", vetor: [1, 0, 0] })],
+      "newsletter",
+      config
+    );
+    expect(v.repetida).toBe(true);
+    expect(v.explicacao).toContain("sem entidade para conferir");
   });
 
   it("ignora registro sem entidades em vez de fingir que a camada rodou", () => {

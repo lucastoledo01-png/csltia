@@ -119,6 +119,35 @@ describe("ordenarESelecionar", () => {
     expect(uscis).toHaveLength(2);
   });
 
+  it("não deixa a crise do STF tomar a edição de uma publicação sobre os EUA", () => {
+    function brasileira(nome: string, relevancia: number, dominio: string): PautaOrdenavel<string> {
+      const c = classificacao({ relevancia, pais: "Brasil", eixo: "deterioracao_brasil", atores: [nome] });
+      return {
+        item: nome,
+        classificacao: c,
+        dominio,
+        pontuacao: pontuarPauta({
+          classificacao: c,
+          prioridadeDaFonte: 1,
+          quantasFontesConfirmam: 1,
+          publicadoEm: agora,
+          semelhancaComHistorico: 0,
+        }),
+      };
+    }
+
+    const lista = [
+      brasileira("STF", 9, "g1.com"),
+      brasileira("Fachin", 9, "estadao.com"),
+      brasileira("Moraes", 8, "folha.com"),
+      pauta("eua", 5, "USCIS", "uscis.gov"),
+    ];
+    const escolhidas = ordenarESelecionar(lista, config);
+    const brasil = escolhidas.filter((p) => p.classificacao.pais === "Brasil");
+    expect(brasil).toHaveLength(config.maximoDePautasBrasil);
+    expect(escolhidas.some((p) => p.classificacao.pais === "EUA")).toBe(true);
+  });
+
   it("limita também o mesmo veículo", () => {
     const lista = [
       pauta("a", 9, "USCIS", "mesmo.com"),

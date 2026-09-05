@@ -18,8 +18,13 @@ function numeroDoAmbiente(nome: string, padrao: number, env: Ambiente = process.
 }
 
 export type ConfigEditorial = {
-  /** Acima disto, duas pautas são o mesmo assunto. */
+  /**
+   * Faixa de suspeita: acima disto as pautas falam do mesmo assunto, mas
+   * podem ser fatos diferentes. Precisa de confirmação por entidade.
+   */
   limiarSemantico: number;
+  /** Acima disto é repetição sem precisar de mais nada. */
+  limiarSemanticoCerto: number;
   /** Acima disto, dois títulos são o mesmo título com outras palavras. */
   limiarDeTitulo: number;
   /** Dias de histórico consultados na verificação de repetição. */
@@ -34,13 +39,18 @@ export type ConfigEditorial = {
   maximoDePalavras: number;
   /** Abaixo disto a pauta não muda a vida de ninguém e não ocupa espaço. */
   relevanciaMinima: number;
+  /** Teto de pautas sobre o Brasil por edição. */
+  maximoDePautasBrasil: number;
 };
 
 export function carregarConfigEditorial(env: Ambiente = process.env): ConfigEditorial {
   return {
-    // 0.82 é o ponto de partida combinado. O score de cada comparação vai para
-    // o log justamente para permitir ajustar isto com dado, não com palpite.
-    limiarSemantico: numeroDoAmbiente("EDITORIAL_LIMIAR_SEMANTICO", 0.82, env),
+    // Medido, não chutado. Os pares do histórico mostram repetição real a
+    // 0.729 (a mesma matéria do EB-2 voltando no dia seguinte) e pautas
+    // distintas do mesmo ator a 0.760. As faixas se sobrepõem, então um
+    // número só não resolve: entre 0.72 e 0.85 quem decide é a entidade.
+    limiarSemantico: numeroDoAmbiente("EDITORIAL_LIMIAR_SEMANTICO", 0.72, env),
+    limiarSemanticoCerto: numeroDoAmbiente("EDITORIAL_LIMIAR_SEMANTICO_CERTO", 0.85, env),
     limiarDeTitulo: numeroDoAmbiente("EDITORIAL_LIMIAR_TITULO", 0.72, env),
     janelaDeDias: numeroDoAmbiente("EDITORIAL_JANELA_DIAS", 30, env),
     janelaDeImagemEmDias: numeroDoAmbiente("EDITORIAL_JANELA_IMAGEM_DIAS", 30, env),
@@ -49,6 +59,10 @@ export function carregarConfigEditorial(env: Ambiente = process.env): ConfigEdit
     minimoDePalavras: numeroDoAmbiente("EDITORIAL_MIN_PALAVRAS", 60, env),
     maximoDePalavras: numeroDoAmbiente("EDITORIAL_MAX_PALAVRAS", 100, env),
     relevanciaMinima: numeroDoAmbiente("EDITORIAL_RELEVANCIA_MINIMA", 4, env),
+    // O Brasil é contraste, não é a pauta. Sem teto, um dia de crise no STF
+    // enche a edição inteira e a publicação deixa de falar dos EUA, que é o
+    // que o leitor abriu o e-mail para ler.
+    maximoDePautasBrasil: numeroDoAmbiente("EDITORIAL_MAX_PAUTAS_BRASIL", 1, env),
   };
 }
 
