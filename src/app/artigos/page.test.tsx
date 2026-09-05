@@ -1,6 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { vi } from "vitest";
-import Home from "../page";
+import JournalIndex from "@/components/JournalIndex";
+
+// `Home` virou server component assíncrono; o menu que este teste compara
+// vive em `JournalIndex`, que continua síncrono.
+const Home = JournalIndex;
 
 /**
  * A página busca os artigos publicados no Supabase. Sem este mock o teste
