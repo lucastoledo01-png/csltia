@@ -118,6 +118,30 @@ export async function escolherEntidadeVisual(
     return { entidade: null, tentativas, ambigua: houveAmbiguidade };
   }
 
+  /*
+   * Quem está no título é o assunto visual.
+   *
+   * A matéria "Dólar fecha a R$ 5,1300 e Ibovespa recua" cita o Datafolha no
+   * corpo, como causa do movimento, e o Datafolha venceu a escolha por ser uma
+   * instituição bem documentada. Ilustrar a cotação com uma foto do instituto
+   * de pesquisa é escolher o coadjuvante.
+   *
+   * Estar no título não é um sinal fraco: é onde a redação disse do que a
+   * matéria trata.
+   */
+  const tituloNormalizado = normalizarEntidade(classificacao.contexto?.split(".")[0] ?? "");
+  const apareceNoTitulo = (e: EntidadeVisual): boolean => {
+    if (!tituloNormalizado) return false;
+    const nome = normalizarEntidade(e.nome);
+    if (tituloNormalizado.includes(nome)) return true;
+    // Nome longo do Wikidata ("Serviço de Imigração e Controle...") raramente
+    // aparece inteiro: basta uma palavra significativa.
+    return nome
+      .split(" ")
+      .filter((p) => p.length > 4)
+      .some((p) => tituloNormalizado.includes(p));
+  };
+
   const porPrioridade = (e: EntidadeVisual): number => {
     if (e.tipo === "politician" || e.tipo === "public_official") return 0;
     if (e.tipo === "person") return 1;
@@ -131,6 +155,8 @@ export async function escolherEntidadeVisual(
   // Entre entidades do mesmo tipo, a que tem imagem declarada no Wikidata vem
   // primeiro: é a que tem foto certa garantida.
   const escolhida = [...resolvidas].sort((a, b) => {
+    const t = Number(apareceNoTitulo(b)) - Number(apareceNoTitulo(a));
+    if (t !== 0) return t;
     const p = porPrioridade(a) - porPrioridade(b);
     if (p !== 0) return p;
     return Number(Boolean(b.imagemPrincipal)) - Number(Boolean(a.imagemPrincipal));
@@ -142,7 +168,9 @@ export async function escolherEntidadeVisual(
       origem: `${escolhida.origem}; escolhida entre ${resolvidas.length} candidata(s) por tipo ${escolhida.tipo}`,
       evidencias: [
         ...escolhida.evidencias,
-        `ator ou lugar principal da matéria entre ${resolvidas.length} candidata(s)`,
+        apareceNoTitulo(escolhida)
+          ? "citada no título da matéria"
+          : `ator ou lugar principal da matéria entre ${resolvidas.length} candidata(s)`,
       ],
     },
     tentativas,

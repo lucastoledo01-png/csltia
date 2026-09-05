@@ -120,3 +120,50 @@ describe("desambiguação de lugar", () => {
     expect(r.entidade?.confianca).toBeGreaterThan(0);
   });
 });
+
+describe("quem está no título é o assunto", () => {
+  it("prefere a entidade citada no título à que só aparece no corpo", async () => {
+    const { escolherEntidadeVisual } = await import("./entidade-visual");
+
+    const fetcher = vi.fn(async (entrada: string | URL) => {
+      const url = String(entrada);
+      const params = new URL(url).searchParams;
+
+      if (params.get("action") === "wbsearchentities") {
+        const termo = params.get("search") ?? "";
+        const id = termo.includes("Ibovespa") ? "Q2000" : "Q3000";
+        return new Response(
+          JSON.stringify({ search: [{ id, label: termo, description: "organização brasileira" }] }),
+          { status: 200 }
+        );
+      }
+
+      const ids = (params.get("ids") ?? "").split("|");
+      const entities: Record<string, unknown> = {};
+      for (const id of ids) {
+        entities[id] = {
+          claims: {
+            P31: [{ mainsnak: { datavalue: { value: { id: "Q43229" } } } }],
+            P17: [{ mainsnak: { datavalue: { value: { id: "Q155" } } } }],
+            P373: [{ mainsnak: { datavalue: { value: "Cat" } } }],
+          },
+        };
+      }
+      return new Response(JSON.stringify({ entities }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const r = await escolherEntidadeVisual(
+      {
+        atores: ["Datafolha", "Ibovespa"],
+        lugares: [],
+        acontecimento: ["queda"],
+        pais: "Brasil",
+        contexto: "Dólar fecha a R$ 5,13 e Ibovespa recua. O movimento veio após pesquisa Datafolha.",
+      },
+      { fetcher }
+    );
+
+    expect(r.entidade?.nome).toBe("Ibovespa");
+    expect(r.entidade?.evidencias.join(" ")).toContain("citada no título");
+  });
+});
