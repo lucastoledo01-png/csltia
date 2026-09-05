@@ -98,3 +98,57 @@ frequência ficam de fora justamente nos dias em que teriam algo.
 O ajuste é a janela por fonte: 24h para agregador de alto volume, 72h para
 fonte primária. Fica registrado aqui como proposta, sem mexer no código antes
 de você decidir.
+
+---
+
+# Composição aplicada em 05/09/2026
+
+A auditoria acima virou mudança no banco. Nada foi apagado: o que saiu está com
+`enabled=false` e pode voltar numa linha.
+
+## Desligadas
+
+| fonte | por quê |
+| --- | --- |
+| Google News, ICE / immigration court / asylum | 62 coletadas, 1 aprovada, 43 recusadas como desfavoráveis. Trazia sorvete e hóquei junto. |
+| Google News, deportação / ICE (PT) | 5 coletadas, 5 recusadas. |
+| Google News, visto americano / green card (PT) | 5 coletadas, 5 recusadas. |
+| Google News, imigração Estados Unidos (PT) | 1 coletada, 1 recusada. |
+| CBS News, política EUA | 1 coletada, 1 recusada. Feed nacional genérico. |
+| NPR, nacional EUA | 1 coletada, 1 recusada. Mesmo motivo. |
+| State Dept, press releases | Responde 403 para o nosso agente. A alternativa seria fingir ser navegador. |
+
+## Ligadas
+
+Visto profissional e processo: USCIS oficial via busca indexada, EB-1 a EB-3
+com NIW e H-1B, EB-5 com O-1 e L-1, visa bulletin com priority date e backlog.
+
+Economia e trabalho: emprego e salário nos EUA, fábrica e investimento com
+vagas, InfoMoney para tributação e câmbio.
+
+Fonte primária: Federal Register por agência USCIS, por termo USCIS e pela
+Employment and Training Administration, que é por onde saem PERM, H-2A e H-2B.
+International Trade Administration para negócio e investimento.
+
+Análise com texto: Murthy Law Firm e Visalaw. As duas publicam matéria com
+corpo e URL direta, que é o que o enriquecimento precisa.
+
+## O que a mudança produziu, medido
+
+| | antes | depois |
+| --- | --- | --- |
+| fontes ativas | 19 | 27 |
+| candidatas por rodada | 211 | 207 |
+| candidatas que já chegam com texto | 28 | 72 |
+| candidatas com URL que dá para buscar | 29 | 74 |
+
+O volume ficou parecido e a composição mudou: a coleta deixou de ser dominada
+por fiscalização e passou a trazer material que dá para escrever.
+
+## O que ainda falta
+
+Metade da coleta ainda vem do Google News, que entrega manchete e um link que
+não é o da matéria. Para essas, o enriquecimento não tem o que buscar e a pauta
+é recusada por falta de fatos. Resolver isso exige feed direto dos veículos que
+mais aparecem, um a um. Google News segue útil para DESCOBRIR o assunto, não
+para escrever sobre ele.
