@@ -538,6 +538,30 @@ async function main() {
       "utf-8"
     );
     escrever(`Render salvo em ${caminhoHtml}. Nada foi enviado nem publicado.`);
+
+    /*
+     * A edição fica guardada em disco.
+     *
+     * Não é persistência de produção: é para o passo de imagem poder ser
+     * repetido sem gerar a edição de novo. Sem isso, conferir a escolha de
+     * foto custa uma redação inteira toda vez, e a escolha de foto não tem
+     * nada a ver com o texto.
+     */
+    const caminhoEdicao = (saida ?? "preview.md").replace(/\.md$/, "") + ".edicao.json";
+    fs.writeFileSync(
+      path.resolve(process.cwd(), caminhoEdicao),
+      JSON.stringify(
+        {
+          edition: edicao.edition,
+          selectedCandidates: edicao.selectedCandidates,
+          gerado_em: new Date().toISOString(),
+        },
+        null,
+        2
+      ),
+      "utf-8"
+    );
+    escrever(`Edição guardada em ${caminhoEdicao}, para repetir o passo de imagem sem reescrever.`);
     escrever();
 
     escrever("## Editorial Guard");
