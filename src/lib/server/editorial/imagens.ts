@@ -65,6 +65,7 @@ export async function resolverImagens(
   const env = opcoes.env ?? process.env;
   const buscar = opcoes.buscar ?? buscarFotoDeBanco;
   const usarBanco = bancoConfigurado(env);
+  const permitirFeed = (env.PERMITIR_IMAGEM_DO_FEED ?? "").trim().toLowerCase() === "true";
 
   const escolhas = new Map<string, EscolhaDeImagem>();
   // Duas pautas do mesmo dia não podem receber a mesma foto: o banco devolve
@@ -125,20 +126,41 @@ export async function resolverImagens(
       }
     }
 
+    /*
+     * A imagem do feed é hotlink do veículo, e por isso está desligada.
+     *
+     * Ela chega no RSS e funciona: o arquivo abre, o CDN serve, ninguém
+     * reclama no primeiro dia. Isso não é licença. Publicar a foto de um
+     * jornal na nossa newsletter, servida do servidor dele, é usar obra de
+     * terceiro sem autorização e ainda às custas da infraestrutura dele.
+     *
+     * Fica atrás de uma chave, desligada por padrão, para o caso de existir
+     * acordo com alguma fonte específica. Sem acordo, a pauta sai sem foto,
+     * que é o estado honesto até a arquitetura de fontes licenciadas.
+     */
     if (escolha.imageSource === "nenhuma" && pauta.imagemDoFeed) {
-      const canonica = identidadeDeImagem(pauta.imagemDoFeed);
-      const jaSaiu = imagemJaUsada(pauta.imagemDoFeed, historico, janela);
+      if (permitirFeed) {
+        const canonica = identidadeDeImagem(pauta.imagemDoFeed);
+        const jaSaiu = imagemJaUsada(pauta.imagemDoFeed, historico, janela);
 
-      if (!jaSaiu && !usadasNestaEdicao.has(canonica)) {
+        if (!jaSaiu && !usadasNestaEdicao.has(canonica)) {
+          escolha = {
+            storyId,
+            titulo: pauta.titulo,
+            imagemUrl: pauta.imagemDoFeed,
+            imageSource: "feed_da_fonte",
+            imagemCanonica: canonica,
+            credito: null,
+            motivo: "reserva autorizada por configuração: imagem publicada pela própria fonte",
+            descartadaPorRepeticao: escolha.descartadaPorRepeticao,
+          };
+        }
+      } else {
         escolha = {
-          storyId,
-          titulo: pauta.titulo,
-          imagemUrl: pauta.imagemDoFeed,
-          imageSource: "feed_da_fonte",
-          imagemCanonica: canonica,
-          credito: null,
-          motivo: "reserva: imagem que a própria fonte publicou com a matéria",
-          descartadaPorRepeticao: escolha.descartadaPorRepeticao,
+          ...escolha,
+          motivo:
+            `${escolha.motivo}; a imagem do feed existe mas é hotlink do veículo, ` +
+            "e só entra com PERMITIR_IMAGEM_DO_FEED=true",
         };
       }
     }

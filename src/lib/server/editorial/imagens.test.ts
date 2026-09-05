@@ -90,11 +90,23 @@ describe("resolverImagens", () => {
     expect(urls).toHaveLength(1);
   });
 
-  it("usa a imagem do feed como reserva quando o banco não acha nada", async () => {
+  it("não usa a foto do veículo por padrão, porque hotlink não é licença", async () => {
     const buscar = vi.fn(async () => null);
     const escolhas = await resolverImagens(
       [pauta("Assunto", "https://a.com/1", "https://veiculo.com/foto.jpg")],
       { env, buscar: buscar as never }
+    );
+
+    const e = [...escolhas.values()][0];
+    expect(e.imagemUrl).toBe("");
+    expect(e.motivo).toContain("hotlink");
+  });
+
+  it("usa a foto do veículo quando há autorização configurada", async () => {
+    const buscar = vi.fn(async () => null);
+    const escolhas = await resolverImagens(
+      [pauta("Assunto", "https://a.com/1", "https://veiculo.com/foto.jpg")],
+      { env: { ...env, PERMITIR_IMAGEM_DO_FEED: "true" }, buscar: buscar as never }
     );
 
     const e = [...escolhas.values()][0];
