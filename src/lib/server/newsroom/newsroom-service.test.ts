@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderEditionToHtml } from "./newsroom-service";
+import { identidadeDaPauta, renderEditionToHtml } from "./newsroom-service";
 import type { EditionContent } from "./schemas";
 
 function edicaoCom(overrides: Partial<EditionContent["stories"][number]> = {}): EditionContent {
@@ -65,5 +65,42 @@ describe("montagem do HTML da newsletter", () => {
     edicao.intro = '<img src=x onerror="alert(1)">';
 
     expect(renderEditionToHtml(edicao)).not.toContain("<img src=x");
+  });
+});
+
+describe("imagem da pauta", () => {
+  it("casa a foto pela identidade da pauta, não pela posição", () => {
+    const edicao = edicaoCom();
+    edicao.stories = [
+      { ...edicao.stories[0], title: "Primeira", source_url: "https://a.com/1" },
+      { ...edicao.stories[0], rank: 2, title: "Segunda", source_url: "https://b.com/2" },
+    ];
+
+    // Só a SEGUNDA pauta tem foto. Com array posicional e um filtro de vazios
+    // no caminho, essa foto aparecia na primeira.
+    const imagens = new Map([
+      [identidadeDaPauta(edicao.stories[1]), "https://img.com/segunda.jpg"],
+    ]);
+
+    const html = renderEditionToHtml(edicao, imagens);
+    const antesDaSegunda = html.slice(0, html.indexOf("Segunda"));
+    expect(antesDaSegunda).not.toContain("segunda.jpg");
+    expect(html).toContain("segunda.jpg");
+  });
+
+  it("pauta sem foto sai sem imagem, e não com uma foto qualquer", () => {
+    const html = renderEditionToHtml(edicaoCom(), new Map());
+    expect(html).not.toContain("<img src=\"https://images.unsplash.com");
+    expect(html).not.toContain("pexels-photo");
+  });
+});
+
+describe("chamada da análise de perfil", () => {
+  it("leva ao VisaMatch com a edição no utm_content", () => {
+    const html = renderEditionToHtml(edicaoCom(), new Map());
+    const hoje = new Date().toISOString().split("T")[0];
+    expect(html).toContain("visamatch.imigrareua.com");
+    expect(html).toContain(`utm_content=edicao-${hoje}`);
+    expect(html).toContain("Fazer a análise de perfil");
   });
 });

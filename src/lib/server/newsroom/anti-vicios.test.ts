@@ -53,3 +53,9 @@ describe("limpeza em profundidade", () => {
     expect(depois.nulo).toBeNull();
   });
 });
+
+describe("assinatura", () => {
+  it("não deixa ponto seguido de vírgula quando o travessão vinha depois do ponto", () => {
+    expect(semTravessao("Até amanhã. — imigra.us")).toBe("Até amanhã. imigra.us");
+  });
+});

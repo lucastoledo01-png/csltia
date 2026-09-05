@@ -18,11 +18,23 @@ import { rankAndFilterCandidates } from "./ranker";
 import { EditionContent } from "./schemas";
 import { sendAlert } from "../alerts";
 import { MARCA } from "@/lib/marca";
+import { linkDaNewsletter } from "@/lib/visamatch";
 import {
   bancoConfigurado,
   buscarFotoDeBanco,
   consultaDaNoticia,
 } from "../prompt-system/stock";
+import { carregarConfigEditorial } from "../editorial/config";
+import { criarProvedorOpenAI } from "../editorial/embeddings";
+import { criarHistoricoStore, gerarStoryId } from "../editorial/history";
+import type { RegistroHistorico } from "../editorial/history";
+import { avaliarPautas, registroDaPauta } from "../editorial/guarda";
+import { descreverModo, modoDaGuarda } from "../editorial/modo";
+import { paraRenderizacao, resolverImagens } from "../editorial/imagens";
+import { montarPacotesDasPautas } from "../editorial/pacote-factual";
+import type { PacoteFactual } from "../editorial/pacote-factual";
+import type { PautaAvaliada } from "../editorial/guarda";
+import type { RankedCandidate } from "./ranker";
 
 export type RunNewsroomOptions = {
   /** Projeto para o qual a edição é produzida. Sem valor, usa o projeto semente. */
@@ -35,20 +47,20 @@ export type RunNewsroomOptions = {
   autoSend?: boolean;
 };
 
-const fallbackImages = [
-  "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=1200&q=80",
-];
+/*
+ * Aqui havia cinco fotos fixas do Unsplash, todas de tecnologia, usadas como
+ * capa quando a edição não tinha imagem. Era o mesmo mecanismo das seis do
+ * coletor, com outro nome: foto sem relação com a pauta, escolhida por
+ * posição. A capa da edição agora é a foto da primeira pauta, e quando não
+ * existe foto a coluna fica nula.
+ */
 
 /**
  * HTML da edição.
  *
  * `paraWeb` decide o que fica de fora, e a distinção não é cosmética: a mesma
  * string ia para a caixa de entrada **e** para o corpo do artigo no portal.
- * Na página, o resultado era a edição duplicada — a página desenha o próprio
+ * Na página, o resultado era a edição duplicada, porque a página desenha o próprio
  * cabeçalho (título, data, resumo) e logo abaixo aparecia o cabeçalho do
  * e-mail com os mesmos dados, mais o índice repetindo todos os títulos, mais
  * o rodapé com "powered by" e o link de descadastro. Foi o que apareceu como
@@ -57,9 +69,23 @@ const fallbackImages = [
  * O que sai no modo web é só o que a página já provê ou o que só faz sentido
  * numa caixa de entrada. As pautas em si são idênticas nos dois.
  */
+/**
+ * Foto de cada pauta, endereçada pela identidade da pauta.
+ *
+ * Era um array posicional, e a posição mentia. Um `.filter(Boolean)` no meio
+ * do caminho deslocava os índices e cada pauta saía ilustrada com a foto da
+ * seguinte. Chave é a identidade da pauta, e identidade não desliza.
+ */
+export type ImagensDaEdicao = Map<string, string>;
+
+/** A mesma identidade usada no histórico editorial, para as duas pontas casarem. */
+export function identidadeDaPauta(story: { source_url?: string; title: string }): string {
+  return gerarStoryId({ url: story.source_url || undefined, titulo: story.title });
+}
+
 export function renderEditionToHtml(
   edition: EditionContent,
-  coverImages: string[] = [],
+  imagens: ImagensDaEdicao = new Map(),
   paraWeb = false,
 ): string {
   const todayStr = new Date().toISOString().split("T")[0];
@@ -73,7 +99,7 @@ export function renderEditionToHtml(
   // Tudo o que é texto fica em #1A1A1A ou #4A4A4A sobre branco. A auditoria do
   // template anterior achou o oposto disso: rótulo vermelho sobre cinza claro,
   // caixa amarela com texto âmbar, cinza médio sobre cinza claro. Cor de marca
-  // aqui é acento — fio, número, rótulo curto — nunca corpo de texto.
+  // aqui é acento (fio, número, rótulo curto), nunca corpo de texto.
   const TINTA = "#1A1A1A";
   const TINTA_SUAVE = "#4A4A4A";
   const LINHA = "#E4E4E7";
@@ -99,7 +125,7 @@ export function renderEditionToHtml(
   //
   // Numerado, sem emoji e sem caixa cinza. O emoji por categoria vinha de um
   // mapa da vertical antiga ("Redes Sociais", "Vendas") e caía num raio ⚡ para
-  // toda pauta de imigração — decoração que não informa nada.
+  // toda pauta de imigração, decoração que não informa nada.
   const tocHtml = edition.stories
     .map(
       (s, i) => `
@@ -132,7 +158,7 @@ export function renderEditionToHtml(
       const whatsappText = encodeURIComponent(
         `${s.title}\n\n${MARCA.site}/artigos/edicao-${todayStr}`,
       );
-      const imagem = safeHttpUrl(coverImages[index] || "", "");
+      const imagem = safeHttpUrl(imagens.get(identidadeDaPauta(s)) || "", "");
       const fonteUrl = safeHttpUrl(s.source_url);
 
       const linhaDaFonte = `
@@ -300,6 +326,28 @@ export function renderEditionToHtml(
             </table>
 
             ${/*
+              Análise de perfil. Vem antes do convite ao Instagram porque é a
+              única coisa aqui que responde à pergunta que levou a pessoa a
+              assinar: eu consigo? O link carrega a edição no utm_content, então
+              dá para saber qual edição converte.
+            */ ""}
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA};margin:0 0 24px 0;">
+              <tr><td style="background:${MARCA.fundoRealce};border:1px solid ${MARCA.bordaRealce};border-radius:14px;padding:28px 26px;">
+                ${rotulo("Análise de perfil", MARCA.cor)}
+                <div style="font-family:${fonte};font-size:21px;line-height:1.3;font-weight:800;color:${MARCA.tintaEscura};margin:0 0 10px 0;">
+                  Você pode morar nos Estados Unidos legalmente?
+                </div>
+                <p style="font-family:${fonte};font-size:15px;line-height:1.65;color:${TINTA_SUAVE};margin:0 0 20px 0;">
+                  Responda algumas perguntas sobre formação, profissão e situação atual
+                  e veja quais caminhos de visto existem para o seu caso. Leva poucos minutos.
+                </p>
+                <a href="${escapeHtml(linkDaNewsletter(todayStr))}" target="_blank" style="display:inline-block;background:${MARCA.tintaEscura};color:#FFFFFF;font-family:${fonte};font-size:15px;font-weight:800;padding:14px 30px;border-radius:999px;text-decoration:none;">
+                  Fazer a análise de perfil
+                </a>
+              </td></tr>
+            </table>
+
+            ${/*
               Convite ao Instagram. Depois do conteúdo: quem chegou aqui leu a
               edição, e é a essa pessoa que vale pedir o seguir.
             */ ""}
@@ -312,7 +360,7 @@ export function renderEditionToHtml(
                   A notícia do dia em uma imagem
                 </div>
                 <p style="font-family:${fonte};font-size:15px;line-height:1.6;color:#C8D6EC;margin:0 0 20px 0;">
-                  Mudança de regra, prazo e decisão que afeta brasileiros nos EUA — no
+                  Mudança de regra, prazo e decisão que afeta brasileiros nos EUA, no
                   formato que dá para ler no ônibus e mandar para quem precisa.
                 </p>
                 <a href="${MARCA.instagram}" target="_blank" style="display:inline-block;background:${MARCA.cor};color:#FFFFFF;font-family:${fonte};font-size:15px;font-weight:800;padding:14px 30px;border-radius:999px;text-decoration:none;">
@@ -331,7 +379,7 @@ export function renderEditionToHtml(
 
             ${/*
               Rodapé de caixa de entrada: quem somos, redes e descadastro. No
-              portal é ruído, e o link de descadastro chega a ser errado — a
+              portal é ruído, e o link de descadastro chega a ser errado, porque a
               página é pública e o visitante não assina lista nenhuma.
             */ ""}
             ${
@@ -343,11 +391,11 @@ export function renderEditionToHtml(
                 <p style="font-family:${fonte};font-size:14px;line-height:1.65;color:${TINTA_SUAVE};margin:0 0 14px 0;">
                   A <strong style="color:${TINTA};">${MARCA.nome}</strong> é uma newsletter diária e gratuita
                   sobre imigração para os Estados Unidos: mudanças de regra, prazos, decisões
-                  e o que elas significam para brasileiros — sempre com a fonte oficial ao lado.
+                  e o que elas significam para brasileiros, sempre com a fonte oficial ao lado.
                 </p>
                 <p style="font-family:${fonte};font-size:12px;line-height:1.6;color:#8A8A8F;margin:0 0 20px 0;">
                   Conteúdo informativo, não orientação jurídica. Regras de imigração mudam e cada
-                  caso tem particularidades — confirme na fonte citada ou com um advogado
+                  caso tem particularidades. Confirme na fonte citada ou com um advogado
                   licenciado antes de tomar qualquer decisão.
                 </p>
                 <p style="font-family:${fonte};font-size:13px;margin:0 0 16px 0;">
@@ -420,63 +468,248 @@ export async function runNewsroom(
   const { uniqueGroups, duplicatesCount } = deduplicateCandidates(collectionResult.candidates);
   console.log(`[NEWSROOM] ${uniqueGroups.length} grupos únicos após deduplicação (${duplicatesCount} duplicatas removidas).`);
 
-  const ranked = rankAndFilterCandidates(uniqueGroups);
-  console.log(`[NEWSROOM] ${ranked.length} pautas classificadas por relevância e limite de marca.`);
+  /*
+   * A seleção do dia.
+   *
+   * Com a guarda ligada, quem escolhe é a camada editorial: classificação de
+   * país e leitura, filtro da linha editorial, verificação de repetição contra
+   * os últimos 30 dias e nota que não depende de vocabulário de vertical.
+   *
+   * Sem ela, segue o ranker antigo, que soma ocorrência de "model", "gpt" e
+   * "benchmark". Numa publicação de imigração isso empata todas as pautas no
+   * piso e a seleção vira a ordem do feed. A chave existe para o período de
+   * validação, não para ser um modo de operação permanente.
+   */
+  const configEditorial = carregarConfigEditorial(env);
+  const modo = modoDaGuarda(env);
+  console.log(`[NEWSROOM] Guarda editorial ${descreverModo(modo)} (EDITORIAL_GUARD=${modo}).`);
 
-  if (ranked.length < 4) {
-    throw new Error(`Número insuficiente de notícias qualificadas coletadas (${ranked.length}, mínimo 4).`);
+  let ranked: RankedCandidate[];
+  let pautasDaGuarda: PautaAvaliada[] = [];
+  // Guardado para a escolha de imagem, que precisa saber o que já foi usado.
+  let historicoDaGuarda: RegistroHistorico[] = [];
+
+  if (modo !== "off") {
+    const store = criarHistoricoStore(getSupabaseAdminClient());
+    const historico = await store.janela(project.id, configEditorial.janelaDeDias);
+    historicoDaGuarda = historico;
+    console.log(
+      `[NEWSROOM] ${historico.length} registros no histórico de ${configEditorial.janelaDeDias} dias.`,
+    );
+
+    const resultado = await avaliarPautas(uniqueGroups, {
+      canal: "newsletter",
+      historico,
+      config: configEditorial,
+      provedorDeVetor: criarProvedorOpenAI(env, fetcher),
+      env,
+      fetcher,
+    });
+
+    for (const linha of resultado.linhasDeLog) console.log(linha);
+
+    const daGuarda: RankedCandidate[] = resultado.selecionadas.map((p) => ({
+      group: p.grupo,
+      score: p.pontuacao.total,
+      breakdown: {
+        impact: p.pontuacao.partes.relevancia,
+        novelty: p.pontuacao.partes.ineditismo,
+        utility: 0,
+        credibility: p.pontuacao.partes.credibilidade,
+      },
+      reasoning: `${p.pontuacao.explicacao} | ${p.classificacao.pais} | ${p.classificacao.eixo}`,
+    }));
+
+    if (modo === "dry_run") {
+      // Observação: a guarda rodou inteira e o log acima diz o que ela faria.
+      // A edição continua saindo pelo caminho antigo, então nada do que ela
+      // decidiu chega ao leitor. O histórico também não é gravado aqui: quem
+      // publicou foi o fluxo antigo, e o backfill recupera essas edições
+      // quando a guarda assumir.
+      console.log(
+        `[NEWSROOM] Em observação, a guarda escolheria ${resultado.selecionadas.length} pauta(s) ` +
+          `e recusaria ${resultado.recusadas.length}. A edição de hoje segue pelo fluxo antigo.`,
+      );
+      if (!resultado.viavel) {
+        console.log(`[NEWSROOM] Em enforce, a edição de hoje não sairia: ${resultado.motivoDaInviabilidade}.`);
+      }
+
+      ranked = rankAndFilterCandidates(uniqueGroups);
+      if (ranked.length < 4) {
+        throw new Error(`Número insuficiente de notícias qualificadas coletadas (${ranked.length}, mínimo 4).`);
+      }
+    } else {
+      if (!resultado.viavel) {
+        // Sem pauta suficiente, a edição não sai. A alternativa seria
+        // completar com o que o filtro recusou, e completar com o que o filtro
+        // recusou é não ter filtro.
+        throw new Error(
+          `Edição não fecha hoje: ${resultado.motivoDaInviabilidade}. ` +
+            `${resultado.recusadas.length} pautas recusadas pela linha editorial.`,
+        );
+      }
+
+      pautasDaGuarda = resultado.selecionadas;
+      ranked = daGuarda;
+    }
+  } else {
+    ranked = rankAndFilterCandidates(uniqueGroups);
+    console.log(`[NEWSROOM] ${ranked.length} pautas classificadas pelo ranker antigo.`);
+
+    if (ranked.length < 4) {
+      throw new Error(`Número insuficiente de notícias qualificadas coletadas (${ranked.length}, mínimo 4).`);
+    }
+  }
+
+  /*
+   * Pacote factual das pautas escolhidas.
+   *
+   * Só existe quando a guarda selecionou: é ela que traz o texto da matéria
+   * enriquecido, e sem esse texto o extrator leria a manchete de novo.
+   */
+  const pacotes = new Map<string, PacoteFactual>();
+  if (pautasDaGuarda.length > 0) {
+    const r = await montarPacotesDasPautas(
+      pautasDaGuarda.map((p) => ({
+        url: p.grupo.primary.url,
+        titulo: p.grupo.primary.title,
+        texto: p.enriquecimento.texto,
+        urls: [p.grupo.primary.url, ...p.grupo.secondary_urls],
+      })),
+      env,
+      fetcher,
+    );
+
+    for (const [url, pacote] of r.pacotes) pacotes.set(url, pacote);
+    console.log(`[NEWSROOM] Pacote factual montado para ${r.pacotes.size} de ${pautasDaGuarda.length} pautas.`);
+    for (const falha of r.falhas) console.warn(`[NEWSROOM] Pacote factual falhou: ${falha}`);
   }
 
   console.log("[NEWSROOM] Executando pipeline editorial da OpenAI...");
 
   // A voz da edição vem do projeto, não de uma constante no código. Sem isto,
-  // trocar a vertical no banco mudava as fontes e não mudava o texto — o
+  // trocar a vertical no banco mudava as fontes e não mudava o texto: o
   // sistema coletava imigração e escrevia como se fosse notícia de IA.
-  const pipelineResult = await runNewsroomPipeline(ranked, env, fetcher, {
-    nome: project.brand.displayName || project.name,
-    nicho: project.niche,
-    extra: project.editorialPromptExtra,
-    assinatura:
-      String(project.settings?.final_line ?? "").trim() ||
-      `Até amanhã. — ${project.brand.displayName || project.name}`,
-  });
+  const pipelineResult = await runNewsroomPipeline(
+    ranked,
+    env,
+    fetcher,
+    {
+      nome: project.brand.displayName || project.name,
+      nicho: project.niche,
+      extra: project.editorialPromptExtra,
+      assinatura:
+        String(project.settings?.final_line ?? "").trim() ||
+        `Até amanhã. Equipe ${project.brand.displayName || project.name}.`,
+    },
+    // Quando quem selecionou foi o fluxo antigo, os limites antigos valem:
+    // ele não passou por filtro editorial e continua entregando de 4 a 6.
+    pautasDaGuarda.length > 0
+      ? { minimo: configEditorial.minimoDePautas, maximo: configEditorial.maximoDePautas }
+      : { minimo: 4, maximo: 6 },
+    pacotes,
+    configEditorial.maximoDeReparos,
+    configEditorial.notaMinimaDeQA,
+  );
 
   /*
-   * Uma foto por pauta, na ordem das pautas.
+   * Afirmação sem sustentação é bloqueio, não apontamento.
    *
-   * Duas coisas estavam erradas aqui.
-   *
-   * A primeira: a imagem vinha do RSS, e feed de agregador traz a arte
-   * genérica do publicador — foi assim que uma matéria sobre custódia do ICE
-   * saiu com uma estante de livros e outra sobre o USCIS com uma placa de
-   * circuito. Agora a foto sai do banco de imagem, buscada pelo assunto da
-   * pauta; a do feed vira reserva.
-   *
-   * A segunda, mais silenciosa: `.filter(Boolean)` removia os vazios e
-   * **deslocava os índices**. Se a pauta 1 não tinha imagem e a 2 tinha, a
-   * foto da 2 aparecia na 1 — cada pauta seguinte ilustrada com a foto de
-   * outra. O array agora é posicional e admite vazio.
+   * A conferência é determinística e roda depois do auditor: ela compara nome
+   * próprio, número e data do texto contra o pacote. Em enforce, uma única
+   * afirmação sem lastro impede a edição de sair, mesmo com nota alta. Errar
+   * um requisito de imigração custa o status migratório de alguém, e nota 90
+   * não conserta um número inventado.
    */
-  const usarBanco = bancoConfigurado();
-  const coverImages = await Promise.all(
-    pipelineResult.edition.stories.map(async (story, i) => {
-      const doFeed = pipelineResult.selectedCandidates[i]?.image_url ?? "";
+  if (pipelineResult.tentativasDeReparo > 0) {
+    console.log(
+      `[NEWSROOM] Ciclo de correção: ${pipelineResult.tentativasDeReparo} tentativa(s).`,
+    );
+    for (const r of pipelineResult.rodadasDeReparo) {
+      console.log(
+        `[NEWSROOM] tentativa ${r.tentativa}: recebeu ${r.problemasRecebidos.length}, ` +
+          `restaram ${r.problemasRestantes.length}`,
+      );
+    }
+  }
 
-      if (usarBanco) {
-        try {
-          const foto = await buscarFotoDeBanco(consultaDaNoticia(story.title, story.category));
-          if (foto) return foto.imagemUrl;
-        } catch {
-          /* banco fora do ar não pode custar a edição */
-        }
-      }
+  /*
+   * O veredito final da guarda.
+   *
+   * Três conferências, e as três precisam passar: ancoragem dura (nome, número
+   * e data), claims semânticas (consequência, impacto, causa, comparação,
+   * tendência, previsão) e o auditor. Uma edição pode ter nota alta e ainda
+   * afirmar que uma medida encarece compras quando o material não diz o que a
+   * medida faz. Nota não conserta isso.
+   */
+  const semLastro = pipelineResult.ancoragem.filter((a) => !a.ancorado);
+  const claimsSoltas = pipelineResult.claimsSemanticas.naoSustentadas;
 
-      return doFeed;
-    }),
+  if (semLastro.length > 0) {
+    const detalhe = semLastro
+      .map((a) => `"${a.titulo}": ${a.naoSustentadas.map((c) => `${c.tipo} ${c.valor}`).join(", ")}`)
+      .join(" | ");
+    console.error(`[NEWSROOM] Afirmações sem lastro no pacote factual: ${detalhe}`);
+  }
+
+  if (claimsSoltas.length > 0) {
+    console.error(
+      `[NEWSROOM] Conclusões sem sustentação: ` +
+        claimsSoltas.map((c) => `${c.tipo}: "${c.trecho}"`).join(" | "),
+    );
+  }
+
+  if (pipelineResult.claimsSemanticas.erro) {
+    console.error(
+      `[NEWSROOM] Auditoria de conclusões não rodou: ${pipelineResult.claimsSemanticas.erro}. ` +
+        "Isso NÃO é aprovação.",
+    );
+  }
+
+  if (pipelineResult.problemasRestantes.length > 0) {
+    // Imprecisão que sobrou depois do reparo. Não bloqueia, mas fica no log:
+    // é o que aparece na errata de amanhã se ninguém olhar.
+    for (const p of pipelineResult.problemasRestantes) {
+      console.warn(`[NEWSROOM] apontamento não resolvido: ${p.descricao}`);
+    }
+  }
+
+  if (!pipelineResult.aprovado && modo === "enforce") {
+    throw new Error(
+      `Edição bloqueada depois de ${pipelineResult.tentativasDeReparo} tentativa(s) de correção ` +
+        `(QA ${pipelineResult.qaResult.score}): ${pipelineResult.bloqueios.join(" | ")}`,
+    );
+  }
+
+  /*
+   * Uma foto por pauta, endereçada pela identidade da pauta.
+   *
+   * A escolha inteira mora em `resolverImagens`, e não aqui, porque o mesmo
+   * caminho precisa rodar no preview de validação. Preview que exercita outro
+   * código não valida nada.
+   */
+  const escolhasDeImagem = await resolverImagens(
+    pipelineResult.edition.stories.map((story, i) => ({
+      titulo: story.title,
+      categoria: story.category,
+      sourceUrl: story.source_url,
+      imagemDoFeed: pipelineResult.selectedCandidates[i]?.image_url ?? "",
+    })),
+    { historico: historicoDaGuarda, janelaEmDias: configEditorial.janelaDeImagemEmDias, env },
   );
-  const htmlContent = renderEditionToHtml(pipelineResult.edition, coverImages);
+
+  for (const escolha of escolhasDeImagem.values()) {
+    console.log(
+      `[NEWSROOM] imagem ${escolha.imageSource} :: ${escolha.titulo.slice(0, 60)} :: ${escolha.motivo}` +
+        (escolha.descartadaPorRepeticao ? ` :: descartada: ${escolha.descartadaPorRepeticao}` : ""),
+    );
+  }
+
+  const imagensDaEdicao: ImagensDaEdicao = paraRenderizacao(escolhasDeImagem);
+
+  const htmlContent = renderEditionToHtml(pipelineResult.edition, imagensDaEdicao);
   // Versão sem o cromo de e-mail, para o corpo do artigo no portal.
-  const htmlParaPortal = renderEditionToHtml(pipelineResult.edition, coverImages, true);
+  const htmlParaPortal = renderEditionToHtml(pipelineResult.edition, imagensDaEdicao, true);
   const wordCount = htmlContent.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
   const executionTimeMs = Date.now() - startTime;
 
@@ -535,6 +768,52 @@ export async function runNewsroom(
       if (editionErr) throw new Error(editionErr.message);
       editionId = editionRow?.id;
       console.log(`[NEWSROOM] Edição ${todayStr} gravada em news_editions (${editionId}).`);
+
+      /*
+       * Histórico editorial da edição.
+       *
+       * Sem esta gravação a verificação de repetição nunca aprende: ela
+       * consulta uma tabela que ninguém alimenta, que foi exatamente o que
+       * aconteceu com `news_candidates.dedupe_key`, coluna existente e vazia
+       * desde sempre.
+       *
+       * Escreve depois da edição gravada, e só o que de fato entrou nela. E
+       * não derruba o dia se falhar: a edição já está publicada, e o preço de
+       * um registro perdido é uma pauta que pode se repetir, não uma edição
+       * que não sai.
+       */
+      if (pautasDaGuarda.length > 0) {
+        try {
+          const store = criarHistoricoStore(supabase);
+          const porUrl = new Map(pautasDaGuarda.map((p) => [p.grupo.primary.url, p]));
+
+          // Percorre as pautas da edição, não as da guarda: a foto é indexada
+          // pela ordem das pautas publicadas, e casar por posição em outra
+          // lista foi o que já ilustrou uma pauta com a foto de outra.
+          const registros = pipelineResult.edition.stories
+            .map((story) => {
+              const pauta = porUrl.get(story.source_url);
+              if (!pauta) return null;
+              return registroDaPauta(pauta, {
+                projectId: project.id,
+                canal: "newsletter",
+                newsletterId: editionId,
+                imagemUrl: imagensDaEdicao.get(identidadeDaPauta(story)) || null,
+                publicadoEm: new Date().toISOString(),
+              });
+            })
+            .filter((r): r is NonNullable<typeof r> => r !== null);
+
+          const gravados = await store.registrar(registros);
+          console.log(
+            `[NEWSROOM] Histórico editorial: ${gravados} de ${registros.length} pautas registradas.`,
+          );
+        } catch (histErr) {
+          console.error(
+            `[NEWSROOM] Histórico editorial não gravado: ${histErr instanceof Error ? histErr.message : String(histErr)}`,
+          );
+        }
+      }
     } catch (edErr) {
       // Sem a edição gravada os posts do dia não têm de onde sair, então a
       // falha interrompe em vez de seguir para a publicação.
@@ -548,7 +827,18 @@ export async function runNewsroom(
     try {
       const supabase = getSupabaseAdminClient();
       const articleSlug = `edicao-${todayStr}`;
-      const primaryCoverImage = coverImages[0] || fallbackImages[0];
+      /*
+       * Capa do artigo: a foto da primeira pauta desta edição, ou nada.
+       *
+       * O upsert casa por (project_id, slug), e o slug é a data. Quando a
+       * coluna não recebia valor confiável, a linha existente ficava com a
+       * capa da execução anterior, e a edição de hoje aparecia no portal com
+       * a foto de ontem. Escrever `null` explicitamente é o que impede essa
+       * herança: ausência de foto passa a ser um valor, não a omissão que
+       * deixa o valor velho no lugar.
+       */
+      const primaryCoverImage =
+        imagensDaEdicao.get(identidadeDaPauta(pipelineResult.edition.stories[0])) || null;
 
       const { data: articleData, error: articleErr } = await supabase
         .from("articles")
@@ -594,11 +884,11 @@ export async function runNewsroom(
   if (createNewsletterCampaign) {
     try {
       const listmonk = createListmonkClient(env, fetcher);
-      const campaignName = `${MARCA.nome} — Edição ${todayStr}`;
+      const campaignName = `${MARCA.nome}, edição ${todayStr}`;
       // O portão olha `hallucination_risk`, não `passed`.
       //
       // `passed` é o veredito genérico que o checador autodeclara, e ele
-      // reprova por tom, gramática ou qualquer implicância — custando a
+      // reprova por tom, gramática ou qualquer implicância, custando a
       // newsletter inteira do dia. O dano que justifica não enviar é um só:
       // fato inventado chegando à lista. Isso não se desfaz com errata.
       //
@@ -635,7 +925,7 @@ export async function runNewsroom(
   }
 
   // Os posts do dia são agendados aqui, não gerados. A edição vira várias
-  // vagas — uma pauta por post, espalhadas ao longo do dia — e o worker de
+  // vagas (uma pauta por post, espalhadas ao longo do dia) e o worker de
   // renderização processa cada uma no horário. A geração exige Chromium, que
   // não roda na hospedagem que serve o site.
   let scheduledPosts: ScheduledPostSlot[] = [];

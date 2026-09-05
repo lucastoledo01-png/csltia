@@ -19,37 +19,47 @@ export type NewsCandidate = {
 };
 
 /*
- * Reserva de capa, quando a fonte nao traz imagem.
+ * Não existe reserva de capa aqui.
  *
- * A lista anterior era de fotos de codigo, servidor e circuito, da vertical de
- * IA. Ela nao some sozinha na troca de nicho: foi ela que colocou uma placa de
- * circuito na materia sobre o ICE de hoje, porque a escolha e por hash do
- * titulo e nao tem nada a ver com o assunto.
+ * Existia: seis fotos fixas, escolhidas por hash do título. Como o hash não
+ * sabe do que a notícia trata, a matéria sobre custódia do ICE saiu com uma
+ * placa de circuito e a do USCIS com uma estante de livros, sempre as mesmas
+ * seis, repetidas semana após semana. Trocar as seis fotos por outras seis
+ * seria o mesmo mecanismo com outra cara.
  *
- * Segue sendo reserva, nao caminho normal. O pipeline busca no banco de
- * imagens primeiro; isto so aparece quando nada mais aparece.
+ * Sem imagem no feed, o campo fica vazio. Quem procura foto pelo ASSUNTO da
+ * pauta é o pipeline, no banco de imagens. Vazio é um estado honesto; foto
+ * errada é informação errada.
  */
-const DEFAULT_EDITORIAL_IMAGES = [
-  "https://images.pexels.com/photos/1550337/pexels-photo-1550337.jpeg?auto=compress&cs=tinysrgb&w=1200",
-  "https://images.pexels.com/photos/1051075/pexels-photo-1051075.jpeg?auto=compress&cs=tinysrgb&w=1200",
-  "https://images.pexels.com/photos/6077326/pexels-photo-6077326.jpeg?auto=compress&cs=tinysrgb&w=1200",
-  "https://images.pexels.com/photos/5668858/pexels-photo-5668858.jpeg?auto=compress&cs=tinysrgb&w=1200",
-  "https://images.pexels.com/photos/373912/pexels-photo-373912.jpeg?auto=compress&cs=tinysrgb&w=1200",
-  "https://images.pexels.com/photos/5473955/pexels-photo-5473955.jpeg?auto=compress&cs=tinysrgb&w=1200",
-];
 
-function getRandomFallbackImage(seedStr: string): string {
-  let hash = 0;
-  for (let i = 0; i < seedStr.length; i++) {
-    hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = Math.abs(hash) % DEFAULT_EDITORIAL_IMAGES.length;
-  return DEFAULT_EDITORIAL_IMAGES[index];
+/**
+ * Desfaz as entidades antes de tirar as tags.
+ *
+ * O feed do Google News entrega a descrição com o HTML JÁ ESCAPADO:
+ * `&lt;a href="..."&gt;Título&lt;/a&gt;&amp;nbsp;&lt;font&gt;Veículo&lt;/font&gt;`.
+ * O removedor de tags não via tag nenhuma ali, então essa sopa inteira passava
+ * adiante como se fosse o resumo da notícia. Ela virou o texto enviado ao
+ * classificador, ao gerador de vetor e ao redator, o que explica as edições
+ * dizendo "a fonte não informa" em toda pauta: a fonte informava, o que chegou
+ * ao modelo é que era marcação.
+ */
+function decodificarEntidades(texto: string): string {
+  return texto
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    // O & fica por último, senão desfaz as próprias entidades acima.
+    .replace(/&amp;/g, "&");
 }
 
 function cleanText(html: string): string {
   if (!html) return "";
-  return html
+  // Duas passadas: a primeira desfaz o escape, a segunda pega o que estava
+  // escapado dentro do escape, que é o caso do Google News.
+  return decodificarEntidades(decodificarEntidades(html))
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
     .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, "")
@@ -58,6 +68,39 @@ function cleanText(html: string): string {
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * O que sobra da descrição depois de tirar o que é repetição do título.
+ *
+ * Agregador devolve descrição que é o título de novo mais o nome do veículo.
+ * Isso não é resumo: é a manchete escrita duas vezes. Deixar passar como se
+ * fosse conteúdo faz o classificador julgar pelo título achando que leu a
+ * matéria, e faz o redator escrever "a fonte não informa" parágrafo após
+ * parágrafo.
+ *
+ * Devolve vazio nesse caso. Vazio é verdade, e quem lê o vazio decide o que
+ * fazer com ele.
+ */
+export function corpoUtil(descricao: string, titulo: string): string {
+  const limpo = descricao.trim();
+  if (!limpo) return "";
+
+  const normalizar = (t: string) =>
+    t
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9 ]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const semTitulo = normalizar(limpo).replace(normalizar(titulo), "").trim();
+  // Sobrando menos que meia dúzia de palavras, o que ficou é o nome do
+  // veículo e resto de marcação, não informação.
+  if (semTitulo.split(" ").filter(Boolean).length < 6) return "";
+
+  return limpo;
 }
 
 function generateDedupeKey(title: string, url: string): string {
@@ -75,9 +118,12 @@ function generateDedupeKey(title: string, url: string): string {
   }
 }
 
+/**
+ * Lê os itens do feed. Não recebe mais a fonte: ela só era usada para
+ * escolher a foto de reserva por hash do título, que deixou de existir.
+ */
 export function parseRSSItems(
-  xml: string,
-  source: NewsSourceConfig
+  xml: string
 ): Array<{ title: string; url: string; publishedAt: string; description: string; content: string; author?: string; imageUrl?: string }> {
   const items: Array<{ title: string; url: string; publishedAt: string; description: string; content: string; author?: string; imageUrl?: string }> = [];
 
@@ -131,14 +177,17 @@ export function parseRSSItems(
       const pubDate = rawDate ? new Date(rawDate) : new Date();
       const validDate = isNaN(pubDate.getTime()) ? new Date() : pubDate;
 
+      const titulo = cleanText(rawTitle);
+      const corpo = corpoUtil(cleanText(rawDesc), titulo);
+
       items.push({
-        title: cleanText(rawTitle),
+        title: titulo,
         url: rawLink,
         publishedAt: validDate.toISOString(),
-        description: cleanText(rawDesc).slice(0, 600),
-        content: cleanText(rawDesc).slice(0, 1500),
+        description: corpo.slice(0, 600),
+        content: corpo.slice(0, 1500),
         author: rawAuthor ? cleanText(rawAuthor) : undefined,
-        imageUrl: extractedImgUrl || getRandomFallbackImage(rawTitle),
+        imageUrl: extractedImgUrl || "",
       });
     }
   }
@@ -251,7 +300,7 @@ export async function collectFromSource(
             }
 
             const xmlText = await res.text();
-            return parseRSSItems(xmlText, source);
+            return parseRSSItems(xmlText);
           })();
 
     const filtered = rawItems.filter((item) => matchesKeywords(item, source.keywords));
@@ -268,7 +317,7 @@ export async function collectFromSource(
       description: item.description,
       content: item.content,
       category: source.category,
-      image_url: item.imageUrl || getRandomFallbackImage(item.title),
+      image_url: item.imageUrl || "",
       score: source.priority === 1 ? 75 : 60,
       dedupe_key: generateDedupeKey(item.title, item.url),
       window_hours: 24,
@@ -279,33 +328,65 @@ export async function collectFromSource(
   }
 }
 
+/**
+ * Quanto tempo para trás cada fonte enxerga.
+ *
+ * A janela era uma só, de 24h, e só abria quando sobravam menos de QUATRO
+ * candidatas no total. Como as buscas de fiscalização trazem sessenta itens
+ * por dia sozinhas, o total nunca ficava abaixo de quatro, e a janela nunca
+ * abria. O resultado é que fonte oficial, que publica a cada dois ou três
+ * dias, ficava permanentemente de fora: no dia em que ela tinha algo, o
+ * agregador já tinha enchido a cota.
+ *
+ * Agora a janela é da fonte. Órgão público entra com 72h porque publica devagar
+ * e o que publica continua valendo; agregador fica em 24h porque o que ele tem
+ * de ontem já foi visto.
+ *
+ * Isso não faz notícia velha ganhar da nova: a nota do frescor cai com as
+ * horas, e uma pauta de 72h só é escolhida quando não há melhor.
+ */
+export function janelaDaFonte(source: NewsSourceConfig): number {
+  const dominio = (() => {
+    try {
+      return new URL(source.url).hostname.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
+  })();
+
+  // Agregador é o único que fica em 24h. Ele republica o dia inteiro e o que
+  // tinha ontem já passou pela coleta de ontem.
+  if (dominio === "news.google.com" || dominio === "news.yahoo.com") return 24;
+
+  // O resto entra com 72h. Órgão público publica a cada dois ou três dias, e
+  // escritório de imigração publica análise duas vezes por semana: com 24h,
+  // essas fontes apareciam vazias em quase toda rodada, e são justamente as
+  // que entregam texto de verdade. Veículo de alto volume também ganha as 72h
+  // sem prejuízo, porque a deduplicação corta o repetido e a nota do frescor
+  // coloca o que é de hoje na frente.
+  return 72;
+}
+
 export async function collectAllNews(
   sources: NewsSourceConfig[],
   fetcher: typeof fetch = fetch
 ): Promise<{ candidates: NewsCandidate[]; sourcesAttempted: number; windowHours: number }> {
   const activeSources = sources.filter((s) => s.enabled);
-  const results = await Promise.all(activeSources.map((source) => collectFromSource(source, fetcher)));
+  const results = await Promise.all(
+    activeSources.map(async (source) => {
+      const janela = janelaDaFonte(source);
+      const itens = await collectFromSource(source, fetcher);
+      return filterByWindow(itens, Date.now(), janela).map((c) => ({ ...c, window_hours: janela }));
+    }),
+  );
 
-  const allCollected = results.flat();
-  const now = Date.now();
-
-  let windowHours = 24;
-  let filtered = filterByWindow(allCollected, now, windowHours);
-
-  if (filtered.length < 4) {
-    windowHours = 36;
-    filtered = filterByWindow(allCollected, now, windowHours);
-  }
-
-  if (filtered.length < 4) {
-    windowHours = 48;
-    filtered = filterByWindow(allCollected, now, windowHours);
-  }
+  const filtered = results.flat();
+  const janelaMaxima = activeSources.reduce((maior, s) => Math.max(maior, janelaDaFonte(s)), 24);
 
   return {
-    candidates: filtered.map((c) => ({ ...c, window_hours: windowHours })),
+    candidates: filtered,
     sourcesAttempted: activeSources.length,
-    windowHours,
+    windowHours: janelaMaxima,
   };
 }
 

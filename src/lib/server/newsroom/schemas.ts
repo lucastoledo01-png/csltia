@@ -26,7 +26,10 @@ export const EditionContentSchema = z.object({
   preheader: z.string().min(30).max(120),
   headline: z.string().min(10),
   intro: z.string().min(40).max(800),
-  stories: z.array(EditionStorySchema).min(4).max(6),
+  // 2 a 6, não 4 a 6. O mínimo de verdade é decidido pela configuração
+  // editorial; aqui só se recusa o que não é edição. Deixar 4 aqui faria toda
+  // edição de dia magro ser recusada na validação, depois de paga.
+  stories: z.array(EditionStorySchema).min(2).max(6),
   quick_bits: z.array(EditionQuickBitSchema).optional().default([]),
   closing: z.string().min(10),
   /**

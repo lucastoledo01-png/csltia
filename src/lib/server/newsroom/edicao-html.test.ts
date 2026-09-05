@@ -40,7 +40,7 @@ const EDICAO: EditionContent = {
 
 describe("HTML da edição", () => {
   it("no e-mail traz cabeçalho, índice e rodapé", () => {
-    const html = renderEditionToHtml(EDICAO, []);
+    const html = renderEditionToHtml(EDICAO, new Map());
 
     expect(html).toContain("Nesta edição");
     expect(html).toContain("Quem somos");
@@ -48,7 +48,7 @@ describe("HTML da edição", () => {
   });
 
   it("no portal não repete o que a página já mostra", () => {
-    const html = renderEditionToHtml(EDICAO, [], true);
+    const html = renderEditionToHtml(EDICAO, new Map(), true);
 
     // A página já tem título e data no topo.
     expect(html).not.toContain("Nesta edição");
@@ -66,7 +66,7 @@ describe("HTML da edição", () => {
     // A contagem é sobre o texto visível, não sobre a string bruta: o título
     // também aparece dentro do href de compartilhamento do WhatsApp, e isso
     // ninguém lê.
-    const visivel = renderEditionToHtml(EDICAO, [], true).replace(/<[^>]+>/g, " ");
+    const visivel = renderEditionToHtml(EDICAO, new Map(), true).replace(/<[^>]+>/g, " ");
     const ocorrencias = visivel.split("Primeira pauta da edição").length - 1;
 
     expect(ocorrencias).toBe(1);
@@ -75,8 +75,8 @@ describe("HTML da edição", () => {
   it("as pautas em si são idênticas nas duas versões", () => {
     // O corte é de cromo, não de conteúdo. Se uma pauta sumir do portal, o
     // artigo publicado deixa de corresponder ao e-mail enviado.
-    const email = renderEditionToHtml(EDICAO, []);
-    const portal = renderEditionToHtml(EDICAO, [], true);
+    const email = renderEditionToHtml(EDICAO, new Map());
+    const portal = renderEditionToHtml(EDICAO, new Map(), true);
 
     for (const trecho of [
       "Primeira pauta da edição",
