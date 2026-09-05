@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { FooterBrandMark, SiteHeader } from "@/components/SiteHeader";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
-import { articles } from "@/lib/editorial";
+import { articles as artigosDeBase, type Article } from "@/lib/editorial";
 import { MARCA } from "@/lib/marca";
 
 const faqs = [
@@ -55,7 +55,7 @@ function Hero() {
   );
 }
 
-function RecentArticlesFeed() {
+function RecentArticlesFeed({ listaDeArtigos }: { listaDeArtigos: Article[] }) {
   return (
     <section className="border-t border-[#f3f4f6] bg-[#fafafa] px-4 py-16 sm:px-6">
       <div className="mx-auto max-w-[760px]">
@@ -70,7 +70,7 @@ function RecentArticlesFeed() {
         </div>
 
         <div className="mt-4 divide-y divide-[#e5e7eb]">
-          {articles.slice(0, 4).map((art) => (
+          {listaDeArtigos.slice(0, 4).map((art) => (
             <article key={art.slug} className="group py-6">
               <div className="grid gap-6 md:grid-cols-[1fr_200px] items-center">
                 <div>
@@ -168,12 +168,29 @@ function Footer() {
   );
 }
 
-export default function JournalIndex() {
+/**
+ * A home listava só os artigos escritos no código.
+ *
+ * As edições diárias, que são o conteúdo vivo do site, nunca apareciam ali:
+ * elas vivem no banco. A lista da vertical antiga ficou no ar depois da troca
+ * porque nada nesta tela lia o banco.
+ *
+ * A busca acontece na página, que é server component de verdade, e chega aqui
+ * por propriedade. Fazer este componente `async` seria mais curto e quebraria
+ * todo teste de render: biblioteca de teste não monta server component
+ * assíncrono. O padrão continua sendo buscar em cima e passar para baixo.
+ */
+export default function JournalIndex({
+  listaDeArtigos = artigosDeBase,
+}: {
+  listaDeArtigos?: Article[];
+}) {
+
   return (
     <main className="min-h-screen bg-white text-[#111827]">
       <SiteHeader />
       <Hero />
-      <RecentArticlesFeed />
+      <RecentArticlesFeed listaDeArtigos={listaDeArtigos} />
       <FaqSection />
       <Footer />
     </main>

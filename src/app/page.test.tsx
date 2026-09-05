@@ -1,6 +1,15 @@
 import { render, screen } from "@testing-library/react";
-import Home from "./page";
+import JournalIndex from "@/components/JournalIndex";
 import { MARCA } from "@/lib/marca";
+
+/**
+ * Renderiza `JournalIndex`, não `Home`.
+ *
+ * `Home` passou a ser server component assíncrono: ele busca os artigos
+ * publicados e passa para baixo. Biblioteca de teste não monta componente
+ * assíncrono, e o que estes testes verificam é a marcação, que vive aqui.
+ */
+const Home = JournalIndex;
 
 describe("home do portal", () => {
   it("exibe o formulário de inscrição na newsletter", () => {
