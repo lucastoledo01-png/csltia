@@ -13,6 +13,7 @@ function classificacao(over: Partial<Classificacao> = {}): Classificacao {
     imigracao: true,
     leitura: "oportunidade",
     eixo: "processo",
+    natureza: "official_action",
     relevancia: 5,
     atores: ["USCIS"],
     lugares: ["EUA"],

@@ -392,11 +392,19 @@ async function main() {
 
       escrever(`Matéria escrita a partir dela: "${conferencia.titulo}"`);
       escrever(
-        `Conferência: ${conferencia.conferidos} afirmações conferidas, ` +
+        `hard_fact_grounding: ${conferencia.conferidos} afirmações conferidas, ` +
           (conferencia.ancorado ? "nenhuma sem lastro" : "COM AFIRMAÇÃO SEM LASTRO")
       );
       for (const c of conferencia.naoSustentadas) {
         escrever(`- ${c.severidade}: ${c.tipo} "${c.valor}" em "${c.onde}"`);
+      }
+      escrever();
+
+      const claimsDaPauta = edicao.claimsSemanticas.claims.filter((c) => c.pauta === posicao);
+      escrever(`semantic_claim_grounding: ${claimsDaPauta.length} conclusão(ões) auditada(s)`);
+      for (const c of claimsDaPauta) {
+        escrever(`- ${c.sustentada ? "sustentada" : "SEM SUSTENTAÇÃO"} (${c.tipo}): "${c.trecho}"`);
+        if (c.motivo) escrever(`  ${c.motivo}`);
       }
       escrever();
     }
@@ -405,6 +413,22 @@ async function main() {
     const avisos = edicao.ancoragem.flatMap((a) =>
       a.naoSustentadas.filter((c) => c.severidade === "aviso")
     );
+
+    escrever("### Ciclo de correção");
+    escrever();
+    escrever(`Tentativas: ${edicao.tentativasDeReparo} (teto ${2})`);
+    for (const r of edicao.rodadasDeReparo) {
+      escrever(
+        `- tentativa ${r.tentativa}: recebeu ${r.problemasRecebidos.length} apontamento(s), ` +
+          `restaram ${r.problemasRestantes.length}`
+      );
+      for (const d of r.problemasRecebidos) escrever(`  corrigir: ${d}`);
+      for (const d of r.problemasRestantes) escrever(`  ainda aberto: ${d}`);
+    }
+    if (edicao.claimsSemanticas.erro) {
+      escrever(`Auditoria de conclusões não rodou: ${edicao.claimsSemanticas.erro}. Isso não é aprovação.`);
+    }
+    escrever();
     escrever(
       semLastro.length === 0
         ? "Nenhuma afirmação de bloqueio. Em enforce, esta edição passaria pela ancoragem."
@@ -434,6 +458,25 @@ async function main() {
     }
     escrever(`- custo da redação: US$ ${edicao.totalUsage.estimatedCostUsd.toFixed(4)} (${edicao.totalUsage.totalTokens} tokens)`);
     escrever();
+    const claimsSoltas = edicao.claimsSemanticas.naoSustentadas;
+    const motivos: string[] = [];
+    if (!resultado.viavel) motivos.push(`pautas insuficientes: ${resultado.motivoDaInviabilidade}`);
+    if (semLastro.length > 0) motivos.push(`REJECT_UNGROUNDED_CLAIM em ${semLastro.length} matéria(s)`);
+    if (claimsSoltas.length > 0) motivos.push(`UNGROUNDED_EDITORIAL_CLAIM em ${claimsSoltas.length} conclusão(ões)`);
+    if (edicao.qaResult.hallucination_risk) motivos.push("REJECT_EDITORIAL_QA: hallucination_risk");
+    if (edicao.claimsSemanticas.erro) motivos.push("auditoria de conclusões não rodou");
+
+    escrever("## Editorial Guard");
+    escrever();
+    escrever(`**${motivos.length === 0 ? "PASS" : "FAIL"}**`);
+    escrever();
+    if (motivos.length === 0) {
+      escrever("Passou nas três conferências: ancoragem dura, conclusões e auditoria.");
+    } else {
+      for (const m of motivos) escrever(`- ${m}`);
+    }
+    escrever();
+
     escrever(
       "**Custo estimado desta rodada: US$ " +
         (resultado.custoUsd + edicao.totalUsage.estimatedCostUsd + construcao.custoUsd).toFixed(4) +

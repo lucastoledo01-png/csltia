@@ -57,6 +57,15 @@ export const ClassificacaoSchema = z.object({
     "deterioracao_brasil",
     "outro",
   ]),
+  /**
+   * O que aconteceu de fato: um ato, ou alguém falando sobre um ato.
+   *
+   * A distinção existe porque "declaração vale pouco" é regra grossa demais.
+   * O presidente anunciar oficialmente uma medida é ato. Um candidato criticar
+   * a medida do adversário é fala. Os dois chegam ao feed como notícia, e só
+   * um deles é fato novo.
+   */
+  natureza: z.enum(["official_action", "political_statement", "outro"]).default("outro"),
   /** 0 a 10, o quanto muda a vida de quem planeja a mudança. */
   relevancia: z.number().min(0).max(10),
   atores: listaDeTexto,
@@ -111,7 +120,12 @@ Para notícia do Brasil: quanto existe ali um PROBLEMA FACTUAL CONCRETO que afet
 
 O que decide a nota é o fato, não a conclusão. Não force leitura negativa: se a notícia brasileira traz um dado bom ou neutro, classifique como está. A publicação compara Brasil e Estados Unidos com números, não com adjetivos, e não adota lado partidário: nenhum partido, nenhum político e nenhuma corrente são o assunto. O assunto é o efeito prático sobre a vida de quem decide ficar ou sair.
 
-Cuidado com um caso específico: quando o fato central da notícia é ALGUÉM TER DITO algo, e não a mudança em si, a relevância é de 1 a 3, por mais importante que seja o assunto da declaração. Crítica de candidato, discurso, entrevista, reação e posicionamento não são fato novo. Em ano eleitoral isso aparece o tempo todo e leva a publicação para dentro da disputa, que não é o lugar dela. A mesma notícia contada pelo lado da mudança ("Senado aprova fim da cobrança de 20%") é fato e vale a nota do fato.
+natureza: o que a notícia registra.
+- "official_action": um ato. Decisão, assinatura, sanção, votação, publicação de regra, anúncio oficial de órgão ou autoridade sobre a própria competência, dado estatístico divulgado, medida que entrou em vigor. Vale a relevância do fato, que pode ser alta.
+- "political_statement": alguém falando sobre um ato. Crítica, promessa de campanha, opinião, ataque, reação, entrevista, declaração eleitoral, pesquisa de intenção de voto. Ainda que o assunto seja importante, o fato novo aqui é só a fala.
+- "outro": o que não for nem um nem outro.
+
+Um anúncio oficial do presidente sobre uma medida do próprio governo é "official_action". Um candidato criticando essa medida é "political_statement". A mesma história contada pelo lado do ato ("Senado aprova fim da cobrança de 20%") é ato; contada pelo lado da fala ("Fulano critica o fim da cobrança") é fala.
 
 Para notícia de terceiro país: só interessa se afetar brasileiro que emigra. Caso contrário, 0.
 
@@ -276,12 +290,27 @@ export function decidirPauta(c: Classificacao, config: ConfigEditorial): Decisao
     };
   }
 
+  /*
+   * Fala não vale o que o ato vale.
+   *
+   * A régua não é "declaração é irrelevante": anúncio oficial também sai da
+   * boca de alguém e é ato. O que perde peso é a fala SOBRE o ato, que em ano
+   * eleitoral enche o feed e leva a publicação para dentro da disputa
+   * partidária. O teto deixa passar a fala que for excepcional e mantém o
+   * resto abaixo do piso.
+   */
+  const relevanciaEfetiva =
+    c.natureza === "political_statement" ? Math.min(c.relevancia, config.tetoDeDeclaracao) : c.relevancia;
+
   const piso = config.relevanciaMinima;
-  if (c.relevancia < piso) {
+  if (relevanciaEfetiva < piso) {
     return {
       aprovada: false,
       motivo: MOTIVOS.REJEITADO_RELEVANCIA,
-      explicacao: `relevância ${c.relevancia} abaixo do piso ${piso}`,
+      explicacao:
+        c.natureza === "political_statement"
+          ? `declaração política, relevância ${c.relevancia} limitada a ${relevanciaEfetiva}, abaixo do piso ${piso}`
+          : `relevância ${c.relevancia} abaixo do piso ${piso}`,
     };
   }
 

@@ -41,6 +41,8 @@ export type ConfigEditorial = {
   relevanciaMinima: number;
   /** Teto de pautas sobre o Brasil por edição. */
   maximoDePautasBrasil: number;
+  /** Relevância máxima de uma pauta que é declaração, e não ato. */
+  tetoDeDeclaracao: number;
 };
 
 export function carregarConfigEditorial(env: Ambiente = process.env): ConfigEditorial {
@@ -63,6 +65,9 @@ export function carregarConfigEditorial(env: Ambiente = process.env): ConfigEdit
     // enche a edição inteira e a publicação deixa de falar dos EUA, que é o
     // que o leitor abriu o e-mail para ler.
     maximoDePautasBrasil: numeroDoAmbiente("EDITORIAL_MAX_PAUTAS_BRASIL", 1, env),
+    // Abaixo do piso de relevância, então na prática declaração só entra se o
+    // teto for levantado de propósito.
+    tetoDeDeclaracao: numeroDoAmbiente("EDITORIAL_TETO_DECLARACAO", 3, env),
   };
 }
 
@@ -91,6 +96,8 @@ export const MOTIVOS = {
   REJEITADO_SEM_CLASSIFICACAO: "REJECT_UNCLASSIFIED",
   /** Nem o feed nem a página da matéria deram o que aconteceu. */
   REJEITADO_SEM_FATOS: "REJECT_INSUFFICIENT_FACTS",
+  /** Veio de agregador e não foi possível chegar à matéria de origem. */
+  REJEITADO_FONTE_NAO_RESOLVIDA: "REJECT_SOURCE_UNRESOLVED",
   /** O texto gerado afirma algo que não está no pacote factual. */
   REJEITADO_SEM_ANCORAGEM: "REJECT_UNGROUNDED_CLAIM",
 } as const;

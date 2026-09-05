@@ -64,11 +64,23 @@ export function pontuarPauta(entrada: EntradaDePontuacao): Pontuacao {
   else if (entrada.quantasFontesConfirmam === 1) credibilidade += 3;
   credibilidade = Math.min(PESO.credibilidade, credibilidade);
 
+  /*
+   * Frescor.
+   *
+   * A janela de coleta virou 72h para fonte que não é agregador, e janela
+   * maior não pode virar preferência: ela existe para que a fonte que publica
+   * a cada três dias apareça, não para que o que ela publicou anteontem ganhe
+   * do que saiu hoje de manhã. A curva resolve isso sozinha, tirando 15 dos 20
+   * pontos de uma pauta de 72h.
+   */
   const horas = idadeEmHoras(entrada.publicadoEm);
   let frescor = PESO.frescor;
-  if (horas > 12) frescor = 16;
+  if (horas > 6) frescor = 18;
+  if (horas > 12) frescor = 15;
   if (horas > 24) frescor = 11;
+  if (horas > 36) frescor = 8;
   if (horas > 48) frescor = 5;
+  if (horas > 72) frescor = 2;
   if (horas > 96) frescor = 0;
 
   /*

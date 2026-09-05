@@ -6,6 +6,36 @@ import { EditionContent, EditionContentSchema, QAResult, QAResultSchema } from "
 import { limparVicios } from "./anti-vicios";
 import type { ClaimNaoSustentada, PacoteFactual } from "../editorial/pacote-factual";
 import { validarAncoragem } from "../editorial/pacote-factual";
+import type { ResultadoDeClaims } from "../editorial/claims-semanticas";
+import { auditarClaims } from "../editorial/claims-semanticas";
+
+/**
+ * Um apontamento que o redator precisa resolver.
+ *
+ * `indice` é a pauta, ou -1 quando o apontamento é da edição inteira, que é o
+ * caso dos apontamentos do auditor: ele avalia o conjunto e nem sempre diz de
+ * qual pauta está falando.
+ */
+export type ProblemaEditorial = {
+  indice: number;
+  tipo: "fato" | "claim" | "qa";
+  descricao: string;
+};
+
+export type RodadaDeReparo = {
+  tentativa: number;
+  problemasRecebidos: string[];
+  problemasRestantes: string[];
+};
+
+/**
+ * Teto de tentativas de correção.
+ *
+ * Duas. A primeira resolve o caso comum, que é uma frase de consequência sem
+ * lastro. A partir da terceira, o padrão observado é o modelo trocar um
+ * problema por outro, e cada volta custa uma geração inteira.
+ */
+export const MAX_TENTATIVAS_DE_REPARO = 2;
 
 export type AncoragemDaPauta = {
   /** Posição da pauta na edição, para casar com a lista de selecionadas. */
@@ -23,6 +53,14 @@ export type PipelineResult = {
   totalUsage: AITokenUsage;
   /** Vazio quando nenhum pacote factual estruturado foi fornecido. */
   ancoragem: AncoragemDaPauta[];
+  /** Auditoria de consequência, causa, impacto, comparação e previsão. */
+  claimsSemanticas: ResultadoDeClaims;
+  tentativasDeReparo: number;
+  rodadasDeReparo: RodadaDeReparo[];
+  /** Passou em tudo? Falso significa que a edição não deve ser publicada. */
+  aprovado: boolean;
+  /** O que sobrou depois da última tentativa. */
+  problemasRestantes: ProblemaEditorial[];
 };
 
 /**
@@ -181,6 +219,7 @@ export async function runNewsroomPipeline(
    * não roda, que é como a edição saiu com uma operação policial inventada.
    */
   pacotes: Map<string, PacoteFactual> = new Map(),
+  maxTentativasDeReparo: number = MAX_TENTATIVAS_DE_REPARO,
 ): Promise<PipelineResult> {
   const config = getAIProviderConfig(env);
 
@@ -245,7 +284,14 @@ REGRA DE FATO, acima de qualquer outra:
 - Nunca dê nome a uma operação, investigação, programa ou regra que o pacote não nomeia.
 - Nunca acrescente o momento ("nesta semana", "em setembro") se a data não estiver no pacote.
 - Nunca complete o que está em "gaps". Se o leitor precisa daquilo, escreva que a fonte não informou.
-- Transição, ordem das ideias, tom e o significado prático para o leitor são seus. Fato, não.
+
+CONCLUSÃO TAMBÉM É FATO:
+- Consequência, causa, impacto, comparação, tendência e previsão só entram se o pacote sustentar. Elas parecem opinião e funcionam como afirmação factual para quem lê.
+- Proibido, quando o pacote não disser: "isso encarece as compras", "isso facilita a imigração", "deve gerar empregos", "prejudica empresas", "muda o cenário para brasileiros", "a tendência é de aumento", "o impacto deve ser grande".
+- Se o pacote não diz o que a medida faz, você não sabe o que ela provoca. Escreva o que aconteceu e diga que a fonte não informou o efeito.
+- Certo: "A medida foi aprovada e segue para sanção. A fonte não informa o que muda para o consumidor."
+- Errado: "A medida deve baratear as compras internacionais."
+- Transição, ordem das ideias e tom são seus. Fato e consequência, não.
 
 Requisitos obrigatórios:
 - Gere exatamente ${topRanked.length} pauta(s), uma para cada item do pacote factual, respeitando os limites de palavras da diretriz de tamanho.
@@ -255,34 +301,88 @@ Requisitos obrigatórios:
 - Retorne EXCLUSIVAMENTE a estrutura JSON especificada.
 `;
 
-  const writingResult = await callOpenAIJSON<EditionContent>(
+  /*
+   * Escrever, conferir, corrigir, conferir de novo.
+   *
+   * O QA reprovava e o dia acabava ali. Reprovar sem tentar consertar é
+   * desperdiçar uma edição inteira por causa de duas frases, e as duas frases
+   * costumam ser as mesmas: uma consequência que o material não sustenta.
+   *
+   * O reparo é cirúrgico e tem teto. O redator recebe de volta só o que foi
+   * apontado, o motivo e o pacote factual, reescreve, e tudo é conferido de
+   * novo. Passou do teto sem passar nas conferências, a edição não sai. Um
+   * laço sem teto tentaria para sempre e gastaria para sempre.
+   */
+  const escreverEdicao = async (promptUsuario: string): Promise<EditionContent> => {
+    const resposta = await callOpenAIJSON<EditionContent>(
+      [
+        { role: "system", content: montarSystemEditorial(marca) },
+        { role: "user", content: promptUsuario },
+      ],
+      config.editorModel,
+      env,
+      fetcher,
+    );
+
+    totalPromptTokens += resposta.usage.promptTokens;
+    totalCompletionTokens += resposta.usage.completionTokens;
+    totalCostUsd += resposta.usage.estimatedCostUsd;
+
+    try {
+      // Antes da validação: o travessão é removido em toda string da edição.
+      // O prompt já pede; isto garante. Uma edição bem escrita perde
+      // credibilidade numa única frase que abre com traço longo.
+      return EditionContentSchema.parse(limparVicios(resposta.data));
+    } catch {
+      console.warn("[NEWSROOM QA] Ajustando formato do JSON...");
+      const bruto = limparVicios(resposta.data) as Record<string, unknown>;
+      bruto.final_line = marca.assinatura;
+      return EditionContentSchema.parse(bruto);
+    }
+  };
+
+  const textoDaPauta = (story: EditionContent["stories"][number]): string =>
     [
-      { role: "system", content: montarSystemEditorial(marca) },
-      { role: "user", content: userWritingPrompt },
-    ],
-    config.editorModel,
-    env,
-    fetcher
-  );
+      story.title,
+      story.summary,
+      story.context,
+      story.why_it_matters,
+      story.practical_impact,
+      story.humor_line ?? "",
+    ]
+      .filter(Boolean)
+      .join(" ");
 
-  totalPromptTokens += writingResult.usage.promptTokens;
-  totalCompletionTokens += writingResult.usage.completionTokens;
-  totalCostUsd += writingResult.usage.estimatedCostUsd;
+  /*
+   * Ancoragem dura: conferência determinística, sem modelo no meio.
+   *
+   * Compara nome próprio, número e data do texto contra o pacote. Foi assim
+   * que "Operação Compliance Zero" seria pega mesmo se o auditor aprovasse.
+   *
+   * Sem pacote estruturado não há contra o que conferir, e a lista volta
+   * vazia. Vazio aqui significa "não conferido", não "aprovado", e por isso
+   * existe `temPacoteEstruturado`.
+   */
+  const conferirAncoragem = (edicao: EditionContent): AncoragemDaPauta[] =>
+    temPacoteEstruturado
+      ? edicao.stories.map((story, i) => {
+          const pacote = pacotes.get(topRanked[i]?.group.primary.url ?? "");
+          if (!pacote) {
+            return { indice: i, titulo: story.title, ancorado: true, conferidos: 0, naoSustentadas: [] };
+          }
+          const r = validarAncoragem(textoDaPauta(story), pacote);
+          return {
+            indice: i,
+            titulo: story.title,
+            ancorado: r.ancorado,
+            conferidos: r.conferidos,
+            naoSustentadas: r.naoSustentadas,
+          };
+        })
+      : [];
 
-  let parsedEdition: EditionContent;
-  try {
-    // Antes da validação: o travessão é removido em toda string da edição.
-    // O prompt já pede; isto garante. Uma edição bem escrita perde
-    // credibilidade numa única frase que abre com traço longo.
-    parsedEdition = EditionContentSchema.parse(limparVicios(writingResult.data));
-  } catch (err) {
-    console.warn("[NEWSROOM QA] Ajustando formato do JSON...");
-    const rawData = writingResult.data as any;
-    rawData.final_line = marca.assinatura;
-    parsedEdition = EditionContentSchema.parse(rawData);
-  }
-
-  const qaPrompt = `
+  const auditarQA = async (edicao: EditionContent): Promise<QAResult> => {
+    const qaPrompt = `
 Você é o auditor de qualidade e de fatos desta publicação.
 
 Analise esta edição produzida contra os fatos originais fornecidos:
@@ -291,7 +391,9 @@ PACOTE FACTUAL ORIGINAL (é a íntegra do que a redação recebeu; o que não es
 ${JSON.stringify(factualPackage, null, 2)}
 
 EDIÇÃO PRODUZIDA:
-${JSON.stringify(parsedEdition, null, 2)}
+${JSON.stringify(edicao, null, 2)}
+
+Marque "hallucination_risk" como true quando o texto afirmar QUALQUER coisa que o pacote não sustente, inclusive consequência, impacto, causa, comparação, tendência e previsão. Ressalva explícita de que a fonte não informou algo NÃO é alucinação: é o comportamento correto.
 
 Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
 {
@@ -305,68 +407,137 @@ Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
 }
 `;
 
-  const qaResponse = await callOpenAIJSON<QAResult>(
-    [
-      { role: "system", content: "Você é um auditor rigoroso de fatos e qualidade editorial." },
-      { role: "user", content: qaPrompt },
-    ],
-    config.triageModel,
-    env,
-    fetcher
-  );
+    const resposta = await callOpenAIJSON<QAResult>(
+      [
+        { role: "system", content: "Você é um auditor rigoroso de fatos e qualidade editorial." },
+        { role: "user", content: qaPrompt },
+      ],
+      config.triageModel,
+      env,
+      fetcher,
+    );
 
-  totalPromptTokens += qaResponse.usage.promptTokens;
-  totalCompletionTokens += qaResponse.usage.completionTokens;
-  totalCostUsd += qaResponse.usage.estimatedCostUsd;
+    totalPromptTokens += resposta.usage.promptTokens;
+    totalCompletionTokens += resposta.usage.completionTokens;
+    totalCostUsd += resposta.usage.estimatedCostUsd;
 
-  const parsedQA = QAResultSchema.parse(qaResponse.data);
+    return QAResultSchema.parse(resposta.data);
+  };
 
-  /*
-   * Ancoragem: conferência determinística, depois do auditor.
-   *
-   * O auditor é outro modelo lendo o texto, e um modelo pode deixar passar.
-   * Esta parte não lê: ela compara nome próprio, número e data do texto
-   * gerado contra o pacote, e o que não estiver lá aparece com o trecho em
-   * que apareceu. Foi assim que "Operação Compliance Zero" seria pega mesmo
-   * se o auditor tivesse aprovado.
-   *
-   * Sem pacote estruturado não há contra o que conferir, e a lista volta
-   * vazia. Vazio aqui significa "não conferido", não "aprovado", e quem
-   * chama precisa saber a diferença: por isso `temPacoteEstruturado`.
-   */
-  const ancoragem: AncoragemDaPauta[] = temPacoteEstruturado
-    ? parsedEdition.stories.map((story, i) => {
+  const auditarSemantica = async (edicao: EditionContent): Promise<ResultadoDeClaims> => {
+    if (!temPacoteEstruturado) {
+      return { claims: [], naoSustentadas: [], custoUsd: 0, tokens: 0, erro: null };
+    }
+
+    const auditaveis = edicao.stories
+      .map((story, i) => {
         const pacote = pacotes.get(topRanked[i]?.group.primary.url ?? "");
-        if (!pacote) {
-          return { indice: i, titulo: story.title, ancorado: true, conferidos: 0, naoSustentadas: [] };
-        }
-
-        const texto = [
-          story.title,
-          story.summary,
-          story.context,
-          story.why_it_matters,
-          story.practical_impact,
-          story.humor_line ?? "",
-        ]
-          .filter(Boolean)
-          .join(" ");
-
-        const r = validarAncoragem(texto, pacote);
-        return {
-          indice: i,
-          titulo: story.title,
-          ancorado: r.ancorado,
-          conferidos: r.conferidos,
-          naoSustentadas: r.naoSustentadas,
-        };
+        return pacote ? { indice: i, titulo: story.title, texto: textoDaPauta(story), pacote } : null;
       })
-    : [];
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    const r = await auditarClaims(auditaveis, env, fetcher);
+    totalCostUsd += r.custoUsd;
+    return r;
+  };
+
+  let parsedEdition = await escreverEdicao(userWritingPrompt);
+  let ancoragem = conferirAncoragem(parsedEdition);
+  let parsedQA = await auditarQA(parsedEdition);
+  let semantica = await auditarSemantica(parsedEdition);
+
+  const rodadas: RodadaDeReparo[] = [];
+  let tentativas = 0;
+
+  const problemasDe = (
+    anc: AncoragemDaPauta[],
+    qa: QAResult,
+    sem: ResultadoDeClaims,
+  ): ProblemaEditorial[] => {
+    const lista: ProblemaEditorial[] = [];
+
+    for (const a of anc) {
+      for (const c of a.naoSustentadas.filter((x) => x.severidade === "bloqueio")) {
+        lista.push({
+          indice: a.indice,
+          tipo: "fato",
+          descricao: `${c.tipo} "${c.valor}" não está no pacote factual (em: "${c.onde}")`,
+        });
+      }
+    }
+
+    for (const c of sem.naoSustentadas) {
+      lista.push({
+        indice: c.pauta,
+        tipo: "claim",
+        descricao: `${c.tipo} sem sustentação: "${c.trecho}". ${c.motivo}`,
+      });
+    }
+
+    if (qa.hallucination_risk) {
+      for (const issue of qa.issues) {
+        lista.push({ indice: -1, tipo: "qa", descricao: issue });
+      }
+      if (qa.issues.length === 0) {
+        lista.push({ indice: -1, tipo: "qa", descricao: "auditor marcou risco de alucinação sem detalhar" });
+      }
+    }
+
+    return lista;
+  };
+
+  let problemas = problemasDe(ancoragem, parsedQA, semantica);
+
+  while (problemas.length > 0 && tentativas < maxTentativasDeReparo) {
+    tentativas += 1;
+
+    const promptDeReparo = `
+A edição abaixo foi reprovada na conferência de fatos. Reescreva SOMENTE o necessário para resolver cada apontamento, mantendo o resto exatamente como está.
+
+PACOTE FACTUAL (é tudo o que a redação tem; nada fora daqui existe):
+${JSON.stringify(factualPackage, null, 2)}
+
+EDIÇÃO ATUAL:
+${JSON.stringify(parsedEdition, null, 2)}
+
+APONTAMENTOS:
+${problemas.map((p) => `- ${p.indice >= 0 ? `pauta ${p.indice + 1}` : "edição"}: ${p.descricao}`).join("\n")}
+
+COMO CORRIGIR:
+- Afirmação que o pacote não sustenta: remova a afirmação ou troque pelo que o pacote diz. Se o leitor precisa daquilo, escreva que a fonte não informou.
+- Nome, número ou data fora do pacote: tire. Não substitua por outro nome, número ou data.
+- Não invente nada novo para tapar o buraco deixado pela correção.
+- Não mexa em pauta que não foi apontada.
+- Mantenha o mesmo número de pautas, a mesma ordem e a assinatura.
+
+Retorne EXCLUSIVAMENTE a edição inteira no mesmo formato JSON.
+`;
+
+    parsedEdition = await escreverEdicao(promptDeReparo);
+    ancoragem = conferirAncoragem(parsedEdition);
+    parsedQA = await auditarQA(parsedEdition);
+    semantica = await auditarSemantica(parsedEdition);
+
+    const restantes = problemasDe(ancoragem, parsedQA, semantica);
+    rodadas.push({
+      tentativa: tentativas,
+      problemasRecebidos: problemas.map((p) => p.descricao),
+      problemasRestantes: restantes.map((p) => p.descricao),
+    });
+    problemas = restantes;
+  }
+
+  const aprovado = problemas.length === 0;
 
   return {
     edition: parsedEdition,
     qaResult: parsedQA,
     ancoragem,
+    claimsSemanticas: semantica,
+    tentativasDeReparo: tentativas,
+    rodadasDeReparo: rodadas,
+    aprovado,
+    problemasRestantes: problemas,
     selectedCandidates,
     totalUsage: {
       promptTokens: totalPromptTokens,

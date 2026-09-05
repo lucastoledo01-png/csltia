@@ -50,6 +50,7 @@ function classificacao(over: Partial<Classificacao> = {}): Classificacao {
     imigracao: true,
     leitura: "oportunidade",
     eixo: "processo",
+    natureza: "official_action",
     relevancia: 8,
     atores: ["USCIS"],
     lugares: ["EUA"],
@@ -180,7 +181,9 @@ describe("conteúdo insuficiente", () => {
     );
 
     expect(r.selecionadas).toHaveLength(0);
-    expect(r.recusadas[0].motivo).toBe(MOTIVOS.REJEITADO_SEM_FATOS);
+    // Agregador que não resolve é problema de fonte, não de conteúdo: a
+    // notícia pode ser boa e o link é que não leva à matéria.
+    expect(r.recusadas[0].motivo).toBe(MOTIVOS.REJEITADO_FONTE_NAO_RESOLVIDA);
     expect(r.recusadas[0].explicacao).toContain("agregador_sem_link_direto");
   });
 

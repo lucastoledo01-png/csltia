@@ -215,11 +215,21 @@ export async function avaliarPautas(
     );
 
     if (!temFatosSuficientes(enriquecimento)) {
+      /*
+       * Dois motivos diferentes, e a diferença importa no relatório.
+       *
+       * Agregador que não resolve é problema de FONTE: a notícia pode ser
+       * ótima e o link é que não leva à matéria. Isso se resolve assinando o
+       * feed do veículo, não mexendo no filtro.
+       *
+       * Página aberta e sem texto é problema de CONTEÚDO.
+       */
+      const daFonte = enriquecimento.enrichmentStatus === "agregador_sem_link_direto";
       recusadas.push({
         titulo: a.grupo.primary.title,
         url: a.grupo.primary.url,
         fonte: a.grupo.primary.source_name,
-        motivo: MOTIVOS.REJEITADO_SEM_FATOS,
+        motivo: daFonte ? MOTIVOS.REJEITADO_FONTE_NAO_RESOLVIDA : MOTIVOS.REJEITADO_SEM_FATOS,
         explicacao:
           `${enriquecimento.contentLength} caracteres depois da tentativa ` +
           `(${enriquecimento.enrichmentStatus}): ${enriquecimento.notas.join("; ")}`,

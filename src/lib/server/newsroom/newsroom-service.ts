@@ -614,27 +614,64 @@ export async function runNewsroom(
    * um requisito de imigração custa o status migratório de alguém, e nota 90
    * não conserta um número inventado.
    */
-  const semLastro = pipelineResult.ancoragem.filter((a) => !a.ancorado);
-  if (semLastro.length > 0) {
-    const detalhe = semLastro
-      .map((a) => `"${a.titulo}": ${a.naoSustentadas.map((c) => `${c.tipo} ${c.valor}`).join(", ")}`)
-      .join(" | ");
-
-    console.error(`[NEWSROOM] Afirmações sem lastro no pacote factual: ${detalhe}`);
-
-    if (modo === "enforce") {
-      throw new Error(
-        `Edição bloqueada por afirmação sem lastro no pacote factual (REJECT_UNGROUNDED_CLAIM): ${detalhe}`,
+  if (pipelineResult.tentativasDeReparo > 0) {
+    console.log(
+      `[NEWSROOM] Ciclo de correção: ${pipelineResult.tentativasDeReparo} tentativa(s).`,
+    );
+    for (const r of pipelineResult.rodadasDeReparo) {
+      console.log(
+        `[NEWSROOM] tentativa ${r.tentativa}: recebeu ${r.problemasRecebidos.length}, ` +
+          `restaram ${r.problemasRestantes.length}`,
       );
     }
   }
 
-  if (pipelineResult.qaResult.hallucination_risk && modo === "enforce") {
-    // Bloqueio absoluto, independente da nota. O portão antigo só segurava o
-    // envio automático e deixava a edição ser gravada e publicada no portal.
+  /*
+   * O veredito final da guarda.
+   *
+   * Três conferências, e as três precisam passar: ancoragem dura (nome, número
+   * e data), claims semânticas (consequência, impacto, causa, comparação,
+   * tendência, previsão) e o auditor. Uma edição pode ter nota alta e ainda
+   * afirmar que uma medida encarece compras quando o material não diz o que a
+   * medida faz. Nota não conserta isso.
+   */
+  const semLastro = pipelineResult.ancoragem.filter((a) => !a.ancorado);
+  const claimsSoltas = pipelineResult.claimsSemanticas.naoSustentadas;
+
+  if (semLastro.length > 0) {
+    const detalhe = semLastro
+      .map((a) => `"${a.titulo}": ${a.naoSustentadas.map((c) => `${c.tipo} ${c.valor}`).join(", ")}`)
+      .join(" | ");
+    console.error(`[NEWSROOM] Afirmações sem lastro no pacote factual: ${detalhe}`);
+  }
+
+  if (claimsSoltas.length > 0) {
+    console.error(
+      `[NEWSROOM] Conclusões sem sustentação: ` +
+        claimsSoltas.map((c) => `${c.tipo}: "${c.trecho}"`).join(" | "),
+    );
+  }
+
+  if (pipelineResult.claimsSemanticas.erro) {
+    console.error(
+      `[NEWSROOM] Auditoria de conclusões não rodou: ${pipelineResult.claimsSemanticas.erro}. ` +
+        "Isso NÃO é aprovação.",
+    );
+  }
+
+  if (!pipelineResult.aprovado && modo === "enforce") {
+    const motivos = pipelineResult.problemasRestantes.map((p) => p.descricao).join(" | ");
+    const codigo =
+      semLastro.length > 0
+        ? "REJECT_UNGROUNDED_CLAIM"
+        : claimsSoltas.length > 0
+          ? "UNGROUNDED_EDITORIAL_CLAIM"
+          : "REJECT_EDITORIAL_QA";
+
     throw new Error(
-      `Edição bloqueada pelo QA por risco de alucinação (nota ${pipelineResult.qaResult.score}): ` +
-        pipelineResult.qaResult.issues.join(" | "),
+      `Edição bloqueada depois de ${pipelineResult.tentativasDeReparo} tentativa(s) de correção ` +
+        `(${codigo}, QA ${pipelineResult.qaResult.score}, ` +
+        `risco de alucinação ${pipelineResult.qaResult.hallucination_risk}): ${motivos}`,
     );
   }
 

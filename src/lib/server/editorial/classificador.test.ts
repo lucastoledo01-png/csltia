@@ -17,6 +17,7 @@ function classificacao(over: Partial<Classificacao> = {}): Classificacao {
     imigracao: true,
     leitura: "oportunidade",
     eixo: "processo",
+    natureza: "official_action",
     relevancia: 8,
     atores: ["USCIS"],
     lugares: ["EUA"],
@@ -25,6 +26,38 @@ function classificacao(over: Partial<Classificacao> = {}): Classificacao {
     ...over,
   };
 }
+
+describe("ato e fala", () => {
+  it("limita a fala sobre o ato, que fica abaixo do piso", () => {
+    const d = decidirPauta(
+      classificacao({
+        pais: "Brasil",
+        imigracao: false,
+        eixo: "deterioracao_brasil",
+        leitura: "desfavoravel",
+        natureza: "political_statement",
+        relevancia: 8,
+      }),
+      config
+    );
+    expect(d.aprovada).toBe(false);
+    expect(d.explicacao).toContain("declaração política");
+  });
+
+  it("deixa o ato oficial valer a nota que tem", () => {
+    const d = decidirPauta(
+      classificacao({
+        pais: "Brasil",
+        imigracao: false,
+        eixo: "deterioracao_brasil",
+        natureza: "official_action",
+        relevancia: 8,
+      }),
+      config
+    );
+    expect(d.aprovada).toBe(true);
+  });
+});
 
 describe("decidirPauta", () => {
   it("recusa notícia desfavorável sobre os EUA", () => {
@@ -206,10 +239,10 @@ describe("montarSystemDoClassificador, régua de relevância", () => {
     expect(s).toContain("não adota lado partidário");
   });
 
-  it("rebaixa declaração de político, que em ano eleitoral domina o feed", () => {
+  it("separa ato de fala, em vez de rebaixar toda declaração", () => {
     const s = montarSystemDoClassificador();
-    expect(s).toContain("ALGUÉM TER DITO algo");
-    expect(s).toContain("Crítica de candidato");
+    expect(s).toContain("official_action");
+    expect(s).toContain("political_statement");
   });
 });
 
