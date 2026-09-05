@@ -148,7 +148,18 @@ function pontuarCandidato(c: Candidato, termo: string, paisEsperado: string | nu
   if (!tipo && c.temSiteOficial) nota += 35;
   if (!tipo && c.temCategoria) nota += 20;
 
-  if (paisEsperado && c.pais.includes(paisEsperado)) nota += 20;
+  /*
+   * País é o desempate mais forte para sigla.
+   *
+   * "ICE" numa pauta americana devolveu o InterCityExpress, o trem alemão:
+   * ele tem site oficial, categoria no Commons e foto, e vencia por soma de
+   * evidência. Entidade de OUTRO país numa pauta que declara o país é quase
+   * sempre homônimo, e leva penalidade em vez de empate.
+   */
+  if (paisEsperado) {
+    if (c.pais.includes(paisEsperado)) nota += 20;
+    else if (c.pais.length > 0) nota -= 40;
+  }
   if (c.temImagem) nota += 10;
   // Categoria no Commons vale sempre: entre dois itens do mesmo órgão, o que
   // tem categoria é o que tem foto para buscar. O Wikidata tem duplicata de

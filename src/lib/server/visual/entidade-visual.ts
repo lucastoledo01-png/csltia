@@ -17,6 +17,23 @@ import { resolverEntidadeNoWikidata } from "./wikidata";
  * assunto.
  */
 
+/**
+ * De onde a pauta fala, quando a classificação não diz.
+ *
+ * O campo `pais` existe desde a fase 1 e vem preenchido no fluxo novo, mas os
+ * registros reconstruídos no backfill não têm. Sem país, "ICE" vira trem
+ * alemão. Inferir do lugar citado é ler o que já está lá, não adivinhar.
+ */
+const PISTAS_DE_PAIS: Array<{ padrao: RegExp; pais: string }> = [
+  { padrao: /estados unidos|eua|washington|nova york|new york|calif[óo]rnia|fl[óo]rida|texas|minneapolis|oregon|colorado|maryland/i, pais: "EUA" },
+  { padrao: /brasil|bras[íi]lia|s[ãa]o paulo|rio de janeiro|minas gerais|congresso nacional/i, pais: "Brasil" },
+];
+
+export function inferirPais(lugares: string[], atores: string[]): string | undefined {
+  const texto = [...lugares, ...atores].join(" ");
+  return PISTAS_DE_PAIS.find((p) => p.padrao.test(texto))?.pais;
+}
+
 /** Quantas consultas ao Wikidata por pauta. Segura latência e educação. */
 const MAXIMO_DE_CONSULTAS = 4;
 
@@ -59,12 +76,13 @@ export async function escolherEntidadeVisual(
    */
   const porEspecificidade = (a: string, b: string) => b.length - a.length;
   const candidatos = [...atores.sort(porEspecificidade), ...lugares].slice(0, MAXIMO_DE_CONSULTAS);
+  const pais = classificacao.pais || inferirPais(lugares, atores);
   const resolvidas: EntidadeVisual[] = [];
 
   for (const candidato of candidatos) {
     const { entidade, nota } = await resolverEntidadeNoWikidata(candidato, {
       ...opcoes,
-      paisDaPauta: classificacao.pais,
+      paisDaPauta: pais,
     });
     tentativas.push({ candidato, resultado: nota });
     if (entidade) resolvidas.push(entidade);

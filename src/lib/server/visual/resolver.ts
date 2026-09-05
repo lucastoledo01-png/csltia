@@ -38,7 +38,8 @@ export type PautaParaImagem = {
   storyId: string;
   titulo: string;
   categoria: string;
-  classificacao: { atores: string[]; lugares: string[]; acontecimento: string[] };
+  /** `pais` desempata homônimo: sem ele, "ICE" numa pauta americana vira trem alemão. */
+  classificacao: { atores: string[]; lugares: string[]; acontecimento: string[]; pais?: string };
 };
 
 export type OpcoesDeResolucao = {

@@ -44,7 +44,7 @@ async function coletarPautas(client: ReturnType<typeof getSupabaseAdminClient>):
 
   const { data: historico } = await client
     .from("editorial_history")
-    .select("story_id,title,category,entities")
+    .select("story_id,title,category,country,entities")
     .eq("project_id", DEFAULT_PROJECT_ID)
     .order("published_at", { ascending: false })
     .limit(40);
@@ -60,6 +60,7 @@ async function coletarPautas(client: ReturnType<typeof getSupabaseAdminClient>):
         atores: e.atores ?? [],
         lugares: e.lugares ?? [],
         acontecimento: e.acontecimento ?? [],
+        pais: (h.country as string) || undefined,
       },
       origem: "editorial_history",
     });
