@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { aparaSlidesParaFormato, InstagramCarouselSchema, SLIDES_POR_FORMATO } from "./schemas";
+import {
+  aparaSlidesParaFormato,
+  InstagramCarouselSchema,
+  legendaDeEmergencia,
+  SLIDES_POR_FORMATO,
+} from "./schemas";
 
 /**
  * A forma de cada formato, travada no schema.
@@ -177,5 +182,38 @@ describe("escalonamento das vagas", () => {
     });
 
     expect(quando).toEqual(horariosUTC);
+  });
+});
+
+describe("legenda ausente", () => {
+  it("é remontada a partir da capa em vez de derrubar o post", () => {
+    // Aconteceu em produção: o modelo entregou os slides e omitiu a legenda,
+    // nas duas tentativas. A arte estava pronta e a pauta certa, e o post do
+    // dia não foi ao ar por causa de um objeto ausente.
+    const bruto = {
+      title: "Interno",
+      slides: [{ index: 1, type: "cover", title: "USCIS estende prazo em 30 dias", body: "O aviso vale a partir da publicação." }],
+    };
+
+    const r = legendaDeEmergencia(bruto, "VISA", ["#imigracao", "#eua"]) as {
+      caption: { headline: string; cta_call: string; full_caption: string; hashtags: string[] };
+    };
+
+    expect(r.caption.headline).toContain("USCIS");
+    expect(r.caption.cta_call).toContain("VISA");
+    expect(r.caption.full_caption.length).toBeGreaterThan(20);
+    expect(r.caption.hashtags).toContain("#imigracao");
+  });
+
+  it("não toca na legenda quando o modelo devolveu uma", () => {
+    const bruto = { caption: { headline: "escrita pelo modelo" }, slides: [] };
+    expect(legendaDeEmergencia(bruto, "VISA", [])).toBe(bruto);
+  });
+
+  it("desiste quando não há nem título de capa", () => {
+    // Sem título não há do que montar legenda, e inventar texto seria pior
+    // que falhar: o post sairia dizendo algo que ninguém escreveu.
+    const bruto = { slides: [] };
+    expect(legendaDeEmergencia(bruto, "VISA", [])).toBe(bruto);
   });
 });

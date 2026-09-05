@@ -247,17 +247,27 @@ export async function renderOpenDesignSlides(carousel: InstagramCarouselContent)
          * A busca sai do `cover_image_prompt`, que a IA já escreve em inglês
          * descrevendo a cena: é o formato que banco de imagem indexa.
          */
+        // O log distingue os três casos. Antes dizia "sem foto de banco" para
+        // todos, e no servidor não dava para saber se faltava a chave, se a
+        // busca não achou nada ou se o provedor caiu — três problemas com três
+        // correções diferentes.
+        if (!imageUrl && !bancoConfigurado()) {
+          console.log("[CAPA] Banco de imagens desligado (sem PEXELS_API_KEY).");
+        }
+
         if (!imageUrl && bancoConfigurado()) {
           const consulta = consultaDaCapa(slide.cover_image_prompt, slide.title);
           const foto = await buscarFotoDeBanco(consulta);
           if (foto) {
             imageUrl = foto.imagemUrl;
             console.log(`[CAPA] Foto de banco (${foto.credito.provedor}) para "${consulta}".`);
+          } else {
+            console.log(`[CAPA] Banco não devolveu foto para "${consulta}".`);
           }
         }
 
         if (!imageUrl) {
-          console.log("[CAPA] Sem foto de banco; gerando por IA.");
+          console.log("[CAPA] Gerando por IA.");
           const aiUrl = await generateCoverImageWithAI(
             slide.title,
             slide.cover_image_prompt,
