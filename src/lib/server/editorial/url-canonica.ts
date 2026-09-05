@@ -3,7 +3,7 @@
  *
  * Agregador, newsletter e rede social acrescentam rastreamento, e o mesmo
  * artigo aparece como três URLs distintas. Comparar a URL crua deixa passar
- * repetição óbvia — foi assim que a mesma matéria voltou em dias seguidos.
+ * repetição óbvia, e foi assim que a mesma matéria voltou em dias seguidos.
  *
  * O que sai: parâmetros de rastreamento, âncora, barra final, `www.`, e a
  * distinção entre http e https. O que fica: host, caminho e qualquer

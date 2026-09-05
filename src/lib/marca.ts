@@ -2,14 +2,14 @@
  * Identidade da publicação, em um lugar só.
  *
  * Antes disso o nome, o domínio, a cor e a assinatura estavam escritos à mão
- * em mais de quarenta arquivos — cabeçalho do site, template do e-mail,
- * rodapé dos slides, metadados, textos de página. Trocar de vertical exigia
+ * em mais de quarenta arquivos (cabeçalho do site, template do e-mail,
+ * rodapé dos slides, metadados, textos de página). Trocar de vertical exigia
  * caçar 121 ocorrências, e uma troca assim sempre fica pela metade: sobra o
  * rodapé de um e-mail, o alt de um logo, o título de uma aba.
  *
  * O que o banco decide continua no banco: `projects` manda no que a IA
  * escreve (nicho, briefing editorial, assinatura). O que está aqui é o que
- * precisa existir no build — rótulo, cor, domínio — em componente de servidor
+ * precisa existir no build (rótulo, cor, domínio) em componente de servidor
  * e de cliente, sem consulta.
  */
 
@@ -30,7 +30,7 @@ export const MARCA = {
    * Vermelho da bandeira dos EUA (Old Glory Red, #B31942) clareado.
    *
    * O tom oficial é escuro demais para um acento de interface e para pintar
-   * palavra dentro de manchete branca sobre foto — some. A função do acento é
+   * palavra dentro de manchete branca sobre foto, some. A função do acento é
    * ser notado de relance.
    */
   cor: "#E4344A",
@@ -38,7 +38,7 @@ export const MARCA = {
   corOficialAzul: "#0A3161",
 
   /** Encerramento da edição e do post. */
-  assinatura: "Até amanhã. — imigra.us",
+  assinatura: "Até amanhã. Equipe imigra.us.",
   /** Palavra que o leitor comenta no post para receber o material. */
   keyword: "VISTO",
 
@@ -61,7 +61,7 @@ export const MARCA = {
    *
    * `azul` é o Old Glory Blue oficial e serve de tinta escura. Os dois tons
    * claros existem porque fundo de destaque precisa de contraste com texto
-   * preto — o vermelho e o azul cheios só funcionam com texto branco por cima.
+   * preto, porque o vermelho e o azul cheios só funcionam com texto branco por cima.
    */
   tintaEscura: "#0A3161",
   fundoRealce: "#EEF3FB",

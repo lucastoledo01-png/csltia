@@ -16,13 +16,13 @@ export type PipelineResult = {
  * Identidade editorial da publicação, vinda do projeto.
  *
  * O prompt era uma constante com "desbuguei.ia", "público de criadores de
- * conteúdo" e "proibido jargão de TI" escritos no meio — o sistema é
+ * conteúdo" e "proibido jargão de TI" escritos no meio, e o sistema é
  * multi-projeto desde a migração, mas a voz não era. `editorial_prompt_extra`
  * existia na tabela `projects`, era carregado em `projects.ts` e **não era
  * usado em lugar nenhum**: mudar o projeto no banco não mudava uma vírgula do
  * texto gerado.
  *
- * O que fica fixo aqui é o que não depende de vertical — e-mail
+ * O que fica fixo aqui é o que não depende de vertical (e-mail
  * autossuficiente, anti-alucinação, ausência de vício de linguagem de IA,
  * regras do assunto. O que é da marca vem de fora.
  */
@@ -37,7 +37,7 @@ export type MarcaEditorial = {
 
 /**
  * Só a rede de segurança para quando o projeto não define a voz. Não é a
- * marca de ninguém — se este texto aparecer numa edição publicada, o projeto
+ * marca de ninguém: se este texto aparecer numa edição publicada, o projeto
  * está com os campos vazios.
  */
 export const MARCA_PADRAO: MarcaEditorial = {
@@ -71,23 +71,23 @@ E-MAIL AUTOSSUFICIENTE, MAS CURTO:
 - A edicao inteira deve ser lida em menos de tres minutos.
 
 DIRETRIZES DE TOM & ESTILO (Estilo "The News"):
-1. Tom: conversacional e inteligente, como alguém que entende do assunto explicando para um amigo — dentro do tom que o briefing acima define.
+1. Tom: conversacional e inteligente, como alguém que entende do assunto explicando para um amigo, dentro do tom que o briefing acima define.
 2. LINGUAGEM ACESSÍVEL: traduza o jargão técnico do setor para o impacto prático na vida de quem lê. Se um termo do meio é inevitável, explique-o na primeira vez que aparecer.
-3. Personalidade: observações e sacadas são bem-vindas quando o assunto comporta. Assunto sensível — dinheiro, saúde, situação legal de alguém — pede sobriedade, não piada.
+3. Personalidade: observações e sacadas são bem-vindas quando o assunto comporta. Assunto sensível (dinheiro, saúde, situação legal de alguém) pede sobriedade, não piada.
 4. SEM VÍCIOS DE LINGUAGEM DE IA: PROIBIDO usar clichês como "Em um mundo onde...", "No cenário atual...", "Não é apenas X, é Y", "Desvendando...", "Vale ressaltar...", "Sem dúvida...", "Em suma...". Seja autêntico, humano e direto!
-5. FOCO PRÁTICO: cada pauta DEVE deixar claro o que muda, para quem muda e a partir de quando — para o público descrito no briefing.
-6. RIGOR ANTI-ALUCINAÇÃO EXTREMO: Não invente preços, nomes, números, prazos ou datas. Toda afirmação factual precisa estar estritamente contida no pacote de informações fornecido. Se um detalhe relevante não está no pacote, escreva que a fonte não divulgou — nunca preencha a lacuna.
+5. FOCO PRÁTICO: cada pauta DEVE deixar claro o que muda, para quem muda e a partir de quando, para o público descrito no briefing.
+6. RIGOR ANTI-ALUCINAÇÃO EXTREMO: Não invente preços, nomes, números, prazos ou datas. Toda afirmação factual precisa estar estritamente contida no pacote de informações fornecido. Se um detalhe relevante não está no pacote, escreva que a fonte não divulgou. Nunca preencha a lacuna.
 7. ASSINATURA OBRIGATÓRIA: A edição deve encerrar a variável "final_line" exatamente com:
 "${marca.assinatura}"
 
 SKILL: TÍTULOS EDITORIAIS DE ALTA ABERTURA (regras para "subject_options" e "subject"):
-O assunto do e-mail transforma a pauta PRINCIPAL (rank 1) num título curto, humano e curioso — NÃO é manchete jornalística tradicional. Precisa dar vontade de abrir o e-mail sem esconder totalmente o assunto e sem clickbait falso (a matéria precisa entregar o que o título promete).
+O assunto do e-mail transforma a pauta PRINCIPAL (rank 1) num título curto, humano e curioso. NÃO é manchete jornalística tradicional. Precisa dar vontade de abrir o e-mail sem esconder totalmente o assunto e sem clickbait falso (a matéria precisa entregar o que o título promete).
 
-Processo: leia a pauta principal, identifique o fato central, depois o elemento mais curioso, inesperado, contraditório, específico ou "conversável" dela — a tensão, o número, o personagem ou a situação estranha. Escreva o assunto a partir DESSE elemento, não de um resumo da notícia. Teste mental: "se eu tivesse acabado de ler isso e fosse comentar com um amigo, que frase faria ele perguntar 'como assim?'" — essa frase costuma ser o assunto ideal.
+Processo: leia a pauta principal, identifique o fato central, depois o elemento mais curioso, inesperado, contraditório, específico ou "conversável" dela: a tensão, o número, o personagem ou a situação estranha. Escreva o assunto a partir DESSE elemento, não de um resumo da notícia. Teste mental: "se eu tivesse acabado de ler isso e fosse comentar com um amigo, que frase faria ele perguntar 'como assim?'". Essa frase costuma ser o assunto ideal.
 
 Características: 3 a 9 palavras, linguagem coloquial e falada, palavras simples, curiosidade incompleta, números específicos quando forem surpreendentes, perguntas curtas quando fizerem sentido, pequenas provocações, afirmações inesperadas, trocadilho só quando for realmente bom, caixa baixa como padrão.
 
-Varie a estrutura entre as opções — não repita sempre o mesmo formato. Exemplos de estruturas possíveis (inspiração, não modelo fixo):
+Varie a estrutura entre as opções, não repita sempre o mesmo formato. Exemplos de estruturas possíveis (inspiração, não modelo fixo):
 - pergunta curiosa: "você comeria um biscoito de plástico?"
 - afirmação inesperada: "as vacas do futuro são brasileiras"
 - número + consequência: "105 horas para 1 cesta básica"
@@ -142,18 +142,33 @@ ESTRUTURA DO JSON DE SAÍDA (retorne exclusivamente este JSON estrito):
 `;
 }
 
+/**
+ * Quantas pautas a edição comporta.
+ *
+ * Era 4 a 6, fixo. Depois de um filtro editorial isso é uma armadilha: num dia
+ * em que só 3 pautas passam, ou a edição não sai ou o filtro é ignorado. Quem
+ * manda agora é a configuração editorial, e o padrão aqui só existe para
+ * quem chama sem informar.
+ */
+export type LimitesDaEdicao = { minimo: number; maximo: number };
+
+const LIMITES_PADRAO: LimitesDaEdicao = { minimo: 2, maximo: 4 };
+
 export async function runNewsroomPipeline(
   rankedCandidates: RankedCandidate[],
   env: Record<string, string | undefined> = process.env,
   fetcher: typeof fetch = fetch,
   /** Identidade da publicação. Ausente cai na marca padrão. */
   marca: MarcaEditorial = MARCA_PADRAO,
+  limites: LimitesDaEdicao = LIMITES_PADRAO,
 ): Promise<PipelineResult> {
   const config = getAIProviderConfig(env);
 
-  const topRanked = rankedCandidates.slice(0, 6);
-  if (topRanked.length < 4) {
-    throw new Error(`Número insuficiente de pautas qualificadas para gerar a edição (encontradas ${topRanked.length}, mínimo 4).`);
+  const topRanked = rankedCandidates.slice(0, limites.maximo);
+  if (topRanked.length < limites.minimo) {
+    throw new Error(
+      `Número insuficiente de pautas qualificadas para gerar a edição (encontradas ${topRanked.length}, mínimo ${limites.minimo}).`,
+    );
   }
 
   const selectedCandidates = topRanked.map((r) => r.group.primary);
@@ -181,7 +196,7 @@ Pacote factual fornecido:
 ${JSON.stringify(factualPackage, null, 2)}
 
 Requisitos obrigatórios:
-- Gere de 4 a 6 pautas, respeitando os limites de palavras da diretriz de tamanho.
+- Gere exatamente ${topRanked.length} pauta(s), uma para cada item do pacote factual, respeitando os limites de palavras da diretriz de tamanho.
 - Traga 2 a 3 itens rápidos em "quick_bits", de uma linha cada.
 - Idioma: Português do Brasil natural, no tom que o briefing editorial define.
 - NÃO use chamadas tipo 'clique aqui para continuar lendo'. Entregue o valor completo no e-mail.
