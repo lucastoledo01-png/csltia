@@ -62,7 +62,16 @@ const INSTANCIA_PARA_TIPO: Record<string, TipoDeEntidade> = {
   Q515: "place",
   Q1093829: "place",
   Q35657: "place",
-  Q6256: "place",
+  /*
+   * País inteiro não é entidade visual.
+   *
+   * "Estados Unidos" como assunto da foto devolve bandeira ou mapa, que é
+   * exatamente a imagem genérica que a fase 2 existe para eliminar. Cai em
+   * conceitual, e aí o banco de imagem pode ilustrar o TEMA da pauta, que é
+   * para o que ele serve.
+   */
+  Q6256: "conceptual",
+  Q3624078: "conceptual",
   Q1549591: "place",
   Q3957: "place",
 };

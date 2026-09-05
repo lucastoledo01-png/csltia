@@ -78,6 +78,15 @@ export type RunNewsroomOptions = {
  */
 export type ImagensDaEdicao = Map<string, string>;
 
+/**
+ * Crédito por pauta, quando a licença exige.
+ *
+ * Mapa separado e opcional: sem ele o template desenha exatamente o que
+ * desenhava antes. Licença que pede atribuição pede embaixo da foto, e isso
+ * não é negociável por estética.
+ */
+export type LegendasDaEdicao = Map<string, string>;
+
 /** A mesma identidade usada no histórico editorial, para as duas pontas casarem. */
 export function identidadeDaPauta(story: { source_url?: string; title: string }): string {
   return gerarStoryId({ url: story.source_url || undefined, titulo: story.title });
@@ -87,6 +96,7 @@ export function renderEditionToHtml(
   edition: EditionContent,
   imagens: ImagensDaEdicao = new Map(),
   paraWeb = false,
+  legendas: LegendasDaEdicao = new Map(),
 ): string {
   const todayStr = new Date().toISOString().split("T")[0];
 
@@ -159,6 +169,11 @@ export function renderEditionToHtml(
         `${s.title}\n\n${MARCA.site}/artigos/edicao-${todayStr}`,
       );
       const imagem = safeHttpUrl(imagens.get(identidadeDaPauta(s)) || "", "");
+      const credito = legendas.get(identidadeDaPauta(s)) || "";
+      const creditoHtml =
+        imagem && credito
+          ? `<p style="font-family:${fonte};font-size:11px;line-height:1.4;color:#8A8A8F;margin:-8px 0 14px 0;">${escapeHtml(credito)}</p>`
+          : "";
       const fonteUrl = safeHttpUrl(s.source_url);
 
       const linhaDaFonte = `
@@ -178,7 +193,7 @@ export function renderEditionToHtml(
         </h2>
         ${
           imagem
-            ? `<img src="${escapeHtml(imagem)}" alt="" width="600" style="width:100%;max-width:600px;height:auto;display:block;border-radius:10px;margin:0 0 14px 0;" />`
+            ? `<img src="${escapeHtml(imagem)}" alt="" width="600" style="width:100%;max-width:600px;height:auto;display:block;border-radius:10px;margin:0 0 14px 0;" />${creditoHtml}`
             : ""
         }
         <p style="font-family:${fonte};font-size:15px;line-height:1.7;color:${TINTA_SUAVE};margin:0 0 12px 0;">
@@ -200,7 +215,7 @@ export function renderEditionToHtml(
 
         ${
           imagem
-            ? `<img src="${escapeHtml(imagem)}" alt="" width="600" style="width:100%;max-width:600px;height:auto;display:block;border-radius:10px;margin:0 0 18px 0;" />`
+            ? `<img src="${escapeHtml(imagem)}" alt="" width="600" style="width:100%;max-width:600px;height:auto;display:block;border-radius:10px;margin:0 0 18px 0;" />${creditoHtml}`
             : ""
         }
 

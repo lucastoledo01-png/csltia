@@ -104,3 +104,35 @@ describe("chamada da análise de perfil", () => {
     expect(html).toContain("Fazer a análise de perfil");
   });
 });
+
+describe("crédito da foto", () => {
+  it("mostra a atribuição embaixo da imagem quando a licença exige", () => {
+    const edicao = edicaoCom();
+    const id = identidadeDaPauta(edicao.stories[0]);
+    const html = renderEditionToHtml(
+      edicao,
+      new Map([[id, "https://upload.wikimedia.org/foto.jpg"]]),
+      false,
+      new Map([[id, "Foto: Gage Skidmore / Wikimedia Commons / CC BY-SA 2.0"]])
+    );
+
+    expect(html).toContain("Gage Skidmore / Wikimedia Commons / CC BY-SA 2.0");
+  });
+
+  it("não desenha nada quando a licença não exige atribuição", () => {
+    const edicao = edicaoCom();
+    const id = identidadeDaPauta(edicao.stories[0]);
+    const html = renderEditionToHtml(edicao, new Map([[id, "https://upload.wikimedia.org/foto.jpg"]]));
+
+    expect(html).toContain("upload.wikimedia.org/foto.jpg");
+    expect(html).not.toContain("Wikimedia Commons /");
+  });
+
+  it("sem imagem, não sobra legenda órfã", () => {
+    const edicao = edicaoCom();
+    const id = identidadeDaPauta(edicao.stories[0]);
+    const html = renderEditionToHtml(edicao, new Map(), false, new Map([[id, "Foto: Alguém / CC BY"]]));
+
+    expect(html).not.toContain("Foto: Alguém");
+  });
+});

@@ -61,11 +61,25 @@ export async function escolherEntidadeVisual(
 ): Promise<EscolhaDeEntidade> {
   const tentativas: Array<{ candidato: string; resultado: string }> = [];
 
+  /*
+   * Só nome próprio vira busca de imagem.
+   *
+   * O classificador devolve em `atores` coisas que não são entidade: "novos
+   * agentes", "homem de 76 anos", "indianos". Buscadas no Wikidata, elas
+   * encontram QUALQUER coisa parecida: "indianos" devolveu o Indiana Pacers,
+   * e a matéria sobre fila de green card ia sair ilustrada com um jogo de
+   * basquete.
+   *
+   * Nome de entidade começa com maiúscula ou é sigla. O resto é descrição, e
+   * descrição a gente ilustra pelo tema, não pela busca de entidade.
+   */
+  const ehNomeProprio = (t: string) => /^[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ]/.test(t) || /^[A-Z]{2,6}$/.test(t);
+
   const atores = classificacao.atores
     .map((a) => a.trim())
-    .filter((a) => a.length > 2 && !NAO_SAO_ENTIDADE.has(normalizarEntidade(a)));
+    .filter((a) => a.length > 2 && ehNomeProprio(a) && !NAO_SAO_ENTIDADE.has(normalizarEntidade(a)));
 
-  const lugares = classificacao.lugares.map((l) => l.trim()).filter((l) => l.length > 2);
+  const lugares = classificacao.lugares.map((l) => l.trim()).filter((l) => l.length > 2 && ehNomeProprio(l));
 
   /*
    * Nome específico antes de sigla.
