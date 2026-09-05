@@ -19,33 +19,18 @@ export type NewsCandidate = {
 };
 
 /*
- * Reserva de capa, quando a fonte nao traz imagem.
+ * Não existe reserva de capa aqui.
  *
- * A lista anterior era de fotos de codigo, servidor e circuito, da vertical de
- * IA. Ela nao some sozinha na troca de nicho: foi ela que colocou uma placa de
- * circuito na materia sobre o ICE de hoje, porque a escolha e por hash do
- * titulo e nao tem nada a ver com o assunto.
+ * Existia: seis fotos fixas, escolhidas por hash do título. Como o hash não
+ * sabe do que a notícia trata, a matéria sobre custódia do ICE saiu com uma
+ * placa de circuito e a do USCIS com uma estante de livros, sempre as mesmas
+ * seis, repetidas semana após semana. Trocar as seis fotos por outras seis
+ * seria o mesmo mecanismo com outra cara.
  *
- * Segue sendo reserva, nao caminho normal. O pipeline busca no banco de
- * imagens primeiro; isto so aparece quando nada mais aparece.
+ * Sem imagem no feed, o campo fica vazio. Quem procura foto pelo ASSUNTO da
+ * pauta é o pipeline, no banco de imagens. Vazio é um estado honesto; foto
+ * errada é informação errada.
  */
-const DEFAULT_EDITORIAL_IMAGES = [
-  "https://images.pexels.com/photos/1550337/pexels-photo-1550337.jpeg?auto=compress&cs=tinysrgb&w=1200",
-  "https://images.pexels.com/photos/1051075/pexels-photo-1051075.jpeg?auto=compress&cs=tinysrgb&w=1200",
-  "https://images.pexels.com/photos/6077326/pexels-photo-6077326.jpeg?auto=compress&cs=tinysrgb&w=1200",
-  "https://images.pexels.com/photos/5668858/pexels-photo-5668858.jpeg?auto=compress&cs=tinysrgb&w=1200",
-  "https://images.pexels.com/photos/373912/pexels-photo-373912.jpeg?auto=compress&cs=tinysrgb&w=1200",
-  "https://images.pexels.com/photos/5473955/pexels-photo-5473955.jpeg?auto=compress&cs=tinysrgb&w=1200",
-];
-
-function getRandomFallbackImage(seedStr: string): string {
-  let hash = 0;
-  for (let i = 0; i < seedStr.length; i++) {
-    hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = Math.abs(hash) % DEFAULT_EDITORIAL_IMAGES.length;
-  return DEFAULT_EDITORIAL_IMAGES[index];
-}
 
 function cleanText(html: string): string {
   if (!html) return "";
@@ -138,7 +123,7 @@ export function parseRSSItems(
         description: cleanText(rawDesc).slice(0, 600),
         content: cleanText(rawDesc).slice(0, 1500),
         author: rawAuthor ? cleanText(rawAuthor) : undefined,
-        imageUrl: extractedImgUrl || getRandomFallbackImage(rawTitle),
+        imageUrl: extractedImgUrl || "",
       });
     }
   }
@@ -268,7 +253,7 @@ export async function collectFromSource(
       description: item.description,
       content: item.content,
       category: source.category,
-      image_url: item.imageUrl || getRandomFallbackImage(item.title),
+      image_url: item.imageUrl || "",
       score: source.priority === 1 ? 75 : 60,
       dedupe_key: generateDedupeKey(item.title, item.url),
       window_hours: 24,

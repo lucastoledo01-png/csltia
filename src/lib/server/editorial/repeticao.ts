@@ -3,7 +3,7 @@ import { MOTIVOS } from "./config";
 import type { Motivo } from "./config";
 import type { Entidades } from "./fingerprint";
 import { mesmoAcontecimento, mesmoTipoDeAcontecimento, semelhancaDeTitulo } from "./fingerprint";
-import { urlCanonica } from "./url-canonica";
+import { dominioDe, urlCanonica } from "./url-canonica";
 import type { Vetor } from "./embeddings";
 import { cosseno } from "./embeddings";
 import type { Canal, RegistroHistorico } from "./history";
@@ -18,8 +18,12 @@ import type { Canal, RegistroHistorico } from "./history";
  *   1. URL canônica. Mesma matéria, rastreio diferente.
  *   2. Título. Manchete reescrita com as mesmas palavras.
  *   3. Ator mais acontecimento. Manchete reescrita com outras palavras.
- *   4. Vetor. O mesmo fato contado de um jeito que não compartilha palavra
- *      nenhuma, que é o caso que as três primeiras deixam passar.
+ *   4. Mesma fonte contando o mesmo tipo de evento.
+ *   5. Vetor, com os outros sinais desempatando na faixa de dúvida.
+ *
+ * As três primeiras são soberanas: quando batem, a entidade não é consultada e
+ * a ausência dela não muda nada. Entidade serve para desempatar a faixa
+ * semântica de suspeita, não para invalidar sinal mais forte.
  *
  * ## Canal
  *
@@ -36,9 +40,15 @@ import type { Canal, RegistroHistorico } from "./history";
 export type PautaParaVerificar = {
   titulo: string;
   url?: string;
+  /** Resumo factual, um sinal a mais quando o título não decide. */
+  resumo?: string;
+  /** Quando o fato aconteceu, se a fonte informou. */
+  publicadoEm?: string;
   entidades?: Entidades;
   vetor?: Vetor | null;
 };
+
+export type Confianca = "alta" | "media" | "baixa";
 
 export type Veredito = {
   repetida: boolean;
@@ -46,14 +56,38 @@ export type Veredito = {
   /** Registro que causou a rejeição, quando houve. */
   conflito: RegistroHistorico | null;
   /** Camada que decidiu, ou a que chegou mais perto quando aprovou. */
-  camada: "url" | "titulo" | "entidade" | "semantica" | "nenhuma";
+  camada: "url" | "titulo" | "entidade" | "fonte" | "semantica" | "nenhuma";
   score: number;
+  /**
+   * O quanto se sabe sobre esta decisão.
+   *
+   * URL igual é certeza. Vetor na faixa de dúvida com o registro antigo sem
+   * entidade nenhuma é palpite informado. Os dois bloqueiam, mas só um deles
+   * merece confiança, e o relatório precisa saber a diferença para calibrar.
+   */
+  confianca: Confianca;
+  /** Sinais conferidos, com o que cada um disse. Vai inteiro para o log. */
+  sinais: string[];
   /** Linha pronta para o log, com o número que interessa. */
   explicacao: string;
 };
 
-function aprovado(camada: Veredito["camada"], score: number, explicacao: string): Veredito {
-  return { repetida: false, motivo: null, conflito: null, camada, score, explicacao };
+function aprovado(
+  camada: Veredito["camada"],
+  score: number,
+  explicacao: string,
+  sinais: string[] = []
+): Veredito {
+  return {
+    repetida: false,
+    motivo: null,
+    conflito: null,
+    camada,
+    score,
+    confianca: "alta",
+    sinais,
+    explicacao,
+  };
 }
 
 export function verificarRepeticao(
@@ -77,6 +111,8 @@ export function verificarRepeticao(
         conflito,
         camada: "url",
         score: 1,
+        confianca: "alta",
+        sinais: ["url canônica idêntica"],
         explicacao: `mesma URL canônica de "${conflito.titulo}" (${diasAtras(conflito)}d)`,
       };
     }
@@ -98,17 +134,44 @@ export function verificarRepeticao(
       conflito: candidatoTitulo,
       camada: "titulo",
       score: melhorTitulo,
+      confianca: "alta",
+      sinais: [`título ${melhorTitulo.toFixed(2)}`],
       explicacao: `título ${melhorTitulo.toFixed(2)} contra "${candidatoTitulo.titulo}" (${diasAtras(candidatoTitulo)}d)`,
     };
   }
 
+  const dominioDaPauta = pauta.url ? dominioDe(pauta.url) : "";
+
   if (pauta.entidades) {
     for (const h of doCanal) {
       const dele = entidadesDoRegistro(h);
-      // Registro sem entidade não participa: o backfill não as reconstruiu, e
-      // comparar contra listas vazias devolveria falso em silêncio, dando a
-      // impressão de que a camada rodou.
+      // Registro sem entidade não participa DESTA camada. Não é o mesmo que
+      // dizer que a pauta é nova: as camadas de URL e título já rodaram, e a
+      // semântica ainda vai rodar. Aqui só não há o que comparar.
       if (!dele) continue;
+
+      // Mesma fonte contando o mesmo tipo de evento. Mais estreito que a
+      // camada de ator porque o veículo já é a metade da identidade: o mesmo
+      // site, sobre o mesmo tipo de acontecimento, em trinta dias, é
+      // acompanhamento do mesmo caso na esmagadora maioria das vezes.
+      if (
+        dominioDaPauta &&
+        h.dominio &&
+        h.dominio === dominioDaPauta &&
+        mesmoTipoDeAcontecimento(pauta.entidades, dele)
+      ) {
+        return {
+          repetida: true,
+          motivo: MOTIVOS.REJEITADO_ENTIDADE_DUPLICADA,
+          conflito: h,
+          camada: "fonte",
+          score: 1,
+          confianca: "alta",
+          sinais: [`mesma fonte (${dominioDaPauta})`, "mesmo tipo de acontecimento"],
+          explicacao: `mesma fonte e mesmo tipo de acontecimento de "${h.titulo}" (${diasAtras(h)}d)`,
+        };
+      }
+
       if (mesmoAcontecimento(pauta.entidades, dele)) {
         return {
           repetida: true,
@@ -116,6 +179,8 @@ export function verificarRepeticao(
           conflito: h,
           camada: "entidade",
           score: 1,
+          confianca: "alta",
+          sinais: ["ator e acontecimento coincidem"],
           explicacao: `mesmo ator e acontecimento de "${h.titulo}" (${diasAtras(h)}d)`,
         };
       }
@@ -144,6 +209,8 @@ export function verificarRepeticao(
         conflito: candidatoVetor,
         camada: "semantica",
         score: melhorVetor,
+        confianca: "alta",
+        sinais: [`vetor ${melhorVetor.toFixed(3)}, acima da faixa de certeza`],
         explicacao: `semelhança ${melhorVetor.toFixed(3)} com "${candidatoVetor.titulo}" (${diasAtras(candidatoVetor)}d)`,
       };
     }
@@ -156,41 +223,109 @@ export function verificarRepeticao(
      * sobrepõem, então nenhum número único acerta os dois casos: baixar a
      * régua bloqueia pauta nova, subir deixa passar repetição.
      *
-     * Quem desempata é o tipo de acontecimento. O vetor já disse que as duas
-     * falam do mesmo assunto; falta saber se é o mesmo episódio. Duas
-     * notícias da AWS, uma de integração e outra de benchmark, são assunto
-     * vizinho e episódio diferente.
+     * Aqui não decide um sinal só. Conferem-se todos os que existirem: tipo de
+     * acontecimento, lugar, título normalizado, resumo, fonte e distância no
+     * tempo. Só uma evidência CONTRÁRIA explícita libera a pauta, e ela é o
+     * acontecimento diferente com entidade dos dois lados.
      *
-     * Quando o registro antigo não tem entidade, e nenhum registro do backfill
-     * tem, não há como desempatar. Aí vale não repetir: perder uma pauta custa
-     * uma pauta, repetir custa a confiança de quem lê.
+     * Entidade ausente não libera nada. Ela reduz a confiança da decisão, que
+     * volta registrada no veredito, e é por isso que existe `confianca`: um
+     * bloqueio por vetor contra registro sem entidade e um bloqueio por URL
+     * idêntica não valem a mesma coisa na hora de calibrar, embora os dois
+     * bloqueiem.
      */
     if (candidatoVetor && melhorVetor >= config.limiarSemantico) {
       const doHistorico = entidadesDoRegistro(candidatoVetor);
-      const temComoConferir = Boolean(pauta.entidades && doHistorico);
+      const sinais: string[] = [`vetor ${melhorVetor.toFixed(3)} na faixa de suspeita`];
+      let aFavor = 0;
+      let conferiveis = 0;
 
-      if (
-        !temComoConferir ||
-        (pauta.entidades && doHistorico && mesmoTipoDeAcontecimento(pauta.entidades, doHistorico))
-      ) {
-        return {
-          repetida: true,
-          motivo: MOTIVOS.REJEITADO_SEMANTICO,
-          conflito: candidatoVetor,
-          camada: "semantica",
-          score: melhorVetor,
-          explicacao:
-            `semelhança ${melhorVetor.toFixed(3)} com "${candidatoVetor.titulo}" (${diasAtras(candidatoVetor)}d), ` +
-            (temComoConferir ? "mesmo tipo de acontecimento" : "sem entidade para conferir"),
-        };
+      if (pauta.entidades && doHistorico) {
+        conferiveis += 2;
+        const mesmoEvento = mesmoTipoDeAcontecimento(pauta.entidades, doHistorico);
+        sinais.push(mesmoEvento ? "mesmo tipo de acontecimento" : "acontecimento diferente");
+
+        if (!mesmoEvento) {
+          // A única saída da faixa: os dois lados descrevem o evento e os
+          // eventos são outros. Assunto vizinho, episódio diferente.
+          return aprovado(
+            "semantica",
+            melhorVetor,
+            `semelhante (${melhorVetor.toFixed(3)}) a "${candidatoVetor.titulo}", mas acontecimento diferente`,
+            sinais
+          );
+        }
+        aFavor += 2;
+
+        const lugarEmComum = cruzaLugar(pauta.entidades, doHistorico);
+        conferiveis += 1;
+        if (lugarEmComum) {
+          aFavor += 1;
+          sinais.push("mesmo lugar");
+        } else {
+          sinais.push("lugar diferente ou ausente");
+        }
+      } else {
+        sinais.push("sem entidade dos dois lados para conferir");
       }
 
-      return aprovado(
-        "semantica",
-        melhorVetor,
-        `semelhante (${melhorVetor.toFixed(3)}) a "${candidatoVetor.titulo}", mas acontecimento diferente`
-      );
+      const tituloContra = semelhancaDeTitulo(pauta.titulo, candidatoVetor.titulo);
+      conferiveis += 1;
+      if (tituloContra >= 0.4) {
+        aFavor += 1;
+        sinais.push(`título ${tituloContra.toFixed(2)}`);
+      } else {
+        sinais.push(`título distante ${tituloContra.toFixed(2)}`);
+      }
+
+      if (pauta.resumo && candidatoVetor.resumo) {
+        const resumoContra = semelhancaDeTitulo(pauta.resumo, candidatoVetor.resumo);
+        conferiveis += 1;
+        if (resumoContra >= 0.35) {
+          aFavor += 1;
+          sinais.push(`resumo ${resumoContra.toFixed(2)}`);
+        } else {
+          sinais.push(`resumo distante ${resumoContra.toFixed(2)}`);
+        }
+      }
+
+      if (dominioDaPauta && candidatoVetor.dominio) {
+        conferiveis += 1;
+        if (dominioDaPauta === candidatoVetor.dominio) {
+          aFavor += 1;
+          sinais.push("mesma fonte");
+        } else {
+          sinais.push("fonte diferente");
+        }
+      }
+
+      const dias = diasAtras(candidatoVetor);
+      conferiveis += 1;
+      if (dias <= 3) {
+        aFavor += 1;
+        sinais.push(`${dias}d de distância`);
+      } else {
+        sinais.push(`${dias}d de distância, fato já antigo`);
+      }
+
+      const proporcao = conferiveis > 0 ? aFavor / conferiveis : 0;
+      const confianca: Confianca =
+        conferiveis >= 4 && proporcao >= 0.6 ? "alta" : proporcao >= 0.4 ? "media" : "baixa";
+
+      return {
+        repetida: true,
+        motivo: MOTIVOS.REJEITADO_SEMANTICO,
+        conflito: candidatoVetor,
+        camada: "semantica",
+        score: melhorVetor,
+        confianca,
+        sinais,
+        explicacao:
+          `semelhança ${melhorVetor.toFixed(3)} com "${candidatoVetor.titulo}" (${dias}d), ` +
+          `${aFavor} de ${conferiveis} sinais a favor, confiança ${confianca}`,
+      };
     }
+
     if (candidatoVetor) {
       return aprovado(
         "semantica",
@@ -249,6 +384,12 @@ export function identidadeDeImagem(url: string): string {
   if (!canonica) return "";
   const semQuery = canonica.split("?")[0];
   return semQuery;
+}
+
+function cruzaLugar(a: Entidades, b: Entidades): boolean {
+  if (a.lugares.length === 0 || b.lugares.length === 0) return false;
+  const A = new Set(a.lugares.map((x) => x.trim().toLowerCase()).filter(Boolean));
+  return b.lugares.some((x) => A.has(x.trim().toLowerCase()));
 }
 
 function entidadesDoRegistro(h: RegistroHistorico): Entidades | null {

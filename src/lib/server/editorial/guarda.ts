@@ -42,8 +42,11 @@ export type PautaAvaliada = {
 export type Recusa = {
   titulo: string;
   url: string;
+  fonte: string;
   motivo: Motivo;
   explicacao: string;
+  /** Só nas recusas por repetição, para separar certeza de palpite. */
+  confianca?: "alta" | "media" | "baixa";
 };
 
 export type ResultadoDaGuarda = {
@@ -118,6 +121,7 @@ export async function avaliarPautas(
       recusadas.push({
         titulo: grupo.primary.title,
         url: grupo.primary.url,
+        fonte: grupo.primary.source_name,
         motivo: MOTIVOS.REJEITADO_SEM_CLASSIFICACAO,
         explicacao: "classificador não devolveu esta pauta",
       });
@@ -133,6 +137,7 @@ export async function avaliarPautas(
       recusadas.push({
         titulo: grupo.primary.title,
         url: grupo.primary.url,
+        fonte: grupo.primary.source_name,
         motivo: decisao.motivo,
         explicacao: decisao.explicacao,
       });
@@ -171,22 +176,33 @@ export async function avaliarPautas(
     const entidades = entidadesDaClassificacao(a.classificacao);
 
     const veredito = verificarRepeticao(
-      { titulo: a.grupo.primary.title, url: a.grupo.primary.url, entidades, vetor },
+      {
+        titulo: a.grupo.primary.title,
+        url: a.grupo.primary.url,
+        resumo: a.grupo.primary.description || "",
+        publicadoEm: a.grupo.primary.published_at,
+        entidades,
+        vetor,
+      },
       historico,
       canal,
       config
     );
 
     linhas.push(
-      `[GUARDA] repetição ${veredito.repetida ? "SIM" : "não"} (${veredito.camada} ${veredito.score.toFixed(2)}) :: ${a.grupo.primary.title.slice(0, 70)} :: ${veredito.explicacao}`
+      `[GUARDA] repetição ${veredito.repetida ? "SIM" : "não"} (${veredito.camada} ${veredito.score.toFixed(2)}, confiança ${veredito.confianca}) ` +
+        `:: ${a.grupo.primary.title.slice(0, 70)} :: ${veredito.explicacao}` +
+        (veredito.sinais.length > 0 ? ` :: sinais: ${veredito.sinais.join("; ")}` : "")
     );
 
     if (veredito.repetida && veredito.motivo) {
       recusadas.push({
         titulo: a.grupo.primary.title,
         url: a.grupo.primary.url,
+        fonte: a.grupo.primary.source_name,
         motivo: veredito.motivo,
-        explicacao: veredito.explicacao,
+        explicacao: `${veredito.explicacao} :: ${veredito.sinais.join("; ")}`,
+        confianca: veredito.confianca,
       });
       return;
     }

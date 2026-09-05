@@ -18,6 +18,7 @@ import { rankAndFilterCandidates } from "./ranker";
 import { EditionContent } from "./schemas";
 import { sendAlert } from "../alerts";
 import { MARCA } from "@/lib/marca";
+import { linkDaNewsletter } from "@/lib/visamatch";
 import {
   bancoConfigurado,
   buscarFotoDeBanco,
@@ -25,8 +26,9 @@ import {
 } from "../prompt-system/stock";
 import { carregarConfigEditorial } from "../editorial/config";
 import { criarProvedorOpenAI } from "../editorial/embeddings";
-import { criarHistoricoStore } from "../editorial/history";
+import { criarHistoricoStore, gerarStoryId } from "../editorial/history";
 import { avaliarPautas, registroDaPauta } from "../editorial/guarda";
+import { descreverModo, modoDaGuarda } from "../editorial/modo";
 import type { PautaAvaliada } from "../editorial/guarda";
 import type { RankedCandidate } from "./ranker";
 
@@ -41,13 +43,13 @@ export type RunNewsroomOptions = {
   autoSend?: boolean;
 };
 
-const fallbackImages = [
-  "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=1200&q=80",
-];
+/*
+ * Aqui havia cinco fotos fixas do Unsplash, todas de tecnologia, usadas como
+ * capa quando a edição não tinha imagem. Era o mesmo mecanismo das seis do
+ * coletor, com outro nome: foto sem relação com a pauta, escolhida por
+ * posição. A capa da edição agora é a foto da primeira pauta, e quando não
+ * existe foto a coluna fica nula.
+ */
 
 /**
  * HTML da edição.
@@ -63,9 +65,23 @@ const fallbackImages = [
  * O que sai no modo web é só o que a página já provê ou o que só faz sentido
  * numa caixa de entrada. As pautas em si são idênticas nos dois.
  */
+/**
+ * Foto de cada pauta, endereçada pela identidade da pauta.
+ *
+ * Era um array posicional, e a posição mentia. Um `.filter(Boolean)` no meio
+ * do caminho deslocava os índices e cada pauta saía ilustrada com a foto da
+ * seguinte. Chave é a identidade da pauta, e identidade não desliza.
+ */
+export type ImagensDaEdicao = Map<string, string>;
+
+/** A mesma identidade usada no histórico editorial, para as duas pontas casarem. */
+export function identidadeDaPauta(story: { source_url?: string; title: string }): string {
+  return gerarStoryId({ url: story.source_url || undefined, titulo: story.title });
+}
+
 export function renderEditionToHtml(
   edition: EditionContent,
-  coverImages: string[] = [],
+  imagens: ImagensDaEdicao = new Map(),
   paraWeb = false,
 ): string {
   const todayStr = new Date().toISOString().split("T")[0];
@@ -138,7 +154,7 @@ export function renderEditionToHtml(
       const whatsappText = encodeURIComponent(
         `${s.title}\n\n${MARCA.site}/artigos/edicao-${todayStr}`,
       );
-      const imagem = safeHttpUrl(coverImages[index] || "", "");
+      const imagem = safeHttpUrl(imagens.get(identidadeDaPauta(s)) || "", "");
       const fonteUrl = safeHttpUrl(s.source_url);
 
       const linhaDaFonte = `
@@ -306,6 +322,28 @@ export function renderEditionToHtml(
             </table>
 
             ${/*
+              Análise de perfil. Vem antes do convite ao Instagram porque é a
+              única coisa aqui que responde à pergunta que levou a pessoa a
+              assinar: eu consigo? O link carrega a edição no utm_content, então
+              dá para saber qual edição converte.
+            */ ""}
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA};margin:0 0 24px 0;">
+              <tr><td style="background:${MARCA.fundoRealce};border:1px solid ${MARCA.bordaRealce};border-radius:14px;padding:28px 26px;">
+                ${rotulo("Análise de perfil", MARCA.cor)}
+                <div style="font-family:${fonte};font-size:21px;line-height:1.3;font-weight:800;color:${MARCA.tintaEscura};margin:0 0 10px 0;">
+                  Você pode morar nos Estados Unidos legalmente?
+                </div>
+                <p style="font-family:${fonte};font-size:15px;line-height:1.65;color:${TINTA_SUAVE};margin:0 0 20px 0;">
+                  Responda algumas perguntas sobre formação, profissão e situação atual
+                  e veja quais caminhos de visto existem para o seu caso. Leva poucos minutos.
+                </p>
+                <a href="${escapeHtml(linkDaNewsletter(todayStr))}" target="_blank" style="display:inline-block;background:${MARCA.tintaEscura};color:#FFFFFF;font-family:${fonte};font-size:15px;font-weight:800;padding:14px 30px;border-radius:999px;text-decoration:none;">
+                  Fazer a análise de perfil
+                </a>
+              </td></tr>
+            </table>
+
+            ${/*
               Convite ao Instagram. Depois do conteúdo: quem chegou aqui leu a
               edição, e é a essa pessoa que vale pedir o seguir.
             */ ""}
@@ -439,16 +477,17 @@ export async function runNewsroom(
    * validação, não para ser um modo de operação permanente.
    */
   const configEditorial = carregarConfigEditorial(env);
-  const guardaLigada = env.EDITORIAL_GUARD !== "off";
+  const modo = modoDaGuarda(env);
+  console.log(`[NEWSROOM] Guarda editorial ${descreverModo(modo)} (EDITORIAL_GUARD=${modo}).`);
 
   let ranked: RankedCandidate[];
   let pautasDaGuarda: PautaAvaliada[] = [];
 
-  if (guardaLigada) {
+  if (modo !== "off") {
     const store = criarHistoricoStore(getSupabaseAdminClient());
     const historico = await store.janela(project.id, configEditorial.janelaDeDias);
     console.log(
-      `[NEWSROOM] Guarda editorial ligada. ${historico.length} registros no histórico de ${configEditorial.janelaDeDias} dias.`,
+      `[NEWSROOM] ${historico.length} registros no histórico de ${configEditorial.janelaDeDias} dias.`,
     );
 
     const resultado = await avaliarPautas(uniqueGroups, {
@@ -462,18 +501,7 @@ export async function runNewsroom(
 
     for (const linha of resultado.linhasDeLog) console.log(linha);
 
-    if (!resultado.viavel) {
-      // Sem pauta suficiente, a edição não sai. A alternativa seria completar
-      // com o que o filtro recusou, e completar com o que o filtro recusou é
-      // não ter filtro.
-      throw new Error(
-        `Edição não fecha hoje: ${resultado.motivoDaInviabilidade}. ` +
-          `${resultado.recusadas.length} pautas recusadas pela linha editorial.`,
-      );
-    }
-
-    pautasDaGuarda = resultado.selecionadas;
-    ranked = pautasDaGuarda.map((p) => ({
+    const daGuarda: RankedCandidate[] = resultado.selecionadas.map((p) => ({
       group: p.grupo,
       score: p.pontuacao.total,
       breakdown: {
@@ -484,6 +512,39 @@ export async function runNewsroom(
       },
       reasoning: `${p.pontuacao.explicacao} | ${p.classificacao.pais} | ${p.classificacao.eixo}`,
     }));
+
+    if (modo === "dry_run") {
+      // Observação: a guarda rodou inteira e o log acima diz o que ela faria.
+      // A edição continua saindo pelo caminho antigo, então nada do que ela
+      // decidiu chega ao leitor. O histórico também não é gravado aqui: quem
+      // publicou foi o fluxo antigo, e o backfill recupera essas edições
+      // quando a guarda assumir.
+      console.log(
+        `[NEWSROOM] Em observação, a guarda escolheria ${resultado.selecionadas.length} pauta(s) ` +
+          `e recusaria ${resultado.recusadas.length}. A edição de hoje segue pelo fluxo antigo.`,
+      );
+      if (!resultado.viavel) {
+        console.log(`[NEWSROOM] Em enforce, a edição de hoje não sairia: ${resultado.motivoDaInviabilidade}.`);
+      }
+
+      ranked = rankAndFilterCandidates(uniqueGroups);
+      if (ranked.length < 4) {
+        throw new Error(`Número insuficiente de notícias qualificadas coletadas (${ranked.length}, mínimo 4).`);
+      }
+    } else {
+      if (!resultado.viavel) {
+        // Sem pauta suficiente, a edição não sai. A alternativa seria
+        // completar com o que o filtro recusou, e completar com o que o filtro
+        // recusou é não ter filtro.
+        throw new Error(
+          `Edição não fecha hoje: ${resultado.motivoDaInviabilidade}. ` +
+            `${resultado.recusadas.length} pautas recusadas pela linha editorial.`,
+        );
+      }
+
+      pautasDaGuarda = resultado.selecionadas;
+      ranked = daGuarda;
+    }
   } else {
     ranked = rankAndFilterCandidates(uniqueGroups);
     console.log(`[NEWSROOM] ${ranked.length} pautas classificadas pelo ranker antigo.`);
@@ -510,45 +571,55 @@ export async function runNewsroom(
         String(project.settings?.final_line ?? "").trim() ||
         `Até amanhã. Equipe ${project.brand.displayName || project.name}.`,
     },
-    { minimo: configEditorial.minimoDePautas, maximo: configEditorial.maximoDePautas },
+    // Quando quem selecionou foi o fluxo antigo, os limites antigos valem:
+    // ele não passou por filtro editorial e continua entregando de 4 a 6.
+    pautasDaGuarda.length > 0
+      ? { minimo: configEditorial.minimoDePautas, maximo: configEditorial.maximoDePautas }
+      : { minimo: 4, maximo: 6 },
   );
 
   /*
-   * Uma foto por pauta, na ordem das pautas.
+   * Uma foto por pauta, endereçada pela identidade da pauta.
    *
-   * Duas coisas estavam erradas aqui.
+   * Três coisas estavam erradas aqui, e as três produziam a mesma cena: pauta
+   * ilustrada com a foto de outra coisa.
    *
-   * A primeira: a imagem vinha do RSS, e feed de agregador traz a arte
-   * genérica do publicador, e foi assim que uma matéria sobre custódia do ICE
-   * saiu com uma estante de livros e outra sobre o USCIS com uma placa de
-   * circuito. Agora a foto sai do banco de imagem, buscada pelo assunto da
-   * pauta; a do feed vira reserva.
+   * A imagem vinha do RSS, e feed de agregador traz a arte genérica do
+   * publicador. Foi assim que uma matéria sobre custódia do ICE saiu com uma
+   * estante de livros e outra sobre o USCIS com uma placa de circuito. A foto
+   * agora sai do banco de imagem, buscada pelo assunto; a do feed é reserva.
    *
-   * A segunda, mais silenciosa: `.filter(Boolean)` removia os vazios e
-   * **deslocava os índices**. Se a pauta 1 não tinha imagem e a 2 tinha, a
-   * foto da 2 aparecia na 1, cada pauta seguinte ilustrada com a foto de
-   * outra. O array agora é posicional e admite vazio.
+   * O array era posicional e um `.filter(Boolean)` deslocava os índices, então
+   * a pauta 1 sem foto fazia a foto da 2 aparecer nela e assim por diante.
+   * Agora a chave é a identidade da pauta.
+   *
+   * E não há mais foto de enfeite: quando nada é encontrado, a pauta sai sem
+   * imagem. Ilustração aleatória em notícia de imigração não é decoração, é
+   * informação errada ao lado de uma informação certa.
    */
   const usarBanco = bancoConfigurado();
-  const coverImages = await Promise.all(
-    pipelineResult.edition.stories.map(async (story, i) => {
-      const doFeed = pipelineResult.selectedCandidates[i]?.image_url ?? "";
+  const imagensDaEdicao: ImagensDaEdicao = new Map();
 
-      if (usarBanco) {
-        try {
-          const foto = await buscarFotoDeBanco(consultaDaNoticia(story.title, story.category));
-          if (foto) return foto.imagemUrl;
-        } catch {
-          /* banco fora do ar não pode custar a edição */
-        }
+  for (const [i, story] of pipelineResult.edition.stories.entries()) {
+    const identidade = identidadeDaPauta(story);
+    let escolhida = "";
+
+    if (usarBanco) {
+      try {
+        const foto = await buscarFotoDeBanco(consultaDaNoticia(story.title, story.category));
+        if (foto) escolhida = foto.imagemUrl;
+      } catch {
+        /* banco fora do ar não pode custar a edição */
       }
+    }
 
-      return doFeed;
-    }),
-  );
-  const htmlContent = renderEditionToHtml(pipelineResult.edition, coverImages);
+    if (!escolhida) escolhida = pipelineResult.selectedCandidates[i]?.image_url ?? "";
+    if (escolhida) imagensDaEdicao.set(identidade, escolhida);
+  }
+
+  const htmlContent = renderEditionToHtml(pipelineResult.edition, imagensDaEdicao);
   // Versão sem o cromo de e-mail, para o corpo do artigo no portal.
-  const htmlParaPortal = renderEditionToHtml(pipelineResult.edition, coverImages, true);
+  const htmlParaPortal = renderEditionToHtml(pipelineResult.edition, imagensDaEdicao, true);
   const wordCount = htmlContent.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
   const executionTimeMs = Date.now() - startTime;
 
@@ -637,7 +708,7 @@ export async function runNewsroom(
                 projectId: project.id,
                 canal: "newsletter",
                 newsletterId: editionId,
-                imagemUrl: coverImages[i] || null,
+                imagemUrl: imagensDaEdicao.get(identidadeDaPauta(story)) || null,
                 publicadoEm: new Date().toISOString(),
               });
             })
@@ -666,7 +737,18 @@ export async function runNewsroom(
     try {
       const supabase = getSupabaseAdminClient();
       const articleSlug = `edicao-${todayStr}`;
-      const primaryCoverImage = coverImages[0] || fallbackImages[0];
+      /*
+       * Capa do artigo: a foto da primeira pauta desta edição, ou nada.
+       *
+       * O upsert casa por (project_id, slug), e o slug é a data. Quando a
+       * coluna não recebia valor confiável, a linha existente ficava com a
+       * capa da execução anterior, e a edição de hoje aparecia no portal com
+       * a foto de ontem. Escrever `null` explicitamente é o que impede essa
+       * herança: ausência de foto passa a ser um valor, não a omissão que
+       * deixa o valor velho no lugar.
+       */
+      const primaryCoverImage =
+        imagensDaEdicao.get(identidadeDaPauta(pipelineResult.edition.stories[0])) || null;
 
       const { data: articleData, error: articleErr } = await supabase
         .from("articles")

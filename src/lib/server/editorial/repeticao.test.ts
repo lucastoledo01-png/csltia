@@ -151,7 +151,8 @@ describe("verificarRepeticao", () => {
       config
     );
     expect(v.repetida).toBe(true);
-    expect(v.explicacao).toContain("mesmo tipo de acontecimento");
+    expect(v.sinais).toContain("mesmo tipo de acontecimento");
+    expect(v.confianca).not.toBe("baixa");
   });
 
   it("sem entidade no histórico, a faixa do meio recusa em vez de arriscar repetir", () => {
@@ -165,8 +166,11 @@ describe("verificarRepeticao", () => {
       "newsletter",
       config
     );
+    // Sem entidade a decisão continua sendo "não repete", mas assumida como
+    // palpite: a confiança cai e o motivo fica no log para calibração.
     expect(v.repetida).toBe(true);
-    expect(v.explicacao).toContain("sem entidade para conferir");
+    expect(v.sinais).toContain("sem entidade dos dois lados para conferir");
+    expect(["media", "baixa"]).toContain(v.confianca);
   });
 
   it("ignora registro sem entidades em vez de fingir que a camada rodou", () => {
@@ -180,6 +184,78 @@ describe("verificarRepeticao", () => {
       config
     );
     expect(v.repetida).toBe(false);
+  });
+});
+
+describe("faixa de suspeita, sinais combinados", () => {
+  it("mesma fonte e mesmo tipo de evento é recusa direta, antes do vetor", () => {
+    const v = verificarRepeticao(
+      {
+        titulo: "Decisão nova sobre permissão de trabalho",
+        url: "https://uscis.gov/noticias/outra-materia",
+        entidades: { atores: ["DHS"], lugares: ["EUA"], acontecimento: ["prorrogação"] },
+      },
+      [
+        registro({
+          urlCanonica: "uscis.gov/noticias/ead-540",
+          dominio: "uscis.gov",
+          entidades: { atores: ["USCIS"], lugares: ["EUA"], acontecimento: ["prorrogacao"] },
+        }),
+      ],
+      "newsletter",
+      config
+    );
+    expect(v.repetida).toBe(true);
+    expect(v.camada).toBe("fonte");
+    expect(v.confianca).toBe("alta");
+  });
+
+  it("registro do histórico sem entidade não impede a camada de URL de decidir", () => {
+    const v = verificarRepeticao(
+      { titulo: "Qualquer coisa", url: "https://www.uscis.gov/noticias/ead-540?utm_source=x" },
+      [registro({ entidades: {} })],
+      "newsletter",
+      config
+    );
+    expect(v.repetida).toBe(true);
+    expect(v.camada).toBe("url");
+    expect(v.confianca).toBe("alta");
+  });
+
+  it("registro do histórico sem entidade não impede a camada de título de decidir", () => {
+    const v = verificarRepeticao(
+      { titulo: "USCIS amplia para 540 dias o prazo de renovação automática do EAD" },
+      [registro({ entidades: {} })],
+      "newsletter",
+      config
+    );
+    expect(v.repetida).toBe(true);
+    expect(v.camada).toBe("titulo");
+  });
+
+  it("resumo e fonte entram como sinal quando o título não resolve", () => {
+    const v = verificarRepeticao(
+      {
+        titulo: "Permissão de trabalho ganha mais tempo",
+        url: "https://uscis.gov/outra",
+        resumo: "O prazo de renovação automática do EAD passou a 540 dias, informou o USCIS.",
+        vetor: [0.76, 0.65, 0],
+      },
+      [
+        registro({
+          titulo: "Documento de trabalho tem validade esticada",
+          urlCanonica: "uscis.gov/ead",
+          dominio: "uscis.gov",
+          resumo: "O USCIS informou que o prazo de renovação automática do EAD passou a 540 dias.",
+          vetor: [1, 0, 0],
+        }),
+      ],
+      "newsletter",
+      config
+    );
+    expect(v.repetida).toBe(true);
+    expect(v.sinais.some((s) => s.startsWith("resumo "))).toBe(true);
+    expect(v.sinais).toContain("mesma fonte");
   });
 });
 
