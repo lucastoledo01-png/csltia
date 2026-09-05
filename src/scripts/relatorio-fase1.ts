@@ -128,6 +128,16 @@ async function main() {
     provedorDeVetor: criarProvedorOpenAI(),
   });
 
+  // As falhas de lote explicam pauta "não classificada", que sem isso vira um
+  // número solto no relatório.
+  const falhas = resultado.linhasDeLog.filter((l) => l.includes("lote "));
+  if (falhas.length > 0) {
+    escrever("## Falhas de classificação");
+    escrever();
+    for (const f of falhas) escrever(`- ${f.replace("[GUARDA] ", "")}`);
+    escrever();
+  }
+
   // ------------------------------------------------------- pautas escolhidas
   escrever("## Pautas selecionadas");
   escrever();
