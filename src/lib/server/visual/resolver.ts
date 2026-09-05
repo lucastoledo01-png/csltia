@@ -13,7 +13,8 @@ import { buscarNoCommons, candidatoParaAsset } from "./wikimedia";
 import { buscarEmFonteOficial } from "./fonte-oficial";
 import { carregarConfigDeImagem, pisoDeRelevancia, pontuarImagem } from "./relevancia";
 import { avaliarLicenca, montarAtribuicao } from "./licencas";
-import { bancoConfigurado, buscarFotoDeBanco, consultaDaNoticia } from "../prompt-system/stock";
+import { bancoConfigurado, buscarFotoDeBanco } from "../prompt-system/stock";
+import { consultaConceitual } from "./conceitual";
 
 /**
  * A imagem de uma pauta, resolvida pela entidade.
@@ -217,7 +218,15 @@ export async function resolveVisualAsset(
     }
 
     try {
-      const consulta = consultaDaNoticia(pauta.titulo, pauta.categoria);
+      /*
+       * A consulta conceitual descreve coisa, não gente.
+       *
+       * Foto de pessoa anônima não tem como ser verificada: escolher alguém
+       * para ilustrar "brasileiros nos EUA" é decidir quem parece brasileiro,
+       * e isso é inferir nacionalidade por aparência. O caminho não é acertar
+       * melhor, é não fazer.
+       */
+      const consulta = consultaConceitual(pauta.titulo, pauta.categoria, pauta.classificacao.pais);
       const foto = await buscarFotoDeBanco(consulta, { env, fetcher: opcoes.fetcher });
       fontesConsultadas.push({
         fonte: "banco_conceitual",
