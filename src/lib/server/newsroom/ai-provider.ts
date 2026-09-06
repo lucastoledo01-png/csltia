@@ -55,11 +55,36 @@ export function getAIProviderConfig(env: Record<string, string | undefined> = pr
  * Falta de credencial agora interrompe o pipeline. Conteúdo fabricado nunca é
  * um resultado aceitável.
  */
+export type OpcoesDeAmostragem = {
+  /**
+   * Amostragem para tarefa de JULGAMENTO, não de escrita.
+   *
+   * Nenhuma chamada deste arquivo definia `temperature`, então todas rodavam
+   * no padrão da API. Para a redação isso é desejável: variação é o que separa
+   * um texto de um formulário. Para o classificador é defeito, e foi medido:
+   * o mesmo conjunto de 120 candidatas, classificado três vezes sem nova
+   * coleta, aprovou 17, depois 11, depois 26. A relevância mudou em 64% das
+   * candidatas e a decisão virou em 24%, boa parte longe do piso.
+   *
+   * `pais` e `imigracao`, que são categóricos e objetivos, não variaram uma
+   * única vez. O que oscila é o juízo graduado, e é justamente ele que decide
+   * o que entra na edição.
+   *
+   * Quem passa isto é só o classificador. A redação continua exatamente como
+   * está, e esse é o ponto: o parâmetro é opcional para não mudar nada de
+   * quem não pedir.
+   */
+  temperature?: number;
+  /** Mesma semente, mesma entrada, resposta mais estável. */
+  seed?: number;
+};
+
 export async function callOpenAIJSON<T>(
   messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
   model: string,
   env: Record<string, string | undefined> = process.env,
-  fetcher: typeof fetch = fetch
+  fetcher: typeof fetch = fetch,
+  amostragem: OpcoesDeAmostragem = {}
 ): Promise<{ data: T; usage: AITokenUsage }> {
   const apiKey = getOpenAIKey(env);
 
@@ -73,6 +98,8 @@ export async function callOpenAIJSON<T>(
       model,
       messages,
       response_format: { type: "json_object" },
+      ...(amostragem.temperature !== undefined ? { temperature: amostragem.temperature } : {}),
+      ...(amostragem.seed !== undefined ? { seed: amostragem.seed } : {}),
     }),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });

@@ -144,7 +144,7 @@ async function main() {
   escrever(`## 1. Pool aprovado`);
   escrever();
   escrever(
-    `${guarda.aprovadas.length} pauta(s) passaram na linha editorial. ` +
+    `${guarda.approvedEditorialPool.length} pauta(s) passaram na linha editorial. ` +
       `A newsletter levaria ${guarda.selecionadas.length} delas.`,
   );
   escrever();
@@ -156,7 +156,7 @@ async function main() {
   escrever();
 
   // ------------------------------------------------------------------
-  const composicao = comporFeedSocial(guarda.aprovadas, configSocial);
+  const composicao = comporFeedSocial(guarda.approvedEditorialPool, configSocial);
   const naNewsletter = new Set(guarda.selecionadas.map((p) => p.storyId));
   /*
    * O relógio da simulação é o do dia simulado, não o de agora.

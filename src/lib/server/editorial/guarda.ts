@@ -58,20 +58,24 @@ export type Recusa = {
 export type ResultadoDaGuarda = {
   selecionadas: PautaAvaliada[];
   /**
-   * Tudo que passou na linha editorial, antes do corte de composição.
+   * O pool editorial aprovado: tudo que passou nos critérios DUROS.
    *
-   * `selecionadas` é o que coube na edição: `ordenarESelecionar` corta por
-   * teto global, teto de Brasil, e dois tetos que não são configuráveis, 2 por
-   * ator e 2 por domínio. O que esses tetos cortam não vai para `recusadas` e
-   * não aparece em log nenhum, então até aqui a única forma de saber quantas
-   * pautas o dia realmente sustenta era subtrair duas listas e torcer para a
-   * invariante valer.
+   * O nome é longo de propósito, porque a distinção é a que mais confunde
+   * aqui. Passar neste pool significa ter sobrevivido a negatividade dos EUA,
+   * relevância mínima, fonte resolvida, enriquecimento suficiente e
+   * repetição. Nada que tenha sido recusado por qualquer um desses critérios
+   * entra, em canal nenhum.
    *
-   * Existe porque a pergunta do canal social é outra: a newsletter quer as
-   * quatro melhores, o Instagram quer saber quantas há. Nada aqui muda a
-   * decisão da newsletter, que continua lendo `selecionadas`.
+   * `selecionadas` é outra coisa: é a COMPOSIÇÃO DA NEWSLETTER, aplicada
+   * depois, sobre este pool. Ela corta por teto global, teto de Brasil, dois
+   * por ator e dois por domínio, e esses cortes não vão para `recusadas` nem
+   * para o log. Num dia medido com oito pautas no pool, seis sumiram ali.
+   *
+   * Um e-mail com quatro pautas e um feed com dez posts precisam de
+   * composições diferentes sobre a MESMA matéria aprovada. Por isso o pool é
+   * exposto, e por isso a newsletter continua lendo só `selecionadas`.
    */
-  aprovadas: PautaAvaliada[];
+  approvedEditorialPool: PautaAvaliada[];
   recusadas: Recusa[];
   viavel: boolean;
   motivoDaInviabilidade: string;
@@ -107,7 +111,7 @@ export async function avaliarPautas(
   if (grupos.length === 0) {
     return {
       selecionadas: [],
-      aprovadas: [],
+      approvedEditorialPool: [],
       recusadas: [],
       viavel: false,
       motivoDaInviabilidade: "nenhuma candidata coletada",
@@ -408,17 +412,17 @@ export async function avaliarPautas(
     });
   });
 
-  const aprovadas = candidatas.map((c) => c.item);
+  const approvedEditorialPool = candidatas.map((c) => c.item);
   const selecionadas = ordenarESelecionar(candidatas, config).map((p) => p.item);
   const viabilidade = edicaoViavel(selecionadas.length, config);
 
   linhas.push(
     `[GUARDA] ${selecionadas.length} selecionadas de ${grupos.length} candidatas, ` +
-      `${aprovadas.length} aprovadas na linha editorial, ${recusadas.length} recusadas`
+      `${approvedEditorialPool.length} no pool editorial aprovado, ${recusadas.length} recusadas`
   );
-  if (aprovadas.length > selecionadas.length) {
+  if (approvedEditorialPool.length > selecionadas.length) {
     linhas.push(
-      `[GUARDA] ${aprovadas.length - selecionadas.length} aprovada(s) fora por composição ` +
+      `[GUARDA] ${approvedEditorialPool.length - selecionadas.length} do pool fora por composição da newsletter ` +
         `(teto ${config.maximoDePautas}, Brasil ${config.maximoDePautasBrasil}, 2 por ator, 2 por domínio)`
     );
   }
@@ -428,7 +432,7 @@ export async function avaliarPautas(
 
   return {
     selecionadas,
-    aprovadas,
+    approvedEditorialPool,
     recusadas,
     viavel: viabilidade.viavel,
     motivoDaInviabilidade: viabilidade.viavel ? "" : viabilidade.motivo,

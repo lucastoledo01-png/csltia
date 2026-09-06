@@ -1,41 +1,75 @@
 -- Camada de candidatos editoriais, e a ligação do post social com ela.
 --
--- PROPOSTA. Não aplicar sem leitura. Nenhum comando aqui apaga dado: são
--- `add column if not exists` e troca de CHECK que só amplia o conjunto de
--- valores aceitos. A única alteração de forma é a chave única de
--- `news_candidates`, e ela é segura porque a tabela tem zero linhas hoje.
+-- ## Como esta migration se protege
+--
+-- Ela roda inteira numa transação. Antes de qualquer DDL, checa que a tabela
+-- está vazia e aborta se não estiver: trocar constraint em tabela com dado é
+-- decisão de gente, não de script. Depois de todo o DDL, ela PROVA o estado
+-- final e lança exceção se algo não bater, o que desfaz tudo.
+--
+-- Não existe DELETE, TRUNCATE, DROP TABLE nem DROP COLUMN em lugar nenhum
+-- deste arquivo. Toda coluna entra com `if not exists`, então rodar duas vezes
+-- não quebra.
+--
+-- Os dois DROP CONSTRAINT existem e são intencionais: a unicidade global de
+-- `url` e o CHECK antigo de `status`. Nenhum dos dois carrega dado. Eles são
+-- procurados pela COLUNA, nunca pelo nome: um `drop constraint if exists` com
+-- o nome errado não derruba nada e não dá erro, e o resultado seria a regra
+-- velha valendo em silêncio ao lado da nova.
 --
 -- ## Por que evoluir `news_candidates` em vez de criar tabela nova
 --
--- Ela já existe desde a primeira migration do newsroom, nunca recebeu uma
--- linha e nunca foi lida por nenhum código: a única menção a ela no
--- repositório é um comentário em `newsroom-service.ts` que a cita como o
--- exemplo do que acontece quando se cria uma coluna que ninguém alimenta.
--- Criar uma segunda tabela com a mesma função deixaria duas, e uma delas
+-- Ela existe desde a primeira migration do newsroom, tem zero linhas e nenhuma
+-- referência em código: a única menção no repositório é um comentário que a
+-- cita como exemplo do que acontece quando se cria coluna que ninguém
+-- alimenta. Criar uma segunda com a mesma função deixaria duas, e uma delas
 -- continuaria vazia.
---
--- O schema atual é da vertical de IA: `category` com default 'ia', nenhum
--- `project_id`, nenhum país, nenhuma entidade. O que segue é o que falta para
--- ela representar uma candidata já processada pela Fase 1.
 --
 -- ## O que esta camada NÃO é
 --
 -- Não é banco de notícias e não é fila de publicação. Uma linha aqui é uma
--- CANDIDATA classificada uma vez. Quem publica é `social_posts` (Instagram) e
--- `news_editions` (newsletter), e os dois apontam para cá. É o que evita
--- classificar a mesma matéria três vezes em três pipelines.
+-- CANDIDATA classificada UMA vez. Quem publica é `social_posts` e
+-- `news_editions`, e os dois apontam para cá. É o que evita classificar a
+-- mesma matéria três vezes em três pipelines.
+
+begin;
+
+-- ---------------------------------------------------------------------------
+-- 0. Pré-condições
+-- ---------------------------------------------------------------------------
+
+do $$
+declare
+  linhas bigint;
+begin
+  select count(*) into linhas from public.news_candidates;
+
+  if linhas <> 0 then
+    raise exception
+      'ABORTADA: news_candidates tem % linha(s). Esta migration troca constraints e foi escrita para a tabela vazia. Revise antes de rodar.',
+      linhas;
+  end if;
+
+  raise notice 'pré-condição ok: news_candidates com 0 linhas';
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- 1. Identidade e projeto
 -- ---------------------------------------------------------------------------
 
 alter table public.news_candidates
-  -- Sem isto a tabela é monoprojeto, e o sistema não é.
+  -- Já existe desde a migration multi-projeto; fica aqui para a migration
+  -- ser completa em si mesma. O `if not exists` a torna inofensiva.
   add column if not exists project_id uuid references public.projects(id),
   -- Mesma identidade da Fase 1: `gerarStoryId` em editorial/history.ts.
   add column if not exists story_id text,
   add column if not exists canonical_url text,
   add column if not exists source_domain text,
+  -- A chave da fonte no `project_news_sources`, não o nome de exibição.
+  -- É o que torna possível medir aproveitamento POR FONTE depois: quantas
+  -- coletou, quantas foram aprovadas, quantas viraram post. Uma fonte que
+  -- traz 500 itens e nunca gera nada precisa aparecer nesse número.
+  add column if not exists source_key text,
   -- Google News é descoberta. Sem resolver para o veículo, não publica.
   add column if not exists source_resolved boolean not null default false,
   add column if not exists summary text not null default '';
@@ -182,6 +216,10 @@ create index if not exists news_candidates_fingerprint
 create index if not exists news_candidates_topico
   on public.news_candidates (project_id, topic_id);
 
+-- Aproveitamento por fonte, que é a consulta do futuro painel de fontes.
+create index if not exists news_candidates_por_fonte
+  on public.news_candidates (project_id, source_key, status);
+
 -- ---------------------------------------------------------------------------
 -- 5. `social_posts` passa a apontar para a candidata
 --
@@ -232,18 +270,142 @@ create index if not exists social_posts_por_story
 create index if not exists social_posts_por_candidata
   on public.social_posts (candidate_id);
 
+
 -- ---------------------------------------------------------------------------
--- 7. Conferência, para rodar depois de aplicar
+-- 7. Pós-condições. Se alguma falhar, a transação inteira volta atrás.
+-- ---------------------------------------------------------------------------
+
+do $$
+declare
+  n int;
+  definicao text;
+  v text;
+  faltando text[] := '{}';
+  esperados text[] := array[
+    'collected', 'classified', 'approved', 'selected', 'rejected',
+    'capped', 'duplicate', 'filtered', 'too_old', 'already_published'
+  ];
+begin
+  -- 1. Nenhuma unicidade global em `url`.
+  select count(*) into n
+    from pg_constraint c
+    join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+   where c.conrelid = 'public.news_candidates'::regclass
+     and c.contype = 'u'
+     and array_length(c.conkey, 1) = 1
+     and a.attname = 'url';
+
+  if n <> 0 then
+    raise exception 'PÓS-CONDIÇÃO FALHOU: ainda existe % constraint unique só em url', n;
+  end if;
+
+  select count(*) into n
+    from pg_indexes
+   where schemaname = 'public'
+     and tablename = 'news_candidates'
+     and indexdef ilike '%unique%'
+     and indexdef ilike '%(url)%'
+     and indexdef not ilike '%project_id%';
+
+  if n <> 0 then
+    raise exception 'PÓS-CONDIÇÃO FALHOU: ainda existe índice unique só em url';
+  end if;
+
+  -- 2. A unicidade nova, por projeto, existe e é unique.
+  select count(*) into n
+    from pg_indexes
+   where schemaname = 'public'
+     and tablename = 'news_candidates'
+     and indexname = 'news_candidates_projeto_url'
+     and indexdef ilike '%unique%';
+
+  if n <> 1 then
+    raise exception 'PÓS-CONDIÇÃO FALHOU: índice unique (project_id, url) não encontrado';
+  end if;
+
+  -- 3. Exatamente um CHECK de status, e ele aceita os dez valores.
+  select count(*) into n
+    from pg_constraint c
+    join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+   where c.conrelid = 'public.news_candidates'::regclass
+     and c.contype = 'c'
+     and a.attname = 'status';
+
+  if n <> 1 then
+    raise exception 'PÓS-CONDIÇÃO FALHOU: existem % CHECK de status, o esperado é 1', n;
+  end if;
+
+  select pg_get_constraintdef(c.oid) into definicao
+    from pg_constraint c
+    join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+   where c.conrelid = 'public.news_candidates'::regclass
+     and c.contype = 'c'
+     and a.attname = 'status';
+
+  foreach v in array esperados loop
+    if position(v in definicao) = 0 then
+      faltando := faltando || v;
+    end if;
+  end loop;
+
+  if array_length(faltando, 1) > 0 then
+    raise exception 'PÓS-CONDIÇÃO FALHOU: o CHECK de status não aceita %. Definição: %', faltando, definicao;
+  end if;
+
+  -- 4. Nenhuma linha apareceu nem sumiu.
+  select count(*) into n from public.news_candidates;
+  if n <> 0 then
+    raise exception 'PÓS-CONDIÇÃO FALHOU: news_candidates deixou de estar vazia (% linhas)', n;
+  end if;
+
+  -- 5. RLS continua ligada. A tabela nasceu com RLS e revoke para anon e
+  --    authenticated, e nada aqui deve ter mexido nisso.
+  select count(*) into n
+    from pg_class
+   where oid = 'public.news_candidates'::regclass
+     and relrowsecurity;
+
+  if n <> 1 then
+    raise exception 'PÓS-CONDIÇÃO FALHOU: RLS de news_candidates não está habilitada';
+  end if;
+
+  raise notice 'pós-condições ok: unicidade por projeto, um CHECK de status com 10 valores, 0 linhas, RLS ligada';
+end $$;
+
+commit;
+
+-- ---------------------------------------------------------------------------
+-- 8. Conferência independente, para rodar DEPOIS e ler com os olhos
 -- ---------------------------------------------------------------------------
 --
+-- Constraints finais:
 --   select conname, contype, pg_get_constraintdef(oid)
---     from pg_constraint
---    where conrelid = 'public.news_candidates'::regclass
+--     from pg_constraint where conrelid = 'public.news_candidates'::regclass
 --    order by contype, conname;
 --
--- Esperado: um único CHECK de status, com a lista nova, e nenhum UNIQUE de
--- coluna só em `url`. A unicidade por projeto vive como índice, não como
--- constraint, e aparece em:
+-- Índices finais:
+--   select indexname, indexdef from pg_indexes
+--    where tablename = 'news_candidates' order by indexname;
 --
---   select indexname from pg_indexes
---    where tablename = 'news_candidates';
+-- Colunas finais:
+--   select column_name, data_type, is_nullable, column_default
+--     from information_schema.columns
+--    where table_schema = 'public' and table_name = 'news_candidates'
+--    order by ordinal_position;
+--
+-- RLS e policies:
+--   select relrowsecurity from pg_class where oid = 'public.news_candidates'::regclass;
+--   select policyname, cmd, qual from pg_policies
+--    where schemaname = 'public' and tablename = 'news_candidates';
+--
+-- Linhas:
+--   select count(*) from public.news_candidates;
+--
+-- Teste funcional do CHECK, que insere e desfaz sem deixar rastro:
+--   begin;
+--   insert into public.news_candidates (url, title, source_name, published_at, status)
+--   select 'https://teste.local/' || v, 'teste', 'teste', now(), v
+--     from unnest(array['collected','classified','approved','selected','rejected',
+--                       'capped','duplicate','filtered','too_old','already_published']) as v;
+--   select status, count(*) from public.news_candidates group by status order by status;
+--   rollback;

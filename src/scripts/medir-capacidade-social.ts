@@ -364,7 +364,7 @@ async function main() {
      * `selecionadas` já veio cortada por teto global, teto Brasil, 2 por ator
      * e 2 por domínio. Medir capacidade por ela seria medir a configuração.
      */
-    const antesDoTeto = r.aprovadas.length;
+    const antesDoTeto = r.approvedEditorialPool.length;
 
     resumoPorDia.push({
       dia,
@@ -374,12 +374,12 @@ async function main() {
       eua,
       brasil,
       recusas: contar(r.recusadas, (x) => x.motivo),
-      eixos: contar(r.aprovadas, (p) => p.classificacao.eixo),
+      eixos: contar(r.approvedEditorialPool, (p) => p.classificacao.eixo),
       entidades: contar(
-        r.aprovadas.flatMap((p) => [...p.classificacao.atores, ...p.classificacao.lugares]),
+        r.approvedEditorialPool.flatMap((p) => [...p.classificacao.atores, ...p.classificacao.lugares]),
         (x) => x,
       ),
-      titulos: r.aprovadas
+      titulos: r.approvedEditorialPool
         .slice()
         .sort((a, b) => b.pontuacao.total - a.pontuacao.total)
         .map((p) => ({
