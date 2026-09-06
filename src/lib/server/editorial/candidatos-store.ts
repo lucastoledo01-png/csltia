@@ -116,7 +116,16 @@ export function garantirStatusIntrinseco(valor: string): StatusIntrinseco {
  * a mudança. O número abaixo é o que sobra: mudança de regra ou de schema que
  * não passa pelo texto do prompt.
  */
-export const VERSAO_DA_CLASSIFICACAO = 1;
+export const VERSAO_DA_CLASSIFICACAO = 2;
+
+/*
+ * 1 -> 2, em 2026-09-06: o classificador passou a ler 2500 caracteres da
+ * matéria em vez de 600 (ver `LIMITE_DO_RESUMO`). Não é mudança de prompt, é
+ * mudança do que o prompt carrega, então o `promptHash` não a percebe. Sem
+ * subir este número, toda classificação já persistida continuaria valendo e a
+ * correção não teria efeito nenhum sobre o acervo: exatamente o cenário que o
+ * comentário acima descreve.
+ */
 
 export type AssinaturaDoClassificador = {
   versao: number;

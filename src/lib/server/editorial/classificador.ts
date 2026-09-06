@@ -222,6 +222,22 @@ export function montarUserDoClassificador(pautas: PautaClassificavel[]): string 
  * todo dia, e o log diria apenas "não classificada".
  */
 const PAUTAS_POR_CHAMADA = 20;
+
+/**
+ * E quanto texto por chamada.
+ *
+ * O teto de 20 pautas foi calibrado quando cada resumo tinha 600 caracteres:
+ * 12 mil no total, e o modelo respondia inteiro. Ao subir o resumo para 2500
+ * para o classificador ler o mesmo que o verificador, 20 pautas viraram 50 mil
+ * caracteres e o modelo voltou a parar no meio, exatamente como descrito
+ * acima. Na medição de sete dias isso apareceu como 45 pautas
+ * `REJECT_UNCLASSIFIED`, contra 1 antes.
+ *
+ * Contar pauta não protege de nada: o que estoura é o texto. O lote fecha por
+ * quantidade OU por caracteres, o que vier primeiro, e o orçamento é o mesmo
+ * volume que já funcionava.
+ */
+const CARACTERES_POR_CHAMADA = 13_000;
 /** Chamadas simultâneas. Acima disso a API começa a devolver 429. */
 const CHAMADAS_EM_PARALELO = 4;
 
@@ -271,9 +287,22 @@ export async function classificarPautas(
    */
   const modelo = env.OPENAI_MODEL_TRIAGE || "gpt-4o";
   const lotes: PautaClassificavel[][] = [];
-  for (let i = 0; i < pautas.length; i += PAUTAS_POR_CHAMADA) {
-    lotes.push(pautas.slice(i, i + PAUTAS_POR_CHAMADA));
+  let atual: PautaClassificavel[] = [];
+  let caracteres = 0;
+  for (const pauta of pautas) {
+    // Uma pauta sozinha maior que o orçamento ainda entra: o corte de
+    // `LIMITE_DO_RESUMO` já limita o pior caso, e deixá-la de fora seria
+    // recusá-la por tamanho.
+    const custo = Math.min(pauta.descricao.length, LIMITE_DO_RESUMO) + pauta.titulo.length + 120;
+    if (atual.length > 0 && (atual.length >= PAUTAS_POR_CHAMADA || caracteres + custo > CARACTERES_POR_CHAMADA)) {
+      lotes.push(atual);
+      atual = [];
+      caracteres = 0;
+    }
+    atual.push(pauta);
+    caracteres += custo;
   }
+  if (atual.length > 0) lotes.push(atual);
 
   const mapa = new Map<string, Classificacao>();
   const lotesComFalha: string[] = [];

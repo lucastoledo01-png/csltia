@@ -49,11 +49,13 @@ describe("REJECT_LOW_RELEVANCE eram três recusas com um nome só", () => {
 
   function classificacao(over: Record<string, unknown> = {}) {
     return {
+      id: "c1",
+      justificativa: "",
       pais: "EUA",
       leitura: "oportunidade",
       eixo: "processo",
       relevancia: 8,
-      natureza: "ato",
+      natureza: "official_action",
       imigracao: true,
       atores: [],
       lugares: [],
@@ -177,5 +179,37 @@ describe("Federal Register pela porta documentada", () => {
     const fetcher = vi.fn() as unknown as typeof fetch;
     expect(await textoDoFederalRegister("https://www.uscis.gov/news/x", fetcher)).toBeNull();
     expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
+describe("o lote fecha por texto, não só por quantidade", () => {
+  /*
+   * O teto de 20 pautas por chamada foi calibrado com resumos de 600
+   * caracteres. Com 2500, vinte pautas viram 50 mil caracteres e o modelo para
+   * no meio sem erro: o JSON volta válido e curto, e as pautas que faltam são
+   * recusadas por precaução. Na medição de sete dias isso apareceu como 45
+   * `REJECT_UNCLASSIFIED` contra 1 antes.
+   */
+  function pauta(id: number, tamanho: number) {
+    return {
+      id: String(id),
+      titulo: `Pauta ${id}`,
+      descricao: "x".repeat(tamanho),
+      fonte: "f",
+      url: `https://exemplo/${id}`,
+    };
+  }
+
+  it("vinte pautas longas não cabem num lote só", () => {
+    const user = montarUserDoClassificador(Array.from({ length: 20 }, (_, i) => pauta(i, 2500)));
+    // O prompt de um lote cheio de textos longos passaria de 50 mil.
+    expect(user.length).toBeGreaterThan(45_000);
+  });
+
+  it("o orçamento de caracteres é menor que isso", () => {
+    const fonte = fs.readFileSync(path.join(RAIZ, "src/lib/server/editorial/classificador.ts"), "utf-8");
+    const teto = fonte.match(/CARACTERES_POR_CHAMADA = ([\d_]+)/);
+    expect(teto).toBeTruthy();
+    expect(Number(teto![1].replace(/_/g, ""))).toBeLessThan(20 * LIMITE_DO_RESUMO);
   });
 });
