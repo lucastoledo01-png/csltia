@@ -6,6 +6,7 @@ import { SAMPLE_CAROUSEL } from "./sample-data";
 import { CAROUSEL_FORMATS } from "./types";
 import { FORMAT_DEFAULTS } from "./format-defaults";
 import { SLIDE_VARIANTS } from "./variants";
+import type { InstagramSlide } from "./types";
 import { InstagramCarouselSchema } from "@/lib/server/social/instagram/schemas";
 
 describe("assembleSlide", () => {
@@ -97,5 +98,51 @@ describe("forma de cada formato", () => {
         expect(SLIDE_VARIANTS[tipo]?.[chave!], `${format}/${tipo} → "${chave}" não existe`).toBeDefined();
       }
     }
+  });
+});
+
+describe("peça de imagem única não convida a arrastar", () => {
+  const slideUnico: InstagramSlide = {
+    index: 1,
+    type: "cover",
+    eyebrow: "",
+    title: "Ordem manda USCIS retomar pedidos pendentes",
+    body: "",
+    bullet_points: [],
+    highlight_text: "",
+    variant: "brand_card",
+    cover_variant: "dark_speaker",
+    headline_style: "clean",
+    cover_image_prompt: "",
+    bg_image_url: "",
+    cta_text: "",
+  };
+
+  function montar(total: number): string {
+    return assembleSlide({ ...slideUnico }, {
+      format: "noticia",
+      tokens: DEFAULT_TOKENS,
+      formatConfig: resolveFormatConfig("noticia"),
+      slideIndex: 1,
+      total,
+      layout: null,
+    });
+  }
+
+  it("sem SWIPE, sem progresso e sem 01 / 01 quando o post é um só", () => {
+    const html = montar(1);
+    expect(html).not.toContain("SWIPE");
+    expect(html).not.toContain("PROGRESSO");
+    expect(html).not.toContain("01 / 01");
+    expect(html).not.toContain(`<div class="c-dots">`);
+  });
+
+  it("o carrossel continua com a paginação inteira", () => {
+    const html = montar(5);
+    expect(html).toContain("01 / 05");
+  });
+
+  it("a marca continua na peça única: ela não promete nada", () => {
+    expect(montar(1)).toContain("imigra.us");
   });
 });

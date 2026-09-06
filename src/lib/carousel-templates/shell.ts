@@ -3,6 +3,7 @@ import { tokensToCss, type CarouselTokens } from "./tokens";
 import { cantosEditorial, chromeFooter, chromeHeader } from "./chrome";
 import { fontLinkTag } from "./fonts";
 import { CSS_DO_LAYOUT } from "./layout-render";
+import { esc } from "./util";
 import type { VariantOutput } from "./types";
 
 
@@ -15,7 +16,7 @@ import type { VariantOutput } from "./types";
  */
 export function renderShell(
   out: VariantOutput,
-  opts: { slideIndex: number; total: number; tokens: CarouselTokens },
+  opts: { slideIndex: number; total: number; tokens: CarouselTokens; credito?: string },
 ): string {
   // O <link> sai das fontes que os tokens realmente escolheram: declarar uma
   // família sem requisitá-la é o bug silencioso que `fonts.ts` existe para
@@ -30,13 +31,25 @@ export function renderShell(
   // então valem também no slide sangrado — é neles que o design se reconhece.
   const cantos = chrome === "editorial" ? cantosEditorial() : "";
 
+  /*
+   * O crédito da licença é impresso na arte, não guardado num campo.
+   *
+   * CC BY e CC BY-SA exigem atribuição visível junto da obra. Guardar o autor
+   * numa coluna do banco cumpre o registro e não cumpre a licença: quem vê o
+   * post não vê a coluna. Por isso a tira sai no PNG, e sai por último, sobre
+   * qualquer variante.
+   */
+  const credito = (opts.credito ?? "").trim();
+  const tira = credito ? `<div class="s-credito">${esc(credito)}</div>` : "";
+
   const inner = out.full
-    ? `<div class="slide full">${cantos}${out.body}</div>`
+    ? `<div class="slide full">${cantos}${out.body}${tira}</div>`
     : `<div class="slide">
 ${cantos}
 ${chromeHeader(chrome, opts.slideIndex, opts.total)}
 ${out.body}
 ${chromeFooter(chrome, opts.slideIndex, opts.total)}
+${tira}
 </div>`;
 
   return `<!DOCTYPE html><html lang="pt-BR"${rootClass}><head><meta charset="UTF-8">${fontLink}${style}</head><body>${inner}</body></html>`;

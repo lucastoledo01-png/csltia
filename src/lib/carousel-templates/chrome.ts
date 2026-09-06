@@ -48,32 +48,47 @@ export function cantosEditorial(): string {
   return '<div class="c-corners"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></div>';
 }
 
+/*
+ * Post de imagem única não promete o que não tem.
+ *
+ * `noticia` é capa só. Numa peça de um slide, "01 / 01", a barra de progresso
+ * e o "SWIPE →" convidam para uma segunda tela que não existe: quem arrasta
+ * não encontra nada, e o convite passa a ser ruído. É o mesmo raciocínio que
+ * tirou os contadores de curtida do trilho — não imprimir na arte uma
+ * interação que a peça não sustenta.
+ *
+ * A marca e a assinatura ficam: elas não prometem nada.
+ */
 export function chromeHeader(kind: ChromeKind, slideIndex: number, total: number): string {
+  const paginacao = total > 1;
+
   if (kind === "social") {
     return `<div class="c-head social">
 <span class="mark">imigra.us</span>
-<span class="pill">${pad2(slideIndex)}<i>/</i>${pad2(total)}</span>
+${paginacao ? `<span class="pill">${pad2(slideIndex)}<i>/</i>${pad2(total)}</span>` : ""}
 </div>`;
   }
 
   return `<div class="c-head editorial">
 <span class="handle">${HANDLE}</span>
-<span class="count">${pad2(slideIndex)} / ${pad2(total)}</span>
+${paginacao ? `<span class="count">${pad2(slideIndex)} / ${pad2(total)}</span>` : ""}
 </div>`;
 }
 
 export function chromeFooter(kind: ChromeKind, slideIndex: number, total: number): string {
+  const avanco = total > 1;
+
   if (kind === "social") {
     return `<div class="c-foot social">
-<span class="prog"><b>PROGRESSO</b> ${pad2(slideIndex)} / ${pad2(total)}</span>
-<span class="next">${ICONES.seta}</span>
+${avanco ? `<span class="prog"><b>PROGRESSO</b> ${pad2(slideIndex)} / ${pad2(total)}</span>` : `<span class="prog"><b>@imigra.us</b></span>`}
+${avanco ? `<span class="next">${ICONES.seta}</span>` : ""}
 </div>`;
   }
 
   return `<div class="c-foot editorial">
 <span class="tag">${EDITORIAL_TAGLINE}</span>
-${pontos(slideIndex, total)}
-<span class="swipe">SWIPE ${ICONES.seta}</span>
+${avanco ? pontos(slideIndex, total) : ""}
+${avanco ? `<span class="swipe">SWIPE ${ICONES.seta}</span>` : ""}
 </div>`;
 }
 

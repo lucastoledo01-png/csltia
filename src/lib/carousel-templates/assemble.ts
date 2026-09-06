@@ -38,6 +38,8 @@ export function assembleSlide(
     total: number;
     /** Layout desenhado à mão. Quando existe, manda — ver abaixo. */
     layout?: Layout | null;
+    /** Atribuição exigida pela licença da foto, impressa sobre a arte. */
+    credito?: string;
   },
 ): string {
   const { format, tokens, formatConfig, slideIndex, total } = opts;
@@ -57,7 +59,7 @@ export function assembleSlide(
         }),
         full: true,
       },
-      { slideIndex, total, tokens },
+      { slideIndex, total, tokens, credito: opts.credito },
     );
   }
 
@@ -72,7 +74,7 @@ export function assembleSlide(
   if (!variant) {
     return renderShell(
       { body: `<div class="s-mid"><div class="s-title sm">${esc(slide.title)}</div></div>` },
-      { slideIndex, total, tokens },
+      { slideIndex, total, tokens, credito: opts.credito },
     );
   }
 
@@ -85,5 +87,5 @@ export function assembleSlide(
     total,
   };
 
-  return renderShell(variant.render(slide, ctx), { slideIndex, total, tokens });
+  return renderShell(variant.render(slide, ctx), { slideIndex, total, tokens, credito: opts.credito });
 }

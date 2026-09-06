@@ -8,6 +8,8 @@ import { criarBiblioteca } from "../lib/server/visual/biblioteca";
 import type { PautaParaImagem } from "../lib/server/visual/resolver";
 import type { ResultadoVisual } from "../lib/server/visual/tipos";
 import { carregarConfigDeImagem } from "../lib/server/visual/relevancia";
+import { renderizarCapas } from "../lib/server/social/arte";
+import { paginaDePreview } from "../lib/server/social/preview";
 
 /**
  * Resolução de imagem sobre pautas reais, sem publicar nada.
@@ -17,8 +19,14 @@ import { carregarConfigDeImagem } from "../lib/server/visual/relevancia";
  * edições. Onde faltar entidade, ela é extraída da própria matéria, com o
  * mesmo extrator da fase 1. Nenhuma pauta é inventada para conseguir foto.
  *
+ * Com `--arte`, a capa de cada pauta que resolveu imagem é renderizada e
+ * escrita numa página que se abre no navegador. É onde se vê o que a tabela
+ * não mostra: se a foto aprovada combina com a manchete, e se o crédito da
+ * licença sai legível sobre a arte.
+ *
  *   npx tsx src/scripts/dry-run-imagens.ts --saida=relatorio.md
  *   npx tsx src/scripts/dry-run-imagens.ts --gravar   (persiste os assets escolhidos)
+ *   npx tsx src/scripts/dry-run-imagens.ts --arte --preview=preview-imagens
  */
 
 function carregarEnv(): void {
@@ -115,6 +123,9 @@ async function main() {
   const valor = (n: string) => argv.find((a) => a.startsWith(`--${n}=`))?.split("=").slice(1).join("=") ?? null;
   const gravar = argv.includes("--gravar");
   const saida = valor("saida");
+  const comArte = argv.includes("--arte");
+  const pastaDePreview = valor("preview") ?? (comArte ? "preview-imagens" : null);
+  const limite = Number(valor("limite")) > 0 ? Number(valor("limite")) : 12;
 
   const client = getSupabaseAdminClient();
   const config = carregarConfigDeImagem();
@@ -236,6 +247,103 @@ async function main() {
     fs.writeFileSync(path.resolve(process.cwd(), saida), linhas.join("\n"), "utf-8");
     console.log(`\n[relatório em ${saida}]`);
   }
+
+  if (!pastaDePreview) return;
+
+  /*
+   * A arte de pauta real, com a foto que o resolvedor aprovou.
+   *
+   * Aqui a pauta é publicada de verdade e a foto é a que o resolvedor escolheu
+   * sozinho: nada é montado para o preview ficar bonito. É o caminho COM foto,
+   * que o dry-run do dia só mostra quando o dia tem uma pauta com entidade
+   * nomeada.
+   */
+  const paraRenderizar = [...comFoto, ...resultados.filter((x) => x.r.status !== "SELECTED")].slice(0, limite);
+
+  const pasta = path.resolve(process.cwd(), pastaDePreview);
+  fs.mkdirSync(pasta, { recursive: true });
+
+  console.log(`Renderizando ${paraRenderizar.length} capa(s)...`);
+  const artes = await renderizarCapas(
+    paraRenderizar.map(({ pauta, r }) => ({
+      headline: pauta.titulo,
+      eixo: pauta.categoria,
+      asset: r.asset,
+      motivoSemFoto: r.motivo ?? "",
+    })),
+  );
+
+  const posts = paraRenderizar.map(({ pauta, r }, i) => {
+    const arte = artes[i];
+    const nome = `capa-${String(i + 1).padStart(2, "0")}.png`;
+    if (arte) fs.writeFileSync(path.join(pasta, nome), arte.png);
+
+    const diagnostico = [
+      { campo: "story_id", valor: pauta.storyId },
+      { campo: "origem da pauta", valor: pauta.origem },
+      { campo: "atores", valor: pauta.classificacao.atores.join(", ") || "nenhum" },
+      {
+        campo: "entidade visual",
+        valor: r.entidade ? `${r.entidade.nome} (${r.entidade.tipo}, ${r.entidade.origem})` : "não identificada",
+        alerta: !r.entidade,
+      },
+      { campo: "layout do painel", valor: arte?.usouLayoutDesenhado ? "usado" : "não usado (não carrega a foto)" },
+    ];
+
+    if (r.asset) {
+      diagnostico.push(
+        { campo: "fonte do asset", valor: r.asset.source },
+        { campo: "licença", valor: r.asset.license },
+        { campo: "atribuição impressa", valor: r.asset.attribution || "não exigida" },
+        { campo: "image_relevance_score", valor: String(r.asset.imageRelevanceScore) },
+        { campo: "image_context_type", valor: r.asset.imageContextType },
+        { campo: "resolução", valor: `${r.asset.width}x${r.asset.height} ${r.asset.mimeType}` },
+        { campo: "página da licença", valor: r.asset.sourcePageUrl },
+      );
+    } else {
+      diagnostico.push({ campo: "imagem", valor: r.motivo ?? "n/d", alerta: true });
+      for (const f of r.fontesConsultadas) {
+        diagnostico.push({ campo: `consultou ${f.fonte}`, valor: `${f.encontrados} resultado(s). ${f.nota}` });
+      }
+    }
+
+    return {
+      posicao: i + 1,
+      hora: "",
+      headline: pauta.titulo,
+      legenda: r.legenda,
+      hashtags: [],
+      arte: arte ? `data:image/jpeg;base64,${arte.jpeg.toString("base64")}` : "",
+      arquivo: arte ? nome : "",
+      comFoto: arte?.capa.comFoto ?? false,
+      motivoSemFoto: arte?.capa.motivoSemFoto ?? "",
+      diagnostico,
+      recusadosVisuais: r.recusados.slice(0, 8).map((c) => ({
+        motivo: c.motivo,
+        identificacao: c.identificacao,
+        detalhe: c.detalhe,
+      })),
+    };
+  });
+
+  const caminho = path.join(pasta, "index.html");
+  fs.writeFileSync(
+    caminho,
+    paginaDePreview({
+      dia: "pautas já publicadas",
+      projeto: "imigra.us · resolução de imagem",
+      alvo: 0,
+      maximo: paraRenderizar.length,
+      posts,
+      descartes: [],
+      observacoes: [
+        "As pautas aqui são reais e já publicadas. A foto de cada uma foi escolhida pelo resolvedor da fase 2, sem interferência.",
+        "A legenda não aparece: este preview é do caminho visual, não da copy do feed.",
+      ],
+    }),
+    "utf-8",
+  );
+  console.log(`Preview em ${caminho}`);
 }
 
 main().catch((e) => {

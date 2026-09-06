@@ -66,6 +66,7 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 
 /* ---- imagem de fundo ---- */
 .s-photo{position:absolute;inset:0;z-index:1;background-size:cover;background-position:center;}
+.s-credito{position:absolute;left:0;right:0;bottom:0;z-index:40;padding:14px 28px;font-family:var(--f-body),sans-serif;font-size:19px;line-height:1.25;letter-spacing:.01em;color:rgba(255,255,255,.92);background:linear-gradient(to top,rgba(0,0,0,.72),rgba(0,0,0,0));text-align:right;}
 .s-photo.ph{background:
   radial-gradient(circle at 50% 38%,rgba(255,120,60,0.28),transparent 45%),
   radial-gradient(circle at 50% 42%,rgba(90,20,10,0.45),transparent 60%),

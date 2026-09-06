@@ -79,6 +79,15 @@ export type OpcoesDoCiclo = {
   resolverVisual?: (pauta: PautaAvaliada) => Promise<ResultadoVisual | null>;
   store?: SocialPostsStore | null;
   persistenciaDegradada?: boolean;
+  /*
+   * O relógio, para simulação de um dia que já passou.
+   *
+   * `distribuirVagas` nunca agenda no passado, e com razão. Rodando à noite um
+   * dry-run de ontem, esse piso empurra a grade inteira para a madrugada
+   * seguinte e esconde justamente o que se quer ver. Em produção fica
+   * ausente, e o relógio é o de agora.
+   */
+  agoraMs?: number;
   config?: ConfigSocial;
   env?: Record<string, string | undefined>;
   fetcher?: typeof fetch;
@@ -157,7 +166,7 @@ export async function rodarCicloSocial(
   }
 
   // 4. Agenda: recebe a quantidade, não a impõe.
-  const vagas = distribuirVagas(comVisual.length, opcoes.editionDate, carregarConfigDaAgenda(env));
+  const vagas = distribuirVagas(comVisual.length, opcoes.editionDate, carregarConfigDaAgenda(env), opcoes.agoraMs);
 
   const previews: PreviewDoPost[] = comVisual.map(({ post, visual }, i) => {
     const fingerprint =

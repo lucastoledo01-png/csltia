@@ -46,17 +46,6 @@ type Leitura = {
   motivo: string;
 };
 
-function moda<T>(valores: T[]): { valor: T; vezes: number } {
-  const contagem = new Map<string, { valor: T; vezes: number }>();
-  for (const v of valores) {
-    const k = JSON.stringify(v);
-    const atual = contagem.get(k);
-    if (atual) atual.vezes += 1;
-    else contagem.set(k, { valor: v, vezes: 1 });
-  }
-  return [...contagem.values()].sort((a, b) => b.vezes - a.vezes)[0];
-}
-
 async function main() {
   carregarEnv();
 

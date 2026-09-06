@@ -27,6 +27,7 @@ const MODULOS_DO_V2 = [
   "src/lib/server/social/agenda.ts",
   "src/lib/server/social/legenda.ts",
   "src/lib/server/social/modo.ts",
+  "src/lib/server/social/arte.ts",
   "src/lib/server/editorial/finalistas.ts",
   "src/lib/server/editorial/verificador.ts",
 ];
@@ -74,6 +75,39 @@ describe("o caminho factual do social V2 não alcança geração de imagem por I
     const renderizador = ler("src/lib/server/social/instagram/opendesign-renderer.ts");
     expect(renderizador).toContain("generateCoverImageWithAI");
     expect(renderizador).toContain("images.pexels.com");
+  });
+
+  it("a arte do V2 tem uma única origem possível de imagem", () => {
+    /*
+     * O ponto mais fácil de reabrir o atalho é o render, porque é lá que a
+     * ausência de foto aparece como problema visual: o renderizador antigo
+     * atribui `bg_image_url` em quatro lugares, e três deles inventam a
+     * imagem.
+     *
+     * Aqui existem duas atribuições, e as duas carregam o mesmo asset: a
+     * primeira pega a URL aprovada, a segunda troca essa URL pelo conteúdo
+     * dela embutido. Uma terceira, vinda de qualquer outra coisa, é o bug que
+     * este teste existe para pegar.
+     */
+    const fonte = ler("src/lib/server/social/arte.ts");
+    const emCodigo = fonte
+      .split("\n")
+      .filter((l) => /bg_image_url\s*[:=]/.test(l))
+      .map((l) => l.trim())
+      .filter((t) => !t.startsWith("*") && !t.startsWith("//") && !t.startsWith("/*"));
+
+    expect(emCodigo).toHaveLength(2);
+    expect(emCodigo[0]).toContain("asset");
+    expect(emCodigo[1]).toContain("dataUrl");
+    // E `dataUrl` é o download da própria URL aprovada, não de outra.
+    expect(fonte).toContain("baixarComoDataUrl(capa.slide.bg_image_url");
+  });
+
+  it("a arte do V2 não consulta banco de imagem", () => {
+    const fonte = ler("src/lib/server/social/arte.ts");
+    for (const proibido of ["buscarFotoDeBanco", "bancoConfigurado", "consultaDaCapa", "prompt-system/stock"]) {
+      expect(fonte.includes(proibido), proibido).toBe(false);
+    }
   });
 
   it("o resolvedor visual da fase 2 também não gera imagem", () => {
