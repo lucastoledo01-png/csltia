@@ -57,3 +57,7 @@ dry-run-social.md
 # Rascunho de agente. Ja entrou em commit uma vez por git add -A.
 src/scripts/tmp-*
 src/scripts/__*
+
+# Rascunho de subagente. Ja escapou para tres commits.
+.tmp-*/
+src/scripts/__*
