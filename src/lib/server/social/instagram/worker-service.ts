@@ -5,8 +5,6 @@ import {
   createCarouselContainer,
   createCarouselItemContainer,
   createSingleImageContainer,
-  publishContainer,
-  waitForContainerReady,
 } from "./meta-client";
 import { renderOpenDesignSlides, uploadOpenDesignSlideToStorage } from "./opendesign-renderer";
 import {
@@ -21,6 +19,11 @@ import { montarCarrosselDeCampanha } from "../../prompt-system/carrossel-de-camp
 import { concluirCampanhaPublicada } from "../../prompt-system/pos-publicacao";
 import { garantirFunilPermanente } from "../../prompt-system/funil-permanente";
 import { garantirLegendaSocial, type ContextoDaLegenda } from "../legenda";
+import {
+  gravarOuFalhar,
+  publicarComRegistro,
+  reconciliarTentativaAnterior,
+} from "./publicacao-segura";
 import { formatError, sendAlert } from "../../alerts";
 import type { CarouselFormat, InstagramCarouselContent } from "./schemas";
 import type { AITokenUsage } from "../../newsroom/ai-provider";
@@ -222,7 +225,7 @@ async function renderAndUploadSlides(
  * exige que case com o tipo de container, e derivar dela evita um formato
  * novo publicar pelo caminho errado sem ninguém lembrar de atualizar aqui.
  */
-async function publishPost(
+async function montarContainer(
   imageUrls: string[],
   caption: string,
   env: Record<string, string | undefined>,
@@ -233,12 +236,11 @@ async function publishPost(
   }
 
   if (imageUrls.length === 1) {
-    return publicarContainer(
-      await createSingleImageContainer(imageUrls[0], caption, env, fetcher),
-      "imagem única",
-      env,
-      fetcher,
-    );
+    const unico = await createSingleImageContainer(imageUrls[0], caption, env, fetcher);
+    if (!unico.ok || !unico.creationId) {
+      throw new Error(`Falha ao criar o container de imagem única: ${unico.error}`);
+    }
+    return unico.creationId;
   }
 
   const containerIds: string[] = [];
@@ -251,36 +253,11 @@ async function publishPost(
     containerIds.push(item.creationId);
   }
 
-  return publicarContainer(
-    await createCarouselContainer(containerIds, caption, env, fetcher),
-    "carrossel",
-    env,
-    fetcher,
-  );
-}
-
-/** Espera o container ficar pronto e publica. Comum aos dois tipos de post. */
-async function publicarContainer(
-  container: { ok: boolean; creationId?: string; error?: string },
-  tipo: string,
-  env: Record<string, string | undefined>,
-  fetcher: typeof fetch,
-): Promise<string> {
-  if (!container.ok || !container.creationId) {
-    throw new Error(`Falha ao criar o container de ${tipo}: ${container.error}`);
+  const pai = await createCarouselContainer(containerIds, caption, env, fetcher);
+  if (!pai.ok || !pai.creationId) {
+    throw new Error(`Falha ao criar o container de carrossel: ${pai.error}`);
   }
-
-  const pronto = await waitForContainerReady(container.creationId, env, fetcher);
-  if (!pronto.ok) {
-    throw new Error(`Container não ficou pronto para publicação: ${pronto.error}`);
-  }
-
-  const publicado = await publishContainer(container.creationId, env, fetcher);
-  if (!publicado.ok || !publicado.mediaId) {
-    throw new Error(`Falha na publicação final: ${publicado.error}`);
-  }
-
-  return publicado.mediaId;
+  return pai.creationId;
 }
 
 /** Processa uma vaga agendada de ponta a ponta. */
@@ -295,7 +272,7 @@ export async function processScheduledPost(
 
   const { data: post, error: postErr } = await supabase
     .from("social_posts")
-    .select("id, project_id, edition_date, status, content_json")
+    .select("id, project_id, edition_date, status, content_json, caption, provider_post_id, provider_creation_id, publish_attempted_at")
     .eq("id", socialPostId)
     .maybeSingle();
 
@@ -316,6 +293,54 @@ export async function processScheduledPost(
       };
     }
 
+    /*
+     * Antes de gastar um centavo, perguntar se já foi.
+     *
+     * `status` não é prova de nada: se a Meta publicou e a gravação seguinte
+     * falhou, a linha ficou em `generated` com o post no ar. Quem sabe a
+     * verdade é o container, e é a ele que se pergunta. Nada abaixo desta
+     * verificação roda para um post que já está publicado.
+     */
+    const jaTentado = await reconciliarTentativaAnterior(
+      supabase,
+      socialPostId,
+      {
+        providerPostId: (post.provider_post_id as string | null) ?? null,
+        providerCreationId: (post.provider_creation_id as string | null) ?? null,
+        publishAttemptedAt: (post.publish_attempted_at as string | null) ?? null,
+        caption: (post.caption as string | null) ?? "",
+      },
+      env,
+      fetcher,
+    );
+
+    if (jaTentado?.desfecho === "publicado") {
+      console.log(
+        `[INSTAGRAM WORKER] Post ${socialPostId} já estava publicado (mídia ${jaTentado.mediaId}). Nada refeito.`,
+      );
+      return {
+        ok: true,
+        projectId,
+        socialPostId,
+        status: "published",
+        providerPostId: jaTentado.mediaId,
+        executionTimeMs: Date.now() - startTime,
+      };
+    }
+
+    if (jaTentado?.desfecho === "revisar") {
+      await markPostFailed(socialPostId, `PUBLICAÇÃO INCERTA: ${jaTentado.motivo}`);
+      console.error(`[INSTAGRAM WORKER] ${socialPostId} precisa de revisão: ${jaTentado.motivo}`);
+      return {
+        ok: false,
+        projectId,
+        socialPostId,
+        status: "needs_review",
+        error: jaTentado.motivo,
+        executionTimeMs: Date.now() - startTime,
+      };
+    }
+
     const project = await requireActiveProject(projectId);
     const editionDate = post.edition_date as string;
     const meta = (post.content_json ?? {}) as Record<string, unknown>;
@@ -327,9 +352,10 @@ export async function processScheduledPost(
       `[INSTAGRAM WORKER] ${project.slug} ${editionDate} formato ${format}: ${pipelineResult.carousel.title}`,
     );
 
-    await supabase
-      .from("social_posts")
-      .update({
+    await gravarOuFalhar(
+      supabase,
+      socialPostId,
+      {
         title: pipelineResult.carousel.title,
         caption: pipelineResult.carousel.caption.full_caption,
         // preserva os metadados de origem (format, story_index, article_slug, keyword…)
@@ -338,20 +364,18 @@ export async function processScheduledPost(
         tokens_output: pipelineResult.usage.completionTokens,
         cost_estimate_usd: pipelineResult.usage.estimatedCostUsd,
         status: "generated",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", socialPostId);
+      },
+      "o roteiro gerado",
+    );
 
     const slides = await renderAndUploadSlides(project, pipelineResult.carousel, editionDate, socialPostId);
 
-    await supabase
-      .from("social_posts")
-      .update({
-        slides_manifest: slides,
-        asset_paths: slides.map((s) => s.url),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", socialPostId);
+    await gravarOuFalhar(
+      supabase,
+      socialPostId,
+      { slides_manifest: slides, asset_paths: slides.map((s) => s.url) },
+      "o manifesto dos slides",
+    );
 
     const autoPost = options.autoPost ?? env.INSTAGRAM_AUTO_POST !== "false";
 
@@ -371,24 +395,36 @@ export async function processScheduledPost(
     // ou a env como semente. O meta-client lê env.INSTAGRAM_ACCESS_TOKEN.
     const igEnv = { ...env, INSTAGRAM_ACCESS_TOKEN: await resolveInstagramToken(projectId, env) };
 
-    const mediaId = await publishPost(
+    /*
+     * Container primeiro, publicação depois, e o registro no meio.
+     *
+     * Montar o container não publica nada: é a etapa reversível. A partir de
+     * `publicarComRegistro` tudo é irreversível, e é por isso que o
+     * `creation_id` é gravado antes da chamada, não depois.
+     */
+    const creationId = await montarContainer(
       slides.map((s) => s.url),
       pipelineResult.carousel.caption.full_caption,
       igEnv,
       fetcher,
     );
 
-    await supabase
-      .from("social_posts")
-      .update({
-        status: "published",
-        provider_post_id: mediaId,
-        published_at: new Date().toISOString(),
-        error_message: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", socialPostId);
+    const publicacao = await publicarComRegistro(supabase, socialPostId, creationId, igEnv, fetcher);
 
+    if (publicacao.desfecho === "revisar") {
+      await markPostFailed(socialPostId, `PUBLICAÇÃO INCERTA: ${publicacao.motivo}`);
+      console.error(`[INSTAGRAM WORKER] ${socialPostId} precisa de revisão: ${publicacao.motivo}`);
+      return {
+        ok: false,
+        projectId,
+        socialPostId,
+        status: "needs_review",
+        error: publicacao.motivo,
+        executionTimeMs: Date.now() - startTime,
+      };
+    }
+
+    const mediaId = publicacao.mediaId;
     console.log(`[INSTAGRAM WORKER] Publicado com sucesso. Media ID: ${mediaId}`);
 
     // Post de campanha do Sistema PROMPT: é aqui, e só aqui, que o
