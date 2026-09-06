@@ -80,7 +80,7 @@ function storeFalso(persistidas: Map<string, CandidataPersistida> = new Map()) {
       }
       return m;
     },
-    async buscarDaJanela(_p: string, _d: number) {
+    async buscarDaJanela() {
       const m = new Map<string, CandidataPersistida>();
       for (const [u, c] of persistidas.entries()) m.set(u, c);
       return m;
