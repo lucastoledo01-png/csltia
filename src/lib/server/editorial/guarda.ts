@@ -178,7 +178,15 @@ export async function avaliarPautas(
 
   if (store && projectId) {
     try {
-      const persistidas = await store.buscarPorUrls(projectId, grupos.map((g) => g.primary.url));
+      /*
+       * Janela, não lista de URLs.
+       *
+       * A leitura por lista montava cinquenta URLs de notícia na query string,
+       * o que passa de dez mil caracteres. Funcionou no meu ambiente e morreu
+       * no contêiner com "fetch failed", deixando a persistência degradada em
+       * produção. A janela é uma query curta e constante.
+       */
+      const persistidas = await store.buscarDaJanela(projectId, config.janelaDeDias + 15);
       reuso.candidatasLidas = persistidas.size;
 
       paraClassificar = grupos.filter((g) => {

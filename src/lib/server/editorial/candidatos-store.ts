@@ -390,6 +390,8 @@ export type ResultadoDaGravacao = {
 export type CandidatosStore = {
   /** O que já existe, indexado por URL. Base do reuso e da idempotência. */
   buscarPorUrls(projectId: string, urls: string[]): Promise<Map<string, CandidataPersistida>>;
+  /** As candidatas recentes do projeto, indexadas por URL. */
+  buscarDaJanela(projectId: string, dias: number): Promise<Map<string, CandidataPersistida>>;
   /** O que já existe, indexado por story_id. Base do reuso entre canais. */
   buscarPorStoryIds(projectId: string, storyIds: string[]): Promise<Map<string, CandidataPersistida>>;
   /** Grava só o que ainda não existe. Nunca sobrescreve classificação. */
@@ -422,6 +424,45 @@ export function criarCandidatosStore(client: SupabaseClient): CandidatosStore {
       return mapa;
     },
 
+    /*
+     * A leitura da janela existe porque a leitura por URL não sobreviveu à
+     * produção.
+     *
+     * `in("url", [...])` monta a lista inteira na query string, e URL de
+     * notícia é longa: cinquenta delas passam de dez mil caracteres. No meu
+     * ambiente funcionou; no contêiner a chamada morreu com "TypeError: fetch
+     * failed" nas duas tentativas, leitura e gravação, e a persistência ficou
+     * degradada sem que nada mais quebrasse.
+     *
+     * Buscar a janela do projeto e casar por URL em memória resolve a causa em
+     * vez do sintoma: a query fica curta e constante, não importa quantas
+     * candidatas o dia tenha.
+     */
+    async buscarDaJanela(projectId, dias) {
+      const mapa = new Map<string, CandidataPersistida>();
+      const desde = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString();
+
+      const PAGINA = 500;
+      for (let inicio = 0; ; inicio += PAGINA) {
+        const { data, error } = await client
+          .from("news_candidates")
+          .select(COLUNAS)
+          .eq("project_id", projectId)
+          .gte("published_at", desde)
+          .order("published_at", { ascending: false })
+          .range(inicio, inicio + PAGINA - 1);
+
+        if (error) throw new Error(`Candidatas, leitura da janela falhou: ${error.message}`);
+
+        const linhas = (data ?? []) as unknown as Linha[];
+        for (const l of linhas) mapa.set(String(l.url), daLinha(l));
+
+        if (linhas.length < PAGINA) break;
+      }
+
+      return mapa;
+    },
+
     async buscarPorStoryIds(projectId, storyIds) {
       const mapa = new Map<string, CandidataPersistida>();
       if (storyIds.length === 0) return mapa;
@@ -445,7 +486,7 @@ export function criarCandidatosStore(client: SupabaseClient): CandidatosStore {
       const resultado: ResultadoDaGravacao = { gravadas: 0, reaproveitadas: 0, jaClassificadas: [], erros: [] };
       if (candidatas.length === 0) return resultado;
 
-      const existentes = await this.buscarPorUrls(projectId, candidatas.map((c) => c.url));
+      const existentes = await this.buscarDaJanela(projectId, 45);
 
       /*
        * Classificação persistida não é sobrescrita.
