@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DEFAULT_PROJECT_ID, getProjectNewsSources, requireActiveProject } from "../lib/server/projects";
 import { collectFromSource, janelaDaFonte } from "../lib/server/newsroom/collector";
+import { fontesDeOportunidade } from "../lib/server/newsroom/fontes-oportunidade";
 import type { NewsCandidate } from "../lib/server/newsroom/collector";
 import { deduplicateCandidates } from "../lib/server/newsroom/deduplicator";
 import { carregarConfigEditorial } from "../lib/server/editorial/config";
@@ -102,7 +103,21 @@ async function main() {
   };
 
   const project = await requireActiveProject(DEFAULT_PROJECT_ID);
-  const fontes = await getProjectNewsSources(project.id);
+  const doBanco = await getProjectNewsSources(project.id);
+
+  /*
+   * As fontes novas entram do arquivo, não do banco.
+   *
+   * O objetivo é comparar a cobertura antes e depois sem tocar em produção:
+   * `project_news_sources` continua como está, e o SQL de semente é entregue
+   * para revisão. Com `--com-fontes-novas` a medição roda contra o conjunto
+   * ampliado; sem a bandeira, contra o que está no ar hoje.
+   */
+  const novas = argv.includes("--com-fontes-novas")
+    ? fontesDeOportunidade.filter((f) => !doBanco.some((b) => b.url === f.url))
+    : [];
+
+  const fontes = [...doBanco, ...novas];
 
   escrever(`# Capacidade editorial diária, ${project.slug}`);
   escrever();
@@ -114,7 +129,10 @@ async function main() {
   // ------------------------------------------------------------------
   escrever(`## 1. Coleta bruta`);
   escrever();
-  escrever(`${fontes.length} fonte(s) configurada(s), ${fontes.filter((f) => f.enabled).length} habilitada(s).`);
+  escrever(
+    `${fontes.length} fonte(s): ${doBanco.length} do banco` +
+      (novas.length > 0 ? ` mais ${novas.length} de oportunidade, ainda não aplicadas em produção` : ""),
+  );
   escrever();
 
   const porFonte: Array<{ nome: string; dominio: string; janela: number; itens: NewsCandidate[]; erro?: string }> = [];
