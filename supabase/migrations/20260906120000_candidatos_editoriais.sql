@@ -41,8 +41,33 @@ alter table public.news_candidates
   add column if not exists summary text not null default '';
 
 -- A unicidade era global por URL. Com multi-projeto, a mesma matéria pode ser
--- candidata de duas publicações diferentes. Seguro agora: a tabela está vazia.
-alter table public.news_candidates drop constraint if exists news_candidates_url_key;
+-- candidata de duas publicações diferentes.
+--
+-- O `drop constraint if exists` pelo nome padrão do Postgres seria um risco
+-- silencioso: se o constraint tiver outro nome, o `if exists` não derruba
+-- nada, não dá erro, e a unicidade global continua valendo ao lado do índice
+-- novo. O bloco abaixo procura o constraint pela COLUNA, não pelo nome, e
+-- avisa no log o que derrubou.
+do $$
+declare
+  nome text;
+begin
+  for nome in
+    select c.conname
+      from pg_constraint c
+      join pg_attribute a
+        on a.attrelid = c.conrelid
+       and a.attnum = any (c.conkey)
+     where c.conrelid = 'public.news_candidates'::regclass
+       and c.contype = 'u'
+       and array_length(c.conkey, 1) = 1
+       and a.attname = 'url'
+  loop
+    execute format('alter table public.news_candidates drop constraint %I', nome);
+    raise notice 'unicidade global de url removida: %', nome;
+  end loop;
+end $$;
+
 create unique index if not exists news_candidates_projeto_url
   on public.news_candidates (project_id, url);
 
@@ -112,7 +137,28 @@ alter table public.news_candidates
 -- O CHECK antigo só aceitava os estados da coleta. A camada editorial precisa
 -- distinguir "reprovada pela linha" de "cortada por teto de composição", que
 -- hoje é justamente o corte que desaparece sem registro.
-alter table public.news_candidates drop constraint if exists news_candidates_status_check;
+-- Mesmo cuidado com o CHECK: procurado pela coluna, não pelo nome. Deixar o
+-- antigo de pé faria o `insert` de uma candidata em 'classified' falhar em
+-- produção e em lugar nenhum antes disso.
+do $$
+declare
+  nome text;
+begin
+  for nome in
+    select c.conname
+      from pg_constraint c
+      join pg_attribute a
+        on a.attrelid = c.conrelid
+       and a.attnum = any (c.conkey)
+     where c.conrelid = 'public.news_candidates'::regclass
+       and c.contype = 'c'
+       and a.attname = 'status'
+  loop
+    execute format('alter table public.news_candidates drop constraint %I', nome);
+    raise notice 'check antigo de status removido: %', nome;
+  end loop;
+end $$;
+
 alter table public.news_candidates
   add constraint news_candidates_status_check check (status in (
     'collected',        -- coletada, ainda não classificada
@@ -185,3 +231,19 @@ create index if not exists social_posts_por_story
   on public.social_posts (project_id, story_id);
 create index if not exists social_posts_por_candidata
   on public.social_posts (candidate_id);
+
+-- ---------------------------------------------------------------------------
+-- 7. Conferência, para rodar depois de aplicar
+-- ---------------------------------------------------------------------------
+--
+--   select conname, contype, pg_get_constraintdef(oid)
+--     from pg_constraint
+--    where conrelid = 'public.news_candidates'::regclass
+--    order by contype, conname;
+--
+-- Esperado: um único CHECK de status, com a lista nova, e nenhum UNIQUE de
+-- coluna só em `url`. A unicidade por projeto vive como índice, não como
+-- constraint, e aparece em:
+--
+--   select indexname from pg_indexes
+--    where tablename = 'news_candidates';
