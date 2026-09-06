@@ -507,6 +507,14 @@ export async function runNewsroom(
 
   let ranked: RankedCandidate[];
   let pautasDaGuarda: PautaAvaliada[] = [];
+  let diagnosticoDeCandidatas: {
+    degraded: boolean;
+    lidas: number;
+    reaproveitadas: number;
+    classificadasAgora: number;
+    gravadas: number;
+    erros: string[];
+  } = { degraded: false, lidas: 0, reaproveitadas: 0, classificadasAgora: 0, gravadas: 0, erros: [] };
   // Guardado para a escolha de imagem, que precisa saber o que já foi usado.
   let historicoDaGuarda: RegistroHistorico[] = [];
 
@@ -518,6 +526,23 @@ export async function runNewsroom(
       `[NEWSROOM] ${historico.length} registros no histórico de ${configEditorial.janelaDeDias} dias.`,
     );
 
+    /*
+     * A classificação do dia é gravada aqui, e é uma vez só.
+     *
+     * Sem isto, a newsletter classificava as candidatas, jogava fora, e o
+     * canal social classificava as MESMAS candidatas de novo mais tarde. Duas
+     * leituras do mesmo fato, com o custo dobrado e, pior, com respostas
+     * diferentes: medido, a mesma candidata muda de decisão em 24% das vezes.
+     *
+     * O que muda para a newsletter: nada de composição. Ela continua com os
+     * mesmos tetos, as mesmas 2 a 4 pautas e a mesma guarda. A única coisa
+     * diferente é de onde vem a classificação, e o teste de antes e depois
+     * prova que a escolha final é a mesma.
+     *
+     * O verificador de finalistas NÃO entra aqui. Ele é da fase 3 e ainda não
+     * foi validado contra o comportamento da newsletter; ligar os dois de uma
+     * vez misturaria "compartilhar classificação" com "mudar quem publica".
+     */
     const resultado = await avaliarPautas(uniqueGroups, {
       canal: "newsletter",
       historico,
@@ -525,7 +550,29 @@ export async function runNewsroom(
       provedorDeVetor: criarProvedorOpenAI(env, fetcher),
       env,
       fetcher,
+      candidatos: { client: getSupabaseAdminClient(), projectId: project.id },
     });
+
+    if (resultado.reuso.erros.length > 0) {
+      console.warn(
+        `[NEWSROOM] candidatePersistenceDegraded=true :: ${resultado.reuso.erros.join(" | ")}`,
+      );
+    }
+    diagnosticoDeCandidatas = {
+      degraded: resultado.reuso.erros.length > 0,
+      lidas: resultado.reuso.candidatasLidas,
+      reaproveitadas: resultado.reuso.classificacoesReaproveitadas,
+      classificadasAgora: resultado.reuso.classificadasAgora,
+      gravadas: resultado.reuso.persistidas,
+      erros: resultado.reuso.erros,
+    };
+
+    console.log(
+      `[NEWSROOM] candidatas: ${resultado.reuso.candidatasLidas} lidas, ` +
+        `${resultado.reuso.classificacoesReaproveitadas} reaproveitadas, ` +
+        `${resultado.reuso.classificadasAgora} classificadas agora, ` +
+        `${resultado.reuso.persistidas} gravadas.`,
+    );
 
     for (const linha of resultado.linhasDeLog) console.log(linha);
 
@@ -1145,6 +1192,14 @@ export async function runNewsroom(
      * normalizado, nunca o valor bruto da variável.
      */
     editorialGuardMode: modo,
+    /**
+     * A camada de candidatas funcionou nesta execução?
+     *
+     * Falha aqui não derruba a edição, e por isso ela precisa aparecer: uma
+     * degradação silenciosa faria o canal social reclassificar tudo amanhã
+     * sem ninguém perceber que o cache parou de existir.
+     */
+    candidatePersistence: diagnosticoDeCandidatas,
     /** Modo efetivo do resolvedor de imagem, normalizado, lido pelo processo. */
     visualResolverMode: modoVisual,
     visualResolution: diagnosticoVisual,

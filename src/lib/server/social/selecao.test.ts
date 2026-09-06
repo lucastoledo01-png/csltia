@@ -217,6 +217,37 @@ describe("composição do feed", () => {
   });
 });
 
+describe("sem persistência, o social não publica", () => {
+  it("persistência degradada bloqueia o ciclo", () => {
+    const r = comporFeedSocial([pauta({ titulo: "Uma pauta boa", nota: 60 })], CONFIG, {
+      persistenciaDegradada: true,
+      paraPublicar: true,
+    });
+
+    // O cálculo acontece; a liberação é que não.
+    expect(r.escolhidas).toHaveLength(1);
+    expect(r.bloqueio).toBe("SOCIAL_PERSISTENCE_UNAVAILABLE");
+  });
+
+  it("dry-run continua rodando, porque diagnóstico não publica", () => {
+    const r = comporFeedSocial([pauta({ titulo: "Uma pauta boa", nota: 60 })], CONFIG, {
+      persistenciaDegradada: true,
+      paraPublicar: false,
+    });
+
+    expect(r.escolhidas).toHaveLength(1);
+    expect(r.bloqueio).toBeNull();
+  });
+
+  it("com persistência sadia, nada é bloqueado", () => {
+    const r = comporFeedSocial([pauta({ titulo: "Uma pauta boa", nota: 60 })], CONFIG, {
+      persistenciaDegradada: false,
+      paraPublicar: true,
+    });
+    expect(r.bloqueio).toBeNull();
+  });
+});
+
 describe("teste de diversidade", () => {
   it("dia magro não é reprovado por falta de variedade", () => {
     const r = comporFeedSocial([pauta({ titulo: "Única", nota: 50 })], CONFIG);

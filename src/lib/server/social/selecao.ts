@@ -177,6 +177,20 @@ export type CortadaDoSocial = {
   detalhe: string;
 };
 
+/**
+ * Sem a camada persistida, o social não publica.
+ *
+ * A newsletter pode seguir degradada: ela sai uma vez por dia, com duas a
+ * quatro pautas, e um dia sem cache custa tokens. O social não tem esse luxo.
+ * Sem persistência ele perde a antirrepetição confiável, perde o reuso da
+ * verificação e volta a depender de uma classificação que muda de decisão em
+ * 24% das vezes, publicando dez vezes por dia. O mesmo fato pode sair de manhã
+ * aprovado e de tarde recusado, ou pior, sair duas vezes.
+ *
+ * Dry-run continua rodando, porque diagnóstico não publica nada.
+ */
+export const SOCIAL_PERSISTENCE_UNAVAILABLE = "SOCIAL_PERSISTENCE_UNAVAILABLE";
+
 export type ComposicaoSocial = {
   escolhidas: PautaSocial[];
   cortadas: CortadaDoSocial[];
@@ -190,6 +204,8 @@ export type ComposicaoSocial = {
     politicaBrasileira: number;
   };
   linhasDeLog: string[];
+  /** Quando presente, o ciclo não pode publicar automaticamente. */
+  bloqueio: string | null;
 };
 
 /**
@@ -204,9 +220,17 @@ export type ComposicaoSocial = {
  * A quantidade final é consequência, nunca meta: se o pool sustenta três,
  * saem três.
  */
+export type ContextoDaComposicao = {
+  /** A camada de candidatas falhou nesta execução? */
+  persistenciaDegradada?: boolean;
+  /** Dry-run diagnostica sem publicar, então não é bloqueado. */
+  paraPublicar?: boolean;
+};
+
 export function comporFeedSocial(
   pool: PautaAvaliada[],
   config: ConfigSocial,
+  contexto: ContextoDaComposicao = {},
 ): ComposicaoSocial {
   const ordenadas = [...pool].sort((a, b) => b.pontuacao.total - a.pontuacao.total);
 
@@ -314,9 +338,26 @@ export function comporFeedSocial(
     linhas.push(`[SOCIAL] fora: ${c.motivo} :: ${c.detalhe} :: ${c.titulo.slice(0, 60)}`);
   }
 
+  /*
+   * O bloqueio é decidido no fim, e não no começo, de propósito: mesmo sem
+   * poder publicar, o relatório do dia continua mostrando o que teria saído.
+   */
+  const bloqueio =
+    contexto.persistenciaDegradada && contexto.paraPublicar !== false
+      ? SOCIAL_PERSISTENCE_UNAVAILABLE
+      : null;
+
+  if (bloqueio) {
+    linhas.push(
+      `[SOCIAL] ${bloqueio}: a camada de candidatas falhou, e sem ela o feed perde antirrepetição ` +
+        `e reuso de verificação. ${escolhidas.length} post(s) calculado(s) e nenhum liberado.`,
+    );
+  }
+
   return {
     escolhidas,
     cortadas,
+    bloqueio,
     diversidade: {
       eixos: porEixo,
       topicos: porTopico,

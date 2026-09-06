@@ -254,7 +254,11 @@ async function main() {
    * `status = approved` não autoriza nada sozinho: uma candidata em conflito
    * continua aprovada na linha editorial e bloqueada para o ar.
    */
-  const composicao = comporFeedSocial(conferencia.confirmadas, configSocial);
+  const composicao = comporFeedSocial(conferencia.confirmadas, configSocial, {
+    persistenciaDegradada: guarda.reuso.erros.length > 0,
+    // Dry-run diagnostica; não publica nada, então não é bloqueado.
+    paraPublicar: false,
+  });
   const naNewsletter = new Set(guarda.selecionadas.map((p) => p.storyId));
   /*
    * O relógio da simulação é o do dia simulado, não o de agora.
