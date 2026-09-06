@@ -9,7 +9,7 @@ import { carregarConfigDaAgenda, distribuirVagas } from "./agenda";
 import type { Vaga } from "./agenda";
 import { gerarPostsDoDia } from "./gerador";
 import type { MarcaSocial } from "./copy";
-import type { PostDescartado, PostGerado } from "./gerador";
+import type { PostGerado } from "./gerador";
 import { modoDoPipelineSocial, permiteEnforce, diagnosticoSocialVazio } from "./modo";
 import type { DiagnosticoSocial, ModoSocial } from "./modo";
 import { chaveDeIdempotencia, resolverOrigem } from "./social-posts-store";

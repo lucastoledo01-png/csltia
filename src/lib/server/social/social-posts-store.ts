@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { PautaAvaliada } from "../editorial/guarda";
 import type { RegistroHistorico } from "../editorial/history";
 import type { PostGerado } from "./gerador";
 import type { Vaga } from "./agenda";
