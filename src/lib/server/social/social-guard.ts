@@ -128,15 +128,25 @@ export type ContextoDoPost = {
 };
 
 export type VeredictoDoPost = {
-  aprovado: boolean;
-  problemas: ProblemaDoPost[];
-  /** Vale tentar reescrever, ou descartar a pauta e ir para a próxima? */
-  reparavel: boolean;
+  passed: boolean;
+  /** Todos os problemas, na ordem em que foram encontrados. */
+  issues: ProblemaDoPost[];
+  /** O que uma reescrita resolve. */
+  repairableIssues: ProblemaDoPost[];
+  /** O que nenhuma reescrita resolve: o problema é a pauta, não o texto. */
+  fatalIssues: ProblemaDoPost[];
+  /** Quantas reescritas já foram gastas nesta candidata. */
+  attempts: number;
+  finalDecision: "publicar" | "reparar" | "descartar";
   legendaFinal: string;
   hashtagsFinais: string[];
 };
 
-export function avaliarPostSocial(copy: CopyDoPost, contexto: ContextoDoPost): VeredictoDoPost {
+export function avaliarPostSocial(
+  copy: CopyDoPost,
+  contexto: ContextoDoPost,
+  tentativas = 0,
+): VeredictoDoPost {
   const problemas: ProblemaDoPost[] = [];
   const { pauta, pacote } = contexto;
 
@@ -292,13 +302,29 @@ export function avaliarPostSocial(copy: CopyDoPost, contexto: ContextoDoPost): V
     });
   }
 
-  const bloqueiosDefinitivos = problemas.filter((p) => !p.reparavel);
+  const fatalIssues = problemas.filter((p) => !p.reparavel);
+  const repairableIssues = problemas.filter((p) => p.reparavel);
+
+  /*
+   * A decisão é uma só, e a ordem dela importa.
+   *
+   * Qualquer problema fatal descarta, mesmo que existam dez reparáveis junto:
+   * reescrever um post cuja pauta não pode sair é trabalho para jogar fora.
+   * Só depois disso a contagem de tentativas entra, porque insistir na
+   * terceira reescrita da mesma candidata custa mais que pegar a próxima.
+   */
+  let finalDecision: VeredictoDoPost["finalDecision"];
+  if (fatalIssues.length > 0) finalDecision = "descartar";
+  else if (problemas.length === 0) finalDecision = "publicar";
+  else finalDecision = "reparar";
 
   return {
-    aprovado: problemas.length === 0,
-    problemas,
-    // Reparar só faz sentido quando nada é definitivo.
-    reparavel: problemas.length > 0 && bloqueiosDefinitivos.length === 0,
+    passed: problemas.length === 0,
+    issues: problemas,
+    repairableIssues,
+    fatalIssues,
+    attempts: tentativas,
+    finalDecision,
     legendaFinal: auditada.carousel.caption.full_caption,
     hashtagsFinais,
   };

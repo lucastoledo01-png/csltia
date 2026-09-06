@@ -104,8 +104,9 @@ function contexto(over: Record<string, unknown> = {}) {
 describe("post bem escrito passa", () => {
   it("aprova quando tudo está ancorado", () => {
     const r = avaliarPostSocial(copy(), contexto());
-    expect(r.problemas).toEqual([]);
-    expect(r.aprovado).toBe(true);
+    expect(r.issues).toEqual([]);
+    expect(r.passed).toBe(true);
+    expect(r.finalDecision).toBe("publicar");
     expect(r.hashtagsFinais.length).toBeGreaterThanOrEqual(3);
   });
 
@@ -120,15 +121,15 @@ describe("post bem escrito passa", () => {
 describe("ancoragem", () => {
   it("manchete com número que a fonte não tem é bloqueada", () => {
     const r = avaliarPostSocial(copy({ headline: "USCIS amplia prazo do EAD para 720 dias" }), contexto());
-    expect(r.problemas.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.HEADLINE_SEM_ANCORAGEM);
+    expect(r.issues.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.HEADLINE_SEM_ANCORAGEM);
     // Reescrever resolve: a pauta está boa, o texto que não está.
-    expect(r.reparavel).toBe(true);
+    expect(r.finalDecision).toBe("reparar");
   });
 
   it("manchete e legenda são conferidas separado", () => {
     // Legenda impecável, manchete inventada. É a manchete que vai no print.
     const r = avaliarPostSocial(copy({ headline: "USCIS aprova 900 mil pedidos de imigrantes" }), contexto());
-    const motivos = r.problemas.map((p) => p.motivo);
+    const motivos = r.issues.map((p) => p.motivo);
     expect(motivos).toContain(MOTIVOS_DO_SOCIAL_GUARD.HEADLINE_SEM_ANCORAGEM);
     expect(motivos).not.toContain(MOTIVOS_DO_SOCIAL_GUARD.CAPTION_SEM_ANCORAGEM);
   });
@@ -138,7 +139,7 @@ describe("ancoragem", () => {
       copy({ informacao_util: "A regra entra em vigor em 3 de janeiro de 2031." }),
       contexto(),
     );
-    expect(r.problemas.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.CAPTION_SEM_ANCORAGEM);
+    expect(r.issues.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.CAPTION_SEM_ANCORAGEM);
   });
 });
 
@@ -167,14 +168,14 @@ describe("o que nenhuma reescrita conserta", () => {
       copy(),
       contexto({ pauta: pauta({ classificacao: { ...pauta().classificacao, leitura: "desfavoravel" } }) }),
     );
-    expect(r.problemas.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.EUA_NEGATIVO);
-    expect(r.reparavel).toBe(false);
+    expect(r.issues.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.EUA_NEGATIVO);
+    expect(r.finalDecision).toBe("descartar");
   });
 
   it("candidata não verificada não vira post", () => {
     const r = avaliarPostSocial(copy(), contexto({ candidata: { status: "approved", verificacao: null } }));
-    expect(r.problemas.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.NAO_VERIFICADA);
-    expect(r.reparavel).toBe(false);
+    expect(r.issues.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.NAO_VERIFICADA);
+    expect(r.finalDecision).toBe("descartar");
   });
 
   it("candidata em conflito não vira post", () => {
@@ -183,8 +184,8 @@ describe("o que nenhuma reescrita conserta", () => {
       verificacao: { ...CONFIRMADA.verificacao, status: "conflict" as const, motivo: "EDITORIAL_CLASSIFICATION_CONFLICT: pais" },
     };
     const r = avaliarPostSocial(copy(), contexto({ candidata: emConflito }));
-    expect(r.problemas[0].detalhe).toContain("EDITORIAL_CLASSIFICATION_CONFLICT");
-    expect(r.reparavel).toBe(false);
+    expect(r.issues[0].detalhe).toContain("EDITORIAL_CLASSIFICATION_CONFLICT");
+    expect(r.finalDecision).toBe("descartar");
   });
 
   it("só link de agregador não vira post", () => {
@@ -193,8 +194,8 @@ describe("o que nenhuma reescrita conserta", () => {
     (agregada.enriquecimento as { enrichmentSources: string[] }).enrichmentSources = [];
 
     const r = avaliarPostSocial(copy(), contexto({ pauta: agregada }));
-    expect(r.problemas.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.FONTE_NAO_RESOLVIDA);
-    expect(r.reparavel).toBe(false);
+    expect(r.issues.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.FONTE_NAO_RESOLVIDA);
+    expect(r.finalDecision).toBe("descartar");
   });
 });
 
@@ -204,12 +205,12 @@ describe("promessa e urgência", () => {
       copy({ cta: "Comente VISA e descubra se você pode morar legalmente nos EUA." }),
       contexto(),
     );
-    expect(r.problemas.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.CTA_PROIBIDO);
+    expect(r.issues.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.CTA_PROIBIDO);
   });
 
   it("urgência inventada é bloqueada", () => {
     const r = avaliarPostSocial(copy({ gancho: "Últimas vagas antes da mudança." }), contexto());
-    expect(r.problemas.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.CTA_PROIBIDO);
+    expect(r.issues.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.CTA_PROIBIDO);
   });
 
   it("dizer que existem caminhos é permitido", () => {
@@ -217,14 +218,14 @@ describe("promessa e urgência", () => {
       copy({ cta: "Comente VISA e descubra quais caminhos combinam com o seu perfil." }),
       contexto(),
     );
-    expect(r.problemas.map((p) => p.motivo)).not.toContain(MOTIVOS_DO_SOCIAL_GUARD.CTA_PROIBIDO);
+    expect(r.issues.map((p) => p.motivo)).not.toContain(MOTIVOS_DO_SOCIAL_GUARD.CTA_PROIBIDO);
   });
 });
 
 describe("assinatura de newsletter", () => {
   it("despedida na legenda é pega e removida", () => {
     const r = avaliarPostSocial(copy({ ressalva: "Até amanhã. Equipe imigra.us." }), contexto());
-    expect(r.problemas.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.ASSINATURA_DE_NEWSLETTER);
+    expect(r.issues.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.ASSINATURA_DE_NEWSLETTER);
     // Pego E consertado: a legenda final já sai limpa.
     expect(r.legendaFinal).not.toMatch(/Até amanhã/);
   });

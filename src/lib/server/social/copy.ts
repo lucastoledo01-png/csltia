@@ -35,8 +35,24 @@ export const CopyDoPostSchema = z.object({
   informacao_util: z.string().max(300).default(""),
   /** O que a matéria NÃO diz, quando calar seria enganoso. */
   ressalva: z.string().max(240).default(""),
-  cta: z.string().min(10).max(200),
-  hashtags: z.array(z.string()).min(3).max(10).default([]),
+  /**
+   * Vazio de propósito.
+   *
+   * O prompt manda o modelo devolver string vazia aqui, porque o CTA é montado
+   * em código: é onde mora a promessa, e promessa escrita por modelo vira
+   * "descubra se você pode morar legalmente nos EUA". Um piso de tamanho neste
+   * campo reprovaria a resposta correta.
+   */
+  cta: z.string().max(200).default(""),
+  /**
+   * Sugestão, não decisão.
+   *
+   * O conjunto final é montado por `garantirLegendaSocial`, que filtra o que a
+   * pauta não sustenta e completa o que falta. Exigir um mínimo aqui faria uma
+   * resposta pobre em hashtag derrubar uma copy boa, quando a camada seguinte
+   * resolveria sozinha.
+   */
+  hashtags: z.array(z.string()).max(12).default([]),
 });
 
 export type CopyDoPost = z.infer<typeof CopyDoPostSchema>;
@@ -199,6 +215,68 @@ export async function gerarCopyDoPost(
   copy.cta = levaCta(posicao) ? ctaDaPosicao(posicao, marca.keyword) : "";
 
   return { copy, tokens: usage.totalTokens, custoUsd: usage.estimatedCostUsd };
+}
+
+/**
+ * Reescreve a copy corrigindo o que a guarda apontou.
+ *
+ * A reescrita recebe os problemas NOMEADOS, e não um pedido genérico de
+ * melhorar. Um "reescreva melhor" produz outro texto com outros defeitos; um
+ * "a manchete afirma 720 dias e a fonte diz 540" produz a correção.
+ *
+ * O pacote factual vai junto de novo, e é o ponto mais importante deste
+ * prompt: reparar não pode virar uma segunda chance de inventar. O modelo
+ * recebe a mesma restrição da primeira geração, mais a instrução explícita de
+ * que remover é preferível a substituir por outra coisa.
+ */
+export async function repararCopyDoPost(
+  copy: CopyDoPost,
+  problemas: Array<{ motivo: string; detalhe: string }>,
+  pauta: PautaAvaliada,
+  pacote: PacoteFactual | null,
+  marca: MarcaSocial,
+  opcoes: { posicao?: number; env?: Record<string, string | undefined>; fetcher?: typeof fetch } = {},
+): Promise<ResultadoDaCopy> {
+  const env = opcoes.env ?? process.env;
+  const fetcher = opcoes.fetcher ?? fetch;
+  const config = getAIProviderConfig(env);
+  const posicao = opcoes.posicao ?? 0;
+
+  const lista = problemas.map((p, i) => `${i + 1}. [${p.motivo}] ${p.detalhe}`).join("\n");
+
+  const instrucao = `
+O texto abaixo foi recusado. Corrija APENAS os problemas listados e devolva o JSON inteiro.
+
+PROBLEMAS A CORRIGIR:
+${lista}
+
+REGRAS DA CORREÇÃO:
+- Não invente nada para tapar buraco. Se um número, prazo ou nome não está no pacote factual, REMOVA a frase inteira em vez de trocar por outro valor.
+- Não mexa no que não foi apontado. Frase que não tem problema fica como está.
+- Manchete: de 3 a 10 palavras, afirmando o fato, sem pergunta e sem clickbait.
+- Não escreva despedida, assinatura nem "Até amanhã".
+- Não prometa aprovação, elegibilidade, prazo ou custo.
+
+TEXTO RECUSADO:
+${JSON.stringify(copy, null, 2)}
+`;
+
+  const { data, usage } = await callOpenAIJSON<unknown>(
+    [
+      { role: "system", content: montarSystemDaCopy(marca) },
+      { role: "user", content: `${montarUser(pauta, pacote)}
+
+${instrucao}` },
+    ],
+    config.editorModel,
+    env,
+    fetcher,
+  );
+
+  const corrigida = CopyDoPostSchema.parse(limparVicios(data));
+  corrigida.cta = levaCta(posicao) ? ctaDaPosicao(posicao, marca.keyword) : "";
+
+  return { copy: corrigida, tokens: usage.totalTokens, custoUsd: usage.estimatedCostUsd };
 }
 
 /**

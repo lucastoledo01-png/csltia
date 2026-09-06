@@ -79,6 +79,38 @@ describe("distribuição dinâmica", () => {
     expect(a[0].slot).toBe("2026-09-10-01");
   });
 
+  it("N posts devolvem exatamente N horários, de 1 a 10", () => {
+    // A regra que este teste trava: a agenda RECEBE a quantidade. Ela não tem
+    // dez vagas para preencher, o que inverteria a pressão e faria o sistema
+    // procurar notícia para encher slot.
+    for (const n of [1, 2, 3, 4, 6, 8, 10]) {
+      const vagas = distribuirVagas(n, DIA, CONFIG, MADRUGADA);
+
+      expect(vagas, `N=${n}`).toHaveLength(n);
+      expect(new Set(vagas.map((v) => v.slot)).size, `N=${n} slots únicos`).toBe(n);
+
+      for (let i = 1; i < vagas.length; i += 1) {
+        expect(
+          minutosEntre(vagas[i - 1].quandoIso, vagas[i].quandoIso),
+          `N=${n} espaçamento entre ${i} e ${i + 1}`,
+        ).toBeGreaterThanOrEqual(CONFIG.espacamentoMinimoEmMinutos);
+      }
+    }
+  });
+
+  it("a grade se abre conforme o dia rende, sem forçar", () => {
+    const horas = (n: number) => distribuirVagas(n, DIA, CONFIG, MADRUGADA).map((v) => v.horaLocal);
+
+    expect(horas(1)).toEqual(["12:00"]);
+    expect(horas(2)).toEqual(["08:00", "21:30"]);
+    expect(horas(3)).toEqual(["08:00", "14:45", "21:30"]);
+    expect(horas(4)).toEqual(["08:00", "12:30", "17:00", "21:30"]);
+    // Em dez, a janela inteira, e o primeiro e o último são as pontas.
+    const dez = horas(10);
+    expect(dez[0]).toBe("08:00");
+    expect(dez[9]).toBe("21:30");
+  });
+
   it("descreve a grade em uma linha", () => {
     expect(descreverAgenda([])).toContain("nenhuma vaga");
     expect(descreverAgenda(distribuirVagas(2, DIA, CONFIG, MADRUGADA))).toBe("2 post(s): 08:00, 21:30");
