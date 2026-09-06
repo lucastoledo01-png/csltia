@@ -222,6 +222,29 @@ describe("promessa e urgência", () => {
   });
 });
 
+describe("SEM_CTA é decisão, não esquecimento", () => {
+  it("post sem CTA não ganha um na legenda final", () => {
+    // Apareceu no primeiro preview de ponta a ponta: o post nascia SEM_CTA e
+    // a legenda saía com "Comente VISA" no fim, desfazendo a regra de um em
+    // cada quatro sem chamada.
+    const r = avaliarPostSocial(copy({ cta: "" }), contexto());
+
+    expect(r.legendaFinal).not.toContain("Comente VISA");
+    expect(r.legendaFinal).not.toMatch(/Comente/);
+  });
+
+  it("post com CTA continua tendo o CTA", () => {
+    const r = avaliarPostSocial(copy(), contexto());
+    expect(r.legendaFinal).toContain("Comente VISA");
+  });
+
+  it("e as hashtags continuam no fim nos dois casos", () => {
+    const semCta = avaliarPostSocial(copy({ cta: "" }), contexto());
+    const linhas = semCta.legendaFinal.split("\n").filter(Boolean);
+    expect(linhas[linhas.length - 1]).toBe(semCta.hashtagsFinais.join(" "));
+  });
+});
+
 describe("assinatura de newsletter", () => {
   it("despedida na legenda é pega e removida", () => {
     const r = avaliarPostSocial(copy({ ressalva: "Até amanhã. Equipe imigra.us." }), contexto());

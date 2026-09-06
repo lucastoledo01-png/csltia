@@ -285,7 +285,15 @@ export function avaliarPostSocial(
         headline: copy.gancho.slice(0, 100),
         intro_summary: copy.fato_principal.slice(0, 300),
         key_takeaways: [copy.fato_principal.slice(0, 60), (copy.contexto || copy.gancho).slice(0, 60)],
-        cta_call: copy.cta || `Comente ${contexto.keyword}`,
+        /*
+         * CTA vazio é decisão, não esquecimento.
+         *
+         * Um em cada quatro posts sai sem chamada, de propósito, e o valor de
+         * reserva que estava aqui desfazia isso: o post nascia SEM_CTA e a
+         * legenda final saía com "Comente VISA" no fim. Apareceu no primeiro
+         * preview de ponta a ponta.
+         */
+        cta_call: copy.cta,
         hashtags: copy.hashtags ?? [],
         full_caption: bruta,
       },

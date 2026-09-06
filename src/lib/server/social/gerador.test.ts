@@ -234,6 +234,40 @@ describe("caso E: o reparo não é segunda chance de inventar", () => {
   });
 });
 
+describe("texto longo demais é aparado, não descartado", () => {
+  it("campo acima do teto vira post, e não falha técnica", async () => {
+    // O caso real do primeiro dry-run de ponta a ponta: uma pauta boa do
+    // Diversity Visa virou "falha técnica ao gerar" porque um campo passou do
+    // limite e o schema derrubava tudo.
+    const longa = {
+      ...COPY_BOA,
+      contexto: "A fila do órgão segue longa e o efeito prático aparece nos prazos. ".repeat(12),
+      informacao_util: "Vale para pedidos protocolados a partir de outubro. ".repeat(12),
+    };
+    const { fetcher } = modeloQueDevolve([longa]);
+
+    const r = await gerarPostDaPauta(pauta("1", "USCIS amplia prazo"), 0, opcoes(fetcher));
+
+    expect(r.descarte, r.descarte?.motivo ?? "").toBeNull();
+    expect(r.post).not.toBeNull();
+    expect(r.post!.copy.contexto.length).toBeLessThanOrEqual(400);
+  });
+
+  it("manchete longa NÃO é aparada em silêncio: vira reescrita", async () => {
+    // Cortar manchete muda o que ela afirma. Quem decide é a guarda.
+    const manchetona = {
+      ...COPY_BOA,
+      headline: "O USCIS anunciou nesta quinta-feira que amplia o prazo de renovação automática da permissão de trabalho para 540 dias",
+    };
+    const { fetcher, chamadas } = modeloQueDevolve([manchetona, COPY_BOA]);
+
+    const r = await gerarPostDaPauta(pauta("1", "USCIS amplia prazo"), 0, opcoes(fetcher));
+
+    expect(chamadas).toContain("reparo");
+    expect(r.post!.copy.headline).toBe(COPY_BOA.headline);
+  });
+});
+
 describe("o dia não cai por uma candidata", () => {
   it("exceção numa pauta não impede as outras", async () => {
     let chamada = 0;

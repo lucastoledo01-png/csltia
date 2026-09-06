@@ -11,7 +11,11 @@ import { criarHistoricoStore } from "../lib/server/editorial/history";
 import { avaliarPautas } from "../lib/server/editorial/guarda";
 import { getSupabaseAdminClient } from "../lib/server/supabase-admin";
 import { dominioDe } from "../lib/server/editorial/url-canonica";
-import { carregarConfigSocial, comporFeedSocial, feedMonotematico } from "../lib/server/social/selecao";
+import { carregarConfigSocial, feedMonotematico } from "../lib/server/social/selecao";
+import { rodarCicloSocial } from "../lib/server/social/pipeline-v2";
+import { montarPacotesDasPautas } from "../lib/server/editorial/pacote-factual";
+import type { PacoteFactual } from "../lib/server/editorial/pacote-factual";
+import { resolveVisualAsset } from "../lib/server/visual/resolver";
 import { carregarConfigDaAgenda, descreverAgenda, distribuirVagas } from "../lib/server/social/agenda";
 import { criarCandidatosStore } from "../lib/server/editorial/candidatos-store";
 import { conferirFinalistas } from "../lib/server/editorial/finalistas";
@@ -248,17 +252,80 @@ async function main() {
   }
 
   // ------------------------------------------------------------------
-  /*
-   * Só o que a conferência liberou entra na composição.
-   *
-   * `status = approved` não autoriza nada sozinho: uma candidata em conflito
-   * continua aprovada na linha editorial e bloqueada para o ar.
-   */
-  const composicao = comporFeedSocial(conferencia.confirmadas, configSocial, {
+  // ------------------------------------------------------------------
+  // 2. O ciclo social inteiro: copy, guarda, reparo, imagem e agenda.
+  // ------------------------------------------------------------------
+  const pacotes = new Map<string, PacoteFactual>();
+  if (conferencia.confirmadas.length > 0) {
+    const construcao = await montarPacotesDasPautas(
+      conferencia.confirmadas.map((p) => ({
+        url: p.grupo.primary.url,
+        titulo: p.grupo.primary.title,
+        texto: p.enriquecimento?.texto ?? "",
+        urls: [p.grupo.primary.url],
+      })),
+      process.env,
+      fetch,
+    );
+
+    // `montarPacotesDasPautas` indexa por URL; o gerador procura por storyId.
+    const porUrl = new Map(conferencia.confirmadas.map((p) => [p.grupo.primary.url, p.storyId]));
+    for (const [url, pacote] of construcao.pacotes.entries()) {
+      const storyId = porUrl.get(url);
+      if (storyId) pacotes.set(storyId, pacote);
+    }
+    escrever(`Pacotes factuais: ${pacotes.size} de ${conferencia.confirmadas.length}.`);
+    escrever();
+  }
+
+  const candidatasPorStory = await candidatosStore.buscarPorStoryIds(
+    project.id,
+    conferencia.confirmadas.map((p) => p.storyId),
+  );
+
+  // O modo vem forçado aqui: o script existe para diagnosticar.
+  const envDoCiclo = { ...process.env, SOCIAL_PIPELINE_V2: "dry_run" };
+
+  const ciclo = await rodarCicloSocial(conferencia.confirmadas, {
+    projectId: project.id,
+    editionDate: dia,
+    marca: {
+      nome: project.brand.displayName || project.name,
+      nicho: project.niche,
+      extra: project.editorialPromptExtra,
+      keyword: String(project.settings?.instagram_keyword ?? "").trim() || "VISA",
+    },
+    historico,
+    pacotes,
+    candidatas: candidatasPorStory,
     persistenciaDegradada: guarda.reuso.erros.length > 0,
-    // Dry-run diagnostica; não publica nada, então não é bloqueado.
-    paraPublicar: false,
+    config: configSocial,
+    env: envDoCiclo,
+    fetcher: fetch,
+    resolverVisual: async (pauta) =>
+      resolveVisualAsset(
+        {
+          storyId: pauta.storyId,
+          titulo: pauta.grupo.primary.title,
+          resumo: pauta.enriquecimento?.texto ?? "",
+          categoria: pauta.classificacao.eixo,
+          classificacao: {
+            atores: pauta.classificacao.atores,
+            lugares: pauta.classificacao.lugares,
+            acontecimento: pauta.classificacao.acontecimento,
+            pais: pauta.classificacao.pais,
+          },
+        },
+        { env: process.env, fetcher: fetch, somenteLeitura: true },
+      ),
   });
+
+  for (const l of ciclo.linhasDeLog) console.log(l);
+
+  const composicao = ciclo.composicao ?? {
+    escolhidas: [], cortadas: [], bloqueio: null, linhasDeLog: [],
+    diversidade: { eixos: {}, topicos: {}, dominios: {}, paises: {}, imigracao: 0, politicaBrasileira: 0 },
+  };
   const naNewsletter = new Set(guarda.selecionadas.map((p) => p.storyId));
   /*
    * O relógio da simulação é o do dia simulado, não o de agora.
@@ -273,46 +340,91 @@ async function main() {
 
   escrever(`## 2. Posts do dia`);
   escrever();
-  escrever(descreverAgenda(vagas));
+  escrever(descreverAgenda(ciclo.previews.map((p) => p.vaga)));
   escrever();
 
-  if (composicao.escolhidas.length === 0) {
+  if (ciclo.previews.length === 0) {
     escrever(`Nenhum post. O dia não sustentou nenhuma pauta, e isso não é falha de pipeline.`);
-  } else {
-    escrever(`| # | hora | origem | país | eixo | relev | verif | tópico | pauta | fonte |`);
-    escrever(`| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |`);
-    composicao.escolhidas.forEach((e, i) => {
-      const p = e.pauta;
-      const origem = naNewsletter.has(p.storyId) ? "newsletter" : "**só social**";
-      escrever(
-        `| ${i + 1} | ${vagas[i]?.horaLocal ?? "?"} | ${origem} | ${p.classificacao.pais} | ` +
-          `${p.classificacao.eixo} | ${p.classificacao.relevancia} | confirm | ${e.topico} | ` +
-          `${p.grupo.primary.title.slice(0, 50)} | ${p.grupo.primary.source_name.slice(0, 22)} |`,
-      );
-    });
     escrever();
-
-    escrever(`### Identidade de cada post`);
-    escrever();
-    escrever(`| # | story_id | event_fingerprint | entidade principal | URL |`);
-    escrever(`| --- | --- | --- | --- | --- |`);
-    composicao.escolhidas.forEach((e, i) => {
-      const p = e.pauta;
-      const fp = impressaoDoAcontecimento(entidadesDaClassificacao(p.classificacao)) || "(sem impressão)";
-      escrever(
-        `| ${i + 1} | \`${p.storyId}\` | \`${fp.slice(0, 40)}\` | ${p.classificacao.atores[0] ?? "n/d"} | ` +
-          `${p.grupo.primary.url.slice(0, 60)} |`,
-      );
-    });
-    escrever();
-
-
   }
 
-  const daNewsletter = composicao.escolhidas.filter((e) => naNewsletter.has(e.pauta.storyId)).length;
+  for (const p of ciclo.previews) {
+    const pauta = p.post.pauta;
+    const v = p.visual;
+    const asset = v?.asset ?? null;
+
+    escrever(`### Post ${p.posicao} :: ${p.vaga?.horaLocal ?? "?"}`);
+    escrever();
+    escrever(`**${p.post.copy.headline}**`);
+    escrever();
+    escrever("```");
+    escrever(p.post.veredicto.legendaFinal);
+    escrever("```");
+    escrever();
+
+    escrever(`| campo | valor |`);
+    escrever(`| --- | --- |`);
+    escrever(`| candidate_id | ${p.candidateId ?? "não persistida"} |`);
+    escrever(`| story_id | \`${pauta.storyId}\` |`);
+    escrever(`| origem | **${p.origem.originChannel}** (${p.origem.motivo}) |`);
+    escrever(`| origin_story_id | ${p.origem.originStoryId ?? "n/d"} |`);
+    escrever(`| fonte | ${pauta.grupo.primary.source_name} |`);
+    escrever(`| URL | ${pauta.grupo.primary.url.slice(0, 80)} |`);
+    escrever(`| verificação | confirm |`);
+    escrever(`| relevância | ${pauta.classificacao.relevancia} |`);
+    escrever(`| topic_id | ${p.topicId} |`);
+    escrever(`| event_fingerprint | \`${p.eventFingerprint.slice(0, 46)}\` |`);
+    escrever(`| CTA | ${p.post.copy.cta ? p.post.copy.cta.slice(0, 70) : "**SEM_CTA**"} |`);
+    escrever(`| hashtags | ${p.post.veredicto.hashtagsFinais.join(" ")} |`);
+    escrever(`| reparos | ${p.post.tentativas} |`);
+    escrever(`| Social Guard | ${p.post.veredicto.finalDecision}, ${p.post.veredicto.issues.length} issue(s) |`);
+    escrever(`| chave de idempotência | \`${p.chaveDeIdempotencia}\` |`);
+    escrever();
+
+    if (p.post.reparosAplicados.length > 0) {
+      escrever(`Corrigido no caminho: ${p.post.reparosAplicados.flat().map((x) => `${x.motivo} (${x.detalhe.slice(0, 50)})`).join("; ")}`);
+      escrever();
+    }
+
+    escrever(`**Visual**`);
+    escrever();
+    if (asset) {
+      escrever(`| campo | valor |`);
+      escrever(`| --- | --- |`);
+      escrever(`| entidade visual | ${v?.entidade?.nome ?? "n/d"} (${v?.entidade?.tipo ?? "n/d"}) |`);
+      escrever(`| centralidade | ${v?.entidade?.confianca ?? "n/d"} |`);
+      escrever(`| image_context_type | ${asset.imageContextType} |`);
+      escrever(`| fonte do asset | ${asset.source} |`);
+      escrever(`| data do asset | ${asset.assetDate ?? "sem data"}${asset.assetAgeYears !== null && asset.assetAgeYears !== undefined ? ` (${asset.assetAgeYears} anos)` : ""} |`);
+      escrever(`| licença | ${asset.license} |`);
+      escrever(`| atribuição | ${asset.attribution || "não exigida"} |`);
+      escrever(`| temporal_relevance | ${asset.temporalRelevanceScore ?? "n/d"} |`);
+      escrever(`| semantic_context_fit | ${asset.semanticContextFit ?? "n/d"} |`);
+      escrever(`| imagem de arquivo | ${asset.archiveImage ? "sim" : "não"} |`);
+      escrever(`| URL | ${asset.imageUrl.slice(0, 90)} |`);
+      escrever(`| página da licença | ${asset.sourcePageUrl.slice(0, 80)} |`);
+    } else {
+      escrever(`**NO_VALID_VISUAL_ASSET**: ${v?.motivo ?? "resolvedor não executou"}`);
+    }
+    escrever();
+
+    const recusadosVisuais = v?.recusados ?? [];
+    if (recusadosVisuais.length > 0) {
+      escrever(`Candidatos de imagem descartados:`);
+      escrever();
+      escrever(`| motivo | arquivo | detalhe |`);
+      escrever(`| --- | --- | --- |`);
+      for (const rc of recusadosVisuais.slice(0, 8)) {
+        escrever(`| ${rc.motivo} | ${rc.identificacao.slice(0, 45)} | ${rc.detalhe.slice(0, 60)} |`);
+      }
+      escrever();
+    }
+  }
+
+  const daNewsletter = ciclo.previews.filter((p) => p.origem.originChannel === "newsletter").length;
   escrever(
-    `${daNewsletter} vieram da newsletter (reaproveitamento planejado), ` +
-      `${composicao.escolhidas.length - daNewsletter} são exclusivas do social.`,
+    `${daNewsletter} de origem newsletter (reaproveitamento planejado), ` +
+      `${ciclo.previews.length - daNewsletter} exclusivas do social.`,
   );
   escrever();
 
@@ -333,7 +445,66 @@ async function main() {
   escrever(`**Teste de diversidade: ${veredito.monotematico ? "REPROVADO" : "aprovado"}.** ${veredito.motivo}`);
   escrever();
 
-  escrever(`## 4. O que ficou de fora da composição social`);
+  escrever(`## 4. Descartados, e em que etapa`);
+  escrever();
+  escrever(`É esta tabela que explica por que saíram ${ciclo.previews.length} posts e não dez.`);
+  escrever();
+
+  type Descarte = { etapa: string; motivo: string; pauta: string };
+  const todosOsDescartes: Descarte[] = [];
+
+  for (const r2 of guarda.recusadas) {
+    todosOsDescartes.push({ etapa: "linha editorial", motivo: r2.motivo, pauta: r2.titulo });
+  }
+  for (const r2 of conferencia.recusadas) {
+    todosOsDescartes.push({ etapa: "verificação", motivo: "VERIFIED_REJECT", pauta: r2.pauta.grupo.primary.title });
+  }
+  for (const c2 of conferencia.emConflito) {
+    todosOsDescartes.push({
+      etapa: "verificação",
+      motivo: "EDITORIAL_CLASSIFICATION_CONFLICT",
+      pauta: c2.pauta.grupo.primary.title,
+    });
+  }
+  for (const d2 of ciclo.descartados) {
+    todosOsDescartes.push({
+      etapa: d2.etapa === "composicao" ? "diversidade social" : "copy",
+      motivo: d2.motivo.split(":")[0],
+      pauta: d2.titulo,
+    });
+  }
+
+  const porEtapa = new Map<string, Map<string, number>>();
+  for (const d2 of todosOsDescartes) {
+    if (!porEtapa.has(d2.etapa)) porEtapa.set(d2.etapa, new Map());
+    const m = porEtapa.get(d2.etapa)!;
+    m.set(d2.motivo, (m.get(d2.motivo) ?? 0) + 1);
+  }
+
+  escrever(`| etapa | motivo | quantas |`);
+  escrever(`| --- | --- | --- |`);
+  for (const [etapa, motivos] of porEtapa.entries()) {
+    for (const [motivo, n] of [...motivos.entries()].sort((a, b) => b[1] - a[1])) {
+      escrever(`| ${etapa} | ${motivo} | ${n} |`);
+    }
+  }
+  escrever();
+
+  const perdasTardias = todosOsDescartes.filter(
+    (d2) => d2.etapa !== "linha editorial",
+  );
+  if (perdasTardias.length > 0) {
+    escrever(`Pautas que chegaram longe e caíram:`);
+    escrever();
+    escrever(`| pauta | etapa | motivo |`);
+    escrever(`| --- | --- | --- |`);
+    for (const d2 of perdasTardias) {
+      escrever(`| ${d2.pauta.slice(0, 55)} | ${d2.etapa} | ${d2.motivo.slice(0, 45)} |`);
+    }
+    escrever();
+  }
+
+  escrever(`## 4b. Cortes de diversidade da composição social`);
   escrever();
   if (composicao.cortadas.length === 0) {
     escrever(`Nada. Todo o pool coube no feed.`);

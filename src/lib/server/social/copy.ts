@@ -19,6 +19,27 @@ import { limparVicios } from "../newsroom/anti-vicios";
  * no post, e é isso que a guarda social confere depois.
  */
 
+/**
+ * Corta na última palavra inteira que cabe.
+ *
+ * Mesma razão do aparador da legenda da newsletter: o modelo estoura o teto
+ * com frequência, e o custo disso não pode ser o post inteiro. Perder a cauda
+ * de um parágrafo é muito melhor que perder a publicação, e foi assim que uma
+ * pauta boa do Diversity Visa virou "falha técnica ao gerar" no primeiro
+ * dry-run de ponta a ponta.
+ *
+ * A manchete NÃO é aparada em silêncio: cortar manchete muda o que ela afirma.
+ * Ela vai inteira para a guarda, que reprova pela forma e manda reescrever.
+ */
+function aparar(limite: number) {
+  return z.preprocess((v) => {
+    if (typeof v !== "string" || v.length <= limite) return v;
+    const bruto = v.slice(0, limite);
+    const ultimoEspaco = bruto.lastIndexOf(" ");
+    return (ultimoEspaco > limite * 0.6 ? bruto.slice(0, ultimoEspaco) : bruto).trimEnd();
+  }, z.string());
+}
+
 export const CopyDoPostSchema = z.object({
   /**
    * A manchete da arte. Curta porque ela é grande na imagem.
@@ -26,15 +47,20 @@ export const CopyDoPostSchema = z.object({
    * O limite de palavras não é estética: a arte tem três linhas e um título
    * longo encolhe até ficar ilegível no celular.
    */
-  headline: z.string().min(8).max(90),
+  /*
+   * Sem teto aqui de propósito. Manchete longa é problema de forma, e quem
+   * decide isso é a guarda, que sabe mandar reescrever. Aparar em silêncio
+   * mudaria o que a manchete afirma.
+   */
+  headline: z.string().min(8),
   /** A expressão do headline que sai em cor. Copiada literalmente dele. */
-  destaque: z.string().default(""),
-  gancho: z.string().min(10).max(120),
-  fato_principal: z.string().min(20).max(320),
-  contexto: z.string().max(400).default(""),
-  informacao_util: z.string().max(300).default(""),
+  destaque: aparar(60).pipe(z.string()).default(""),
+  gancho: aparar(160).pipe(z.string().min(10)),
+  fato_principal: aparar(400).pipe(z.string().min(20)),
+  contexto: aparar(400).pipe(z.string()).default(""),
+  informacao_util: aparar(300).pipe(z.string()).default(""),
   /** O que a matéria NÃO diz, quando calar seria enganoso. */
-  ressalva: z.string().max(240).default(""),
+  ressalva: aparar(240).pipe(z.string()).default(""),
   /**
    * Vazio de propósito.
    *
@@ -43,7 +69,7 @@ export const CopyDoPostSchema = z.object({
    * "descubra se você pode morar legalmente nos EUA". Um piso de tamanho neste
    * campo reprovaria a resposta correta.
    */
-  cta: z.string().max(200).default(""),
+  cta: aparar(200).pipe(z.string()).default(""),
   /**
    * Sugestão, não decisão.
    *
