@@ -22,6 +22,12 @@
 -- As generalistas entram com `keywords`, senão afogam o pool. O coletor já
 -- aplica esse filtro em `matchesKeywords`.
 --
+-- Três feeds saíram desta lista depois de aplicada: Federal Register por
+-- termo, Federal Register da USCIS e Murthy. Os três JÁ estavam configurados
+-- com outra `source_key`, e como não existe unicidade por url o
+-- `on conflict do nothing` não os barrou. Coletar o mesmo feed duas vezes não
+-- quebra nada (a deduplicação corta), mas estraga a medição por fonte.
+--
 -- ## Efeito medido
 --
 -- Coleta: de 1710 para 2761 itens por rodada.
@@ -43,10 +49,7 @@ cross join lateral (values
   (p.id, 'dallas-fed-comunicados', 'Dallas Fed - Comunicados', 'rss', 'https://www.dallasfed.org/rss/releases.xml', true, 1, 'gov_us', 'global', array['economic indicators', 'employment', 'beige book', 'jobs', 'labor', 'growth']::text[]),
   (p.id, 'atlanta-fed-wage-growth-tracker', 'Atlanta Fed - Wage Growth Tracker', 'rss', 'https://www.atlantafed.org/rss/WageGrowthTracker', true, 1, 'gov_us', 'global', '{}'::text[]),
   (p.id, 'uscis-alerts-avisos-processuais', 'USCIS Alerts (avisos processuais)', 'rss', 'https://www.uscis.gov/news/rss-feed/22984', true, 1, 'gov_us', 'global', '{}'::text[]),
-  (p.id, 'federal-register-atos-da-uscis', 'Federal Register, atos da USCIS', 'rss', 'https://www.federalregister.gov/api/v1/documents.rss?conditions%5Bagencies%5D%5B%5D=u-s-citizenship-and-immigration-services', true, 1, 'gov_us', 'global', array['visa', 'immigration', 'H-1B', 'employment', 'USCIS', 'green card', 'labor certification', 'nonimmigrant']::text[]),
-  (p.id, 'federal-register-termo-imigrao', 'Federal Register, termo imigração', 'rss', 'https://www.federalregister.gov/api/v1/documents.rss?conditions%5Bterm%5D=immigration', true, 1, 'gov_us', 'global', array['visa', 'immigration', 'H-1B', 'employment', 'USCIS', 'green card', 'labor certification', 'nonimmigrant']::text[]),
   (p.id, 'bal-berry-appleman-leiden', 'BAL, Berry Appleman & Leiden', 'rss', 'https://www.bal.com/feed/', true, 2, 'us_media', 'global', '{}'::text[]),
-  (p.id, 'murthy-law-firm', 'Murthy Law Firm', 'rss', 'https://www.murthy.com/feed/', true, 2, 'us_media', 'global', '{}'::text[]),
   (p.id, 'klasko-immigration-law-partners', 'Klasko Immigration Law Partners', 'rss', 'https://www.klaskolaw.com/feed/', true, 2, 'us_media', 'global', '{}'::text[]),
   (p.id, 'siskind-susser-visalaw-com', 'Siskind Susser, visalaw.com', 'rss', 'https://www.visalaw.com/feed/', true, 2, 'us_media', 'global', '{}'::text[]),
   (p.id, 'area-development-anncios-de-projetos', 'Area Development - Anúncios de Projetos', 'rss', 'https://www.areadevelopment.com/rss/newsitems.xml', true, 2, 'us_media', 'global', '{}'::text[]),

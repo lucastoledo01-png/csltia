@@ -10,12 +10,12 @@ with checagens as (
   -- 1. Fontes: quantas no total, e quantas habilitadas.
   select 1 as ordem,
          'fontes cadastradas' as verificacao,
-         '92 (55 antigas + 37 novas)' as esperado,
+         '89 (55 antigas + 34 novas)' as esperado,
          count(*)::text as encontrado
     from public.project_news_sources
 
   union all
-  select 2, 'fontes habilitadas', '66', count(*)::text
+  select 2, 'fontes habilitadas', '63', count(*)::text
     from public.project_news_sources where enabled
 
   union all
@@ -31,7 +31,7 @@ with checagens as (
 
   union all
   -- 3. Fontes diretas com priority=1 não podem ter sido tocadas.
-  select 5, 'fontes diretas com priority=1', '39', count(*)::text
+  select 5, 'fontes diretas com priority=1', '37', count(*)::text
     from public.project_news_sources
    where url not like '%news.google.com%' and priority = 1
 
