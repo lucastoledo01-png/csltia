@@ -103,6 +103,9 @@ function storeCheio(): CandidatosStore {
       for (const u of urls) { const a = porUrl.get(u); if (a) m.set(u, a); }
       return m;
     },
+    async buscarDaJanela() {
+      return new Map(porUrl);
+    },
     async buscarPorStoryIds() { return new Map(); },
     async gravarNovas() { return { gravadas: 0, reaproveitadas: 0, jaClassificadas: [], erros: [] }; },
     async atualizarStatus() {},
@@ -175,6 +178,7 @@ describe("a newsletter antes e depois da persistência", () => {
   it("banco fora do ar devolve exatamente o comportamento antigo", async () => {
     const quebrado: CandidatosStore = {
       async buscarPorUrls() { throw new Error("fora do ar"); },
+      async buscarDaJanela() { throw new Error("fora do ar"); },
       async buscarPorStoryIds() { return new Map(); },
       async gravarNovas() { throw new Error("fora do ar"); },
       async atualizarStatus() {},

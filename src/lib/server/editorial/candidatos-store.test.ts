@@ -57,6 +57,13 @@ function bancoFalso(linhasExistentes: Array<Record<string, unknown>> = []) {
       const construtor = {
         select() { return construtor; },
         eq() { return construtor; },
+        gte() { return construtor; },
+        order() { return construtor; },
+        range(inicio: number) {
+          ops.push({ op: "select.range", detalhe: inicio });
+          // Uma página só: as fixtures são pequenas.
+          return Promise.resolve({ data: inicio === 0 ? linhasExistentes : [], error: null });
+        },
         in(_col: string, valores: string[]) {
           ops.push({ op: "select.in", detalhe: valores });
           const filtradas = linhasExistentes.filter(

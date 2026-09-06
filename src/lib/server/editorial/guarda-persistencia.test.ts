@@ -80,6 +80,11 @@ function storeFalso(persistidas: Map<string, CandidataPersistida> = new Map()) {
       }
       return m;
     },
+    async buscarDaJanela(_p: string, _d: number) {
+      const m = new Map<string, CandidataPersistida>();
+      for (const [u, c] of persistidas.entries()) m.set(u, c);
+      return m;
+    },
     async buscarPorStoryIds() { return new Map(); },
     async gravarNovas(_p, candidatas) {
       gravadas.push(...candidatas);
@@ -218,6 +223,7 @@ describe("reuso da classificação persistida", () => {
   it("banco fora do ar não impede a edição de sair", async () => {
     const store: CandidatosStore = {
       async buscarPorUrls() { throw new Error("banco indisponível"); },
+      async buscarDaJanela() { throw new Error("banco indisponível"); },
       async buscarPorStoryIds() { return new Map(); },
       async gravarNovas() { throw new Error("banco indisponível"); },
       async atualizarStatus() {},
