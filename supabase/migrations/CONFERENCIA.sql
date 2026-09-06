@@ -10,7 +10,7 @@ with checagens as (
   -- 1. Fontes: quantas no total, e quantas habilitadas.
   select 1 as ordem,
          'fontes cadastradas' as verificacao,
-         '66 (29 antigas + 37 novas)' as esperado,
+         '92 (55 antigas + 37 novas)' as esperado,
          count(*)::text as encontrado
     from public.project_news_sources
 
@@ -31,7 +31,7 @@ with checagens as (
 
   union all
   -- 3. Fontes diretas com priority=1 não podem ter sido tocadas.
-  select 5, 'fontes diretas com priority=1', '19 antes + as novas gov_us', count(*)::text
+  select 5, 'fontes diretas com priority=1', '39', count(*)::text
     from public.project_news_sources
    where url not like '%news.google.com%' and priority = 1
 
