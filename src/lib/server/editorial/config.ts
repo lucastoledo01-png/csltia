@@ -109,6 +109,17 @@ export const MOTIVOS = {
   REJEITADO_FONTE_NAO_RESOLVIDA: "REJECT_SOURCE_UNRESOLVED",
   /** O texto gerado afirma algo que não está no pacote factual. */
   REJEITADO_SEM_ANCORAGEM: "REJECT_UNGROUNDED_CLAIM",
+  /**
+   * A classificação primária e a verificação de finalista discordam em campo
+   * que muda a admissibilidade.
+   *
+   * Existe porque a alternativa é pior. Medido: a mesma candidata classificada
+   * três vezes mudou de decisão em 24% dos casos, e dois terços das viradas
+   * foram longe do piso. Diante de duas respostas diferentes sobre "os EUA
+   * saem bem ou mal nesta notícia", escolher uma delas é sortear. Este motivo
+   * é a recusa de sortear.
+   */
+  CONFLITO_DE_CLASSIFICACAO: "EDITORIAL_CLASSIFICATION_CONFLICT",
 } as const;
 
 export type Motivo = (typeof MOTIVOS)[keyof typeof MOTIVOS];

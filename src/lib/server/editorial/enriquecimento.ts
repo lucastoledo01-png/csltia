@@ -223,6 +223,93 @@ async function buscarPagina(url: string, fetcher: typeof fetch): Promise<string>
 }
 
 /** Tem matéria suficiente para escrever? */
+/**
+ * Sinais de que a página respondeu, e não entregou a matéria.
+ *
+ * O caso que motivou: uma candidata do Federal Register foi APROVADA pela
+ * classificação primária, e o verificador de finalista percebeu que o texto
+ * "só exibe um bloqueio de acesso e um CAPTCHA". O comprimento estava lá; a
+ * matéria não.
+ *
+ * Nenhum destes termos decide sozinho. Uma matéria sobre segurança digital
+ * pode citar CAPTCHA, e um artigo sobre Cloudflare menciona Cloudflare. O que
+ * decide é a combinação: marcador de bloqueio somado à ausência de texto
+ * corrido. Página de bloqueio tem aviso e botão; matéria tem parágrafo.
+ */
+const MARCADORES_DE_BLOQUEIO = [
+  "captcha",
+  "are you a robot",
+  "verify you are human",
+  "verifique se voce e humano",
+  "access denied",
+  "acesso negado",
+  "403 forbidden",
+  "cloudflare",
+  "checking your browser",
+  "enable javascript",
+  "ative o javascript",
+  "please enable cookies",
+  "sign in to continue",
+  "subscribe to read",
+  "assine para continuar",
+  "faca login para continuar",
+  "this page is not available",
+  "unusual traffic",
+];
+
+function normalizarParaBusca(texto: string): string {
+  return (texto || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+/** Frases de verdade: com sujeito, tamanho e ponto final. */
+function frasesDeMateria(texto: string): number {
+  return (texto.match(/[^.!?\n]{40,}[.!?]/g) ?? []).length;
+}
+
+export type LeituraDeConteudo = { insuficiente: boolean; motivo: string };
+
+export function conteudoInsuficiente(texto: string): LeituraDeConteudo {
+  const bruto = (texto || "").trim();
+  if (bruto.length < MINIMO_DE_CORPO) {
+    return { insuficiente: true, motivo: `só ${bruto.length} caracteres, mínimo ${MINIMO_DE_CORPO}` };
+  }
+
+  const alvo = normalizarParaBusca(bruto);
+  const marcadores = MARCADORES_DE_BLOQUEIO.filter((m) => alvo.includes(m));
+  const frases = frasesDeMateria(bruto);
+
+  /*
+   * Dois marcadores é bloqueio, não coincidência. Um marcador só condena
+   * quando o texto também não tem corpo de matéria, que é o caso da página que
+   * enche de aviso e não tem parágrafo.
+   */
+  if (marcadores.length >= 2) {
+    return { insuficiente: true, motivo: `página de bloqueio: ${marcadores.slice(0, 3).join(", ")}` };
+  }
+
+  if (marcadores.length === 1 && frases < 3) {
+    return {
+      insuficiente: true,
+      motivo: `"${marcadores[0]}" com apenas ${frases} frase(s) de corpo; parece aviso, não matéria`,
+    };
+  }
+
+  if (frases < 2) {
+    return { insuficiente: true, motivo: `${frases} frase(s) de corpo; sem texto corrido que sustente uma pauta` };
+  }
+
+  return { insuficiente: false, motivo: "" };
+}
+
+/**
+ * O enriquecimento trouxe o que aconteceu?
+ *
+ * Era só comprimento. Comprimento sozinho aprova página de CAPTCHA, que é
+ * longa e não diz nada.
+ */
 export function temFatosSuficientes(resultado: ResultadoDoEnriquecimento): boolean {
-  return resultado.contentLength >= MINIMO_DE_CORPO;
+  return !conteudoInsuficiente(resultado.texto).insuficiente;
 }

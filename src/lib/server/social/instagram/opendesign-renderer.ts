@@ -22,10 +22,33 @@ export type OpenDesignSlideAsset = {
   publicUrl?: string;
 };
 
+/**
+ * Tetos de tempo das duas chamadas de rede que não tinham nenhum.
+ *
+ * Geração de imagem em alta qualidade é lenta de verdade, então o teto dela é
+ * generoso; o download de uma foto não deveria passar de meio minuto. Os dois
+ * existem pelo mesmo motivo: o contêiner do worker não tem limite de memória
+ * nem de tempo, e um `fetch` pendurado ali não tem nada que o interrompa.
+ */
+function tetoDeDownloadMs(): number {
+  const n = Number(process.env.RENDER_DOWNLOAD_TIMEOUT_MS);
+  return Number.isFinite(n) && n > 0 ? n : 30_000;
+}
+
+function tetoDeImagemMs(): number {
+  const n = Number(process.env.IMAGE_GENERATION_TIMEOUT_MS);
+  return Number.isFinite(n) && n > 0 ? n : 180_000;
+}
+
 export async function fetchImageAsBase64(url: string): Promise<string> {
   if (!url || !url.startsWith("http")) return url;
   try {
-    const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+    const response = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      // Sem teto, um servidor que aceita a conexão e nunca responde pendura o
+      // giro inteiro do worker, que não tem limite de tempo nem de memória.
+      signal: AbortSignal.timeout(tetoDeDownloadMs()),
+    });
     if (!response.ok) return url;
     const buffer = await response.arrayBuffer();
     const base64 = Buffer.from(buffer).toString("base64");
@@ -95,6 +118,7 @@ export async function generateCoverImageWithAI(
 
   try {
     const res = await fetch("https://api.openai.com/v1/images/generations", {
+      signal: AbortSignal.timeout(tetoDeImagemMs()),
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,

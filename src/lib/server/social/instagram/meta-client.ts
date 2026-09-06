@@ -17,6 +17,24 @@ export type MetaPublishCarouselResult = {
   error?: string;
 };
 
+/**
+ * Teto de tempo de toda chamada à Graph API.
+ *
+ * Nenhuma das chamadas deste arquivo tinha `AbortSignal`. Um giro do worker
+ * podia ficar pendurado numa resposta que a Meta nunca terminava de mandar,
+ * sem nada para interromper: o contêiner não tem limite de memória nem de
+ * tempo, e o cron seguinte encontrava o processo anterior ainda vivo.
+ *
+ * O valor é generoso de propósito. Não é para cortar chamada lenta, é para
+ * impedir chamada eterna.
+ */
+const TEMPO_LIMITE_MS = 30_000;
+
+function tetoDeTempo(env: Record<string, string | undefined> = process.env): number {
+  const bruto = Number(env.META_TIMEOUT_MS);
+  return Number.isFinite(bruto) && bruto > 0 ? bruto : TEMPO_LIMITE_MS;
+}
+
 export function getMetaConfig(env: Record<string, string | undefined> = process.env) {
   const accountId = env.INSTAGRAM_ACCOUNT_ID?.trim();
   const accessToken = env.INSTAGRAM_ACCESS_TOKEN?.trim();
@@ -40,7 +58,7 @@ export async function verifyMetaInstagramCredentials(
 
   try {
     const url = `https://graph.facebook.com/v22.0/${accountId}?fields=id,username,name,profile_picture_url&access_token=${encodeURIComponent(accessToken)}`;
-    const response = await fetcher(url);
+    const response = await fetcher(url, { signal: AbortSignal.timeout(tetoDeTempo(env)) });
     const json = await response.json().catch(() => ({}));
 
     if (!response.ok) {
@@ -84,6 +102,7 @@ export async function createCarouselItemContainer(
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: params.toString(),
+      signal: AbortSignal.timeout(tetoDeTempo(env)),
     });
 
     const json = await response.json().catch(() => ({}));
@@ -132,6 +151,7 @@ export async function createSingleImageContainer(
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: params.toString(),
+      signal: AbortSignal.timeout(tetoDeTempo(env)),
     });
 
     const json = await response.json().catch(() => ({}));
@@ -173,6 +193,7 @@ export async function createCarouselContainer(
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: params.toString(),
+      signal: AbortSignal.timeout(tetoDeTempo(env)),
     });
 
     const json = await response.json().catch(() => ({}));
@@ -211,7 +232,7 @@ export async function waitForContainerReady(
 
   while (Date.now() < limite) {
     const url = `https://graph.facebook.com/v22.0/${creationId}?fields=status_code,status&access_token=${encodeURIComponent(accessToken)}`;
-    const response = await fetcher(url);
+    const response = await fetcher(url, { signal: AbortSignal.timeout(tetoDeTempo(env)) });
     const json = await response.json().catch(() => ({}));
 
     if (!response.ok) {
@@ -231,6 +252,83 @@ export async function waitForContainerReady(
   }
 
   return { ok: false, error: `Container não ficou pronto em ${Math.round(timeoutMs / 1000)}s.` };
+}
+
+/**
+ * O estado bruto do container, incluindo `PUBLISHED`.
+ *
+ * `waitForContainerReady` existe para decidir se dá para publicar, e por isso
+ * trata `PUBLISHED` como "ainda não é FINISHED" e continua o polling até
+ * estourar. Esta função existe para a pergunta oposta, feita depois de uma
+ * falha: aquele container que eu mandei publicar chegou a ir ao ar?
+ *
+ * É a única evidência remota disponível de que a publicação aconteceu quando a
+ * gravação local não aconteceu. Sem ela, a única saída é republicar no escuro.
+ */
+export async function statusDoContainer(
+  creationId: string,
+  env: Record<string, string | undefined> = process.env,
+  fetcher: typeof fetch = fetch,
+): Promise<{ ok: boolean; status?: string; error?: string }> {
+  const { accessToken, isConfigured } = getMetaConfig(env);
+  if (!isConfigured || !accessToken) {
+    return { ok: false, error: "Credenciais de Meta Instagram não configuradas." };
+  }
+
+  try {
+    const url = `https://graph.facebook.com/v22.0/${creationId}?fields=status_code,status&access_token=${encodeURIComponent(accessToken)}`;
+    const response = await fetcher(url, { signal: AbortSignal.timeout(tetoDeTempo(env)) });
+    const json = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return { ok: false, error: json.error?.message || `Falha ao consultar container (${response.status})` };
+    }
+
+    return { ok: true, status: String(json.status_code ?? "") };
+  } catch (err) {
+    return { ok: false, error: (err as Error)?.message || String(err) };
+  }
+}
+
+/**
+ * As últimas mídias publicadas na conta, com legenda e horário.
+ *
+ * Serve à reconciliação: quando o container já foi publicado mas o banco não
+ * registrou o `media_id`, é aqui que ele é recuperado, casando pela legenda.
+ * Recuperar o id importa mais do que parece: sem ele o post fica publicado no
+ * Instagram e órfão no banco, sem insights e sem automação de Direct.
+ */
+export async function midiasRecentes(
+  limite = 10,
+  env: Record<string, string | undefined> = process.env,
+  fetcher: typeof fetch = fetch,
+): Promise<{ ok: boolean; midias: Array<{ id: string; caption: string; timestamp: string }>; error?: string }> {
+  const { accountId, accessToken, isConfigured } = getMetaConfig(env);
+  if (!isConfigured || !accountId || !accessToken) {
+    return { ok: false, midias: [], error: "Credenciais de Meta Instagram não configuradas." };
+  }
+
+  try {
+    const url =
+      `https://graph.facebook.com/v22.0/${accountId}/media?fields=id,caption,timestamp&limit=${limite}` +
+      `&access_token=${encodeURIComponent(accessToken)}`;
+    const response = await fetcher(url, { signal: AbortSignal.timeout(tetoDeTempo(env)) });
+    const json = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return { ok: false, midias: [], error: json.error?.message || `Falha ao listar mídias (${response.status})` };
+    }
+
+    const midias = (json.data ?? []).map((m: Record<string, unknown>) => ({
+      id: String(m.id ?? ""),
+      caption: String(m.caption ?? ""),
+      timestamp: String(m.timestamp ?? ""),
+    }));
+
+    return { ok: true, midias };
+  } catch (err) {
+    return { ok: false, midias: [], error: (err as Error)?.message || String(err) };
+  }
 }
 
 export async function publishContainer(
@@ -254,6 +352,7 @@ export async function publishContainer(
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: params.toString(),
+      signal: AbortSignal.timeout(tetoDeTempo(env)),
     });
 
     const json = await response.json().catch(() => ({}));
@@ -306,7 +405,7 @@ export async function fetchMediaInsights(
         `https://graph.facebook.com/v22.0/${mediaId}/insights` +
         `?metric=${metricas.join(",")}&access_token=${encodeURIComponent(accessToken!)}`;
 
-      const res = await fetcher(url);
+      const res = await fetcher(url, { signal: AbortSignal.timeout(tetoDeTempo(env)) });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !Array.isArray(json?.data)) return null;
 

@@ -38,6 +38,50 @@ const listaDeTexto = z.preprocess(
   z.array(z.string()).default([])
 );
 
+/**
+ * Amostragem do classificador, e o que a medição mostrou sobre ela.
+ *
+ * O problema é real e está medido: 120 candidatas, coletadas UMA vez e
+ * classificadas três, aprovaram 17, 11 e 26. A relevância mudou em 64% delas,
+ * os atores em 42%, e a decisão de entrar ou não virou em 24%, com dois terços
+ * das viradas LONGE do piso, não em cima dele. `pais` e `imigracao`, que são
+ * categóricos, não variaram uma única vez: o que oscila é o juízo graduado,
+ * que é exatamente o que decide a edição.
+ *
+ * Duas saídas por parâmetro foram testadas, e nenhuma serve:
+ *
+ *   `temperature: 0` derruba a chamada inteira. O modelo em uso responde
+ *   "does not support 0 with this model. Only the default (1) value is
+ *   supported", e o resultado foi três rodadas com zero candidatas
+ *   classificadas.
+ *
+ *   `seed` é aceito e NÃO resolveu. Com semente fixa e a mesma entrada, as
+ *   três rodadas aprovaram 8, 5 e 19, com a relevância ainda mudando em 67%.
+ *   A semente é melhor esforço, e neste modelo, com prompt longo e em lote,
+ *   ela não segura o julgamento.
+ *
+ * Por isso o padrão é não mandar nada, que é o comportamento de sempre. O
+ * caminho que sobra não é de parâmetro: é classificar uma vez, PERSISTIR, e
+ * reusar a classificação nos dois canais e nos dias seguintes. Aí a variação
+ * deixa de existir para uma candidata já vista, e a discussão passa a ser
+ * sobre a qualidade de um sorteio só.
+ *
+ * Os dois valores continuam ligáveis por ambiente, para quando o modelo mudar:
+ *   EDITORIAL_CLASSIFIER_SEED=20260906
+ *   EDITORIAL_CLASSIFIER_TEMPERATURE=0
+ */
+export function amostragemDeJulgamento(
+  env: Record<string, string | undefined> = process.env
+): { temperature?: number; seed?: number } {
+  const t = Number(env.EDITORIAL_CLASSIFIER_TEMPERATURE);
+  const semente = Number(env.EDITORIAL_CLASSIFIER_SEED);
+
+  return {
+    ...(Number.isFinite(t) && t >= 0 ? { temperature: t } : {}),
+    ...(Number.isFinite(semente) ? { seed: semente } : {}),
+  };
+}
+
 export const ClassificacaoSchema = z.object({
   id: z.string(),
   /** EUA, Brasil ou outro. "outro" cobre terceiro país e assunto sem país. */
@@ -220,7 +264,8 @@ export async function classificarPautas(
             ],
             modelo,
             env,
-            fetcher
+            fetcher,
+            amostragemDeJulgamento(env),
           );
 
           const parsed = RespostaDoClassificadorSchema.safeParse(data);
@@ -418,7 +463,8 @@ export async function extrairEntidades(
         ],
         modelo,
         env,
-        fetcher
+        fetcher,
+        amostragemDeJulgamento(env),
       );
 
       custoUsd += usage.estimatedCostUsd;
