@@ -57,6 +57,21 @@ export type Recusa = {
 
 export type ResultadoDaGuarda = {
   selecionadas: PautaAvaliada[];
+  /**
+   * Tudo que passou na linha editorial, antes do corte de composição.
+   *
+   * `selecionadas` é o que coube na edição: `ordenarESelecionar` corta por
+   * teto global, teto de Brasil, e dois tetos que não são configuráveis, 2 por
+   * ator e 2 por domínio. O que esses tetos cortam não vai para `recusadas` e
+   * não aparece em log nenhum, então até aqui a única forma de saber quantas
+   * pautas o dia realmente sustenta era subtrair duas listas e torcer para a
+   * invariante valer.
+   *
+   * Existe porque a pergunta do canal social é outra: a newsletter quer as
+   * quatro melhores, o Instagram quer saber quantas há. Nada aqui muda a
+   * decisão da newsletter, que continua lendo `selecionadas`.
+   */
+  aprovadas: PautaAvaliada[];
   recusadas: Recusa[];
   viavel: boolean;
   motivoDaInviabilidade: string;
@@ -92,6 +107,7 @@ export async function avaliarPautas(
   if (grupos.length === 0) {
     return {
       selecionadas: [],
+      aprovadas: [],
       recusadas: [],
       viavel: false,
       motivoDaInviabilidade: "nenhuma candidata coletada",
@@ -392,18 +408,27 @@ export async function avaliarPautas(
     });
   });
 
+  const aprovadas = candidatas.map((c) => c.item);
   const selecionadas = ordenarESelecionar(candidatas, config).map((p) => p.item);
   const viabilidade = edicaoViavel(selecionadas.length, config);
 
   linhas.push(
-    `[GUARDA] ${selecionadas.length} selecionadas de ${grupos.length} candidatas, ${recusadas.length} recusadas`
+    `[GUARDA] ${selecionadas.length} selecionadas de ${grupos.length} candidatas, ` +
+      `${aprovadas.length} aprovadas na linha editorial, ${recusadas.length} recusadas`
   );
+  if (aprovadas.length > selecionadas.length) {
+    linhas.push(
+      `[GUARDA] ${aprovadas.length - selecionadas.length} aprovada(s) fora por composição ` +
+        `(teto ${config.maximoDePautas}, Brasil ${config.maximoDePautasBrasil}, 2 por ator, 2 por domínio)`
+    );
+  }
   for (const s of selecionadas) {
     linhas.push(`[GUARDA] entra: ${s.pontuacao.explicacao} :: ${s.grupo.primary.title.slice(0, 70)}`);
   }
 
   return {
     selecionadas,
+    aprovadas,
     recusadas,
     viavel: viabilidade.viavel,
     motivoDaInviabilidade: viabilidade.viavel ? "" : viabilidade.motivo,
