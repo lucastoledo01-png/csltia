@@ -111,6 +111,13 @@ export type AssetVisual = {
   storagePath: string | null;
   perceptualHash: string | null;
   imageRelevanceScore: number;
+  /** Ano da obra, quando o acervo declara um. */
+  assetDate?: number | null;
+  assetAgeYears?: number | null;
+  temporalRelevanceScore?: number;
+  semanticContextFit?: number;
+  archiveImage?: boolean;
+  historicalEventSpecific?: boolean;
   /** O que a imagem representa. Nunca `exact_event` sem prova, e não temos. */
   imageContextType: TipoDeContextoDaImagem;
   /** Confiança e evidência da entidade que gerou esta escolha. */
@@ -130,6 +137,14 @@ export const MOTIVOS_DE_RECUSA = {
   FALHA_AO_BUSCAR: "IMAGE_FETCH_FAILED",
   /** Duas entidades plausíveis e nenhum contexto para decidir. */
   ENTIDADE_AMBIGUA: "AMBIGUOUS_ENTITY",
+  /** Registro de um acontecimento específico e antigo, que não é o da pauta. */
+  EVENTO_HISTORICO_DIVERGENTE: "HISTORICAL_EVENT_MISMATCH",
+  /** A imagem carrega sentido oposto ao da pauta no mesmo eixo. */
+  CONTEXTO_SEMANTICO_DIVERGENTE: "SEMANTIC_CONTEXT_MISMATCH",
+  /** Imagem de outro ciclo em pauta de indicador. */
+  DESATUALIZADA: "TEMPORAL_MISMATCH",
+  /** Retrato de figura pública que aparece na pauta e não é o assunto dela. */
+  FIGURA_NAO_CENTRAL: "NON_CENTRAL_PUBLIC_FIGURE",
   SEM_IMAGEM_VALIDA: "NO_VALID_IMAGE",
 } as const;
 

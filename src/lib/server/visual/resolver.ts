@@ -15,6 +15,7 @@ import { carregarConfigDeImagem, pisoDeRelevancia, pontuarImagem } from "./relev
 import { avaliarLicenca, montarAtribuicao } from "./licencas";
 import { bancoConfigurado, buscarFotoDeBanco } from "../prompt-system/stock";
 import { consultaConceitual } from "./conceitual";
+import { analisarTemporalidade, retratoNaoCentral } from "./temporalidade";
 
 /**
  * A imagem de uma pauta, resolvida pela entidade.
@@ -169,7 +170,10 @@ export async function resolveVisualAsset(
         nota: `${disponiveis.length} disponível(is) depois da janela de repetição`,
       });
 
-      const melhor = melhorPontuado(disponiveis, entidade, piso, recusados, config.larguraMinima);
+      const melhor = melhorPontuado(disponiveis, entidade, piso, recusados, config.larguraMinima, {
+        titulo: pauta.titulo,
+        resumo: pauta.resumo,
+      });
       if (melhor) {
         if (!opcoes.somenteLeitura && melhor.id) await biblioteca.registrarUso(melhor.id);
         usadosAgora.add(melhor.imageUrl);
@@ -314,7 +318,10 @@ export async function resolveVisualAsset(
 
   // 6. Pontuar, filtrar e escolher.
   const disponiveis = novos.filter((a) => !usadosAgora.has(a.imageUrl));
-  const escolhido = melhorPontuado(disponiveis, entidade, piso, recusados, config.larguraMinima);
+  const escolhido = melhorPontuado(disponiveis, entidade, piso, recusados, config.larguraMinima, {
+    titulo: pauta.titulo,
+    resumo: pauta.resumo,
+  });
 
   if (!escolhido) {
     return semImagem(
@@ -356,7 +363,8 @@ function melhorPontuado<T extends AssetVisual>(
   entidade: EntidadeVisual,
   piso: number,
   recusados: CandidatoRecusado[],
-  larguraMinima: number
+  larguraMinima: number,
+  pauta?: { titulo: string; resumo?: string }
 ): T | null {
   let melhor: T | null = null;
   let melhorNota = -1;
@@ -372,6 +380,47 @@ function melhorPontuado<T extends AssetVisual>(
         detalhe: `${c.width}px de largura, mínimo ${larguraMinima}`,
       });
       continue;
+    }
+
+    /*
+     * Tempo e sentido vêm ANTES da pontuação, e é isso que os torna barreira.
+     *
+     * Se entrassem como peso, a correspondência de entidade compensaria: uma
+     * foto perfeita do Bureau of Labor Statistics somaria 45 pontos de
+     * entidade e perderia 12 de tempo, e a fotografia de 1937 sobre a QUEDA de
+     * 1,5 milhão de empregos continuaria ilustrando a criação de 162 mil.
+     * Correspondência de entidade não compensa sentido invertido.
+     */
+    if (pauta) {
+      const temporal = analisarTemporalidade(c, { ...pauta, entidade });
+
+      c.assetDate = temporal.assetDate;
+      c.assetAgeYears = temporal.assetAgeYears;
+      c.temporalRelevanceScore = temporal.temporalRelevanceScore;
+      c.semanticContextFit = temporal.semanticContextFit;
+      c.archiveImage = temporal.archiveImage;
+      c.historicalEventSpecific = temporal.historicalEventSpecific;
+
+      if (temporal.recusa) {
+        recusados.push({
+          origem: c.source,
+          identificacao: c.sourceAssetId,
+          motivo: temporal.recusa as CandidatoRecusado["motivo"],
+          detalhe: temporal.detalhe,
+        });
+        continue;
+      }
+
+      const figura = retratoNaoCentral(c, entidade, entidade.confianca);
+      if (figura.recusa) {
+        recusados.push({
+          origem: c.source,
+          identificacao: c.sourceAssetId,
+          motivo: figura.recusa as CandidatoRecusado["motivo"],
+          detalhe: figura.detalhe,
+        });
+        continue;
+      }
     }
 
     const nota = pontuarImagem(c, entidade);
