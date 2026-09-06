@@ -1,3 +1,24 @@
+-- ============================================================================
+-- NOTA DE 06/09, DEPOIS DE APLICADA
+--
+-- Esta migration foi aplicada em partes e duas coisas que ela dizia estavam
+-- erradas. Ficam registradas aqui em vez de reescritas, porque o arquivo é o
+-- histórico do que foi rodado.
+--
+-- 1. A unicidade global em `url` NÃO existia. `20260827030000_multi_project_base`
+--    já a havia trocado por `news_candidates_project_url_key (project_id, url)`
+--    em 27 de agosto. As duas primeiras pós-condições verificavam algo que já
+--    era verdade, e o `create unique index news_candidates_projeto_url` teria
+--    criado um índice duplicado sobre as mesmas colunas.
+--
+-- 2. A pós-condição de RLS abortou a transação com "FALHOU: RLS desligada", e
+--    estava certa: `news_candidates`, `news_editions` e `newsroom_runs` estavam
+--    legíveis pela chave anônima. Corrigido em `20260906150000_rls_do_newsroom`.
+--
+-- O que faltou depois disso foi só a troca do CHECK de status, feita em
+-- `20260906160000_check_de_status.sql`.
+-- ============================================================================
+
 -- Camada de candidatos editoriais, e a ligação do post social com ela.
 --
 -- ## Como esta migration se protege
