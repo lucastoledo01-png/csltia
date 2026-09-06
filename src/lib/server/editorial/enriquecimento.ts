@@ -133,6 +133,90 @@ export type PautaParaEnriquecer = {
   urlsSecundarias?: string[];
 };
 
+/**
+ * O identificador do documento dentro da URL do Federal Register.
+ *
+ * As URLs têm a forma `/documents/2026/09/04/2026-18099/titulo-do-ato`, e o
+ * penúltimo segmento no formato `AAAA-NNNNN` é o id que a API entende.
+ */
+export function idDoFederalRegister(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (!/(^|\.)federalregister\.gov$/.test(u.hostname)) return null;
+    const achado = u.pathname.match(/\/(\d{4}-\d{4,6})(\/|$)/);
+    return achado ? achado[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * O texto do ato, pela API.
+ *
+ * Tenta primeiro o texto integral (`raw_text_url`), que vem em texto puro do
+ * GPO; se ele não vier, fica com o abstract, que já é material oficial e
+ * costuma bastar para a classificação. Devolve `null` quando a URL não é do
+ * Federal Register ou quando a API não responde, e aí o caminho normal segue.
+ */
+/**
+ * O texto do GPO vem dentro de um `<pre>`, não em texto puro.
+ *
+ * O campo se chama `raw_text_url` e a resposta é um documento HTML com o ato
+ * inteiro dentro de um único `<pre>`. Passar isso adiante entregaria a tag e o
+ * título da página ao classificador; e `extrairTextoDeHtml` também não serve,
+ * porque ele procura parágrafos e ali não existe nenhum.
+ */
+export function desembrulharTextoDoGPO(bruto: string): string {
+  const dentro = bruto.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
+  const corpo = dentro ? dentro[1] : bruto.replace(/<[^>]+>/g, " ");
+  return corpo
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/\r/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export async function textoDoFederalRegister(
+  url: string,
+  fetcher: typeof fetch = fetch,
+): Promise<string | null> {
+  const id = idDoFederalRegister(url);
+  if (!id) return null;
+
+  try {
+    const meta = await fetcher(
+      `https://www.federalregister.gov/api/v1/documents/${id}.json?fields[]=abstract&fields[]=raw_text_url`,
+      { signal: AbortSignal.timeout(15_000), headers: { Accept: "application/json" } },
+    );
+    if (!meta.ok) return null;
+
+    const dados = (await meta.json()) as { abstract?: string | null; raw_text_url?: string | null };
+    const abstract = (dados.abstract ?? "").trim();
+
+    if (dados.raw_text_url) {
+      try {
+        const bruto = await fetcher(dados.raw_text_url, { signal: AbortSignal.timeout(20_000) });
+        if (bruto.ok) {
+          const texto = desembrulharTextoDoGPO(await bruto.text());
+          // O texto integral só vale se for maior que o abstract; um ato curto
+          // às vezes devolve só o cabeçalho do documento.
+          if (texto.length > abstract.length && texto.length >= MINIMO_DE_CORPO) return texto;
+        }
+      } catch {
+        // Segue com o abstract.
+      }
+    }
+
+    return abstract.length >= MINIMO_DE_CORPO ? abstract : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function enriquecerPauta(
   pauta: PautaParaEnriquecer,
   fetcher: typeof fetch = fetch
@@ -151,6 +235,31 @@ export async function enriquecerPauta(
     };
   }
 
+  /*
+   * O Federal Register tem porta documentada, e a página HTML não é ela.
+   *
+   * Toda requisição a federalregister.gov devolve a mesma página de bloqueio,
+   * que manda usar a API. E a API é a MESMA fonte primária: devolve o abstract
+   * oficial e um `raw_text_url` com o texto integral do ato. Ir por ela não é
+   * rebaixar a qualidade da fonte, é parar de raspar quem pede para não ser
+   * raspado.
+   *
+   * Isto vem antes do laço porque o Federal Register é fonte de núcleo da
+   * vertical: em sete dias ele entregou 12 pautas e nenhuma sobreviveu.
+   */
+  const doRegistro = await textoDoFederalRegister(pauta.url, fetcher);
+  if (doRegistro) {
+    notas.push(`federalregister.gov: ${doRegistro.length} caracteres pela API`);
+    return {
+      texto: doRegistro,
+      contentSource: "pagina_original",
+      contentLength: doRegistro.length,
+      enrichmentStatus: "enriquecida",
+      enrichmentSources: [pauta.url],
+      notas,
+    };
+  }
+
   // Ordem: a página da própria matéria primeiro; depois outra fonte que a
   // deduplicação disse cobrir o mesmo acontecimento.
   const candidatas = [pauta.url, ...(pauta.urlsSecundarias ?? [])].filter(Boolean);
@@ -166,6 +275,23 @@ export async function enriquecerPauta(
     try {
       const html = await buscarPagina(url, fetcher);
       const texto = extrairTextoDeHtml(html);
+
+      /*
+       * Enriquecer não pode piorar o texto.
+       *
+       * `Agency Information Collection Activities` tinha um abstract oficial de
+       * 364 caracteres, abaixo do mínimo, então o pipeline foi buscar a página
+       * e voltou com 861 caracteres de aviso de robô. Maior, e pior: a segunda
+       * classificação e o verificador passaram a julgar o CAPTCHA em vez do
+       * ato. Trocar material oficial por página de bloqueio é a única troca que
+       * o enriquecimento nunca pode fazer.
+       */
+      const leitura = conteudoInsuficiente(texto);
+      if (leitura.insuficiente) {
+        notas.push(`${dominioDe(url)}: ${leitura.motivo}, descartado`);
+        if (!primeiroErro) primeiroErro = leitura.motivo;
+        continue;
+      }
 
       if (texto.length >= MINIMO_DE_CORPO) {
         notas.push(`${dominioDe(url)}: ${texto.length} caracteres`);
@@ -255,6 +381,20 @@ const MARCADORES_DE_BLOQUEIO = [
   "faca login para continuar",
   "this page is not available",
   "unusual traffic",
+  /*
+   * A página de bloqueio do Federal Register, palavra por palavra.
+   *
+   * Ela passava por todas as três portas daqui, e essa guarda nasceu por causa
+   * dela: o comentário lá em cima cita o caso. O motivo é que o aviso é escrito
+   * em prosa. Tem um marcador só ("captcha") e nove frases bem formadas com
+   * ponto final, então nem a regra de dois marcadores nem a de marcador com
+   * pouco corpo o alcançavam. O pipeline trocava um abstract oficial por 861
+   * caracteres de aviso de robô e mandava o classificador julgar isso.
+   */
+  "programmatic access",
+  "flagged as potentially automated",
+  "bot test",
+  "aggressive automated scraping",
 ];
 
 function normalizarParaBusca(texto: string): string {

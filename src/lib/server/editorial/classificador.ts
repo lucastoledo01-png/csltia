@@ -183,11 +183,30 @@ Classifique o que está escrito. Não deduza intenção, não suavize e não agr
 `.trim();
 }
 
+/**
+ * Quanto texto o classificador enxerga de cada pauta.
+ *
+ * Era 600, e o verificador lia 2500 do mesmo texto. A `guarda.ts` já entregava
+ * 4000 caracteres da matéria enriquecida para a segunda classificação, com um
+ * comentário dizendo que ela existe para "julgar o texto que existe, e não o
+ * que o agregador resumiu"; este corte anulava aquilo em silêncio.
+ *
+ * A consequência aparecia no fim do funil: os conflitos por
+ * `relevancia_no_piso` eram o sistema descobrindo, tarde, que a classificação
+ * tinha sido feita sobre um texto truncado. Numa pauta do DHS, os 1900
+ * caracteres que só o verificador viu continham a liminar que suspendia a
+ * regra inteira.
+ *
+ * O número é o mesmo do verificador de propósito. Os dois julgam o mesmo
+ * texto, ou a divergência entre eles não significa nada.
+ */
+export const LIMITE_DO_RESUMO = 2500;
+
 export function montarUserDoClassificador(pautas: PautaClassificavel[]): string {
   const lista = pautas
     .map(
       (p) =>
-        `id: ${p.id}\ntitulo: ${p.titulo}\nfonte: ${p.fonte}\nurl: ${p.url}\nresumo: ${p.descricao.slice(0, 600)}`
+        `id: ${p.id}\ntitulo: ${p.titulo}\nfonte: ${p.fonte}\nurl: ${p.url}\nresumo: ${p.descricao.slice(0, LIMITE_DO_RESUMO)}`
     )
     .join("\n\n---\n\n");
 
@@ -241,7 +260,16 @@ export async function classificarPautas(
     };
   }
 
-  const modelo = env.OPENAI_MODEL_TRIAGE || "gpt-4o-mini";
+  /*
+   * O mesmo default do verificador, de propósito.
+   *
+   * Aqui era "gpt-4o-mini" e no `ai-provider.ts` era "gpt-4o". Em produção as
+   * duas variáveis estão definidas e apontam para o mesmo modelo, então não
+   * havia sintoma; em qualquer ambiente sem elas (CI, contêiner novo, dry-run
+   * de máquina limpa) classificador e verificador rodavam em classes
+   * diferentes de modelo, e toda divergência entre os dois virava ruído.
+   */
+  const modelo = env.OPENAI_MODEL_TRIAGE || "gpt-4o";
   const lotes: PautaClassificavel[][] = [];
   for (let i = 0; i < pautas.length; i += PAUTAS_POR_CHAMADA) {
     lotes.push(pautas.slice(i, i + PAUTAS_POR_CHAMADA));
@@ -349,13 +377,15 @@ export function decidirPauta(c: Classificacao, config: ConfigEditorial): Decisao
 
   const piso = config.relevanciaMinima;
   if (relevanciaEfetiva < piso) {
+    const porDeclaracao = c.natureza === "political_statement" && c.relevancia >= piso;
     return {
       aprovada: false,
-      motivo: MOTIVOS.REJEITADO_RELEVANCIA,
-      explicacao:
-        c.natureza === "political_statement"
-          ? `declaração política, relevância ${c.relevancia} limitada a ${relevanciaEfetiva}, abaixo do piso ${piso}`
-          : `relevância ${c.relevancia} abaixo do piso ${piso}`,
+      // A declaração que só caiu por causa do teto tem código próprio: ela é
+      // recorte editorial, não nota baixa. Ver MOTIVOS em config.ts.
+      motivo: porDeclaracao ? MOTIVOS.REJEITADO_DECLARACAO : MOTIVOS.REJEITADO_RELEVANCIA,
+      explicacao: porDeclaracao
+        ? `declaração política, relevância ${c.relevancia} limitada a ${relevanciaEfetiva}, abaixo do piso ${piso}`
+        : `relevância ${c.relevancia} abaixo do piso ${piso}`,
     };
   }
 
@@ -367,7 +397,7 @@ export function decidirPauta(c: Classificacao, config: ConfigEditorial): Decisao
     if (!noEixo) {
       return {
         aprovada: false,
-        motivo: MOTIVOS.REJEITADO_RELEVANCIA,
+        motivo: MOTIVOS.REJEITADO_EIXO_BRASIL,
         explicacao: `Brasil fora do eixo editorial (eixo ${c.eixo})`,
       };
     }
@@ -447,7 +477,16 @@ export async function extrairEntidades(
 
   if (pautas.length === 0) return { entidades: saida, custoUsd, tokens, falhas };
 
-  const modelo = env.OPENAI_MODEL_TRIAGE || "gpt-4o-mini";
+  /*
+   * O mesmo default do verificador, de propósito.
+   *
+   * Aqui era "gpt-4o-mini" e no `ai-provider.ts` era "gpt-4o". Em produção as
+   * duas variáveis estão definidas e apontam para o mesmo modelo, então não
+   * havia sintoma; em qualquer ambiente sem elas (CI, contêiner novo, dry-run
+   * de máquina limpa) classificador e verificador rodavam em classes
+   * diferentes de modelo, e toda divergência entre os dois virava ruído.
+   */
+  const modelo = env.OPENAI_MODEL_TRIAGE || "gpt-4o";
 
   for (let i = 0; i < pautas.length; i += PAUTAS_POR_CHAMADA) {
     const lote = pautas.slice(i, i + PAUTAS_POR_CHAMADA);

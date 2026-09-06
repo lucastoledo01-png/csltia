@@ -32,7 +32,8 @@ export function calculateCost(model: string, promptTokens: number, completionTok
 
 export function getAIProviderConfig(env: Record<string, string | undefined> = process.env) {
   const apiKey = env.OPENAI_API_KEY;
-  const triageModel = env.OPENAI_MODEL_TRIAGE || "gpt-4o-mini";
+  // Mesmo default do editor: ver a nota em `classificador.ts`.
+  const triageModel = env.OPENAI_MODEL_TRIAGE || "gpt-4o";
   const editorModel = env.OPENAI_MODEL_EDITOR || "gpt-4o";
 
   return {
