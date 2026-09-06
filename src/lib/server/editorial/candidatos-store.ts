@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Classificacao } from "./classificador";
 import type { PacoteFactual } from "./pacote-factual";
@@ -44,6 +45,142 @@ export const STATUS_DE_CANDIDATA = [
 export type StatusDeCandidata = (typeof STATUS_DE_CANDIDATA)[number];
 
 /**
+ * O estado que pertence à NOTÍCIA, e não a um canal.
+ *
+ * `selected` e `capped` continuam no CHECK do banco por compatibilidade, e o
+ * pipeline novo não escreve nenhum dos dois. O motivo é um caso concreto: uma
+ * pauta aprovada que a newsletter cortou por composição fica `capped`, e o
+ * Instagram, que tem outra composição e dez vagas, deveria poder publicá-la.
+ * Se `capped` for o estado global da candidata, uma decisão de arrumação do
+ * e-mail vira veredicto sobre a notícia.
+ *
+ * O mesmo vale para o outro lado: `selected` na newsletter de manhã não pode
+ * significar "gasta" para o feed da tarde, que é justamente o reaproveitamento
+ * planejado entre canais.
+ *
+ * Quem publicou o quê mora onde a decisão foi tomada: `editorial_history` para
+ * a newsletter, `social_posts` para o Instagram. Os dois já são por canal.
+ */
+export const STATUS_INTRINSECO = [
+  "collected",
+  "classified",
+  "approved",
+  "rejected",
+  "duplicate",
+  "filtered",
+  "too_old",
+  "already_published",
+] as const;
+
+export type StatusIntrinseco = (typeof STATUS_INTRINSECO)[number];
+
+const ONDE_MORA_O_ESTADO_DE_CANAL: Record<string, string> = {
+  selected: "editorial_history (newsletter) ou social_posts (Instagram)",
+  capped: "a composição do canal, que não persiste veredicto sobre a notícia",
+};
+
+/**
+ * Guarda do pipeline novo: só estado intrínseco.
+ *
+ * Separada de `garantirStatus` de propósito. Aquela responde "o banco aceita
+ * este valor"; esta responde "este valor descreve a notícia, e não o que um
+ * canal decidiu com ela".
+ */
+export function garantirStatusIntrinseco(valor: string): StatusIntrinseco {
+  if ((STATUS_INTRINSECO as readonly string[]).includes(valor)) {
+    return valor as StatusIntrinseco;
+  }
+
+  const onde = ONDE_MORA_O_ESTADO_DE_CANAL[valor];
+  if (onde) {
+    throw new Error(
+      `"${valor}" é decisão de canal, não estado da candidata. Isso mora em ${onde}. ` +
+        `Uma pauta cortada da newsletter continua elegível para o Instagram.`,
+    );
+  }
+
+  return garantirStatus(valor) as StatusIntrinseco;
+}
+
+/**
+ * A versão da leitura editorial, para a classificação não congelar para sempre.
+ *
+ * Não sobrescrever classificação persistida resolve o churn e cria outro
+ * problema: trocar o prompt, o modelo ou a régua editorial não teria efeito
+ * nenhum sobre o que já foi classificado, e o sistema seguiria decidindo com
+ * uma leitura que ninguém mais concorda.
+ *
+ * São três partes, e duas se cuidam sozinhas. O modelo vem do ambiente. O
+ * `promptHash` é derivado do próprio texto do prompt, então mexer no prompt
+ * invalida a classificação antiga sem depender de alguém lembrar de anunciar
+ * a mudança. O número abaixo é o que sobra: mudança de regra ou de schema que
+ * não passa pelo texto do prompt.
+ */
+export const VERSAO_DA_CLASSIFICACAO = 1;
+
+export type AssinaturaDoClassificador = {
+  versao: number;
+  modelo: string;
+  promptHash: string;
+};
+
+export function assinaturaDoClassificador(
+  textoDoPrompt: string,
+  env: Record<string, string | undefined> = process.env,
+): AssinaturaDoClassificador {
+  return {
+    versao: VERSAO_DA_CLASSIFICACAO,
+    modelo: (env.OPENAI_MODEL_TRIAGE || env.OPENAI_MODEL_EDITOR || "desconhecido").trim(),
+    promptHash: createHash("sha1").update(textoDoPrompt).digest("hex").slice(0, 12),
+  };
+}
+
+/**
+ * A classificação guardada ainda serve?
+ *
+ * Serve enquanto foi feita pela mesma leitura editorial. Divergiu qualquer uma
+ * das três partes, a candidata volta a ser elegível para reclassificação. Isso
+ * NÃO reclassifica nada sozinho: só deixa de reaproveitar.
+ */
+export function classificacaoAindaVale(
+  candidata: Pick<CandidataPersistida, "classificacao" | "assinatura">,
+  atual: AssinaturaDoClassificador,
+): boolean {
+  if (!candidata.classificacao) return false;
+
+  const a = candidata.assinatura;
+  if (!a) return false;
+
+  return a.versao === atual.versao && a.modelo === atual.modelo && a.promptHash === atual.promptHash;
+}
+
+/**
+ * A impressão do que foi verificado.
+ *
+ * O prazo de 24h é bom cache e péssima garantia sozinho: se o pacote factual
+ * foi enriquecido depois, a verificação anterior julgou outro texto, e o
+ * relógio não sabe disso. O hash sabe.
+ */
+export function hashDaVerificacao(entrada: {
+  titulo: string;
+  fonte: string;
+  contexto: string;
+  classificacao?: { pais: string; leitura: string; eixo: string; relevancia: number } | null;
+}): string {
+  const c = entrada.classificacao;
+  const material = JSON.stringify({
+    t: entrada.titulo.trim(),
+    f: entrada.fonte.trim(),
+    // O texto inteiro, porque enriquecer no fim da matéria também muda o que
+    // o verificador leu.
+    x: entrada.contexto.trim(),
+    c: c ? [c.pais, c.leitura, c.eixo, Math.round(c.relevancia)] : null,
+  });
+
+  return createHash("sha1").update(material).digest("hex").slice(0, 16);
+}
+
+/**
  * Conceitos que NÃO são status, e onde eles moram.
  *
  * `verified`, `conflict`, `editorial_approved`, `used_newsletter` e
@@ -81,6 +218,8 @@ export type VerificacaoPersistida = {
   verificadoEm: string;
   /** Que canal pagou pela verificação. O outro reaproveita. */
   canal: string;
+  /** Impressão do texto que foi verificado. Ver `hashDaVerificacao`. */
+  inputHash: string;
 };
 
 export type CandidataPersistida = {
@@ -106,6 +245,8 @@ export type CandidataPersistida = {
   factualPackage: PacoteFactual | null;
   embedding: number[] | null;
   verificacao: VerificacaoPersistida | null;
+  /** Com que leitura editorial esta candidata foi classificada. */
+  assinatura: AssinaturaDoClassificador | null;
 };
 
 const COLUNAS =
@@ -158,6 +299,7 @@ function daLinha(l: Linha): CandidataPersistida {
     factualPackage: (l.factual_package as PacoteFactual | null) ?? null,
     embedding: (l.embedding as number[] | null) ?? null,
     verificacao: (meta.verificacao as VerificacaoPersistida | null) ?? null,
+    assinatura: (meta.assinatura as AssinaturaDoClassificador | null) ?? null,
   };
 }
 
@@ -182,6 +324,8 @@ export type CandidataParaGravar = {
   factualPackage?: PacoteFactual | null;
   embedding?: number[] | null;
   embeddingModel?: string | null;
+  /** Com que leitura editorial esta classificação foi feita. */
+  assinatura?: AssinaturaDoClassificador | null;
   metadata?: Record<string, unknown>;
 };
 
@@ -199,7 +343,7 @@ function paraLinha(projectId: string, c: CandidataParaGravar): Linha {
     summary: (c.summary ?? "").slice(0, 4000),
     source_name: c.sourceDomain ?? "desconhecida",
     published_at: c.publishedAt,
-    status: garantirStatus(c.status),
+    status: garantirStatusIntrinseco(c.status),
 
     country: cl?.pais ?? null,
     is_immigration: cl?.imigracao ?? null,
@@ -226,7 +370,11 @@ function paraLinha(projectId: string, c: CandidataParaGravar): Linha {
     factual_package: c.factualPackage ?? null,
     embedding: c.embedding ?? null,
     embedding_model: c.embeddingModel ?? null,
-    metadata_json: { ...(c.metadata ?? {}), ...(cl?.justificativa ? { justificativa: cl.justificativa } : {}) },
+    metadata_json: {
+      ...(c.metadata ?? {}),
+      ...(cl?.justificativa ? { justificativa: cl.justificativa } : {}),
+      ...(c.assinatura ? { assinatura: c.assinatura } : {}),
+    },
     updated_at: new Date().toISOString(),
   };
 }
@@ -371,24 +519,66 @@ export function criarCandidatosStore(client: SupabaseClient): CandidatosStore {
 /**
  * A verificação vale para outro canal?
  *
- * Vale enquanto a candidata for a mesma e a verificação for recente. O prazo
- * existe porque uma pauta verificada há duas semanas pode ter sido superada
- * pelos fatos, e reaproveitar ali seria economizar no lugar errado.
+ * Duas condições, e a segunda é a que importa. O prazo é cache: uma pauta
+ * verificada há duas semanas pode ter sido superada pelos fatos. O hash é
+ * correção: se o pacote factual foi enriquecido depois da verificação, a
+ * leitura anterior julgou OUTRO texto, e o relógio não sabe disso. Reaproveitar
+ * ali não seria economia, seria publicar com base numa conferência que nunca
+ * viu o material publicado.
  */
-export function verificacaoAindaVale(v: VerificacaoPersistida | null, horas = 24): boolean {
+export function verificacaoAindaVale(
+  v: VerificacaoPersistida | null,
+  hashAtual: string,
+  horas = 24,
+): boolean {
   if (!v?.verificadoEm) return false;
+  if (!v.inputHash || v.inputHash !== hashAtual) return false;
+
   const quando = new Date(v.verificadoEm).getTime();
   if (Number.isNaN(quando)) return false;
   return Date.now() - quando <= horas * 60 * 60 * 1000;
 }
 
+/**
+ * Esta candidata pode ser publicada?
+ *
+ * `status = approved` diz que ela passou nos critérios duros. Não diz que a
+ * conferência de finalista aprovou, e são coisas diferentes: uma candidata em
+ * conflito continua aprovada na linha editorial e não pode ir ao ar. Nenhuma
+ * função de composição deve olhar só o status, e é para isso que esta existe.
+ *
+ * Candidata que ainda não chegou ao estágio de verificação devolve `false` com
+ * o motivo, e não `true` por omissão: não ter sido conferida não é o mesmo que
+ * ter passado.
+ */
+export function podePublicar(
+  candidata: Pick<CandidataPersistida, "status" | "verificacao">,
+): { pode: boolean; motivo: string } {
+  if (candidata.status !== "approved") {
+    return { pode: false, motivo: `status é "${candidata.status}", e só "approved" concorre` };
+  }
+
+  const v = candidata.verificacao;
+  if (!v) return { pode: false, motivo: "ainda não passou pela verificação de finalista" };
+
+  if (v.status === "confirm") return { pode: true, motivo: "aprovada e verificada" };
+
+  return {
+    pode: false,
+    motivo: v.status === "conflict"
+      ? `EDITORIAL_CLASSIFICATION_CONFLICT: ${v.motivo}`
+      : `a verificação recusou: ${v.motivo}`,
+  };
+}
+
 /** Converte o veredicto do verificador para o formato persistido. */
-export function paraPersistir(v: Verificacao, canal: string): VerificacaoPersistida {
+export function paraPersistir(v: Verificacao, canal: string, inputHash: string): VerificacaoPersistida {
   return {
     status: v.veredicto === "review" ? "conflict" : v.veredicto,
     motivo: v.motivo,
     divergencias: v.divergencias,
     verificadoEm: new Date().toISOString(),
     canal,
+    inputHash,
   };
 }
