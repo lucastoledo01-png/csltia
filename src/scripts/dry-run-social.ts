@@ -13,6 +13,10 @@ import { getSupabaseAdminClient } from "../lib/server/supabase-admin";
 import { dominioDe } from "../lib/server/editorial/url-canonica";
 import { carregarConfigSocial, comporFeedSocial, feedMonotematico } from "../lib/server/social/selecao";
 import { carregarConfigDaAgenda, descreverAgenda, distribuirVagas } from "../lib/server/social/agenda";
+import { criarCandidatosStore } from "../lib/server/editorial/candidatos-store";
+import { conferirFinalistas } from "../lib/server/editorial/finalistas";
+import { impressaoDoAcontecimento } from "../lib/server/editorial/fingerprint";
+import { entidadesDaClassificacao } from "../lib/server/editorial/classificador";
 
 /**
  * O dia do Instagram, do candidato bruto até a grade de horários.
@@ -129,8 +133,12 @@ async function main() {
   escrever();
 
   const config = carregarConfigEditorial(process.env);
-  const store = criarHistoricoStore(getSupabaseAdminClient());
-  const historico = await store.janela(project.id, config.janelaDeDias);
+  const historicoStore = criarHistoricoStore(getSupabaseAdminClient());
+  const historico = await historicoStore.janela(project.id, config.janelaDeDias);
+
+  const t0 = Date.now();
+  const client = getSupabaseAdminClient();
+  const candidatosStore = criarCandidatosStore(client);
 
   const guarda = await avaliarPautas(uniqueGroups, {
     canal: "instagram",
@@ -139,7 +147,9 @@ async function main() {
     provedorDeVetor: criarProvedorOpenAI(process.env, fetch),
     env: process.env,
     fetcher: fetch,
+    candidatos: { store: candidatosStore, projectId: project.id },
   });
+  const msGuarda = Date.now() - t0;
 
   escrever(`## 1. Pool aprovado`);
   escrever();
@@ -155,8 +165,96 @@ async function main() {
   escrever(`Recusadas: ${[...recusasPorMotivo.entries()].map(([m, n]) => `${m} ${n}`).join(", ") || "nenhuma"}`);
   escrever();
 
+  escrever(`### Reuso e persistência`);
+  escrever();
+  escrever(`| métrica | valor |`);
+  escrever(`| --- | --- |`);
+  escrever(`| candidatas lidas do banco | ${guarda.reuso.candidatasLidas} |`);
+  escrever(`| classificações reaproveitadas | **${guarda.reuso.classificacoesReaproveitadas}** |`);
+  escrever(`| classificadas agora | ${guarda.reuso.classificadasAgora} |`);
+  escrever(`| gravadas | ${guarda.reuso.persistidas} |`);
+  escrever(`| tokens da guarda | ${guarda.tokens.total.toLocaleString("pt-BR")} |`);
+  escrever(`| tempo da guarda | ${(msGuarda / 1000).toFixed(1)}s |`);
+  escrever(
+    `| persistência degradada | ${guarda.reuso.erros.length > 0 ? `**sim**: ${guarda.reuso.erros.join("; ")}` : "não"} |`,
+  );
+  escrever();
+
   // ------------------------------------------------------------------
-  const composicao = comporFeedSocial(guarda.approvedEditorialPool, configSocial);
+  // 1b. Conferência dos finalistas.
+  // ------------------------------------------------------------------
+  const t1 = Date.now();
+  const conferencia = await conferirFinalistas(guarda.approvedEditorialPool, {
+    canal: "instagram",
+    vagas: configSocial.maximoPorDia,
+    config,
+    store: candidatosStore,
+    projectId: project.id,
+    env: process.env,
+    fetcher: fetch,
+  });
+  const msVerificacao = Date.now() - t1;
+
+  escrever(`## 1b. Verificação de finalistas`);
+  escrever();
+  const diag = conferencia.diagnostico;
+  escrever(`| métrica | valor |`);
+  escrever(`| --- | --- |`);
+  escrever(`| finalistas conferidos | ${diag.finalistas} de ${guarda.approvedEditorialPool.length} do pool |`);
+  escrever(`| verificados agora | ${diag.verificadasAgora} |`);
+  escrever(`| **reaproveitados de outro canal** | **${diag.reaproveitadasDoBanco}** |`);
+  escrever(`| chamadas ao verificador | ${diag.chamadasAoVerificador} |`);
+  escrever(`| tokens | ${diag.tokens.toLocaleString("pt-BR")} |`);
+  escrever(`| tempo | ${(msVerificacao / 1000).toFixed(1)}s |`);
+  escrever(`| confirmadas | **${conferencia.confirmadas.length}** |`);
+  escrever(`| recusadas pela verificação | ${conferencia.recusadas.length} |`);
+  escrever(`| em conflito | ${conferencia.emConflito.length} |`);
+  escrever();
+
+  if (conferencia.recusadas.length > 0) {
+    escrever(`Recusadas na conferência:`);
+    escrever();
+    for (const r2 of conferencia.recusadas) {
+      escrever(`- ${r2.pauta.grupo.primary.title.slice(0, 60)} :: ${r2.motivo.slice(0, 110)}`);
+    }
+    escrever();
+  }
+
+  if (conferencia.emConflito.length > 0) {
+    escrever(`Em conflito, que não publicam sozinhas:`);
+    escrever();
+    escrever(`| pauta | campos divergentes | primária x verificação |`);
+    escrever(`| --- | --- | --- |`);
+    for (const c2 of conferencia.emConflito) {
+      const materiais = c2.divergencias.filter((x) => x.material);
+      escrever(
+        `| ${c2.pauta.grupo.primary.title.slice(0, 45)} | ${materiais.map((x) => x.campo).join(", ") || "n/d"} | ` +
+          `${materiais.map((x) => `${x.primaria} x ${x.verificacao}`).join("; ") || c2.motivo.slice(0, 40)} |`,
+      );
+    }
+    escrever();
+  }
+
+  // Instabilidade residual: que campos ainda divergem.
+  const porCampo = new Map<string, number>();
+  for (const c2 of conferencia.emConflito) {
+    for (const div of c2.divergencias) {
+      porCampo.set(div.campo, (porCampo.get(div.campo) ?? 0) + 1);
+    }
+  }
+  if (porCampo.size > 0) {
+    escrever(`Instabilidade residual por campo: ${[...porCampo.entries()].map(([k, v]) => `${k} ${v}`).join(", ")}`);
+    escrever();
+  }
+
+  // ------------------------------------------------------------------
+  /*
+   * Só o que a conferência liberou entra na composição.
+   *
+   * `status = approved` não autoriza nada sozinho: uma candidata em conflito
+   * continua aprovada na linha editorial e bloqueada para o ar.
+   */
+  const composicao = comporFeedSocial(conferencia.confirmadas, configSocial);
   const naNewsletter = new Set(guarda.selecionadas.map((p) => p.storyId));
   /*
    * O relógio da simulação é o do dia simulado, não o de agora.
@@ -177,25 +275,34 @@ async function main() {
   if (composicao.escolhidas.length === 0) {
     escrever(`Nenhum post. O dia não sustentou nenhuma pauta, e isso não é falha de pipeline.`);
   } else {
-    escrever(`| hora | origem | país | imig | eixo | tópico | nota | pauta | fonte |`);
-    escrever(`| --- | --- | --- | --- | --- | --- | --- | --- | --- |`);
+    escrever(`| # | hora | origem | país | eixo | relev | verif | tópico | pauta | fonte |`);
+    escrever(`| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |`);
     composicao.escolhidas.forEach((e, i) => {
       const p = e.pauta;
-      const origem = naNewsletter.has(p.storyId) ? "newsletter" : "só social";
+      const origem = naNewsletter.has(p.storyId) ? "newsletter" : "**só social**";
       escrever(
-        `| ${vagas[i]?.horaLocal ?? "?"} | ${origem} | ${p.classificacao.pais} | ` +
-          `${p.classificacao.imigracao ? "sim" : "não"} | ${p.classificacao.eixo} | ${e.topico} | ${e.nota} | ` +
-          `${p.grupo.primary.title.slice(0, 60)} | ${p.grupo.primary.source_name.slice(0, 26)} |`,
+        `| ${i + 1} | ${vagas[i]?.horaLocal ?? "?"} | ${origem} | ${p.classificacao.pais} | ` +
+          `${p.classificacao.eixo} | ${p.classificacao.relevancia} | confirm | ${e.topico} | ` +
+          `${p.grupo.primary.title.slice(0, 50)} | ${p.grupo.primary.source_name.slice(0, 22)} |`,
       );
     });
     escrever();
 
-    escrever(`### URLs`);
+    escrever(`### Identidade de cada post`);
     escrever();
+    escrever(`| # | story_id | event_fingerprint | entidade principal | URL |`);
+    escrever(`| --- | --- | --- | --- | --- |`);
     composicao.escolhidas.forEach((e, i) => {
-      escrever(`${i + 1}. ${e.pauta.grupo.primary.url}`);
+      const p = e.pauta;
+      const fp = impressaoDoAcontecimento(entidadesDaClassificacao(p.classificacao)) || "(sem impressão)";
+      escrever(
+        `| ${i + 1} | \`${p.storyId}\` | \`${fp.slice(0, 40)}\` | ${p.classificacao.atores[0] ?? "n/d"} | ` +
+          `${p.grupo.primary.url.slice(0, 60)} |`,
+      );
     });
     escrever();
+
+
   }
 
   const daNewsletter = composicao.escolhidas.filter((e) => naNewsletter.has(e.pauta.storyId)).length;

@@ -116,7 +116,7 @@ describe("composição do feed", () => {
     const r = comporFeedSocial(pool, CONFIG);
 
     expect(r.escolhidas).toHaveLength(CONFIG.maximoPorPrograma);
-    expect(r.cortadas.some((c) => c.motivo === "TOPIC_OVERLOAD" || c.motivo === "PROGRAMA_OVERLOAD")).toBe(true);
+    expect(r.cortadas.some((c) => c.motivo === "TOPIC_OVERLOAD" || c.motivo === "SAME_VISA_OVERLOAD")).toBe(true);
   });
 
   it("respeita o teto de pautas migratórias por dia", () => {
@@ -138,7 +138,7 @@ describe("composição do feed", () => {
     const migratorias = r.escolhidas.filter((e) => e.pauta.classificacao.imigracao).length;
 
     expect(migratorias).toBeLessThanOrEqual(CONFIG.maximoDeImigracao);
-    expect(r.cortadas.some((c) => c.motivo === "IMIGRACAO_OVERLOAD")).toBe(true);
+    expect(r.cortadas.some((c) => c.motivo === "IMMIGRATION_TOPIC_OVERLOAD")).toBe(true);
   });
 
   it("limita política brasileira sem depender do eixo declarado", () => {
@@ -177,15 +177,18 @@ describe("composição do feed", () => {
   });
 
   it("o mesmo acontecimento não entra duas vezes", () => {
+    // Mesmo acontecimento visto por duas fontes: mesmos atores, mesmos
+    // lugares, mesmo verbo. O fingerprint junta o que o leitor lê como
+    // repetição, mesmo com URLs e títulos diferentes.
     const pool = [
-      pauta({ titulo: "Fato X pela fonte A", nota: 60, storyId: "mesmo", atores: ["A"] }),
-      pauta({ titulo: "Fato X pela fonte B", nota: 55, storyId: "mesmo", atores: ["B"] }),
+      pauta({ titulo: "USCIS amplia o prazo do EAD", nota: 60, storyId: "a", atores: ["USCIS"] }),
+      pauta({ titulo: "Prazo do EAD é ampliado pelo USCIS", nota: 55, storyId: "b", atores: ["USCIS"] }),
     ];
 
     const r = comporFeedSocial(pool, CONFIG);
 
     expect(r.escolhidas).toHaveLength(1);
-    expect(r.cortadas[0].motivo).toBe("EVENTO_OVERLOAD");
+    expect(r.cortadas[0].motivo).toBe("DUPLICATE_EVENT");
   });
 
   it("nunca passa do máximo por dia", () => {

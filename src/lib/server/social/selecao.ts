@@ -1,6 +1,8 @@
 import type { PautaAvaliada } from "../editorial/guarda";
 import type { Classificacao } from "../editorial/classificador";
 import { dominioDe } from "../editorial/url-canonica";
+import { impressaoDoAcontecimento } from "../editorial/fingerprint";
+import { entidadesDaClassificacao } from "../editorial/classificador";
 
 /**
  * A composição do Instagram, que não é a da newsletter.
@@ -150,14 +152,14 @@ function ehPoliticaBrasileira(c: Classificacao, titulo: string): boolean {
 }
 
 export type MotivoDeCorte =
+  | "IMMIGRATION_TOPIC_OVERLOAD"
   | "TOPIC_OVERLOAD"
   | "EIXO_OVERLOAD"
-  | "IMIGRACAO_OVERLOAD"
   | "POLITICA_BR_OVERLOAD"
-  | "PROGRAMA_OVERLOAD"
-  | "ORGANIZACAO_OVERLOAD"
-  | "EVENTO_OVERLOAD"
-  | "ATOR_OVERLOAD"
+  | "SAME_VISA_OVERLOAD"
+  | "SAME_ENTITY_OVERLOAD"
+  | "DUPLICATE_EVENT"
+  | "SAME_ORG_OVERLOAD"
   | "DOMINIO_OVERLOAD"
   | "ALEM_DO_MAXIMO";
 
@@ -238,7 +240,14 @@ export function comporFeedSocial(
     const dominio = dominioDe(p.grupo.primary.url);
     const ator = (c.atores[0] || "").toLowerCase();
     const organizacao = (c.atores.find((a) => a.length > 2) || "").toLowerCase();
-    const evento = p.storyId;
+    /*
+     * A identidade do acontecimento vem do fingerprint quando existe.
+     *
+     * `storyId` separa duas matérias sobre o MESMO fato quando elas vieram de
+     * URLs diferentes, e para o feed elas são um post só. O fingerprint junta
+     * o que o leitor lê como repetição.
+     */
+    const evento = impressaoDoAcontecimento(entidadesDaClassificacao(c)) || p.storyId;
 
     const recusar = (motivo: MotivoDeCorte, detalhe: string) => {
       cortadas.push({ titulo, motivo, detalhe });
@@ -253,7 +262,7 @@ export function comporFeedSocial(
       continue;
     }
     if (c.imigracao && imigracao >= config.maximoDeImigracao) {
-      recusar("IMIGRACAO_OVERLOAD", `o dia já tem ${config.maximoDeImigracao} pautas migratórias`);
+      recusar("IMMIGRATION_TOPIC_OVERLOAD", `o dia já tem ${config.maximoDeImigracao} pautas migratórias`);
       continue;
     }
     if (ehPoliticaBrasileira(c, titulo) && politicaBr >= config.maximoDePoliticaBrasileira) {
@@ -261,19 +270,19 @@ export function comporFeedSocial(
       continue;
     }
     if (programa && (porPrograma[programa] ?? 0) >= config.maximoPorPrograma) {
-      recusar("PROGRAMA_OVERLOAD", `${programa} já tem ${config.maximoPorPrograma}`);
+      recusar("SAME_VISA_OVERLOAD", `${programa} já tem ${config.maximoPorPrograma}`);
       continue;
     }
     if (organizacao && (porOrganizacao[organizacao] ?? 0) >= config.maximoPorOrganizacao) {
-      recusar("ORGANIZACAO_OVERLOAD", `${organizacao} já tem ${config.maximoPorOrganizacao}`);
+      recusar("SAME_ORG_OVERLOAD", `${organizacao} já tem ${config.maximoPorOrganizacao}`);
       continue;
     }
     if ((porEvento[evento] ?? 0) >= config.maximoPorEvento) {
-      recusar("EVENTO_OVERLOAD", "o mesmo acontecimento já entrou hoje");
+      recusar("DUPLICATE_EVENT", "o mesmo acontecimento já entrou hoje");
       continue;
     }
     if (ator && (porAtor[ator] ?? 0) >= config.maximoPorAtor) {
-      recusar("ATOR_OVERLOAD", `${ator} já aparece ${config.maximoPorAtor} vezes`);
+      recusar("SAME_ENTITY_OVERLOAD", `${ator} já aparece ${config.maximoPorAtor} vezes`);
       continue;
     }
     if (dominio && (porDominio[dominio] ?? 0) >= config.maximoPorDominio) {
