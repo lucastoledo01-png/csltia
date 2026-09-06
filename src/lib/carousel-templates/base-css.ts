@@ -175,6 +175,19 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 .e-wrap{flex:1;display:flex;flex-direction:column;justify-content:center;gap:34px;position:relative;z-index:2;}
 .e-wrap.center{align-items:center;text-align:center;}
 
+/* ---- capa de texto da noticia: a manchete e a arte ----
+   O corpo do tipo nao esta declarado aqui nem calculado por estimativa: quem
+   mede e o navegador, pelo SCRIPT_DE_AJUSTE, depois que as fontes carregam.
+   A caixa da manchete tem altura fixa e o texto encolhe ate caber nela. */
+.e-wrap.n-capa{justify-content:flex-end;gap:0;padding-bottom:30px;}
+.n-topo{flex:none;margin-bottom:46px;}
+.n-editoria{display:block;font-family:var(--s-font-mono);font-size:19px;font-weight:700;
+  letter-spacing:4px;text-transform:uppercase;color:var(--s-accent);margin-bottom:18px;}
+.n-regua{display:block;height:3px;background:var(--s-ink);}
+.n-manchete{flex:0 0 60%;display:flex;flex-direction:column;justify-content:flex-end;
+  font-family:var(--s-font-accent);font-weight:800;letter-spacing:-0.015em;line-height:1.06;
+  color:var(--s-ink);}
+
 .e-mark{width:74px;height:74px;color:var(--s-accent);}
 .e-mark svg{width:100%;height:100%;}
 

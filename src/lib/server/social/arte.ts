@@ -45,7 +45,7 @@ export function publicavelSemFoto(formato: CarouselFormat): boolean {
 export type CapaDoPost = {
   slide: InstagramSlide;
   /** Variante do template. Muda com a presença da foto, e só com ela. */
-  variante: "fullbleed_portrait" | "brand_card";
+  variante: "fullbleed_portrait" | "noticia_sem_foto";
   comFoto: boolean;
   /** Crédito a ser impresso na arte. Vazio quando a licença não exige. */
   credito: string;
@@ -157,7 +157,7 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
     body: "",
     bullet_points: [],
     highlight_text: "",
-    variant: comFoto ? "fullbleed_portrait" : "brand_card",
+    variant: comFoto ? "fullbleed_portrait" : "noticia_sem_foto",
     cover_variant: "dark_speaker",
     headline_style: "clean",
     // Vazio sempre, e de propósito: é este campo que o renderer antigo usa
@@ -170,7 +170,7 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
 
   return {
     slide,
-    variante: comFoto ? "fullbleed_portrait" : "brand_card",
+    variante: comFoto ? "fullbleed_portrait" : "noticia_sem_foto",
     comFoto,
     credito: comFoto ? (asset!.attribution || "").trim() : "",
     motivoSemFoto: comFoto ? "" : (entrada.motivoSemFoto || "NO_VALID_VISUAL_ASSET").trim(),
@@ -292,7 +292,19 @@ export async function renderizarCapas(
 
       await page.setContent(html, { waitUntil: "networkidle" });
       await page.evaluate(() => document.fonts.ready);
-      await page.waitForTimeout(300);
+
+      /*
+       * O ajuste de corpo do texto roda depois das fontes, e o screenshot tem
+       * que esperar por ELE, não por um cronômetro. `SCRIPT_DE_AJUSTE` marca o
+       * documento quando termina; sem esperar essa marca, uma manchete longa
+       * podia ser capturada ainda no corpo máximo, estourando a caixa.
+       */
+      await page
+        .waitForFunction(() => document.documentElement.getAttribute("data-ajuste-pronto") === "1", null, {
+          timeout: 5_000,
+        })
+        .catch(() => undefined);
+      await page.waitForTimeout(120);
 
       const png = await page.screenshot({ type: "png", fullPage: false });
       const jpeg = await page.screenshot({ type: "jpeg", quality: 70, fullPage: false, scale: "css" });

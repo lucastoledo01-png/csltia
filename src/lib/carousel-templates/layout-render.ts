@@ -194,7 +194,7 @@ function blocoDeForma(b: Bloco): string {
  * em que o ruído do arredondamento por acaso sumia. O `<span>` tem altura real
  * de texto e não sofre disso.
  */
-const SCRIPT_DE_AJUSTE = `
+export const SCRIPT_DE_AJUSTE = `
 (function () {
   function ajustar() {
     var blocos = document.querySelectorAll('.lay-texto[data-ajuste="encolher"]');
@@ -274,7 +274,7 @@ export function renderLayout(
     atributoDeEstilo(
       `position:relative;width:100%;height:100%;overflow:hidden;background:${ctx.tokens.colors.bg}`,
     ) +
-    `>${corpo}</div><script>${SCRIPT_DE_AJUSTE}</script>`
+    `>${corpo}</div>`
   );
 }
 

@@ -2,7 +2,7 @@ import { BASE_CSS } from "./base-css";
 import { tokensToCss, type CarouselTokens } from "./tokens";
 import { cantosEditorial, chromeFooter, chromeHeader } from "./chrome";
 import { fontLinkTag } from "./fonts";
-import { CSS_DO_LAYOUT } from "./layout-render";
+import { CSS_DO_LAYOUT, SCRIPT_DE_AJUSTE } from "./layout-render";
 import { esc } from "./util";
 import type { VariantOutput } from "./types";
 
@@ -52,7 +52,18 @@ ${chromeFooter(chrome, opts.slideIndex, opts.total)}
 ${tira}
 </div>`;
 
-  return `<!DOCTYPE html><html lang="pt-BR"${rootClass}><head><meta charset="UTF-8">${fontLink}${style}</head><body>${inner}</body></html>`;
+  /*
+   * O ajuste de corpo do texto e comportamento do documento, nao do layout.
+   *
+   * Ele vivia dentro de `renderLayout`, entao so existia quando havia um
+   * desenho salvo no painel. A capa de texto da noticia usa a mesma marcacao
+   * (`.lay-texto[data-ajuste]`) e vem da variante de codigo: sem o script, o
+   * `data-max` nunca era aplicado e a manchete saia no corpo padrao de 16px.
+   *
+   * Rodar sempre e barato: sem bloco marcado, o `querySelectorAll` nao acha
+   * nada e a funcao so marca o documento como pronto.
+   */
+  return `<!DOCTYPE html><html lang="pt-BR"${rootClass}><head><meta charset="UTF-8">${fontLink}${style}</head><body>${inner}<script>${SCRIPT_DE_AJUSTE}</script></body></html>`;
 }
 
 /** Marca da conta sem contador — usada nas sobreposições das capas. */

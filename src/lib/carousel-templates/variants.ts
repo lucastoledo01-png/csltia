@@ -120,6 +120,61 @@ ${photo(slide.bg_image_url)}
   }),
 };
 
+// --------------------------------------------------------------------------
+// NOTÍCIA SEM FOTO (capa de texto)
+// --------------------------------------------------------------------------
+
+/**
+ * Capa de texto da notícia: a manchete é a arte.
+ *
+ * Existe para quando o resolvedor visual não encontrou fotografia licenciada e
+ * editorialmente adequada. Isso não é erro nem versão pior da peça com foto: é
+ * a forma honesta de publicar uma pauta para a qual não há imagem legítima. Por
+ * isso a peça não carrega nenhuma marca de ausência.
+ *
+ * O que a antecessora (`brand_card`) fazia de errado não era faltar imagem, era
+ * cercar o vazio: `.s-card.dark` tem fundo próprio, raio e `min-height:360px`,
+ * e um retângulo preenchido e vazio anuncia que ali faltou alguma coisa. Vazio
+ * só lê como falta quando está cercado.
+ *
+ * Aqui não há cartão, moldura, nem área reservada. Três elementos ancorados uns
+ * nos outros e apoiados na base do campo: rótulo editorial, régua e manchete. O
+ * que sobra em cima é margem, e margem é encerrada pela marca do cabeçalho.
+ *
+ * O corpo do tipo NÃO é calculado por estimativa de largura de caractere. A
+ * primeira versão fazia isso e a manchete de 65 caracteres encostava no rodapé:
+ * Playfair Display 800 é largo, a média assumida errava para baixo, e cada
+ * linha a mais custa muita altura. Quem mede é o navegador, pelo mesmo
+ * `SCRIPT_DE_AJUSTE` que os layouts desenhados já usam, e que roda depois de
+ * `document.fonts.ready` justamente porque medir com a fonte de fallback dá
+ * outro número.
+ */
+const coverNoticiaSemFoto: SlideVariant = {
+  key: "noticia_sem_foto",
+  label: "Capa de texto: a manchete é a arte",
+  render: (slide): VariantOutput => {
+    /*
+     * Sem cair em `ctx.eyebrowLabel`, de propósito. Quando o classificador não
+     * soube nomear a editoria, `arte.ts` manda o campo vazio; imprimir aqui o
+     * rótulo padrão do formato seria inventar uma editoria para preencher
+     * espaço, que é exatamente o que esta peça não faz.
+     */
+    const editoria = (slide.eyebrow ?? "").trim();
+    const titulo = String(slide.title ?? "").trim().replace(/\s+/g, " ");
+
+    return {
+      body: `
+<div class="e-wrap n-capa">
+  <div class="n-topo">
+    ${editoria ? `<span class="n-editoria">${esc(editoria)}</span>` : ""}
+    <span class="n-regua"></span>
+  </div>
+  <div class="n-manchete lay-texto" data-ajuste="encolher" data-min="54" data-max="168"><span>${esc(titulo)}</span></div>
+</div>`,
+    };
+  },
+};
+
 const coverBrandCard: SlideVariant = {
   key: "brand_card",
   label: "Fundo claro + card da marca",
@@ -454,6 +509,7 @@ export const SLIDE_VARIANTS: Record<InstagramSlideType, Record<string, SlideVari
   cover: {
     fullbleed_portrait: coverFullbleedPortrait,
     brand_card: coverBrandCard,
+    noticia_sem_foto: coverNoticiaSemFoto,
     result_showcase: coverResultShowcase,
     result_fullbleed: coverResultFullbleed,
     editorial_claro: coverEditorialClaro,

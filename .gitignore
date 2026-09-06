@@ -52,3 +52,7 @@ next-env.d.ts
 /preview-social/
 /preview-imagens/
 dry-run-social.md
+/preview-capa-texto/
+
+# Rascunho de agente. Ja entrou em commit uma vez por git add -A.
+src/scripts/tmp-*

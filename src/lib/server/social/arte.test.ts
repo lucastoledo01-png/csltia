@@ -67,7 +67,7 @@ describe("capa do post do feed", () => {
 
     expect(capa.comFoto).toBe(false);
     expect(capa.slide.bg_image_url).toBe("");
-    expect(capa.variante).toBe("brand_card");
+    expect(capa.variante).toBe("noticia_sem_foto");
     expect(capa.motivoSemFoto).toBe("NO_VALID_IMAGE");
     // A sobrancelha devolve a referência que a foto daria.
     expect(capa.slide.eyebrow).toBe("");
@@ -221,5 +221,103 @@ describe("falta de imagem não elimina o post", () => {
     // Sem imagem não há o que mostrar, e um card escrito "aqui teria uma
     // imagem" é pior que não postar.
     expect(publicavelSemFoto("prompt")).toBe(false);
+  });
+});
+
+describe("a capa de texto é decisão, não fallback quebrado", () => {
+  function html(headline: string, eixo = "processo"): string {
+    const capa = montarCapaDoPost({ headline, eixo, asset: null, motivoSemFoto: "NO_VALID_IMAGE" });
+    return assembleSlide(capa.slide, {
+      format: "noticia",
+      tokens: DEFAULT_TOKENS,
+      formatConfig: resolveFormatConfig("noticia"),
+      slideIndex: 1,
+      total: 1,
+      layout: null,
+    });
+  }
+
+  /*
+   * Só a marcação, sem a folha de estilo.
+   *
+   * `toContain("s-card")` no documento inteiro casa com a REGRA de `.s-card`,
+   * que está no CSS base de todo slide e não prova nada sobre esta peça. O que
+   * importa é se a classe foi EMITIDA.
+   */
+  function corpo(h: string): string {
+    return h.slice(h.indexOf("<body>"));
+  }
+
+  const CURTA = "Corte suspende regra de vistos H-1B";
+  const LONGA =
+    "USCIS atualiza a taxa do formulário I-765 e muda o prazo de análise para quem já protocolou";
+
+  it("nenhum cartão, nenhuma moldura, nenhum bloco de cor vazio", () => {
+    /*
+     * O defeito do `brand_card` não era faltar imagem: era cercar o vazio.
+     * `.s-card.dark` tem fundo próprio, raio e altura mínima de 360px, e um
+     * retângulo preenchido e vazio anuncia que ali faltou alguma coisa.
+     */
+    for (const t of [CURTA, LONGA]) {
+      expect(corpo(html(t))).not.toContain("s-card");
+    }
+  });
+
+  it("nenhuma área reservada para imagem que não existe", () => {
+    for (const t of [CURTA, LONGA]) {
+      const h = corpo(html(t));
+      expect(h).not.toContain("s-photo");
+      expect(h).not.toContain("background-image");
+    }
+  });
+
+  it("nenhuma affordance de carrossel numa peça única", () => {
+    const h = html(CURTA);
+    expect(h).not.toContain("SWIPE");
+    expect(h).not.toContain("PROGRESSO");
+    expect(h).not.toContain("01 / 01");
+    expect(h).not.toContain(`<div class="c-dots">`);
+  });
+
+  it("a manchete é o elemento principal e o rótulo não é repetido", () => {
+    const h = html(CURTA);
+    // Uma vez na sobrancelha, e não uma segunda dentro de um cartão.
+    expect(h.split("PROCESSO").length - 1).toBe(1);
+    expect(h).toContain("n-manchete");
+    expect(h).toContain(CURTA);
+  });
+
+  it("o corpo do tipo é medido pelo navegador, não fixado no HTML", () => {
+    /*
+     * A primeira versão calculava o corpo por estimativa de largura de
+     * caractere e a manchete de 65 caracteres encostava no rodapé: Playfair
+     * Display 800 é largo e a média errava para baixo. Quem mede é o
+     * navegador, pelo mesmo script que os layouts desenhados usam.
+     */
+    const h = html(LONGA);
+    expect(h).toContain('data-ajuste="encolher"');
+    expect(h).toContain('data-max="168"');
+    expect(h).not.toMatch(/class="n-manchete[^"]*"[^>]*style="[^"]*font-size/);
+  });
+
+  it("sem rótulo editorial a peça não inventa um", () => {
+    const capa = montarCapaDoPost({ headline: CURTA, eixo: "outro", asset: null });
+    const h = assembleSlide(capa.slide, {
+      format: "noticia",
+      tokens: DEFAULT_TOKENS,
+      formatConfig: resolveFormatConfig("noticia"),
+      slideIndex: 1,
+      total: 1,
+      layout: null,
+    });
+    expect(corpo(h)).not.toContain("n-editoria");
+    // A régua fica: ela não afirma nada.
+    expect(corpo(h)).toContain("n-regua");
+  });
+
+  it("o script de ajuste acompanha a peça, mesmo sem layout desenhado", () => {
+    // Ele vivia dentro de `renderLayout`, então só existia com desenho salvo,
+    // e sem ele o `data-max` nunca era aplicado: a manchete saía em 16px.
+    expect(html(CURTA)).toContain("data-ajuste-pronto");
   });
 });
