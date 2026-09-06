@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { layoutCarregaAFoto, montarCapaDoPost } from "./arte";
+import { diagnosticarLayout, layoutCarregaAFoto, montarCapaDoPost, publicavelSemFoto } from "./arte";
 import { assembleSlide } from "@/lib/carousel-templates/assemble";
 import { resolveFormatConfig } from "@/lib/carousel-templates/assemble";
 import { DEFAULT_TOKENS } from "@/lib/carousel-templates/tokens";
@@ -167,5 +167,59 @@ describe("o desenho do painel só manda quando consegue mostrar a foto", () => {
   it("sem desenho nenhum, a variante de código assume", () => {
     expect(layoutCarregaAFoto(null)).toBe(false);
     expect(layoutCarregaAFoto({ canvas: comFoto.canvas, blocks: [] } as unknown as Layout)).toBe(false);
+  });
+});
+
+describe("o diagnóstico do desenho tem nome", () => {
+  const semSlot = {
+    canvas: { width: 1080, height: 1350 },
+    blocks: [{ id: "t", tipo: "texto", slot: "titulo", x: 6, y: 57, w: 88, h: 24, z: 4 }],
+  } as unknown as Layout;
+
+  const comSlot = {
+    canvas: { width: 1080, height: 1350 },
+    blocks: [
+      { id: "f", tipo: "imagem", imagem: "fundo", x: 0, y: 0, w: 100, h: 100, z: 1 },
+      ...semSlot.blocks,
+    ],
+  } as unknown as Layout;
+
+  it("desenho salvo sem bloco de imagem é LAYOUT_MISSING_IMAGE_SLOT", () => {
+    expect(diagnosticarLayout(semSlot, true)).toBe("LAYOUT_MISSING_IMAGE_SLOT");
+  });
+
+  it("desenho completo é usado", () => {
+    expect(diagnosticarLayout(comSlot, true)).toBe("LAYOUT_USED");
+  });
+
+  it("sem desenho nenhum não é defeito de desenho", () => {
+    expect(diagnosticarLayout(null, true)).toBe("LAYOUT_NOT_DESIGNED");
+  });
+
+  it("capa de texto não julga o desenho: ele não entra em jogo", () => {
+    expect(diagnosticarLayout(semSlot, false)).toBe("LAYOUT_NOT_APPLICABLE_NO_PHOTO");
+    expect(diagnosticarLayout(comSlot, false)).toBe("LAYOUT_NOT_APPLICABLE_NO_PHOTO");
+  });
+
+  it("o diagnóstico não contradiz a decisão de usar o desenho", () => {
+    expect(layoutCarregaAFoto(semSlot)).toBe(false);
+    expect(layoutCarregaAFoto(comSlot)).toBe(true);
+  });
+});
+
+describe("falta de imagem não elimina o post", () => {
+  it("o formato do feed publica sem fotografia", () => {
+    // É a regra: NO_VALID_VISUAL_ASSET é decisão editorial, não erro.
+    expect(publicavelSemFoto("noticia")).toBe(true);
+  });
+
+  it("o carrossel de texto também", () => {
+    expect(publicavelSemFoto("tutorial")).toBe(true);
+  });
+
+  it("o formato que existe para mostrar imagem, não", () => {
+    // Sem imagem não há o que mostrar, e um card escrito "aqui teria uma
+    // imagem" é pior que não postar.
+    expect(publicavelSemFoto("prompt")).toBe(false);
   });
 });

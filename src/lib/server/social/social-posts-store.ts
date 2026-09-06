@@ -195,19 +195,49 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
             copy: p.post.copy,
             hashtags: p.post.veredicto.hashtagsFinais,
             origem: p.origem.motivo,
+            /*
+             * O registro do direito é completo mesmo quando a arte não imprime
+             * nada.
+             *
+             * Public domain e CC0 dispensam crédito na peça, e por isso
+             * `attribution` vem vazia e a tira não é desenhada. Isso não
+             * dispensa saber, depois, de onde a foto veio: quem responde a uma
+             * contestação de direito autoral seis meses depois olha esta linha,
+             * não a imagem. Por isso autor, licença, URL da licença e o estado
+             * da verificação ficam gravados nos dois casos, e `atribuicaoImpressa`
+             * registra o que efetivamente foi para a arte.
+             */
             visual: asset
               ? {
                   source: asset.source,
+                  sourceAssetId: asset.sourceAssetId,
                   sourcePageUrl: asset.sourcePageUrl,
+                  author: asset.author,
                   license: asset.license,
+                  licenseUrl: asset.licenseUrl,
                   attribution: asset.attribution,
+                  atribuicaoImpressa: Boolean(asset.attribution.trim()),
+                  rightsStatement: asset.rightsStatement,
+                  rightsStatus: asset.rightsStatus,
+                  rightsCheckedAt: asset.rightsCheckedAt,
                   imageUrl: asset.imageUrl,
                   imageContextType: asset.imageContextType,
                   assetDate: asset.assetDate ?? null,
                   temporalRelevanceScore: asset.temporalRelevanceScore ?? null,
                   semanticContextFit: asset.semanticContextFit ?? null,
                 }
-              : { motivo: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET" },
+              : {
+                  // Sem foto não é falha registrada como falha: é a decisão de
+                  // publicar com capa de texto, e o motivo de ter sido tomada.
+                  motivo: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
+                  capa: "texto",
+                  entidadeVisual: p.visual?.entidade?.nome ?? null,
+                  fontesConsultadas: (p.visual?.fontesConsultadas ?? []).map((f) => ({
+                    fonte: f.fonte,
+                    encontrados: f.encontrados,
+                    nota: f.nota,
+                  })),
+                },
           },
           updated_at: new Date().toISOString(),
         });

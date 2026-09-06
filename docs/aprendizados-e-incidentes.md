@@ -198,6 +198,62 @@ presos numa regra que não existe mais. E quando um guardrail bloqueia texto,
 teste com o texto que ele **deve** aprovar, não só com o que deve barrar — a
 falha aqui não foi deixar passar o proibido, foi barrar o recomendado.
 
+### Layout desenhado no painel sem bloco de imagem: manchete branca sobre fundo claro
+
+**Sintoma.** A primeira arte renderizada de verdade do pipeline social V2 saiu com
+o título invisível: texto branco sobre o creme do canvas, e a foto aprovada pelo
+resolvedor não aparecia em lugar nenhum.
+
+**Causa.** `assembleSlide` dá precedência ao layout desenhado no painel sobre a
+variante de código, e dá precedência inteira, sem chrome por cima: quem posicionou
+os blocos decidiu tudo. O desenho salvo para `noticia/cover` tem três blocos, um
+degradê, a marca e a manchete em branco, e **nenhum bloco de imagem**. Ele foi
+desenhado assumindo uma foto que ele mesmo não sabe carregar.
+
+**Corrigido.** `diagnosticarLayout` em `social/arte.ts`. O desenho só manda quando
+consegue mostrar o que recebeu: com foto, precisa de um bloco `imagem` de fonte
+`fundo`. Caso contrário a variante de código assume, e o diagnóstico sai nomeado
+como `LAYOUT_MISSING_IMAGE_SLOT`. A regra é de capacidade, não de gosto.
+
+**Lição.** Nenhum teste de unidade pegaria isso: o layout vem do banco, e o defeito
+só existe no encontro entre o desenho salvo e o conteúdo recebido. Precedência total
+("o desenho manda") precisa vir com uma checagem de que o desenho serve para o
+conteúdo, senão ela transfere para o dado a decisão de quebrar a peça.
+
+### Atribuição de licença guardada em coluna não cumpre a licença
+
+**Sintoma.** Nenhum. É esse o problema.
+
+**Causa.** CC BY e CC BY-SA exigem atribuição visível junto da obra. O autor vinha
+do Commons, era avaliado por `avaliarLicenca`, montado por `montarAtribuicao` e
+gravado no registro do asset. Só que ninguém desenhava nada: `montarAtribuicao`
+estava importado e não usado no resolvedor, e nenhuma variante renderizava crédito.
+Quem vê o post não vê a coluna do banco.
+
+**Corrigido.** `renderShell` aceita `credito` e imprime a tira sobre a arte; a
+arte do V2 passa `asset.attribution`. Licença que não exige atribuição continua sem
+tira, e o registro completo (autor, licença, URL da licença, estado da verificação,
+e se o crédito foi impresso) é gravado nos dois casos.
+
+**Lição.** Requisito de licença é requisito de RENDER, não de schema. Gravar o autor
+prova diligência e não cumpre a obrigação; a obrigação só é cumprida no arquivo que
+sai publicado.
+
+### PENDENTE: 06/09 sem newsletter e sem posts
+
+**O que se sabe.** Em 2026-09-06 a newsletter não saiu e os posts do pipeline antigo
+também não. Ainda não investigado.
+
+**Por que está aqui.** O dono do produto definiu isto como bloqueio obrigatório
+antes de ativar o Social V2: um pipeline novo não entra em produção enquanto o
+antigo tiver uma parada sem causa conhecida, porque as duas coisas dividem cron,
+worker e banco, e uma causa comum não seria distinguida do ruído do lançamento.
+
+**Onde começar.** `newsroom_runs` vazio no dia significa que a chamada não chegou à
+aplicação; `failed` significa que chegou e quebrou. Foi assim que os seis dias de
+agosto foram diagnosticados. Conferir também o watchdog e o alerta do Telegram, que
+existem desde então justamente para este cenário.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

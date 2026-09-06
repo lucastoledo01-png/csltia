@@ -287,14 +287,15 @@ async function main() {
         valor: r.entidade ? `${r.entidade.nome} (${r.entidade.tipo}, ${r.entidade.origem})` : "não identificada",
         alerta: !r.entidade,
       },
-      { campo: "layout do painel", valor: arte?.usouLayoutDesenhado ? "usado" : "não usado (não carrega a foto)" },
+      { campo: "layout do painel", valor: arte?.diagnosticoDoLayout ?? "arte não renderizada", alerta: arte?.diagnosticoDoLayout === "LAYOUT_MISSING_IMAGE_SLOT" },
     ];
 
     if (r.asset) {
       diagnostico.push(
         { campo: "fonte do asset", valor: r.asset.source },
         { campo: "licença", valor: r.asset.license },
-        { campo: "atribuição impressa", valor: r.asset.attribution || "não exigida" },
+        { campo: "autor", valor: r.asset.author || "não identificado" },
+        { campo: "atribuição impressa", valor: r.asset.attribution || "não exigida por esta licença (registro completo fica no banco)" },
         { campo: "image_relevance_score", valor: String(r.asset.imageRelevanceScore) },
         { campo: "image_context_type", valor: r.asset.imageContextType },
         { campo: "resolução", valor: `${r.asset.width}x${r.asset.height} ${r.asset.mimeType}` },

@@ -4,21 +4,14 @@ import { DEFAULT_PROJECT_ID, getProjectNewsSources, requireActiveProject } from 
 import { collectFromSource } from "../lib/server/newsroom/collector";
 import type { NewsCandidate } from "../lib/server/newsroom/collector";
 import { fontesDeOportunidade } from "../lib/server/newsroom/fontes-oportunidade";
-import { deduplicateCandidates } from "../lib/server/newsroom/deduplicator";
 import { carregarConfigEditorial } from "../lib/server/editorial/config";
 import { criarProvedorOpenAI } from "../lib/server/editorial/embeddings";
 import { criarHistoricoStore } from "../lib/server/editorial/history";
-import { avaliarPautas } from "../lib/server/editorial/guarda";
 import { getSupabaseAdminClient } from "../lib/server/supabase-admin";
 import { dominioDe } from "../lib/server/editorial/url-canonica";
 import { carregarConfigSocial, feedMonotematico } from "../lib/server/social/selecao";
-import { rodarCicloSocial } from "../lib/server/social/pipeline-v2";
-import { montarPacotesDasPautas } from "../lib/server/editorial/pacote-factual";
-import type { PacoteFactual } from "../lib/server/editorial/pacote-factual";
-import { resolveVisualAsset } from "../lib/server/visual/resolver";
 import { descreverAgenda } from "../lib/server/social/agenda";
-import { criarCandidatosStore } from "../lib/server/editorial/candidatos-store";
-import { conferirFinalistas } from "../lib/server/editorial/finalistas";
+import { rodarFunilDoDia } from "../lib/server/social/funil";
 import { renderizarCapas } from "../lib/server/social/arte";
 import { paginaDePreview } from "../lib/server/social/preview";
 import type { PostDePreview } from "../lib/server/social/preview";
@@ -136,31 +129,45 @@ async function main() {
     return;
   }
 
-  const { uniqueGroups } = deduplicateCandidates(porDia.get(dia)!);
-
   escrever(`## Dia ${dia}`);
-  escrever();
-  escrever(`${porDia.get(dia)!.length} candidatas coletadas, ${uniqueGroups.length} grupos únicos.`);
   escrever();
 
   const config = carregarConfigEditorial(process.env);
   const historicoStore = criarHistoricoStore(getSupabaseAdminClient());
   const historico = await historicoStore.janela(project.id, config.janelaDeDias);
 
-  const t0 = Date.now();
   const client = getSupabaseAdminClient();
-  const candidatosStore = criarCandidatosStore(client);
 
-  const guarda = await avaliarPautas(uniqueGroups, {
-    canal: "instagram",
+  /*
+   * O dia inteiro roda pelo mesmo caminho que a medição de sete dias usa.
+   *
+   * Enquanto eram duas implementações, a medição media um pipeline que não era
+   * o que rodava aqui, e um ajuste num dos dois passava despercebido no outro.
+   */
+  const t0 = Date.now();
+  const funil = await rodarFunilDoDia(porDia.get(dia)!, {
+    dia,
+    projectId: project.id,
+    marca: {
+      nome: project.brand.displayName || project.name,
+      nicho: project.niche,
+      extra: project.editorialPromptExtra ?? "",
+      keyword: String(project.settings?.instagram_keyword ?? "").trim() || "VISA",
+    },
     historico,
     config,
+    configSocial,
+    client,
     provedorDeVetor: criarProvedorOpenAI(process.env, fetch),
     env: process.env,
     fetcher: fetch,
-    candidatos: { store: candidatosStore, projectId: project.id },
   });
+
+  const { guarda, conferencia, ciclo } = funil;
   const msGuarda = Date.now() - t0;
+
+  escrever(`${funil.resumo.coletadas} candidatas coletadas, ${funil.resumo.gruposUnicos} grupos únicos.`);
+  escrever();
 
   escrever(`## 1. Pool aprovado`);
   escrever();
@@ -192,19 +199,8 @@ async function main() {
   escrever();
 
   // ------------------------------------------------------------------
-  // 1b. Conferência dos finalistas.
+  // 1b. Conferência dos finalistas, já rodada acima.
   // ------------------------------------------------------------------
-  const t1 = Date.now();
-  const conferencia = await conferirFinalistas(guarda.approvedEditorialPool, {
-    canal: "instagram",
-    vagas: configSocial.maximoPorDia,
-    config,
-    store: candidatosStore,
-    projectId: project.id,
-    env: process.env,
-    fetcher: fetch,
-  });
-  const msVerificacao = Date.now() - t1;
 
   escrever(`## 1b. Verificação de finalistas`);
   escrever();
@@ -216,7 +212,7 @@ async function main() {
   escrever(`| **reaproveitados de outro canal** | **${diag.reaproveitadasDoBanco}** |`);
   escrever(`| chamadas ao verificador | ${diag.chamadasAoVerificador} |`);
   escrever(`| tokens | ${diag.tokens.toLocaleString("pt-BR")} |`);
-  escrever(`| tempo | ${(msVerificacao / 1000).toFixed(1)}s |`);
+  escrever(`| tempo | incluído no total do dia |`);
   escrever(`| confirmadas | **${conferencia.confirmadas.length}** |`);
   escrever(`| recusadas pela verificação | ${conferencia.recusadas.length} |`);
   escrever(`| em conflito | ${conferencia.emConflito.length} |`);
@@ -259,76 +255,9 @@ async function main() {
   }
 
   // ------------------------------------------------------------------
-  // ------------------------------------------------------------------
   // 2. O ciclo social inteiro: copy, guarda, reparo, imagem e agenda.
+  //    Tudo isso já rodou dentro de `rodarFunilDoDia`.
   // ------------------------------------------------------------------
-  const pacotes = new Map<string, PacoteFactual>();
-  if (conferencia.confirmadas.length > 0) {
-    const construcao = await montarPacotesDasPautas(
-      conferencia.confirmadas.map((p) => ({
-        url: p.grupo.primary.url,
-        titulo: p.grupo.primary.title,
-        texto: p.enriquecimento?.texto ?? "",
-        urls: [p.grupo.primary.url],
-      })),
-      process.env,
-      fetch,
-    );
-
-    // `montarPacotesDasPautas` indexa por URL; o gerador procura por storyId.
-    const porUrl = new Map(conferencia.confirmadas.map((p) => [p.grupo.primary.url, p.storyId]));
-    for (const [url, pacote] of construcao.pacotes.entries()) {
-      const storyId = porUrl.get(url);
-      if (storyId) pacotes.set(storyId, pacote);
-    }
-    escrever(`Pacotes factuais: ${pacotes.size} de ${conferencia.confirmadas.length}.`);
-    escrever();
-  }
-
-  const candidatasPorStory = await candidatosStore.buscarPorStoryIds(
-    project.id,
-    conferencia.confirmadas.map((p) => p.storyId),
-  );
-
-  // O modo vem forçado aqui: o script existe para diagnosticar.
-  const envDoCiclo = { ...process.env, SOCIAL_PIPELINE_V2: "dry_run" };
-
-  const ciclo = await rodarCicloSocial(conferencia.confirmadas, {
-    projectId: project.id,
-    editionDate: dia,
-    marca: {
-      nome: project.brand.displayName || project.name,
-      nicho: project.niche,
-      extra: project.editorialPromptExtra,
-      keyword: String(project.settings?.instagram_keyword ?? "").trim() || "VISA",
-    },
-    historico,
-    pacotes,
-    candidatas: candidatasPorStory,
-    persistenciaDegradada: guarda.reuso.erros.length > 0,
-    // A véspera da janela do dia simulado, para a grade sair no dia certo.
-    agoraMs: new Date(`${dia}T03:00:00Z`).getTime(),
-    config: configSocial,
-    env: envDoCiclo,
-    fetcher: fetch,
-    resolverVisual: async (pauta) =>
-      resolveVisualAsset(
-        {
-          storyId: pauta.storyId,
-          titulo: pauta.grupo.primary.title,
-          resumo: pauta.enriquecimento?.texto ?? "",
-          categoria: pauta.classificacao.eixo,
-          classificacao: {
-            atores: pauta.classificacao.atores,
-            lugares: pauta.classificacao.lugares,
-            acontecimento: pauta.classificacao.acontecimento,
-            pais: pauta.classificacao.pais,
-          },
-        },
-        { env: process.env, fetcher: fetch, somenteLeitura: true },
-      ),
-  });
-
   for (const l of ciclo.linhasDeLog) console.log(l);
 
   const composicao = ciclo.composicao ?? {
@@ -617,6 +546,11 @@ async function main() {
       },
       { campo: "chave de idempotência", valor: p.chaveDeIdempotencia },
       { campo: "topic_id", valor: p.topicId },
+      {
+        campo: "layout do painel",
+        valor: arte?.diagnosticoDoLayout ?? "arte não renderizada",
+        alerta: arte?.diagnosticoDoLayout === "LAYOUT_MISSING_IMAGE_SLOT",
+      },
       { campo: "event_fingerprint", valor: p.eventFingerprint.slice(0, 46) },
     ];
 
@@ -630,7 +564,11 @@ async function main() {
           valor: `${asset.assetDate ?? "sem data"}${asset.assetAgeYears != null ? ` (${asset.assetAgeYears} anos)` : ""}`,
         },
         { campo: "licença", valor: asset.license },
-        { campo: "atribuição impressa", valor: asset.attribution || "não exigida" },
+        { campo: "autor", valor: asset.author || "não identificado" },
+        {
+          campo: "atribuição impressa",
+          valor: asset.attribution || "não exigida por esta licença (registro completo fica no banco)",
+        },
         { campo: "temporal_relevance", valor: String(asset.temporalRelevanceScore ?? "n/d") },
         { campo: "semantic_context_fit", valor: String(asset.semanticContextFit ?? "n/d") },
         { campo: "imagem de arquivo", valor: asset.archiveImage ? "sim" : "não" },

@@ -1,4 +1,4 @@
-import type { InstagramSlide } from "@/lib/carousel-templates/types";
+import type { CarouselFormat, InstagramSlide } from "@/lib/carousel-templates/types";
 import type { Layout } from "@/lib/carousel-templates/layout";
 import type { AssetVisual } from "../visual/tipos";
 
@@ -18,6 +18,29 @@ import type { AssetVisual } from "../visual/tipos";
  * Capa de texto não é um erro nem um degradê de qualidade: é a forma honesta
  * de publicar uma notícia para a qual não existe imagem legítima disponível.
  */
+
+/**
+ * Qual formato sobrevive sem fotografia.
+ *
+ * A regra do dono do produto: pauta editorialmente valida sem imagem valida
+ * PODE publicar. `NO_VALID_VISUAL_ASSET` deixa de ser motivo de descarte e
+ * passa a ser uma decisao editorial registrada. So impede a publicacao quando
+ * o formato exige fotografia e nao existe versao textual segura dele.
+ *
+ * `noticia` e capa unica e tem capa de texto propria: publica.
+ * `tutorial` e carrossel de texto desde sempre: publica.
+ * `prompt` mostra o resultado visual de um prompt. Sem imagem nao ha o que
+ * mostrar, e um card escrito "aqui teria uma imagem" e pior que nao postar.
+ */
+const FORMATOS_QUE_SOBREVIVEM_SEM_FOTO: Record<CarouselFormat, boolean> = {
+  noticia: true,
+  tutorial: true,
+  prompt: false,
+};
+
+export function publicavelSemFoto(formato: CarouselFormat): boolean {
+  return FORMATOS_QUE_SOBREVIVEM_SEM_FOTO[formato] ?? false;
+}
 
 export type CapaDoPost = {
   slide: InstagramSlide;
@@ -46,9 +69,45 @@ export type CapaDoPost = {
  * mostrar o que recebeu. Quando não consegue, a variante de código assume, que
  * é a que sabe desenhar os dois estados.
  */
+export const DIAGNOSTICOS_DE_LAYOUT = {
+  /** Nenhum desenho salvo: a variante de codigo e o caminho normal. */
+  AUSENTE: "LAYOUT_NOT_DESIGNED",
+  /** Ha desenho e ele carrega a foto. Foi usado. */
+  USADO: "LAYOUT_USED",
+  /** Ha desenho, mas sem bloco de imagem de fundo: a foto sumiria nele. */
+  SEM_SLOT_DE_IMAGEM: "LAYOUT_MISSING_IMAGE_SLOT",
+  /** Capa de texto: o desenho nao entra em jogo, com ou sem slot. */
+  SEM_FOTO: "LAYOUT_NOT_APPLICABLE_NO_PHOTO",
+} as const;
+
+export type DiagnosticoDeLayout = (typeof DIAGNOSTICOS_DE_LAYOUT)[keyof typeof DIAGNOSTICOS_DE_LAYOUT];
+
 export function layoutCarregaAFoto(layout: Layout | null | undefined): boolean {
   if (!layout || layout.blocks.length === 0) return false;
   return layout.blocks.some((b) => b.tipo === "imagem" && (b.imagem ?? "fundo") === "fundo");
+}
+
+/**
+ * O veredito sobre o desenho, nomeado.
+ *
+ * "Nao usou o layout" e ambiguo: pode ser que nao exista desenho nenhum, pode
+ * ser que exista e esteja incompleto, e as duas coisas pedem acoes diferentes.
+ * `LAYOUT_MISSING_IMAGE_SLOT` e a que precisa aparecer no relatorio, porque e a
+ * unica que descreve um desenho salvo que nao serve para o conteudo que
+ * recebeu. O codigo nao depende da correcao para funcionar; o diagnostico
+ * existe para que a correcao possa ser feita no painel, depois, sabendo o que
+ * corrigir.
+ */
+export function diagnosticarLayout(
+  layout: Layout | null | undefined,
+  comFoto: boolean,
+): DiagnosticoDeLayout {
+  const desenhado = Boolean(layout && layout.blocks.length > 0);
+  if (!comFoto) return desenhado ? DIAGNOSTICOS_DE_LAYOUT.SEM_FOTO : DIAGNOSTICOS_DE_LAYOUT.AUSENTE;
+  if (!desenhado) return DIAGNOSTICOS_DE_LAYOUT.AUSENTE;
+  return layoutCarregaAFoto(layout)
+    ? DIAGNOSTICOS_DE_LAYOUT.USADO
+    : DIAGNOSTICOS_DE_LAYOUT.SEM_SLOT_DE_IMAGEM;
 }
 
 export type EntradaDaCapa = {
@@ -141,6 +200,8 @@ export type ArteRenderizada = {
   jpeg: Buffer;
   /** Se o desenho do painel foi usado, ou se a variante de código assumiu. */
   usouLayoutDesenhado: boolean;
+  /** Por que foi ou não foi usado. Ver `diagnosticarLayout`. */
+  diagnosticoDoLayout: DiagnosticoDeLayout;
 };
 
 /**
@@ -216,7 +277,8 @@ export async function renderizarCapas(
 
       // Ver `layoutCarregaAFoto`: sem bloco de imagem, o desenho engole a foto
       // e deixa a manchete branca sobre fundo claro.
-      const usaDesenho = capa.comFoto && layoutCarregaAFoto(layout);
+      const diagnosticoDoLayout = diagnosticarLayout(layout, capa.comFoto);
+      const usaDesenho = diagnosticoDoLayout === DIAGNOSTICOS_DE_LAYOUT.USADO;
 
       const html = assembleSlide(capa.slide, {
         format: "noticia",
@@ -234,7 +296,7 @@ export async function renderizarCapas(
 
       const png = await page.screenshot({ type: "png", fullPage: false });
       const jpeg = await page.screenshot({ type: "jpeg", quality: 70, fullPage: false, scale: "css" });
-      feitas.push({ capa, html, png, jpeg, usouLayoutDesenhado: usaDesenho });
+      feitas.push({ capa, html, png, jpeg, usouLayoutDesenhado: usaDesenho, diagnosticoDoLayout });
     }
   } finally {
     await browser.close();

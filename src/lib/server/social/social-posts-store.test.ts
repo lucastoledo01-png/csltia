@@ -226,3 +226,70 @@ describe("idempotência", () => {
     expect(r.gravados).toBe(1);
   });
 });
+
+describe("registro de direito de imagem", () => {
+  /** Um asset de domínio público: a licença NÃO exige crédito na peça. */
+  const dominioPublico = {
+    id: "va-1",
+    source: "wikimedia_commons",
+    sourceAssetId: "File:Truman_Building.jpg",
+    sourcePageUrl: "https://commons.wikimedia.org/wiki/File:Truman_Building.jpg",
+    author: "U.S. Department of State",
+    license: "PD-USGov",
+    licenseUrl: "https://commons.wikimedia.org/wiki/Template:PD-USGov",
+    attribution: "",
+    rightsStatement: "pd-usgov",
+    rightsStatus: "verified",
+    rightsCheckedAt: "2026-09-06T00:00:00Z",
+    imageUrl: "https://upload.wikimedia.org/foto.jpg",
+    imageContextType: "entity_reference",
+  };
+
+  async function gravarCom(visual: unknown) {
+    const { client, gravadas } = bancoFalso();
+    await criarSocialPostsStore(client).gravar([paraGravar({ visual })]);
+    return (gravadas[0].content_json as { visual: Record<string, unknown> }).visual;
+  }
+
+  it("licença que dispensa crédito não imprime, e ainda assim fica registrada", async () => {
+    const v = await gravarCom({ asset: dominioPublico, motivo: null, entidade: null, fontesConsultadas: [] });
+
+    // Nada foi para a arte...
+    expect(v.attribution).toBe("");
+    expect(v.atribuicaoImpressa).toBe(false);
+
+    // ...e mesmo assim o registro é completo. Quem responde a uma contestação
+    // seis meses depois olha esta linha, não a imagem.
+    expect(v.author).toBe("U.S. Department of State");
+    expect(v.license).toBe("PD-USGov");
+    expect(v.licenseUrl).toContain("PD-USGov");
+    expect(v.sourcePageUrl).toContain("commons.wikimedia.org");
+    expect(v.rightsStatus).toBe("verified");
+  });
+
+  it("licença que exige crédito registra que ele foi impresso", async () => {
+    const v = await gravarCom({
+      asset: { ...dominioPublico, license: "CC BY-SA", attribution: "Foto: Fulano / Wikimedia Commons, CC BY-SA 3.0" },
+      motivo: null,
+      entidade: null,
+      fontesConsultadas: [],
+    });
+
+    expect(v.atribuicaoImpressa).toBe(true);
+    expect(v.attribution).toContain("CC BY-SA");
+  });
+
+  it("sem foto, o registro conta a decisão e o porquê dela", async () => {
+    const v = await gravarCom({
+      asset: null,
+      motivo: "NO_VALID_IMAGE",
+      entidade: { nome: "ordem judicial", tipo: "conceptual", confianca: 30 },
+      fontesConsultadas: [{ fonte: "banco_conceitual", encontrados: 0, nota: "sem chave configurada" }],
+    });
+
+    expect(v.capa).toBe("texto");
+    expect(v.motivo).toBe("NO_VALID_IMAGE");
+    expect(v.entidadeVisual).toBe("ordem judicial");
+    expect(v.fontesConsultadas).toHaveLength(1);
+  });
+});
