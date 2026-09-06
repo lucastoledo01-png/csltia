@@ -320,6 +320,19 @@ async function main() {
   );
   escrever();
 
+  const falhas = resumos.flatMap((r) => r.falhasDeClassificacao.map((f) => `${r.dia}: ${f}`));
+  if (falhas.length > 0) {
+    escrever(`## 5b. Lotes de classificação que falharam`);
+    escrever();
+    escrever(
+      `Pauta sem classificação é recusada por precaução e aparece como REJECT_UNCLASSIFIED. ` +
+        `Isso parece decisão editorial e não é: é infraestrutura.`,
+    );
+    escrever();
+    for (const f of falhas) escrever(`- ${f}`);
+    escrever();
+  }
+
   const degradados = resumos.filter((r) => r.persistenciaDegradada.length > 0);
   if (degradados.length > 0) {
     escrever(

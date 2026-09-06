@@ -74,6 +74,17 @@ export type FunilDoDia = {
 
   /** Falhas de persistência, que mudam a leitura de tudo acima. */
   persistenciaDegradada: string[];
+
+  /*
+   * Lotes de classificação que falharam, e por quê.
+   *
+   * Uma pauta sem classificação é recusada por precaução e sai do relatório
+   * como `REJECT_UNCLASSIFIED`, que parece decisão editorial e não é: é o
+   * modelo tendo parado no meio, ou a API tendo recusado o lote. O motivo já
+   * existia no log da guarda e não chegava aqui, então o relatório mostrava 42
+   * pautas mortas sem dizer que 42 é um número de infraestrutura.
+   */
+  falhasDeClassificacao: string[];
 };
 
 export type ResultadoDoFunil = {
@@ -283,6 +294,7 @@ export async function rodarFunilDoDia(
     tokensDaVerificacao: conferencia.diagnostico.tokens,
     ms: Date.now() - inicio,
     persistenciaDegradada: guarda.reuso.erros,
+    falhasDeClassificacao: guarda.linhasDeLog.filter((l) => l.includes("lote ")),
   };
 
   return { resumo, ciclo, recusadas, guarda, conferencia };
