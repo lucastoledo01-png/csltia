@@ -224,17 +224,6 @@ export async function enriquecerPauta(
   const notas: string[] = [];
   const buscadas: string[] = [];
 
-  if (!precisaEnriquecer(pauta.titulo, pauta.descricao)) {
-    return {
-      texto: pauta.descricao,
-      contentSource: "feed",
-      contentLength: pauta.descricao.length,
-      enrichmentStatus: "nao_precisou",
-      enrichmentSources: [],
-      notas: ["o feed já trouxe corpo suficiente"],
-    };
-  }
-
   /*
    * O Federal Register tem porta documentada, e a página HTML não é ela.
    *
@@ -244,8 +233,12 @@ export async function enriquecerPauta(
    * rebaixar a qualidade da fonte, é parar de raspar quem pede para não ser
    * raspado.
    *
-   * Isto vem antes do laço porque o Federal Register é fonte de núcleo da
-   * vertical: em sete dias ele entregou 12 pautas e nenhuma sobreviveu.
+   * Isto vem antes até do atalho de "o feed já trouxe corpo suficiente". O
+   * abstract do RSS às vezes passa do mínimo e o pipeline nem tentaria buscar
+   * mais; só que o ato inteiro tem escopo, data de vigência e liminar, e são
+   * esses parágrafos que decidem se a pauta vale. O Federal Register é fonte
+   * de núcleo da vertical: em sete dias entregou 12 pautas e nenhuma
+   * sobreviveu.
    */
   const doRegistro = await textoDoFederalRegister(pauta.url, fetcher);
   if (doRegistro) {
@@ -257,6 +250,17 @@ export async function enriquecerPauta(
       enrichmentStatus: "enriquecida",
       enrichmentSources: [pauta.url],
       notas,
+    };
+  }
+
+  if (!precisaEnriquecer(pauta.titulo, pauta.descricao)) {
+    return {
+      texto: pauta.descricao,
+      contentSource: "feed",
+      contentLength: pauta.descricao.length,
+      enrichmentStatus: "nao_precisou",
+      enrichmentSources: [],
+      notas: ["o feed já trouxe corpo suficiente"],
     };
   }
 

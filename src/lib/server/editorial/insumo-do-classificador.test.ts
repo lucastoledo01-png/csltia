@@ -213,3 +213,38 @@ describe("o lote fecha por texto, não só por quantidade", () => {
     expect(Number(teto![1].replace(/_/g, ""))).toBeLessThan(20 * LIMITE_DO_RESUMO);
   });
 });
+
+describe("o Federal Register não depende do atalho do feed", () => {
+  it("busca a API mesmo quando o abstract do RSS já passa do mínimo", async () => {
+    /*
+     * "Rescission of Coordinated Enforcement Regulations" trazia um abstract de
+     * 757 caracteres, acima do mínimo, então o pipeline nem tentava buscar mais.
+     * Só que o ato inteiro tem escopo, data de vigência e, num caso medido, a
+     * liminar que o suspende. São esses parágrafos que decidem se a pauta vale.
+     */
+    const ato = "O ato oficial, com escopo, vigência e ressalvas. ".repeat(40);
+    const fetcher = vi.fn(async (url: string | URL) => {
+      const u = String(url);
+      if (u.includes("/api/v1/documents/")) {
+        return new Response(JSON.stringify({ abstract: "resumo", raw_text_url: "https://fr/full.txt" }), {
+          status: 200,
+        });
+      }
+      if (u.includes("full.txt")) return new Response(`<html><body><pre>${ato}</pre></body></html>`, { status: 200 });
+      return new Response("", { status: 500 });
+    }) as unknown as typeof fetch;
+
+    const r = await enriquecerPauta(
+      {
+        titulo: "Rescission of Coordinated Enforcement Regulations",
+        descricao: "Um abstract oficial já longo o suficiente para o mínimo. ".repeat(14),
+        url: "https://www.federalregister.gov/documents/2026/09/04/2026-18099/rescission",
+      },
+      fetcher,
+    );
+
+    expect(r.enrichmentStatus).toBe("enriquecida");
+    expect(r.texto).toContain("vigência");
+    expect(r.contentLength).toBeGreaterThan(1000);
+  });
+});
