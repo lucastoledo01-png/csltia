@@ -9,7 +9,9 @@ import {
   garantirStatusIntrinseco,
 } from "./candidatos-store";
 import type { CandidataParaGravar, CandidatosStore } from "./candidatos-store";
-import { lerSinaisObjetivos } from "./regras-duras";
+import { lerSinaisObjetivos,
+  escolherUrlPublicavel,
+} from "./regras-duras";
 import { impressaoDoAcontecimento } from "./fingerprint";
 import type { ConfigEditorial } from "./config";
 import { MOTIVOS } from "./config";
@@ -355,7 +357,41 @@ export async function avaliarPautas(
       continue;
     }
 
-    enriquecidas.push({ ...a, enriquecimento });
+    /*
+     * O leitor vai clicar em quê.
+     *
+     * `escolherUrlPublicavel` existia, com teste, e não era chamada por
+     * ninguém fora do próprio teste. O resultado apareceu publicado: quatro
+     * matérias das edições de 04 e 05 de setembro de 2026 saíram com
+     * `news.google.com/rss/articles/CBMi...` como link da fonte, um endereço
+     * que leva a um interstitial do Google e, seguido de fora, a
+     * `google.com/sorry`.
+     *
+     * Nenhum filtro estava errado. Faltava esta pergunta, que não é sobre o
+     * texto e sim sobre o link. Google News é descoberta: o que ele descobre
+     * tem endereço próprio, e sem esse endereço a pauta não publica.
+     */
+    const publicavel = escolherUrlPublicavel(a.grupo, enriquecimento);
+    if (!publicavel.ok) {
+      recusadas.push({
+        titulo: a.grupo.primary.title,
+        url: a.grupo.primary.url,
+        fonte: a.grupo.primary.source_name,
+        motivo: MOTIVOS.REJEITADO_FONTE_NAO_RESOLVIDA,
+        explicacao: `sem URL publicável: ${publicavel.motivo}`,
+      });
+      continue;
+    }
+
+    if (publicavel.promovida) {
+      linhas.push(`[GUARDA] URL publicável promovida :: ${publicavel.motivo}`);
+    }
+
+    enriquecidas.push({
+      ...a,
+      grupo: { ...a.grupo, primary: { ...a.grupo.primary, url: publicavel.url } },
+      enriquecimento,
+    });
   }
 
   linhas.push(

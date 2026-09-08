@@ -1,4 +1,5 @@
 import { NewsCandidate } from "./collector";
+import { ehAgregador } from "../editorial/enriquecimento";
 
 export type DeduplicatedGroup = {
   primary: NewsCandidate;
@@ -62,8 +63,34 @@ export function deduplicateCandidates(candidates: NewsCandidate[]): {
       matchedGroup.secondary_sources.push(candidate.source_name);
       matchedGroup.secondary_urls.push(candidate.url);
 
-      // Se o candidato for de fonte oficial (Prioridade 1) e o grupo atual for Prioridade 2, promove a fonte oficial a principal
-      if (candidate.priority === 1 && matchedGroup.primary.priority > 1) {
+      /*
+       * Agregador nunca é a identidade do grupo, e essa regra vem antes da
+       * prioridade.
+       *
+       * O `url` do primário é o que vai publicado como fonte da matéria. Na
+       * edição de 05/09/2026, quatro matérias saíram com
+       * `news.google.com/rss/articles/CBMi...` como link da fonte: um endereço
+       * que leva o assinante a um interstitial do Google, e que seguido de
+       * fora cai em `google.com/sorry`. O Google News é descoberta, e o que
+       * ele descobre tem endereço próprio.
+       *
+       * A troca por prioridade continua depois, para o caso em que os dois
+       * lados são endereço real.
+       */
+      const primarioEhAgregador = ehAgregador(matchedGroup.primary.url);
+      const candidatoEhAgregador = ehAgregador(candidate.url);
+
+      if (primarioEhAgregador && !candidatoEhAgregador) {
+        matchedGroup.secondary_urls.push(matchedGroup.primary.url);
+        matchedGroup.secondary_sources.push(matchedGroup.primary.source_name);
+        matchedGroup.primary = candidate;
+      } else if (
+        !candidatoEhAgregador &&
+        candidate.priority === 1 &&
+        matchedGroup.primary.priority > 1
+      ) {
+        // Se o candidato for de fonte oficial (Prioridade 1) e o grupo atual
+        // for Prioridade 2, promove a fonte oficial a principal.
         matchedGroup.secondary_urls.push(matchedGroup.primary.url);
         matchedGroup.secondary_sources.push(matchedGroup.primary.source_name);
         matchedGroup.primary = candidate;
