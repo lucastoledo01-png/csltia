@@ -221,6 +221,13 @@ export type ArteRenderizada = {
    * Vazio é o caso normal.
    */
   fontesQueFaltaram: string[];
+  /**
+   * Se os tokens do desenho não vieram do banco.
+   *
+   * Canvas, paleta e fontes saem deles. Cair no default do repo produz uma peça
+   * de outra proporção e outras cores, e `resolveTokens` fazia isso em silêncio.
+   */
+  temaDegradado: string;
   /** Se o desenho do painel foi usado, ou se a variante de código assumiu. */
   usouLayoutDesenhado: boolean;
   /** Por que foi ou não foi usado. Ver `diagnosticarLayout`. */
@@ -297,16 +304,26 @@ export async function renderizarCapas(
 
   const { chromium } = await import("playwright-core");
   const { assembleSlide } = await import("@/lib/carousel-templates/assemble");
-  const { resolveFormatConfigFromDb, resolveLayout, resolveTokens } = await import(
+  const { resolveFormatConfigFromDb, resolveLayout, resolveTokensComDiagnostico } = await import(
     "@/lib/carousel-templates/resolve"
   );
 
   const fetcher = opcoes?.fetcher ?? fetch;
-  const [tokens, formatConfig, layout] = await Promise.all([
-    resolveTokens("noticia"),
+  const [tema, formatConfig, layout] = await Promise.all([
+    resolveTokensComDiagnostico("noticia"),
     resolveFormatConfigFromDb("noticia"),
     resolveLayout("noticia", "cover"),
   ]);
+  const tokens = tema.tokens;
+
+  /*
+   * Tema que não veio do banco é peça diferente da aprovada.
+   *
+   * Canvas, paleta e fontes saem dos tokens. Se a leitura falhar, `resolveTokens`
+   * cai no default do repo em silêncio, e a arte sai com outra proporção e
+   * outras cores — parecida o bastante para passar num relatório.
+   */
+  if (tema.degradado) console.warn(`[ARTE] ${tema.motivo}`);
 
   const { primeiraFamilia } = await import("@/lib/carousel-templates/fonts");
   const familiasEsperadas = [
@@ -408,6 +425,7 @@ export async function renderizarCapas(
         png,
         jpeg,
         fontesQueFaltaram,
+        temaDegradado: tema.degradado ? tema.motivo : "",
         usouLayoutDesenhado: usaDesenho,
         diagnosticoDoLayout,
       });

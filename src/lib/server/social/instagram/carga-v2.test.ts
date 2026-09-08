@@ -245,7 +245,13 @@ describe("entradas adversárias na leitura da carga", () => {
     if (!leitura.ok) expect(leitura.faltando).toContain("content_json.arte");
   });
 
-  it("visual com foto E capa=texto: a foto ganha, porque ela é o que foi aprovado", async () => {
+  it("visual com foto E capa=texto se contradiz, e contradição bloqueia", async () => {
+    /*
+     * A primeira versão deste teste afirmava que a foto ganhava, com o
+     * argumento de que ela é o que foi aprovado. Só que a mesma linha diz que a
+     * decisão foi capa de texto. Escolher uma das duas é adivinhar, e não
+     * faria sentido bloquear a variante contraditória e adivinhar aqui.
+     */
     const linha = await base();
     const leitura = lerCargaV2({
       ...linha,
@@ -254,8 +260,45 @@ describe("entradas adversárias na leitura da carga", () => {
         visual: { imageUrl: "https://upload.wikimedia.org/x.jpg", attribution: "", capa: "texto" },
       },
     });
+    expect(leitura.ok).toBe(false);
+    if (!leitura.ok) expect(leitura.motivo).toContain("se contradiz");
+  });
+
+  it("variante que contradiz o registro visual bloqueia", async () => {
+    /*
+     * `arte.variante` era dado morto: gravado e nunca lido. Dado morto é pior
+     * que dado ausente, porque parece uma conferência.
+     */
+    const linha = await base();
+    const leitura = lerCargaV2({
+      ...linha,
+      content_json: {
+        ...(linha.content_json as object),
+        // A linha diz peça com foto de fundo, e o registro visual é capa de texto.
+        arte: { versao: "v2", variante: "fullbleed_portrait", eixo: "processo" },
+      },
+    });
+    expect(leitura.ok).toBe(false);
+    if (!leitura.ok) expect(leitura.motivo).toContain("contradiz o registro visual");
+  });
+
+  it("variante coerente passa, nos dois casos", async () => {
+    const semFoto = lerCargaV2(await linhaGravada(SEM_FOTO));
+    const comFoto = lerCargaV2(await linhaGravada(COM_FOTO));
+    expect(semFoto.ok).toBe(true);
+    expect(comFoto.ok).toBe(true);
+  });
+
+  it("variante ausente não bloqueia: o que é obrigatório é o bloco, não cada campo", async () => {
+    // A distinção é a mesma do eixo: registro incompleto de um campo opcional
+    // não é registro contraditório.
+    const linha = await base();
+    const leitura = lerCargaV2({
+      ...linha,
+      content_json: { ...(linha.content_json as object), arte: { versao: "v2", eixo: "" } },
+    });
     expect(leitura.ok).toBe(true);
-    if (leitura.ok) expect(leitura.carga.foto?.imageUrl).toBe("https://upload.wikimedia.org/x.jpg");
+    if (leitura.ok) expect(leitura.carga.eixo).toBe("");
   });
 
   it("o motivo lista TUDO que falta, não só a primeira coisa", async () => {

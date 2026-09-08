@@ -206,10 +206,46 @@ export function lerCargaV2(linha: LinhaDePost): LeituraDaCarga {
   const capaDeTexto = texto(visual?.capa) === "texto";
   let foto: FotoDaCapa | null = null;
 
-  if (urlDaFoto) {
+  if (urlDaFoto && capaDeTexto) {
+    /*
+     * Os dois ao mesmo tempo é registro contraditório, e ele bloqueia.
+     *
+     * A primeira versão disto resolvia pela foto, com o argumento de que a foto
+     * é o que foi aprovado. Só que a mesma linha afirma que a decisão foi capa
+     * de texto: uma das duas informações está errada, e escolher qual é
+     * adivinhar. É a mesma disciplina da variante logo abaixo, e não faria
+     * sentido bloquear lá e adivinhar aqui.
+     */
+    faltando.push(
+      `content_json.visual tem imageUrl E capa="texto" ao mesmo tempo: ` +
+        `o registro se contradiz sobre a peça que foi aprovada`,
+    );
+  } else if (urlDaFoto) {
     foto = { imageUrl: urlDaFoto, attribution: texto(visual?.attribution) };
   } else if (!capaDeTexto && visual) {
     faltando.push("content_json.visual: nem imageUrl nem capa=texto");
+  }
+
+  /*
+   * A variante gravada tem que concordar com a foto gravada.
+   *
+   * `content_json.arte.variante` estava sendo escrita e nunca lida — dado morto,
+   * que é pior que dado ausente, porque parece uma conferência. Ela serve para
+   * exatamente uma coisa: pegar linha internamente contraditória.
+   *
+   * O caso concreto: a linha diz `fullbleed_portrait`, que é a peça com foto de
+   * fundo, e o registro visual não tem `imageUrl`. Uma das duas informações
+   * está errada, e publicar significaria escolher qual — que é adivinhar.
+   */
+  if (arte) {
+    const variante = texto(arte.variante);
+    const esperada = foto ? "fullbleed_portrait" : "noticia_sem_foto";
+    if (variante && variante !== esperada) {
+      faltando.push(
+        `content_json.arte.variante="${variante}" contradiz o registro visual ` +
+          `(${foto ? "tem foto" : "sem foto"}, seria "${esperada}")`,
+      );
+    }
   }
 
   if (faltando.length > 0) {

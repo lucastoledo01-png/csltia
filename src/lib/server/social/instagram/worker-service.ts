@@ -553,6 +553,24 @@ export async function processScheduledPost(
     }
 
     /*
+     * O token efetivo é resolvido AQUI, e não depois, porque a reconciliação
+     * também fala com a Meta.
+     *
+     * `INSTAGRAM_ACCESS_TOKEN` na env é semente: o token que vale mora em
+     * `project_credentials` e é trocado pelo cron a cada ~60 dias. Ninguém
+     * atualiza a env depois da primeira troca, então em regime a semente está
+     * vencida — que é o estado normal, não a exceção.
+     *
+     * Enquanto isto era resolvido 78 linhas abaixo, a reconciliação consultava
+     * o container com a semente vencida, recebia "Session has expired", e
+     * devolvia "revisar". O efeito: um post que ESTÁ publicado no Instagram
+     * nunca tinha o `media_id` reconciliado, ficava sem insights e sem
+     * automação de Direct, e a linha era marcada como falha. O container estava
+     * saudável; só o token da pergunta é que não.
+     */
+    const igEnv = { ...env, INSTAGRAM_ACCESS_TOKEN: await resolveInstagramToken(projectId, env) };
+
+    /*
      * Antes de gastar um centavo, perguntar se já foi.
      *
      * `status` não é prova de nada: se a Meta publicou e a gravação seguinte
@@ -569,7 +587,7 @@ export async function processScheduledPost(
         publishAttemptedAt: (post.publish_attempted_at as string | null) ?? null,
         caption: (post.caption as string | null) ?? "",
       },
-      env,
+      igEnv,
       fetcher,
     );
 
@@ -636,9 +654,6 @@ export async function processScheduledPost(
       };
     }
 
-    // Token efetivo: o persistido em project_credentials (renovado pelo cron)
-    // ou a env como semente. O meta-client lê env.INSTAGRAM_ACCESS_TOKEN.
-    const igEnv = { ...env, INSTAGRAM_ACCESS_TOKEN: await resolveInstagramToken(projectId, env) };
 
     /*
      * Container primeiro, publicação depois, e o registro no meio.

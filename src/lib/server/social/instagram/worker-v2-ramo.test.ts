@@ -118,9 +118,10 @@ vi.mock("./opendesign-renderer", () => ({
  * por causa de um mock que ficou de pé.
  */
 const renderizouV2 = vi.fn();
-const arteDefeituosa: { fontesQueFaltaram: string[]; bytes: number | null } = {
+const arteDefeituosa: { fontesQueFaltaram: string[]; bytes: number | null; temaDegradado: string } = {
   fontesQueFaltaram: [],
   bytes: null,
+  temaDegradado: "",
 };
 vi.mock("../arte", () => ({
   renderizarCapas: (entradas: Array<Record<string, unknown>>) => {
@@ -135,6 +136,7 @@ vi.mock("../arte", () => ({
             : Buffer.alloc(arteDefeituosa.bytes),
         jpeg: Buffer.from("jpeg"),
         fontesQueFaltaram: arteDefeituosa.fontesQueFaltaram,
+        temaDegradado: arteDefeituosa.temaDegradado,
         usouLayoutDesenhado: false,
         diagnosticoDoLayout: "LAYOUT_NOT_APPLICABLE_NO_PHOTO",
       })),
@@ -150,7 +152,12 @@ vi.mock("./armazenamento", () => ({
   },
 }));
 
-vi.mock("./meta-token", () => ({ resolveInstagramToken: async () => "token-de-teste" }));
+/**
+ * O token que vale mora em `project_credentials` e é trocado pelo cron. A env é
+ * semente, e em regime ela está vencida.
+ */
+const TOKEN_EFETIVO = "token-renovado-pelo-cron";
+vi.mock("./meta-token", () => ({ resolveInstagramToken: async () => TOKEN_EFETIVO }));
 vi.mock("../../prompt-system/funil-permanente", () => ({
   garantirFunilPermanente: async () => ({ ligado: true, keyword: "VISA", automationId: "a1", criadaAgora: false }),
 }));
@@ -263,6 +270,22 @@ function metaFalsa() {
     const corpo = Object.fromEntries(new URLSearchParams(String(init?.body ?? "")));
     chamadas.push({ url: u, corpo });
 
+    /*
+     * A Meta de mentira CONFERE o token, e é isso que a torna útil.
+     *
+     * Aceitar qualquer token faria o teste passar com a semente vencida, que é
+     * exatamente o defeito que se quer pegar: a reconciliação consultava o
+     * container com o token da env em vez do resolvido.
+     */
+    const tokenUsado =
+      new URL(u).searchParams.get("access_token") ?? corpo.access_token ?? "";
+    if (tokenUsado && tokenUsado !== TOKEN_EFETIVO) {
+      return Response.json(
+        { error: { message: "Error validating access token: Session has expired.", code: 190 } },
+        { status: 400 },
+      );
+    }
+
     if (u.includes("/media_publish")) return Response.json({ id: "media-999" });
     if (u.includes("/media?fields=id,caption")) return Response.json({ data: [] });
     if (u.includes("fields=status_code")) return Response.json({ status_code: "FINISHED" });
@@ -275,7 +298,8 @@ function metaFalsa() {
 
 const ENV = {
   INSTAGRAM_ACCOUNT_ID: "conta-1",
-  INSTAGRAM_ACCESS_TOKEN: "token",
+  // Semente vencida, que é o estado normal depois da primeira troca do cron.
+  INSTAGRAM_ACCESS_TOKEN: "semente-vencida",
   INSTAGRAM_AUTO_POST: "true",
   NEWSLETTER_FINAL_LINE: "",
 };
@@ -292,6 +316,7 @@ beforeEach(() => {
   perderDisputa.ligado = false;
   arteDefeituosa.fontesQueFaltaram = [];
   arteDefeituosa.bytes = null;
+  arteDefeituosa.temaDegradado = "";
   tabelas.projects = { row: PROJETO };
 });
 
@@ -441,10 +466,11 @@ describe("D. social-v2 sem foto publica o brand card", () => {
   it("com foto aprovada, é a foto da linha que entra na arte", async () => {
     tabelas.social_posts = {
       row: linhaV2({ visual_asset_id: "asset-1" }, {
+        // A variante acompanha a foto: é assim que o store grava a linha.
+        arte: { versao: "v2", variante: "fullbleed_portrait", eixo: "processo" },
         visual: {
           imageUrl: "https://upload.wikimedia.org/foto.jpg",
           attribution: "Foto: Alguém / Wikimedia Commons / CC BY-SA",
-          capa: "foto",
         },
       }),
     };
@@ -612,6 +638,19 @@ describe("a peça publicada tem que ser a peça aprovada", () => {
     expect(subiuArte).not.toHaveBeenCalled();
   });
 
+  it("tema que não veio do banco bloqueia: canvas e paleta sairiam diferentes", async () => {
+    arteDefeituosa.temaDegradado = "tema do banco inacessível, caiu no default do repo";
+    tabelas.social_posts = { row: linhaV2() };
+    const { fetcher, chamadas } = metaFalsa();
+
+    const r = await processScheduledPost("post-v2", {}, ENV, fetcher);
+
+    expect(r.ok).toBe(false);
+    expect(String(r.error)).toContain("sem o tema do banco");
+    expect(subiuArte).not.toHaveBeenCalled();
+    expect(chamadas).toHaveLength(0);
+  });
+
   it("arte acima do teto de bytes da Meta não sobe nem publica", async () => {
     arteDefeituosa.bytes = 9 * 1024 * 1024;
     tabelas.social_posts = { row: linhaV2() };
@@ -623,6 +662,54 @@ describe("a peça publicada tem que ser a peça aprovada", () => {
     expect(String(r.error)).toContain("teto da Meta");
     expect(subiuArte).not.toHaveBeenCalled();
     expect(chamadas).toHaveLength(0);
+  });
+});
+
+describe("o token que a Meta recebe é o efetivo, em toda chamada", () => {
+  it("a reconciliação de tentativa anterior usa o token resolvido, não a semente", async () => {
+    /*
+     * O defeito: `reconciliarTentativaAnterior` recebia a env crua, e o token
+     * efetivo só era resolvido 78 linhas abaixo. Em regime a semente está
+     * vencida — o cron troca o token em `project_credentials` e ninguém
+     * atualiza a env.
+     *
+     * A consequência era a pior possível para este caminho: um post JÁ
+     * publicado no Instagram recebia "Session has expired" na consulta do
+     * container, virava "revisar", e nunca tinha o `media_id` reconciliado.
+     * Ficava sem insights, sem automação de Direct, e com a linha marcada como
+     * falha — enquanto o container estava saudável.
+     */
+    tabelas.social_posts = {
+      row: linhaV2({
+        provider_creation_id: "container-anterior",
+        publish_attempted_at: "2026-09-06T11:00:00Z",
+      }),
+    };
+    const { fetcher, chamadas } = metaFalsa();
+
+    const r = await processScheduledPost("post-v2", {}, ENV, fetcher);
+
+    expect(r.ok).toBe(true);
+    expect(r.status).toBe("published");
+
+    // Toda chamada à Meta, inclusive a da reconciliação, com o token efetivo.
+    expect(chamadas.length).toBeGreaterThan(0);
+    for (const c of chamadas) {
+      const daUrl = new URL(c.url).searchParams.get("access_token");
+      const doCorpo = c.corpo.access_token;
+      expect(daUrl ?? doCorpo ?? TOKEN_EFETIVO, c.url.slice(0, 70)).toBe(TOKEN_EFETIVO);
+    }
+  });
+
+  it("nenhuma chamada leva a semente da env", async () => {
+    tabelas.social_posts = { row: linhaV2() };
+    const { fetcher, chamadas } = metaFalsa();
+    await processScheduledPost("post-v2", {}, ENV, fetcher);
+
+    for (const c of chamadas) {
+      expect(c.url, c.url.slice(0, 70)).not.toContain("semente-vencida");
+      expect(c.corpo.access_token ?? "").not.toBe("semente-vencida");
+    }
   });
 });
 

@@ -102,6 +102,13 @@ export async function prepararArteV2(
      * seria publicar uma peça que ninguém aprovou, e a diferença é justamente
      * pequena o bastante para passar batida.
      */
+    if (arte.temaDegradado) {
+      throw new Error(
+        `A arte foi desenhada sem o tema do banco (${arte.temaDegradado}). Canvas, paleta e fontes ` +
+          `saem dos tokens, então a peça sairia com outra proporção e outras cores.`,
+      );
+    }
+
     if (arte.fontesQueFaltaram.length > 0) {
       throw new Error(
         `A arte foi desenhada sem as fontes ${arte.fontesQueFaltaram.join(", ")}. ` +

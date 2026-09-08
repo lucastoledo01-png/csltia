@@ -24,7 +24,21 @@ import { LayoutSchema, type Layout } from "./layout";
  * parcial produziria um slide meio claro e meio escuro, que é pior que cair
  * inteiro no default.
  */
-export async function resolveTokens(format?: CarouselFormat): Promise<CarouselTokens> {
+/**
+ * Os tokens, mais a resposta honesta sobre de onde eles vieram.
+ *
+ * A versão sem diagnóstico engolia tudo: `catch` devolvendo `DEFAULT_TOKENS` e
+ * `data?.tokens ?? {}` sem olhar o `error`. Para o painel isso é aceitável —
+ * mostrar o tema padrão é melhor que uma tela de erro. Para a arte que vai ao
+ * ar não é: o canvas, a paleta e as fontes saem daqui, e renderizar com o
+ * default do repo em vez do tema do banco produz uma peça diferente da que foi
+ * aprovada, sem erro e sem log.
+ *
+ * Quem publica precisa saber. Quem só desenha na tela, não.
+ */
+export async function resolveTokensComDiagnostico(
+  format?: CarouselFormat,
+): Promise<{ tokens: CarouselTokens; degradado: boolean; motivo: string }> {
   try {
     const supabase = getSupabaseAdminClient();
 
@@ -32,13 +46,41 @@ export async function resolveTokens(format?: CarouselFormat): Promise<CarouselTo
       supabase.from("carousel_theme").select("tokens").eq("id", 1).maybeSingle(),
       format
         ? supabase.from("carousel_format_config").select("tokens").eq("format", format).maybeSingle()
-        : Promise.resolve({ data: null }),
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
-    return mergeTokens(tema.data?.tokens ?? {}, doFormato.data?.tokens ?? {});
-  } catch {
-    return DEFAULT_TOKENS;
+    const erros = [tema.error?.message, ("error" in doFormato && doFormato.error?.message) || null]
+      .filter(Boolean)
+      .join("; ");
+
+    if (erros) {
+      return {
+        tokens: mergeTokens(tema.data?.tokens ?? {}, doFormato.data?.tokens ?? {}),
+        degradado: true,
+        motivo: `leitura do tema falhou: ${erros}`,
+      };
+    }
+
+    return {
+      tokens: mergeTokens(tema.data?.tokens ?? {}, doFormato.data?.tokens ?? {}),
+      degradado: false,
+      motivo: "",
+    };
+  } catch (err) {
+    return {
+      tokens: DEFAULT_TOKENS,
+      degradado: true,
+      motivo: `tema do banco inacessível, caiu no default do repo: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    };
   }
+}
+
+export async function resolveTokens(format?: CarouselFormat): Promise<CarouselTokens> {
+  const r = await resolveTokensComDiagnostico(format);
+  if (r.degradado) console.warn(`[TOKENS] ${r.motivo}`);
+  return r.tokens;
 }
 
 export async function resolveFormatConfigFromDb(format: CarouselFormat): Promise<FormatConfig> {
