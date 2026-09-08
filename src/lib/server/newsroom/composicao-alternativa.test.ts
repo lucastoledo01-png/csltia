@@ -46,16 +46,22 @@ describe("o que sai da composição", () => {
     expect(motivoDaDesativacao(fonte({ url: "https://travel.state.gov/_res/rss/visabulletin.xml" }))).toBeNull();
   });
 
-  it("uma das duas consultas de brasileiros nos EUA fica", () => {
-    const a = motivoDaDesativacao(
-      fonte({ url: "https://news.google.com/rss/search?q=brasileiros+%22Estados+Unidos%22+%28trabalho+OR+empresa%29" }),
+  it("das duas consultas de brasileiros, sai a que pede deportação", () => {
+    /*
+     * As URLs reais em produção diferem até na codificação do parêntese, então
+     * a regra casa pelo termo que importa, não pela consulta inteira.
+     */
+    const fica = motivoDaDesativacao(
+      fonte({ url: "https://news.google.com/rss/search?q=brasileiros+%22Estados+Unidos%22+(trabalho+OR+empresa+OR+visto)&hl=pt-BR" }),
     );
-    const b = motivoDaDesativacao(
-      fonte({ url: "https://news.google.com/rss/search?q=brasileiros+%22Estados+Unidos%22+%28visto+OR+imigra%C3%A7%C3%A3o%29" }),
+    const sai = motivoDaDesativacao(
+      fonte({ url: "https://news.google.com/rss/search?q=brasileiros+%22Estados+Unidos%22+%28visto+OR+imigra%C3%A7%C3%A3o+OR+deporta%C3%A7%C3%A3o%29&hl=pt-BR" }),
     );
-    // Exatamente uma sai: zerar o ângulo comunitário seria perder cobertura
-    // sem substituto entre os cinco feeds diretos.
-    expect([a, b].filter(Boolean)).toHaveLength(1);
+
+    expect(fica).toBeNull();
+    // A escolha não é arbitrária: "deportação" traz o que a linha recusa por
+    // negatividade sobre os EUA.
+    expect(sai).toContain("deporta");
   });
 
   it("a consulta de asilo e refúgio permanece: nenhum feed direto cobre o ângulo", () => {

@@ -104,14 +104,16 @@ const GNEWS_A_DESATIVAR: Array<{ contem: string; motivo: string }> = [
  *
  * Elas trazem g1, CNN Brasil, BBC e Folha falando de brasileiro nos EUA, que é
  * exatamente o público. Mas o link é do agregador e o corpo vem vazio, então
- * nada dali é publicável hoje. São duplicatas entre si, com consultas quase
+ * nada dali é publicável hoje. E são duplicatas entre si, com consultas quase
  * iguais.
  *
- * Desativo UMA e mantenho a outra: a cobertura do ângulo comunitário continua
- * existindo, e o volume duplicado cai. Preferir isso a zerar um ângulo que
- * nenhum dos cinco feeds diretos cobre.
+ * Sai UMA, e a escolha não é arbitrária: a que tem `deportação` na consulta
+ * traz justamente o material que a linha editorial recusa por negatividade
+ * sobre os EUA. A que fica pergunta por trabalho, empresa e visto, que é o
+ * ângulo de oportunidade. Zerar as duas seria perder um ângulo que nenhum dos
+ * cinco feeds diretos cobre.
  */
-const GNEWS_DUPLICATA_BRASILEIROS = "brasileiros+%22Estados+Unidos%22+%28trabalho";
+const GNEWS_DUPLICATA_BRASILEIROS = "deporta";
 
 /** O feed de avisos de viagem, que nunca serviu a esta vertical. */
 const FEED_ERRADO_DO_STATE_DEPT = "TAsTWs.xml";
@@ -240,7 +242,11 @@ export function motivoDaDesativacao(fonte: NewsSourceConfig): string | null {
 
   if (url.includes("news.google.com")) {
     if (url.includes(GNEWS_DUPLICATA_BRASILEIROS)) {
-      return "duplicata da outra consulta de brasileiros nos EUA; a irmã fica, para não zerar o ângulo comunitário.";
+      return (
+        "duplicata da outra consulta de brasileiros nos EUA, e é a que pede `deportação`: traz o " +
+        "material que a linha recusa por negatividade sobre os EUA. Fica a irmã, que pergunta por " +
+        "trabalho, empresa e visto."
+      );
     }
     const achado = GNEWS_A_DESATIVAR.find((g) => url.includes(g.contem));
     return achado ? achado.motivo : null;
