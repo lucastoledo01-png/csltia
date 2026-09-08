@@ -196,6 +196,28 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
             hashtags: p.post.veredicto.hashtagsFinais,
             origem: p.origem.motivo,
             /*
+             * O contrato de render, para a arte ser reproduzível fora daqui.
+             *
+             * A arte do V2 não é gravada como arquivo: quem publica é o
+             * worker, e ele renderiza de novo. Isso só é seguro se o render
+             * for determinístico E se todo insumo dele estiver na linha —
+             * senão o worker desenha uma peça parecida, não a peça aprovada.
+             *
+             * `title` já carrega a manchete e `visual` já carrega a foto e o
+             * crédito. Faltava o eixo, que é a sobrancelha da capa de texto:
+             * sem ele a peça sairia sem "PROCESSO" em cima do título, e
+             * ninguém notaria comparando o banco.
+             *
+             * String vazia é um valor, não uma ausência: quer dizer que a
+             * classificação não nomeou editoria, e a peça imprime sem
+             * sobrancelha de propósito.
+             */
+            arte: {
+              versao: "v2",
+              variante: asset ? "fullbleed_portrait" : "noticia_sem_foto",
+              eixo: p.post.pauta.classificacao.eixo ?? "",
+            },
+            /*
              * O registro do direito é completo mesmo quando a arte não imprime
              * nada.
              *

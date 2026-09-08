@@ -1,5 +1,5 @@
 import { chromium } from "playwright-core";
-import { getSupabaseAdminClient } from "../../supabase-admin";
+import { subirPngParaStorage } from "./armazenamento";
 import { assembleSlide } from "@/lib/carousel-templates/assemble";
 import {
   resolveFormatConfigFromDb,
@@ -357,32 +357,14 @@ export async function renderOpenDesignSlides(carousel: InstagramCarouselContent)
   return assets;
 }
 
+/**
+ * O upload em si mora em `armazenamento.ts`, que não importa banco de fotos.
+ * O nome antigo continua exportado daqui porque é por ele que o worker legado
+ * chama, e mexer nisso seria regressão sem ganho.
+ */
 export async function uploadOpenDesignSlideToStorage(
   pngBuffer: Buffer,
   filepath: string,
 ): Promise<string | null> {
-  try {
-    const supabase = getSupabaseAdminClient();
-
-    const { error: uploadErr } = await supabase.storage
-      .from("public_assets")
-      .upload(filepath, pngBuffer, {
-        contentType: "image/png",
-        upsert: true,
-      });
-
-    if (uploadErr) {
-      console.warn("[OPENDESIGN STORAGE UPLOAD WARN]", uploadErr.message);
-      return null;
-    }
-
-    const { data: publicUrlData } = supabase.storage
-      .from("public_assets")
-      .getPublicUrl(filepath);
-
-    return publicUrlData.publicUrl;
-  } catch (err) {
-    console.warn("[OPENDESIGN STORAGE EXCEPTION]", err);
-    return null;
-  }
+  return subirPngParaStorage(pngBuffer, filepath);
 }

@@ -110,11 +110,21 @@ export function diagnosticarLayout(
     : DIAGNOSTICOS_DE_LAYOUT.SEM_SLOT_DE_IMAGEM;
 }
 
+/**
+ * A arte lê duas coisas do asset, e o tipo diz só essas duas.
+ *
+ * Exigir `AssetVisual` inteiro aqui obrigava quem só tem o registro
+ * persistido em `content_json.visual` a inventar vinte campos ou a mentir com
+ * um `as`. O que a capa usa é a URL da foto e o crédito da licença; o resto do
+ * asset existe para o registro de direito, não para o desenho.
+ */
+export type FotoDaCapa = Pick<AssetVisual, "imageUrl" | "attribution">;
+
 export type EntradaDaCapa = {
   headline: string;
   /** Categoria editorial, usada como sobrancelha na capa sem foto. */
   eixo?: string;
-  asset: AssetVisual | null;
+  asset: FotoDaCapa | null;
   motivoSemFoto?: string;
 };
 

@@ -14,6 +14,8 @@ import {
 } from "./pipeline";
 import { resolveInstagramToken } from "./meta-token";
 import { markPostFailed } from "./scheduler";
+import { ehSocialV2, lerCargaV2, MOTIVO_CARGA_INCOMPLETA, type LinhaDePost } from "./carga-v2";
+import { prepararArteV2 } from "./worker-v2";
 import { getArticleBySlug } from "../../articles-service";
 import { montarCarrosselDeCampanha } from "../../prompt-system/carrossel-de-campanha";
 import { concluirCampanhaPublicada } from "../../prompt-system/pos-publicacao";
@@ -260,6 +262,143 @@ async function montarContainer(
   return pai.creationId;
 }
 
+type SlideSubido = { index: number; url: string; filename: string };
+
+/**
+ * O que os dois ramos entregam à parte irreversível.
+ *
+ * `carousel` só existe no legado: é o roteiro que ele acabou de gerar, e o
+ * resultado da execução o devolve para quem chamou. O V2 não tem roteiro novo
+ * para devolver, e inventar um vazio só para preencher o campo faria o
+ * chamador achar que houve geração.
+ */
+type PreparoDaPublicacao = {
+  legenda: string;
+  slides: SlideSubido[];
+  carousel?: InstagramCarouselContent;
+};
+
+/**
+ * Caminho legado, sem uma vírgula de diferença.
+ *
+ * Este bloco saiu de dentro de `processScheduledPost` inteiro e na mesma
+ * ordem: gera o roteiro, grava título/legenda/content_json e marca
+ * `generated`, renderiza pelo renderizador antigo, grava o manifesto. O motivo
+ * de virar função é ter um irmão do outro lado do `if`, não melhorar nada
+ * aqui — post legado tem que continuar publicando exatamente como publicava.
+ */
+async function prepararLegado(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  meta: Record<string, unknown>,
+  project: Project,
+  editionDate: string,
+  socialPostId: string,
+  env: Record<string, string | undefined>,
+  fetcher: typeof fetch,
+): Promise<PreparoDaPublicacao> {
+  const format: CarouselFormat = (meta.format as CarouselFormat) ?? "noticia";
+
+  const pipelineResult = await generateCarouselForPost(format, meta, project, editionDate, env, fetcher);
+
+  console.log(
+    `[INSTAGRAM WORKER] ${project.slug} ${editionDate} formato ${format}: ${pipelineResult.carousel.title}`,
+  );
+
+  await gravarOuFalhar(
+    supabase,
+    socialPostId,
+    {
+      title: pipelineResult.carousel.title,
+      caption: pipelineResult.carousel.caption.full_caption,
+      // preserva os metadados de origem (format, story_index, article_slug, keyword…)
+      content_json: { ...pipelineResult.carousel, ...meta },
+      tokens_input: pipelineResult.usage.promptTokens,
+      tokens_output: pipelineResult.usage.completionTokens,
+      cost_estimate_usd: pipelineResult.usage.estimatedCostUsd,
+      status: "generated",
+    },
+    "o roteiro gerado",
+  );
+
+  const slides = await renderAndUploadSlides(project, pipelineResult.carousel, editionDate, socialPostId);
+
+  await gravarOuFalhar(
+    supabase,
+    socialPostId,
+    { slides_manifest: slides, asset_paths: slides.map((s) => s.url) },
+    "o manifesto dos slides",
+  );
+
+  return {
+    legenda: pipelineResult.carousel.caption.full_caption,
+    slides,
+    carousel: pipelineResult.carousel,
+  };
+}
+
+/**
+ * Caminho social-v2: ler, conferir, materializar.
+ *
+ * Nenhuma chamada a modelo de linguagem, nenhuma escrita em `title`,
+ * `caption` ou nas chaves editoriais de `content_json`. O que o worker grava é
+ * só o rastro da própria execução — onde a arte foi parar.
+ *
+ * Carga incompleta não é tratada como erro técnico: é decisão de não publicar.
+ * Ela sobe com o código `SOCIAL_V2_PAYLOAD_INCOMPLETE` e a lista do que
+ * faltou, para o `catch` de fora gravar em `error_message` e o post ficar
+ * parado até alguém olhar. Consertar aqui significaria gerar.
+ */
+async function prepararV2(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  linha: LinhaDePost,
+  project: Project,
+  editionDate: string,
+  socialPostId: string,
+  fetcher: typeof fetch,
+): Promise<PreparoDaPublicacao> {
+  const leitura = lerCargaV2(linha);
+
+  if (!leitura.ok) {
+    console.error(`[INSTAGRAM WORKER V2] ${socialPostId} bloqueado: ${leitura.motivo}`);
+    throw new Error(leitura.motivo);
+  }
+
+  const { carga } = leitura;
+
+  console.log(
+    `[INSTAGRAM WORKER V2] ${project.slug} ${editionDate}: "${carga.headline.slice(0, 60)}" ` +
+      `(${carga.foto ? "com foto" : `capa de texto, ${carga.motivoSemFoto}`}, origem ${carga.originChannel})`,
+  );
+
+  const arte = await prepararArteV2(carga, {
+    projectSlug: project.slug,
+    editionDate,
+    socialPostId,
+    fetcher,
+  });
+
+  const slides: SlideSubido[] = arte.urls.map((url, i) => ({
+    index: i,
+    url,
+    filename: `social-v2-${i + 1}.png`,
+  }));
+
+  /*
+   * A única gravação deste ramo antes da publicação, e ela não toca em nada
+   * aprovado: só registra onde o PNG foi parar e que a arte já existe. O
+   * status NÃO muda aqui — `generated` é do vocabulário do legado, onde ele
+   * significa "o roteiro acabou de ser escrito". Aqui não se escreveu nada.
+   */
+  await gravarOuFalhar(
+    supabase,
+    socialPostId,
+    { slides_manifest: slides, asset_paths: slides.map((s) => s.url) },
+    "o manifesto da arte V2",
+  );
+
+  return { legenda: carga.legenda, slides };
+}
+
 /** Processa uma vaga agendada de ponta a ponta. */
 export async function processScheduledPost(
   socialPostId: string,
@@ -272,7 +411,15 @@ export async function processScheduledPost(
 
   const { data: post, error: postErr } = await supabase
     .from("social_posts")
-    .select("id, project_id, edition_date, status, content_json, caption, provider_post_id, provider_creation_id, publish_attempted_at")
+    /*
+     * As colunas do V2 entram aqui, e nenhuma delas muda o caminho legado:
+     * numa linha antiga elas voltam nulas, `ehSocialV2` diz não, e o fluxo
+     * segue igual. Ler a mais é barato; ler a menos obrigaria uma segunda
+     * consulta no meio da decisão.
+     */
+    // Uma linha só, e literal: o cliente tipado do Supabase infere as colunas
+    // lendo esta string em tempo de compilação, e concatená-la apaga os tipos.
+    .select("id, project_id, edition_date, status, content_json, title, caption, provider_post_id, provider_creation_id, publish_attempted_at, generation_version, dry_run, story_id, event_fingerprint, visual_asset_id, origin_channel, social_guard_status")
     .eq("id", socialPostId)
     .maybeSingle();
 
@@ -344,38 +491,25 @@ export async function processScheduledPost(
     const project = await requireActiveProject(projectId);
     const editionDate = post.edition_date as string;
     const meta = (post.content_json ?? {}) as Record<string, unknown>;
-    const format: CarouselFormat = (meta.format as CarouselFormat) ?? "noticia";
 
-    const pipelineResult = await generateCarouselForPost(format, meta, project, editionDate, env, fetcher);
+    /*
+     * A bifurcação, e por que ela mora exatamente aqui.
+     *
+     * Acima desta linha está o que vale para os dois ramos: achar a linha,
+     * desistir se já publicou, e reconciliar uma tentativa anterior — a
+     * pergunta "isto já foi ao ar?" não depende de quem gerou o post.
+     *
+     * Abaixo dela está a única diferença real: o legado PRODUZ o post, este
+     * ramo o MATERIALIZA. Da montagem do container para baixo os dois voltam a
+     * ser o mesmo código, porque a parte irreversível não deve ter duas
+     * implementações se envelhecendo em paralelo.
+     */
+    const ehV2 = ehSocialV2(post as LinhaDePost);
+    const preparo = ehV2
+      ? await prepararV2(supabase, post as LinhaDePost, project, editionDate, socialPostId, fetcher)
+      : await prepararLegado(supabase, meta, project, editionDate, socialPostId, env, fetcher);
 
-    console.log(
-      `[INSTAGRAM WORKER] ${project.slug} ${editionDate} formato ${format}: ${pipelineResult.carousel.title}`,
-    );
-
-    await gravarOuFalhar(
-      supabase,
-      socialPostId,
-      {
-        title: pipelineResult.carousel.title,
-        caption: pipelineResult.carousel.caption.full_caption,
-        // preserva os metadados de origem (format, story_index, article_slug, keyword…)
-        content_json: { ...pipelineResult.carousel, ...meta },
-        tokens_input: pipelineResult.usage.promptTokens,
-        tokens_output: pipelineResult.usage.completionTokens,
-        cost_estimate_usd: pipelineResult.usage.estimatedCostUsd,
-        status: "generated",
-      },
-      "o roteiro gerado",
-    );
-
-    const slides = await renderAndUploadSlides(project, pipelineResult.carousel, editionDate, socialPostId);
-
-    await gravarOuFalhar(
-      supabase,
-      socialPostId,
-      { slides_manifest: slides, asset_paths: slides.map((s) => s.url) },
-      "o manifesto dos slides",
-    );
+    const slides = preparo.slides;
 
     const autoPost = options.autoPost ?? env.INSTAGRAM_AUTO_POST !== "false";
 
@@ -385,7 +519,7 @@ export async function processScheduledPost(
         projectId,
         socialPostId,
         status: "generated",
-        carousel: pipelineResult.carousel,
+        ...(preparo.carousel ? { carousel: preparo.carousel } : {}),
         slideUrls: slides.map((s) => s.url),
         executionTimeMs: Date.now() - startTime,
       };
@@ -404,7 +538,7 @@ export async function processScheduledPost(
      */
     const creationId = await montarContainer(
       slides.map((s) => s.url),
-      pipelineResult.carousel.caption.full_caption,
+      preparo.legenda,
       igEnv,
       fetcher,
     );
@@ -461,7 +595,7 @@ export async function processScheduledPost(
       socialPostId,
       status: "published",
       providerPostId: mediaId,
-      carousel: pipelineResult.carousel,
+      ...(preparo.carousel ? { carousel: preparo.carousel } : {}),
       slideUrls: slides.map((s) => s.url),
       executionTimeMs: Date.now() - startTime,
     };
@@ -471,7 +605,21 @@ export async function processScheduledPost(
     const message = err instanceof Error ? err.message : String(err);
     await markPostFailed(socialPostId, message);
     console.error(`[INSTAGRAM WORKER] Post ${socialPostId} falhou: ${message}`);
-    await sendAlert("critical", "Post do Instagram falhou", `Post ${socialPostId}\n${formatError(err)}`);
+
+    /*
+     * Carga V2 incompleta não é o sistema quebrando, é o sistema se recusando.
+     *
+     * Chamar isso de crítico junto com "a Meta caiu" e "o Chromium morreu"
+     * ensina a ignorar o canal de alerta, que é como um alerta crítico morre
+     * de verdade. O post fica parado, o código está no `error_message`, e o
+     * aviso diz que é decisão e não incêndio.
+     */
+    const cargaIncompleta = message.startsWith(MOTIVO_CARGA_INCOMPLETA);
+    await sendAlert(
+      cargaIncompleta ? "warning" : "critical",
+      cargaIncompleta ? "Post social-v2 bloqueado por carga incompleta" : "Post do Instagram falhou",
+      `Post ${socialPostId}\n${cargaIncompleta ? message : formatError(err)}`,
+    );
 
     return {
       ok: false,

@@ -44,7 +44,12 @@ function paraGravar(over: Record<string, unknown> = {}): PostParaGravar {
     vaga: { posicao: 1, slot: `${DIA}-01`, quandoIso: "2026-09-06T11:00:00Z", horaLocal: "08:00" },
     visual: null,
     post: {
-      pauta: { storyId, pontuacao: { total: 70 } },
+      /*
+       * `classificacao` entra aqui porque a linha gravada carrega o eixo, que
+       * é a sobrancelha da capa de texto. O tipo sempre teve o campo; o
+       * dublê é que estava incompleto, e o teste passava por sorte.
+       */
+      pauta: { storyId, pontuacao: { total: 70 }, classificacao: { eixo: "processo" } },
       copy: { headline: "USCIS amplia prazo do EAD", hashtags: [] },
       veredicto: {
         passed: true, issues: [], repairableIssues: [], fatalIssues: [],
