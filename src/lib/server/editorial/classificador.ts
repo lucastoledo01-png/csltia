@@ -183,11 +183,30 @@ Classifique o que está escrito. Não deduza intenção, não suavize e não agr
 `.trim();
 }
 
+/**
+ * Quanto texto o classificador enxerga de cada pauta.
+ *
+ * Era 600, e o verificador lia 2500 do mesmo texto. A `guarda.ts` já entregava
+ * 4000 caracteres da matéria enriquecida para a segunda classificação, com um
+ * comentário dizendo que ela existe para "julgar o texto que existe, e não o
+ * que o agregador resumiu"; este corte anulava aquilo em silêncio.
+ *
+ * A consequência aparecia no fim do funil: os conflitos por
+ * `relevancia_no_piso` eram o sistema descobrindo, tarde, que a classificação
+ * tinha sido feita sobre um texto truncado. Numa pauta do DHS, os 1900
+ * caracteres que só o verificador viu continham a liminar que suspendia a
+ * regra inteira.
+ *
+ * O número é o mesmo do verificador de propósito. Os dois julgam o mesmo
+ * texto, ou a divergência entre eles não significa nada.
+ */
+export const LIMITE_DO_RESUMO = 2500;
+
 export function montarUserDoClassificador(pautas: PautaClassificavel[]): string {
   const lista = pautas
     .map(
       (p) =>
-        `id: ${p.id}\ntitulo: ${p.titulo}\nfonte: ${p.fonte}\nurl: ${p.url}\nresumo: ${p.descricao.slice(0, 600)}`
+        `id: ${p.id}\ntitulo: ${p.titulo}\nfonte: ${p.fonte}\nurl: ${p.url}\nresumo: ${p.descricao.slice(0, LIMITE_DO_RESUMO)}`
     )
     .join("\n\n---\n\n");
 
@@ -203,6 +222,34 @@ export function montarUserDoClassificador(pautas: PautaClassificavel[]): string 
  * todo dia, e o log diria apenas "não classificada".
  */
 const PAUTAS_POR_CHAMADA = 20;
+
+/**
+ * E quanto texto por chamada.
+ *
+ * O teto de 20 pautas foi calibrado quando cada resumo tinha 600 caracteres:
+ * 12 mil no total, e o modelo respondia inteiro. Ao subir o resumo para 2500
+ * para o classificador ler o mesmo que o verificador, 20 pautas viraram 50 mil
+ * caracteres e o modelo voltou a parar no meio, exatamente como descrito
+ * acima. Na medição de sete dias isso apareceu como 45 pautas
+ * `REJECT_UNCLASSIFIED`, contra 1 antes.
+ *
+ * Contar pauta não protege de nada: o que estoura é o texto. O lote fecha por
+ * quantidade OU por caracteres, o que vier primeiro, e o orçamento é o mesmo
+ * volume que já funcionava.
+ */
+const CARACTERES_POR_CHAMADA = 13_000;
+
+/**
+ * O que uma pauta ocupa no prompt.
+ *
+ * Uma pauta sozinha maior que o orçamento ainda entra: o corte de
+ * `LIMITE_DO_RESUMO` já limita o pior caso, e deixá-la de fora seria recusá-la
+ * por tamanho. Os 120 cobrem os rótulos do formato (`id:`, `titulo:`, `fonte:`,
+ * `url:`, `resumo:`) e o separador entre pautas.
+ */
+function custoEmCaracteres(pauta: PautaClassificavel): number {
+  return Math.min(pauta.descricao.length, LIMITE_DO_RESUMO) + pauta.titulo.length + 120;
+}
 /** Chamadas simultâneas. Acima disso a API começa a devolver 429. */
 const CHAMADAS_EM_PARALELO = 4;
 
@@ -231,6 +278,8 @@ export async function classificarPautas(
    */
   tokens: { prompt: number; completion: number; total: number };
   lotesComFalha: string[];
+  /** Quanto o retry dos ids ausentes custou e recuperou. */
+  diagnostico: { ausentesNaPrimeira: number; reclassificados: number; chamadasDeRetry: number };
 }> {
   if (pautas.length === 0) {
     return {
@@ -238,70 +287,143 @@ export async function classificarPautas(
       custoUsd: 0,
       tokens: { prompt: 0, completion: 0, total: 0 },
       lotesComFalha: [],
+      diagnostico: { ausentesNaPrimeira: 0, reclassificados: 0, chamadasDeRetry: 0 },
     };
   }
 
   const modelo = env.OPENAI_MODEL_TRIAGE || "gpt-4o-mini";
   const lotes: PautaClassificavel[][] = [];
-  for (let i = 0; i < pautas.length; i += PAUTAS_POR_CHAMADA) {
-    lotes.push(pautas.slice(i, i + PAUTAS_POR_CHAMADA));
+  let atual: PautaClassificavel[] = [];
+  let caracteres = 0;
+  for (const pauta of pautas) {
+    // Uma pauta sozinha maior que o orçamento ainda entra: o corte de
+    // `LIMITE_DO_RESUMO` já limita o pior caso, e deixá-la de fora seria
+    // recusá-la por tamanho.
+    const custo = custoEmCaracteres(pauta);
+    if (atual.length > 0 && (atual.length >= PAUTAS_POR_CHAMADA || caracteres + custo > CARACTERES_POR_CHAMADA)) {
+      lotes.push(atual);
+      atual = [];
+      caracteres = 0;
+    }
+    atual.push(pauta);
+    caracteres += custo;
   }
+  if (atual.length > 0) lotes.push(atual);
 
   const mapa = new Map<string, Classificacao>();
   const lotesComFalha: string[] = [];
   let custoUsd = 0;
   const tokens = { prompt: 0, completion: 0, total: 0 };
 
+  const chamarLote = async (lote: PautaClassificavel[], nome: string) => {
+    try {
+      const { data, usage } = await callOpenAIJSON<unknown>(
+        [
+          { role: "system", content: montarSystemDoClassificador() },
+          { role: "user", content: montarUserDoClassificador(lote) },
+        ],
+        modelo,
+        env,
+        fetcher,
+        amostragemDeJulgamento(env),
+      );
+
+      const parsed = RespostaDoClassificadorSchema.safeParse(data);
+      if (!parsed.success) {
+        return {
+          erro: `${nome}: formato inválido, ${parsed.error.issues[0]?.message ?? ""}`,
+          custo: usage.estimatedCostUsd,
+          usage,
+          itens: [] as Classificacao[],
+        };
+      }
+      return { erro: null, custo: usage.estimatedCostUsd, usage, itens: parsed.data.pautas };
+    } catch (erro) {
+      return {
+        erro: `${nome}: ${(erro as Error).message}`,
+        custo: 0,
+        usage: null,
+        itens: [] as Classificacao[],
+      };
+    }
+  };
+
+  const somar = (r: Awaited<ReturnType<typeof chamarLote>>) => {
+    custoUsd += r.custo;
+    if (r.usage) {
+      tokens.prompt += r.usage.promptTokens;
+      tokens.completion += r.usage.completionTokens;
+      tokens.total += r.usage.totalTokens;
+    }
+    if (r.erro) lotesComFalha.push(r.erro);
+    for (const c of r.itens) mapa.set(c.id, c);
+  };
+
   for (let i = 0; i < lotes.length; i += CHAMADAS_EM_PARALELO) {
     const rodada = lotes.slice(i, i + CHAMADAS_EM_PARALELO);
-    const respostas = await Promise.all(
-      rodada.map(async (lote, j) => {
-        try {
-          const { data, usage } = await callOpenAIJSON<unknown>(
-            [
-              { role: "system", content: montarSystemDoClassificador() },
-              { role: "user", content: montarUserDoClassificador(lote) },
-            ],
-            modelo,
-            env,
-            fetcher,
-            amostragemDeJulgamento(env),
-          );
-
-          const parsed = RespostaDoClassificadorSchema.safeParse(data);
-          if (!parsed.success) {
-            return {
-              erro: `lote ${i + j + 1}: formato inválido, ${parsed.error.issues[0]?.message ?? ""}`,
-              custo: usage.estimatedCostUsd,
-              usage,
-              itens: [] as Classificacao[],
-            };
-          }
-          return { erro: null, custo: usage.estimatedCostUsd, usage, itens: parsed.data.pautas };
-        } catch (erro) {
-          return {
-            erro: `lote ${i + j + 1}: ${(erro as Error).message}`,
-            custo: 0,
-            usage: null,
-            itens: [] as Classificacao[],
-          };
-        }
-      })
-    );
-
-    for (const r of respostas) {
-      custoUsd += r.custo;
-      if (r.usage) {
-        tokens.prompt += r.usage.promptTokens;
-        tokens.completion += r.usage.completionTokens;
-        tokens.total += r.usage.totalTokens;
-      }
-      if (r.erro) lotesComFalha.push(r.erro);
-      for (const c of r.itens) mapa.set(c.id, c);
-    }
+    const respostas = await Promise.all(rodada.map((lote, j) => chamarLote(lote, `lote ${i + j + 1}`)));
+    for (const r of respostas) somar(r);
   }
 
-  return { classificacoes: mapa, custoUsd, tokens, lotesComFalha };
+  /*
+   * Os ids que o modelo simplesmente não devolveu.
+   *
+   * O lote volta com JSON válido e mais curto que o pedido, sem erro nenhum, e
+   * as pautas ausentes são recusadas por precaução mais adiante, como
+   * `REJECT_UNCLASSIFIED`. Na medição de sete dias isso apareceu como 42
+   * pautas num relatório e 5 no seguinte, com o mesmo código: a omissão é
+   * intermitente, e uma segunda tentativa costuma pegar.
+   *
+   * Repetir o lote inteiro seria pagar de novo por tudo que já veio. Aqui só os
+   * ausentes voltam, uma vez. Se ainda faltarem, ficam sem classificação, que é
+   * o comportamento antigo e continua sendo o certo: seguir sem classificação
+   * seria publicar sem o filtro editorial.
+   */
+  const ausentes = pautas.filter((p) => !mapa.has(p.id));
+  const diagnostico = { ausentesNaPrimeira: ausentes.length, reclassificados: 0, chamadasDeRetry: 0 };
+
+  if (ausentes.length > 0) {
+    console.warn(
+      `[CLASSIFICADOR] ${ausentes.length} de ${pautas.length} pautas voltaram sem classificação. ` +
+        `Repetindo só as ausentes, uma vez.`,
+    );
+
+    const lotesDeRetry: PautaClassificavel[][] = [];
+    let atualRetry: PautaClassificavel[] = [];
+    let caracteresRetry = 0;
+    for (const pauta of ausentes) {
+      const custo = custoEmCaracteres(pauta);
+      if (
+        atualRetry.length > 0 &&
+        (atualRetry.length >= PAUTAS_POR_CHAMADA || caracteresRetry + custo > CARACTERES_POR_CHAMADA)
+      ) {
+        lotesDeRetry.push(atualRetry);
+        atualRetry = [];
+        caracteresRetry = 0;
+      }
+      atualRetry.push(pauta);
+      caracteresRetry += custo;
+    }
+    if (atualRetry.length > 0) lotesDeRetry.push(atualRetry);
+
+    diagnostico.chamadasDeRetry = lotesDeRetry.length;
+
+    for (let i = 0; i < lotesDeRetry.length; i += CHAMADAS_EM_PARALELO) {
+      const rodada = lotesDeRetry.slice(i, i + CHAMADAS_EM_PARALELO);
+      const respostas = await Promise.all(
+        rodada.map((lote, j) => chamarLote(lote, `retry ${i + j + 1}`)),
+      );
+      for (const r of respostas) somar(r);
+    }
+
+    diagnostico.reclassificados = ausentes.filter((p) => mapa.has(p.id)).length;
+    console.log(
+      `[CLASSIFICADOR] Retry recuperou ${diagnostico.reclassificados} de ${ausentes.length} ` +
+        `em ${diagnostico.chamadasDeRetry} chamada(s).`,
+    );
+  }
+
+  return { classificacoes: mapa, custoUsd, tokens, lotesComFalha, diagnostico };
 }
 
 export function entidadesDaClassificacao(c: Classificacao): Entidades {
