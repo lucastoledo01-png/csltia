@@ -354,6 +354,30 @@ função de guarda escrita e não chamada é pior que função ausente: ela dá 
 impressão de que o caso está coberto. Se existe teste e não existe call site, o
 teste está provando uma coisa que não acontece em produção.
 
+### BACKLOG: GOOGLE_NEWS_DISCOVERY_ONLY
+
+**O que falta.** Em 08/09/2026 as 11 consultas do Google News cuja cobertura
+direta já existia foram desativadas, e cinco feeds diretos entraram no lugar
+(Wolfsdorf, National Law Review, JD Supra, Ogletree, RN Law Group). Quatro
+consultas continuam ativas porque nenhum feed direto cobre o ângulo: asilo e
+refúgio, câmbio e custo de vida, e brasileiros nos EUA.
+
+**O objetivo, para quando for feito.** Google News só como descoberta. Nunca
+como URL final. Ao encontrar um item, extrair o publisher do campo
+`<source url>`, que existe em 100% dos itens e hoje é descartado por
+`parseRSSItems`; tentar resolver a matéria na origem direta; e sem origem
+direta comprovada, não publicar.
+
+**O que já está no ar dessa ideia.** A metade defensiva: agregador nunca é a
+identidade do grupo na deduplicação, e `escolherUrlPublicavel` recusa a pauta
+que ficou só com link de agregador. Falta a metade ativa, que é usar o
+`<source url>` para casar com a fonte direta.
+
+**O que não vale tentar.** Resolver o link do agregador. Medido: o `<link>` do
+item é um blob base64 resolvido por JavaScript via POST assinado, e seguir a URL
+de fora devolve `google.com/sorry` com HTTP 429. Seria engenharia reversa de
+endpoint privado, e 79% da coleta passaria a depender dela.
+
 ### Token de longa duração da Meta expira em ~60 dias
 
 **O que.** `INSTAGRAM_ACCESS_TOKEN` é um token longo que vence. Antes do Tier 0
