@@ -438,6 +438,106 @@ export function renderEditionToHtml(
   </div>`;
 }
 
+/**
+ * Grava o dia em que a redação rodou e decidiu não publicar.
+ *
+ * Existe porque a ausência de linha é ambígua: em agosto, `newsroom_runs`
+ * vazio significou cron morto, e em setembro significou linha editorial
+ * fazendo o trabalho dela. Os dois casos exigem reações opostas, e nenhum dos
+ * dois deixava rastro.
+ *
+ * `cancelled` já está no CHECK da tabela desde a migration original, então
+ * isto não pede alteração de schema. O erro da própria gravação é engolido, no
+ * mesmo padrão do registro de sucesso: não conseguir anotar o dia não pode
+ * virar uma segunda falha em cima da primeira.
+ *
+ * A chave leva o sufixo `#sem-edicao` porque `idempotency_key` é UNIQUE global.
+ * Gravando com a chave canônica, o dia sem edição ocuparia o lugar do dia: uma
+ * recuperação bem-sucedida mais tarde perderia o próprio registro de sucesso, e
+ * o dia ficaria arquivado como cancelado tendo publicado. Registro que mente é
+ * pior que registro ausente, que é o problema que este código veio resolver.
+ *
+ * Como efeito, a guarda de idempotência não vê este registro, e está certo:
+ * dia cancelado por falta de pauta DEVE poder ser tentado de novo.
+ */
+/**
+ * Anexa o desfecho do alerta ao run já gravado.
+ *
+ * Existe por causa de um beco sem saída da investigação de 06, 07 e 08 de
+ * setembro de 2026: os alertas críticos não chegaram, e a única evidência do
+ * motivo era um `console.error` dentro do contêiner, que o usuário `deploy` não
+ * consegue ler (sem docker, sem sudo). Cinco hipóteses foram eliminadas por
+ * medição e a sexta ficou sem prova, porque a prova estava num log inalcançável.
+ *
+ * Log serve para quem tem acesso ao log. O que sobrevive é o que está no banco.
+ * A próxima vez que um alerta falhar, o motivo estará na linha do run.
+ */
+export async function anexarDesfechoDoAlerta(
+  idempotencyKey: string,
+  desfecho: { enviado: boolean; motivo: string; status: number | null; descricao: string | null },
+  cliente?: ReturnType<typeof getSupabaseAdminClient>,
+): Promise<void> {
+  try {
+    const supabase = cliente ?? getSupabaseAdminClient();
+    const chave = `${idempotencyKey}#sem-edicao`;
+
+    const { data } = await supabase
+      .from("newsroom_runs")
+      .select("error_message")
+      .eq("idempotency_key", chave)
+      .maybeSingle();
+
+    const anterior = (data?.error_message as string | undefined) ?? "";
+    const nota =
+      `alerta=${desfecho.enviado ? "entregue" : "FALHOU"} motivo=${desfecho.motivo}` +
+      (desfecho.status !== null ? ` status=${desfecho.status}` : "") +
+      (desfecho.descricao ? ` descricao=${desfecho.descricao.slice(0, 200)}` : "");
+
+    await supabase
+      .from("newsroom_runs")
+      .update({ error_message: anterior ? `${anterior} | ${nota}` : nota })
+      .eq("idempotency_key", chave);
+  } catch (err) {
+    console.error("[NEWSROOM DB] Não consegui anexar o desfecho do alerta:", err);
+  }
+}
+
+export async function registrarDiaSemEdicao(dados: {
+  projectId: string;
+  startTime: number;
+  idempotencyKey: string;
+  motivo: string;
+  sourcesCount: number;
+  candidatesFound: number;
+  uniqueCount: number;
+  duplicatesCount: number;
+  storiesSelected: number;
+  dryRun: boolean;
+}, cliente?: ReturnType<typeof getSupabaseAdminClient>): Promise<void> {
+  if (dados.dryRun) return;
+
+  try {
+    const supabase = cliente ?? getSupabaseAdminClient();
+    await supabase.from("newsroom_runs").insert({
+      project_id: dados.projectId,
+      started_at: new Date(dados.startTime).toISOString(),
+      finished_at: new Date().toISOString(),
+      status: "cancelled",
+      sources_count: dados.sourcesCount,
+      candidates_found: dados.candidatesFound,
+      candidates_filtered: dados.candidatesFound - dados.uniqueCount,
+      duplicates_count: dados.duplicatesCount,
+      stories_selected: dados.storiesSelected,
+      dry_run: false,
+      edition_id: null,
+      error_message: dados.motivo,
+      idempotency_key: `${dados.idempotencyKey}#sem-edicao`,
+    });
+  } catch (err) {
+    console.error("[NEWSROOM DB] Não consegui registrar o dia sem edição:", err);
+  }
+}
+
 export async function runNewsroom(
   options: RunNewsroomOptions = {},
   env: Record<string, string | undefined> = process.env,
@@ -608,13 +708,53 @@ export async function runNewsroom(
       }
     } else {
       if (!resultado.viavel) {
-        // Sem pauta suficiente, a edição não sai. A alternativa seria
-        // completar com o que o filtro recusou, e completar com o que o filtro
-        // recusou é não ter filtro.
-        throw new Error(
-          `Edição não fecha hoje: ${resultado.motivoDaInviabilidade}. ` +
-            `${resultado.recusadas.length} pautas recusadas pela linha editorial.`,
-        );
+        /*
+         * Sem pauta suficiente, a edição não sai. A alternativa seria completar
+         * com o que o filtro recusou, e completar com o que o filtro recusou é
+         * não ter filtro. Isso não muda.
+         *
+         * O que muda é COMO isso é dito. Antes era `throw`, e um throw aqui
+         * acontece antes de qualquer escrita: `news_editions` na linha 916 e
+         * `newsroom_runs` na 1158 nunca eram alcançados. O resultado é que três
+         * dias de decisão editorial CORRETA (06, 07 e 08 de setembro de 2026)
+         * não deixaram uma linha em lugar nenhum, e ficaram indistinguíveis de
+         * um cron morto, que é exatamente o incidente de agosto. Ainda por
+         * cima, o `.catch` da rota classificava a decisão como
+         * "Redação falhou", em nível crítico.
+         *
+         * Dia sem pauta é resultado, não exceção. Ele é gravado com status
+         * `cancelled`, que já existe no CHECK da tabela, e devolvido como
+         * `ok: false` com motivo próprio, para o alerta sair como aviso e o
+         * watchdog continuar sabendo que a chamada chegou à aplicação.
+         */
+        const detalhe =
+          `${resultado.motivoDaInviabilidade}. ` +
+          `${resultado.recusadas.length} pautas recusadas pela linha editorial.`;
+
+        console.log(`[NEWSROOM] Edição não fecha hoje: ${detalhe}`);
+
+        await registrarDiaSemEdicao({
+          projectId: project.id,
+          startTime,
+          idempotencyKey,
+          motivo: `EDITORIAL_MINIMUM_NOT_MET: ${detalhe}`,
+          sourcesCount: collectionResult.sourcesAttempted,
+          candidatesFound: collectionResult.candidates.length,
+          uniqueCount: uniqueGroups.length,
+          duplicatesCount,
+          storiesSelected: resultado.selecionadas.length,
+          dryRun,
+        });
+
+        return {
+          ok: false as const,
+          reason: "editorial_minimum_not_met" as const,
+          detail: detalhe,
+          approvedCount: resultado.selecionadas.length,
+          rejectedCount: resultado.recusadas.length,
+          minimumRequired: configEditorial.minimoDePautas,
+          idempotencyKey,
+        };
       }
 
       pautasDaGuarda = resultado.selecionadas;
