@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { requireCron } from "@/lib/server/api-auth";
-import { runNewsroom } from "@/lib/server/newsroom/newsroom-service";
-import { formatError, pingHealthcheck, sendAlert } from "@/lib/server/alerts";
+import { anexarDesfechoDoAlerta, runNewsroom } from "@/lib/server/newsroom/newsroom-service";
+import { enviarAlerta, formatError, pingHealthcheck, sendAlert } from "@/lib/server/alerts";
 
 export const maxDuration = 300;
 
@@ -52,12 +52,23 @@ async function reportNewsroomOutcome(
 
     if (reason === "editorial_minimum_not_met") {
       const detalhe = "detail" in resultado ? resultado.detail : "";
-      await sendAlert(
+      const desfecho = await enviarAlerta(
         "warning",
         "Sem newsletter hoje: a linha editorial não aprovou o mínimo",
         `${detalhe} Nada foi publicado, e isso é decisão editorial, não falha. ` +
           `O run está gravado em newsroom_runs com status cancelled.`,
       );
+
+      /*
+       * O desfecho do alerta vai para o banco, não só para o log.
+       *
+       * Foi assim que a investigação de 06, 07 e 08 travou: a evidência do
+       * motivo estava num log de contêiner inalcançável. Se o alerta falhar de
+       * novo, o motivo estará na linha do run.
+       */
+      const chave = "idempotencyKey" in resultado ? resultado.idempotencyKey : "";
+      if (chave) await anexarDesfechoDoAlerta(chave, desfecho);
+
       await pingHealthcheck(healthcheck);
       return;
     }
