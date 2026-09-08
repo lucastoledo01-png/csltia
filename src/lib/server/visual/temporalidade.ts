@@ -378,6 +378,146 @@ export function analisarTemporalidade(
  * A régua é a centralidade que a fase 2 já calcula. Foto de pessoa exige que a
  * pessoa seja o assunto, não que ela apareça.
  */
+
+/**
+ * Palavras que fazem um par capitalizado NÃO ser nome de pessoa.
+ *
+ * "Federal Register", "Diversity Visa", "Supreme Court", "New York" e
+ * "United States" têm exatamente a forma de nome próprio de gente. Sem esta
+ * lista, qualquer foto institucional seria acusada de conter uma pessoa.
+ */
+const NAO_E_NOME_DE_PESSOA = new Set([
+  "federal", "register", "department", "state", "states", "united", "supreme", "court", "courthouse",
+  "bureau", "office", "agency", "service", "services", "administration", "commission", "committee",
+  "senate", "congress", "house", "white", "capitol", "embassy", "consulate", "immigration",
+  "citizenship", "customs", "border", "protection", "security", "homeland", "labor", "statistics",
+  "diversity", "visa", "green", "card", "national", "law", "review", "new", "york", "washington",
+  "los", "angeles", "san", "francisco", "district", "northern", "southern", "eastern", "western",
+  "california", "texas", "florida", "america", "american", "january", "february", "march", "april",
+  "may", "june", "july", "august", "september", "october", "november", "december", "annual",
+  "meeting", "conference", "summit", "panel", "session", "press", "briefing", "headquarters",
+  "university", "institute", "college", "school", "center", "centre", "museum", "library",
+  "airport", "terminal", "station", "bridge", "park", "plaza", "hall", "building", "tower",
+  "images", "collection", "photographs", "file", "jpg", "jpeg", "png",
+]);
+
+/**
+ * Palavras que revelam lugar batizado com nome de gente.
+ *
+ * "Harry S. Truman Building" é prédio, não pessoa, e a diferença é a palavra
+ * seguinte. Sem isto, toda foto de fachada de órgão americano seria recusada,
+ * porque nos Estados Unidos quase todo prédio público leva nome de alguém.
+ */
+const SUFIXO_DE_LUGAR = new Set([
+  "building", "hall", "center", "centre", "library", "airport", "bridge", "school", "university",
+  "institute", "memorial", "park", "plaza", "terminal", "courthouse", "hospital", "stadium",
+  "highway", "boulevard", "avenue", "street", "tunnel", "dam", "base", "monument", "museum",
+]);
+
+function normal(t: string): string {
+  return t
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+/**
+ * Nomes de pessoa que o CATÁLOGO declara estarem na imagem.
+ *
+ * Isto não olha a imagem, e é de propósito: inferir quem está na foto pela
+ * aparência é o que o projeto não faz. O que se lê aqui é o que o acervo
+ * escreveu no nome do arquivo, na descrição e nas categorias, que é onde o
+ * Commons registra as pessoas identificáveis de uma foto.
+ *
+ * O caso que motivou: uma pauta sobre dado de emprego recebeu
+ * "ASSA 2026 - David Wessel, Loretta Mester, Jason Furman, Karen Dynan.jpg",
+ * classificada como `institution`. Quatro pessoas identificáveis, nenhuma
+ * delas assunto da pauta, e `retratoNaoCentral` não alcançava porque só olhava
+ * `official_portrait` e `entity_portrait`.
+ */
+export function pessoasDeclaradasNaImagem(asset: {
+  sourceAssetId?: string;
+  metadata?: Record<string, unknown>;
+}): string[] {
+  const partes = [
+    String(asset.sourceAssetId ?? "").replace(/^File:/i, "").replace(/\.(jpe?g|png|gif|webp|svg)$/i, ""),
+    String((asset.metadata?.descricao as string) ?? ""),
+    String((asset.metadata?.categorias as string) ?? ""),
+  ].join(" | ");
+
+  const achados = new Set<string>();
+
+  // Dois ou três tokens capitalizados seguidos, aceitando inicial com ponto
+  // ("Harry S. Truman") e partícula minúscula ("Ursula von der Leyen").
+  const padrao = /\b([A-Z][a-zà-ÿ]+|[A-Z]\.)(?:\s+(?:von|van|de|da|dos|del|di|la|le))?\s+([A-Z][a-zà-ÿ]+|[A-Z]\.)(?:\s+([A-Z][a-zà-ÿ]+))?/g;
+
+  for (const m of partes.matchAll(padrao)) {
+    const bruto = m[0].trim();
+    const tokens = bruto.split(/\s+/).map((t) => normal(t.replace(/\.$/, "")));
+
+    // Todo token estrutural desqualifica: sobra nome de órgão, de lugar ou de
+    // evento, não de gente.
+    if (tokens.some((t) => NAO_E_NOME_DE_PESSOA.has(t))) continue;
+
+    // Lugar batizado com nome de gente: a palavra seguinte denuncia.
+    const depois = partes.slice(partes.indexOf(bruto) + bruto.length).trim().split(/[\s|,.]+/)[0];
+    if (depois && SUFIXO_DE_LUGAR.has(normal(depois))) continue;
+
+    // Nome de pessoa tem pelo menos um sobrenome escrito por extenso.
+    if (!tokens.some((t) => t.length >= 3)) continue;
+
+    achados.add(bruto);
+  }
+
+  return [...achados];
+}
+
+/** A pessoa declarada na imagem é assunto da pauta? */
+function nomeCasaComAPauta(nome: string, referencias: string[]): boolean {
+  const alvo = normal(nome);
+  const sobrenomes = alvo.split(/\s+/).filter((t) => t.length >= 4);
+
+  return referencias.some((r) => {
+    const ref = normal(r);
+    if (ref.includes(alvo) || alvo.includes(ref)) return true;
+    // Sobrenome basta: a pauta escreve "Rubio" e o arquivo "Marco Rubio".
+    return sobrenomes.some((s) => new RegExp(`\\b${s}\\b`).test(ref));
+  });
+}
+
+/**
+ * Pessoa identificável na imagem que não é assunto da pauta.
+ *
+ * Vale para QUALQUER `image_context_type`, e é essa a diferença em relação a
+ * `retratoNaoCentral`: uma foto de painel de congresso, de fachada com gente
+ * na frente ou de evento de empresa carrega pessoas identificáveis mesmo
+ * classificada como `institution`, `place`, `company` ou `event`. O leitor não
+ * vê o campo `image_context_type`; ele vê o rosto.
+ *
+ * A regra é a mesma que o dono do produto já deu para o caso do retrato: a
+ * imagem tem que ser DO assunto. Se o catálogo declara alguém na foto e essa
+ * pessoa não aparece na pauta, a foto não ilustra a pauta.
+ */
+export function figuraNaoCentralNaImagem(
+  asset: { sourceAssetId?: string; metadata?: Record<string, unknown>; imageContextType?: string },
+  referenciasDaPauta: string[],
+): { recusa: MotivoTemporal | null; detalhe: string } {
+  const pessoas = pessoasDeclaradasNaImagem(asset);
+  if (pessoas.length === 0) return { recusa: null, detalhe: "" };
+
+  const centrais = pessoas.filter((p) => nomeCasaComAPauta(p, referenciasDaPauta));
+  if (centrais.length > 0) return { recusa: null, detalhe: "" };
+
+  return {
+    recusa: "NON_CENTRAL_PUBLIC_FIGURE",
+    detalhe:
+      `o acervo declara ${pessoas.length === 1 ? "" : `${pessoas.length} pessoas, `}` +
+      `${pessoas.slice(0, 4).join(", ")} na imagem, e ${pessoas.length === 1 ? "essa pessoa" : "nenhuma delas"} ` +
+      `aparece na pauta. Contexto declarado: ${asset.imageContextType ?? "n/d"}. ` +
+      `Quem vê o post vê o rosto, não o campo image_context_type.`,
+  };
+}
+
 export function retratoNaoCentral(
   asset: Pick<AssetVisual, "imageContextType">,
   entidade: EntidadeVisual,

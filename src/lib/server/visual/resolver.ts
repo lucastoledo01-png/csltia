@@ -15,7 +15,7 @@ import { carregarConfigDeImagem, pisoDeRelevancia, pontuarImagem } from "./relev
 import { avaliarLicenca, montarAtribuicao } from "./licencas";
 import { bancoConfigurado, buscarFotoDeBanco } from "../prompt-system/stock";
 import { consultaConceitual } from "./conceitual";
-import { analisarTemporalidade, retratoNaoCentral } from "./temporalidade";
+import { analisarTemporalidade, figuraNaoCentralNaImagem, retratoNaoCentral } from "./temporalidade";
 
 /**
  * A imagem de uma pauta, resolvida pela entidade.
@@ -173,6 +173,7 @@ export async function resolveVisualAsset(
       const melhor = melhorPontuado(disponiveis, entidade, piso, recusados, config.larguraMinima, {
         titulo: pauta.titulo,
         resumo: pauta.resumo,
+        atores: pauta.classificacao.atores,
       });
       if (melhor) {
         if (!opcoes.somenteLeitura && melhor.id) await biblioteca.registrarUso(melhor.id);
@@ -321,6 +322,7 @@ export async function resolveVisualAsset(
   const escolhido = melhorPontuado(disponiveis, entidade, piso, recusados, config.larguraMinima, {
     titulo: pauta.titulo,
     resumo: pauta.resumo,
+    atores: pauta.classificacao.atores,
   });
 
   if (!escolhido) {
@@ -364,7 +366,7 @@ function melhorPontuado<T extends AssetVisual>(
   piso: number,
   recusados: CandidatoRecusado[],
   larguraMinima: number,
-  pauta?: { titulo: string; resumo?: string }
+  pauta?: { titulo: string; resumo?: string; atores?: string[] }
 ): T | null {
   let melhor: T | null = null;
   let melhorNota = -1;
@@ -418,6 +420,34 @@ function melhorPontuado<T extends AssetVisual>(
           identificacao: c.sourceAssetId,
           motivo: figura.recusa as CandidatoRecusado["motivo"],
           detalhe: figura.detalhe,
+        });
+        continue;
+      }
+
+      /*
+       * A mesma regra, para qualquer contexto declarado.
+       *
+       * `retratoNaoCentral` acima só alcança `official_portrait` e
+       * `entity_portrait`. Uma foto de painel de congresso classificada como
+       * `institution` passava por ele com quatro pessoas identificáveis
+       * dentro, nenhuma delas assunto da pauta. Quem vê o post vê o rosto, não
+       * o campo `image_context_type`.
+       *
+       * As referências são o que a pauta afirma: a entidade visual escolhida
+       * mais os atores da classificação.
+       */
+      const naImagem = figuraNaoCentralNaImagem(c, [
+        entidade.nome,
+        ...(pauta?.atores ?? []),
+        pauta?.titulo ?? "",
+        pauta?.resumo ?? "",
+      ]);
+      if (naImagem.recusa) {
+        recusados.push({
+          origem: c.source,
+          identificacao: c.sourceAssetId,
+          motivo: naImagem.recusa as CandidatoRecusado["motivo"],
+          detalhe: naImagem.detalhe,
         });
         continue;
       }
