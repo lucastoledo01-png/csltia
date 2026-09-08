@@ -460,6 +460,48 @@ export function renderEditionToHtml(
  * Como efeito, a guarda de idempotência não vê este registro, e está certo:
  * dia cancelado por falta de pauta DEVE poder ser tentado de novo.
  */
+/**
+ * Anexa o desfecho do alerta ao run já gravado.
+ *
+ * Existe por causa de um beco sem saída da investigação de 06, 07 e 08 de
+ * setembro de 2026: os alertas críticos não chegaram, e a única evidência do
+ * motivo era um `console.error` dentro do contêiner, que o usuário `deploy` não
+ * consegue ler (sem docker, sem sudo). Cinco hipóteses foram eliminadas por
+ * medição e a sexta ficou sem prova, porque a prova estava num log inalcançável.
+ *
+ * Log serve para quem tem acesso ao log. O que sobrevive é o que está no banco.
+ * A próxima vez que um alerta falhar, o motivo estará na linha do run.
+ */
+export async function anexarDesfechoDoAlerta(
+  idempotencyKey: string,
+  desfecho: { enviado: boolean; motivo: string; status: number | null; descricao: string | null },
+  cliente?: ReturnType<typeof getSupabaseAdminClient>,
+): Promise<void> {
+  try {
+    const supabase = cliente ?? getSupabaseAdminClient();
+    const chave = `${idempotencyKey}#sem-edicao`;
+
+    const { data } = await supabase
+      .from("newsroom_runs")
+      .select("error_message")
+      .eq("idempotency_key", chave)
+      .maybeSingle();
+
+    const anterior = (data?.error_message as string | undefined) ?? "";
+    const nota =
+      `alerta=${desfecho.enviado ? "entregue" : "FALHOU"} motivo=${desfecho.motivo}` +
+      (desfecho.status !== null ? ` status=${desfecho.status}` : "") +
+      (desfecho.descricao ? ` descricao=${desfecho.descricao.slice(0, 200)}` : "");
+
+    await supabase
+      .from("newsroom_runs")
+      .update({ error_message: anterior ? `${anterior} | ${nota}` : nota })
+      .eq("idempotency_key", chave);
+  } catch (err) {
+    console.error("[NEWSROOM DB] Não consegui anexar o desfecho do alerta:", err);
+  }
+}
+
 export async function registrarDiaSemEdicao(dados: {
   projectId: string;
   startTime: number;

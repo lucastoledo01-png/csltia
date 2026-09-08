@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { registrarDiaSemEdicao } from "./newsroom-service";
+import { anexarDesfechoDoAlerta, registrarDiaSemEdicao } from "./newsroom-service";
 
 /**
  * O dia em que a redação decide não publicar tem que deixar linha.
@@ -145,5 +145,72 @@ describe("a decisão editorial não é mais exceção", () => {
     const bloco = rota.slice(inicio, rota.indexOf("return;", inicio));
     expect(bloco).toContain("pingHealthcheck(healthcheck)");
     expect(bloco).not.toContain('pingHealthcheck(healthcheck, "fail")');
+  });
+});
+
+describe("o desfecho do alerta sobrevive no banco", () => {
+  /*
+   * A investigação de 06, 07 e 08 travou num beco: os alertas não chegaram e a
+   * evidência do motivo estava num `console.error` dentro do contêiner, que o
+   * usuário `deploy` não consegue ler. Cinco hipóteses caíram por medição e a
+   * sexta ficou sem prova porque a prova estava num log inalcançável.
+   *
+   * Log serve para quem tem acesso ao log.
+   */
+  function bancoComRun(errorMessageAtual: string | null) {
+    const updates: Array<Record<string, unknown>> = [];
+    const client = {
+      from() {
+        const c: Record<string, unknown> = {
+          select: () => c,
+          eq: () => c,
+          maybeSingle: () => Promise.resolve({ data: { error_message: errorMessageAtual }, error: null }),
+          update(linha: Record<string, unknown>) {
+            updates.push(linha);
+            return { eq: () => Promise.resolve({ data: null, error: null }) };
+          },
+        };
+        return c;
+      },
+    } as unknown as SupabaseClient;
+    return { client, updates };
+  }
+
+  it("alerta que falhou deixa motivo, status e descrição na linha do run", async () => {
+    const { client, updates } = bancoComRun("EDITORIAL_MINIMUM_NOT_MET: 1 aprovada, mínimo 2.");
+    await anexarDesfechoDoAlerta(
+      "daily-edition-2026-09-08",
+      { enviado: false, motivo: "telegram_recusou", status: 400, descricao: "Bad Request: chat not found" },
+      client,
+    );
+
+    const msg = String(updates[0].error_message);
+    expect(msg).toContain("EDITORIAL_MINIMUM_NOT_MET");
+    expect(msg).toContain("alerta=FALHOU");
+    expect(msg).toContain("motivo=telegram_recusou");
+    expect(msg).toContain("status=400");
+    expect(msg).toContain("chat not found");
+  });
+
+  it("alerta entregue também fica registrado", async () => {
+    const { client, updates } = bancoComRun(null);
+    await anexarDesfechoDoAlerta(
+      "daily-edition-2026-09-08",
+      { enviado: true, motivo: "enviado", status: 200, descricao: null },
+      client,
+    );
+    expect(String(updates[0].error_message)).toContain("alerta=entregue");
+  });
+
+  it("falha ao anexar não derruba quem chamou", async () => {
+    const quebrado = {
+      from() {
+        throw new Error("sem conexão");
+      },
+    } as unknown as SupabaseClient;
+
+    await expect(
+      anexarDesfechoDoAlerta("k", { enviado: true, motivo: "enviado", status: 200, descricao: null }, quebrado),
+    ).resolves.toBeUndefined();
   });
 });
