@@ -32,12 +32,38 @@ async function reportNewsroomOutcome(
 
   if (!resultado.ok) {
     const reason = "reason" in resultado ? resultado.reason : "desconhecido";
+
+    /*
+     * Dia sem pauta suficiente não é falha de execução.
+     *
+     * O watchdog existe para responder uma pergunta só: a chamada chegou à
+     * aplicação? Chegou. A redação rodou inteira, classificou a coleta do dia
+     * e a linha editorial decidiu não publicar. Marcar isso como `fail` treina
+     * quem lê a ignorar o sinal, e foi o silêncio de um alerta que custou seis
+     * dias em agosto.
+     *
+     * Então o watchdog recebe sucesso e o aviso vai por alerta, com o número
+     * que importa: quantas aprovaram contra o mínimo.
+     */
     if (reason === "already_executed_today") {
       await pingHealthcheck(healthcheck);
-    } else {
-      await sendAlert("warning", "Redação não gerou edição", `Motivo: ${reason}`);
-      await pingHealthcheck(healthcheck, "fail");
+      return;
     }
+
+    if (reason === "editorial_minimum_not_met") {
+      const detalhe = "detail" in resultado ? resultado.detail : "";
+      await sendAlert(
+        "warning",
+        "Sem newsletter hoje: a linha editorial não aprovou o mínimo",
+        `${detalhe} Nada foi publicado, e isso é decisão editorial, não falha. ` +
+          `O run está gravado em newsroom_runs com status cancelled.`,
+      );
+      await pingHealthcheck(healthcheck);
+      return;
+    }
+
+    await sendAlert("warning", "Redação não gerou edição", `Motivo: ${reason}`);
+    await pingHealthcheck(healthcheck, "fail");
     return;
   }
 
