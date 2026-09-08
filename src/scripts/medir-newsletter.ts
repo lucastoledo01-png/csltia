@@ -54,6 +54,14 @@ async function main() {
   const rotulo = valor("rotulo") ?? "sem-rotulo";
   const soDias = (valor("apenas") ?? "").split(",").filter(Boolean);
   const repeticoes = Number(valor("repeticoes")) > 0 ? Number(valor("repeticoes")) : 1;
+  /*
+   * Sem reuso, para o teste de instabilidade.
+   *
+   * Repetir o mesmo dia com a persistência ligada leria a classificação
+   * gravada na primeira volta e devolveria variância zero, o que provaria só
+   * que o cache funciona. Medir instabilidade exige classificar de novo.
+   */
+  const semReuso = argv.includes("--sem-reuso");
 
   const project = await requireActiveProject(DEFAULT_PROJECT_ID);
   const fontes = (await getProjectNewsSources(project.id)).filter((f) => f.enabled);
@@ -107,7 +115,7 @@ async function main() {
         provedorDeVetor: criarProvedorOpenAI(process.env, fetch),
         env: process.env,
         fetcher: fetch,
-        candidatos: { store: criarCandidatosStore(client), projectId: project.id },
+        ...(semReuso ? {} : { candidatos: { store: criarCandidatosStore(client), projectId: project.id } }),
       });
       const ms = Date.now() - t0;
 

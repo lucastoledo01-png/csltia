@@ -313,6 +313,47 @@ nunca é diagnóstico: só é quando o caminho de sucesso E o de recusa ambos
 escrevem. E o corolário: portão que decide não publicar precisa gravar antes de
 sinalizar, porque sinalizar por exceção apaga o rastro do que ele decidiu.
 
+### Google News era fonte, não descoberta, e o assinante clicava nele
+
+**Sintoma.** Quatro matérias das edições de 04 e 05 de setembro de 2026 saíram
+com `news.google.com/rss/articles/CBMi...` como link da fonte. Quem clica cai
+num interstitial do Google; seguindo o link de fora, a resposta é
+`google.com/sorry` com HTTP 429.
+
+**Causa.** Nenhum filtro estava errado. O deduplicador escolhia o primário por
+PRIORIDADE (`candidate.priority === 1 && primary.priority > 1`), e o `url` do
+primário é o que vai publicado como fonte. Com o item do Google News e o do
+feed direto empatados em prioridade 1, o agregador ficava. O enriquecimento
+depois buscava o texto por uma URL secundária e dava certo, então a pauta
+passava em tudo com um link que não leva a lugar nenhum.
+
+E existia uma função escrita para exatamente esse caso, `escolherUrlPublicavel`
+em `regras-duras.ts`, com teste próprio, **que ninguém chamava fora do próprio
+teste**. O comentário dela nomeia o incidente que a motivou.
+
+**Corrigido.** Agregador nunca é a identidade do grupo, e essa regra vem antes
+da prioridade; `escolherUrlPublicavel` entrou na guarda, e sem endereço próprio
+comprovado a pauta não publica.
+
+**A medida que explica o resto.** Das 987 candidatas classificadas entre 01 e
+08 de setembro, **675 vieram do Google News, e nenhuma foi aprovada** — 68% da
+coleta. Dessas, 177 foram marcadas como imigração pelo classificador: material
+da vertical, identificado, e inutilizável porque o link não resolve. Não existe
+atalho técnico: o `<link>` do item é um blob base64 resolvido por JavaScript via
+POST assinado, e seguir isso seria engenharia reversa de endpoint privado.
+
+**O que o feed entrega e o código jogava fora.** Todo item do Google News traz
+`<source url="https://ogletree.com">ogletree.com</source>`, com o publisher
+real, em 100 de 100 itens medidos. `parseRSSItems` extrai título, link, data,
+descrição, autor e imagem, e ignora esse campo. É o único sinal de procedência
+disponível, e é o que transforma o agregador em ferramenta de descoberta: os
+publishers que ele intermedia são a lista de quem assinar direto.
+
+**Lição.** Agregador é para descobrir quem assinar, nunca para ser a fonte. E
+função de guarda escrita e não chamada é pior que função ausente: ela dá a
+impressão de que o caso está coberto. Se existe teste e não existe call site, o
+teste está provando uma coisa que não acontece em produção.
+
 ### Token de longa duração da Meta expira em ~60 dias
 
 **O que.** `INSTAGRAM_ACCESS_TOKEN` é um token longo que vence. Antes do Tier 0
