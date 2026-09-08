@@ -16,6 +16,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const tabelas: Record<string, { row?: unknown; rows?: unknown[] }> = {};
 const updates: Array<Record<string, unknown>> = [];
+/**
+ * Faz falhar UMA gravação específica, escolhida pelo nome de um campo.
+ *
+ * Derrubar todo UPDATE não serviria: a marca de posse também é um UPDATE, e ela
+ * lança, então o fluxo morreria antes de chegar à publicação — o que é o
+ * comportamento correto para banco fora do ar, e não é o cenário aqui. O que se
+ * quer isolar é a gravação do registro de revisão falhando depois de a Meta já
+ * ter sido chamada.
+ */
+const falharUpdate: { campo: string | null; mensagem: string } = { campo: null, mensagem: "conexão perdida" };
 
 function construirQuery(tabela: string) {
   const query: Record<string, unknown> = {
@@ -28,6 +38,12 @@ function construirQuery(tabela: string) {
     single: async () => ({ data: tabelas[tabela]?.row ?? null, error: null }),
     update: (valores: Record<string, unknown>) => {
       if (tabela === "social_posts") updates.push(valores);
+      if (tabela === "social_posts" && falharUpdate.campo && falharUpdate.campo in valores) {
+        return {
+          ...query,
+          eq: async () => ({ data: null, error: { message: falharUpdate.mensagem } }),
+        };
+      }
       return query;
     },
     upsert: () => query,
@@ -102,7 +118,14 @@ vi.mock("../../prompt-system/funil-permanente", () => ({
   garantirFunilPermanente: async () => ({ ligado: true, keyword: "VISA", automationId: "a1", criadaAgora: false }),
 }));
 vi.mock("../../prompt-system/pos-publicacao", () => ({ concluirCampanhaPublicada: async () => ({ automacaoCriada: false }) }));
-vi.mock("../../alerts", () => ({ sendAlert: async () => true, formatError: (e: unknown) => String(e) }));
+const alertas: Array<{ nivel: string; titulo: string; corpo: string }> = [];
+vi.mock("../../alerts", () => ({
+  sendAlert: async (nivel: string, titulo: string, corpo: string) => {
+    alertas.push({ nivel, titulo, corpo });
+    return true;
+  },
+  formatError: (e: unknown) => String(e),
+}));
 vi.mock("./edition-loader", () => ({ loadEdition: async () => ({ stories: [{ title: "t", summary: "s" }] }) }));
 /*
  * A auditoria de legenda do caminho legado passa direto.
@@ -227,6 +250,8 @@ beforeEach(() => {
   renderizouLegado.mockClear();
   renderizouV2.mockClear();
   subiuArte.mockClear();
+  alertas.length = 0;
+  falharUpdate.campo = null;
   tabelas.projects = { row: PROJETO };
 });
 
@@ -499,6 +524,57 @@ describe("H. retry não cria um segundo container", () => {
     // E o media_id só é gravado depois.
     const iMedia = updates.findIndex((u) => u.provider_post_id);
     expect(iMedia).toBeGreaterThan(iCreation);
+  });
+});
+
+// ---------------------------------------------------------------- extra
+describe("publicação de desfecho incerto", () => {
+  /** A Meta aceita o container e depois o publish falha: não se sabe se saiu. */
+  function metaQueEngasgaNoPublish() {
+    const fetcher = (async (url: string | URL) => {
+      const u = String(url);
+      if (u.includes("/media_publish")) return new Response("erro", { status: 500 });
+      if (u.includes("/media?fields=id,caption")) return Response.json({ data: [] });
+      if (u.includes("fields=status_code")) return Response.json({ status_code: "FINISHED" });
+      if (u.includes("/media")) return Response.json({ id: "container-1" });
+      return Response.json({});
+    }) as unknown as typeof fetch;
+    return fetcher;
+  }
+
+  it("vai para revisão e o container fica registrado", async () => {
+    tabelas.social_posts = { row: linhaV2() };
+
+    const r = await processScheduledPost("post-v2", {}, ENV, metaQueEngasgaNoPublish());
+
+    expect(r.ok).toBe(false);
+    expect(r.status).toBe("needs_review");
+
+    // O creation_id foi gravado ANTES do publish, que é o que permite
+    // reconciliar no giro seguinte em vez de chutar.
+    expect(updates.find((u) => u.provider_creation_id === "container-1")).toBeTruthy();
+    const falha = updates.find((u) => u.status === "failed");
+    expect(String(falha?.error_message)).toContain("PUBLICAÇÃO INCERTA");
+  });
+
+  it("se nem o registro da revisão pode ser gravado, escala", async () => {
+    /*
+     * O pior estado do sistema, e o que não tinha teste: a Meta pode ter
+     * publicado, e a marcação que impede o próximo giro de tentar de novo
+     * falhou. A linha continua elegível, então o risco é post duplicado. Não
+     * há conserto automático; o que tem que existir é alguém sabendo, com o
+     * container na mão, enquanto ainda dá para reconciliar.
+     */
+    tabelas.social_posts = { row: linhaV2() };
+    falharUpdate.campo = "error_message";
+
+    const r = await processScheduledPost("post-v2", {}, ENV, metaQueEngasgaNoPublish());
+
+    expect(r.ok).toBe(false);
+    const critico = alertas.find((a) => a.nivel === "critical" && a.titulo.includes("NÃO consegui registrar"));
+    expect(critico).toBeTruthy();
+    expect(critico!.corpo).toContain("risco de post duplicado");
+    expect(critico!.corpo).toContain("container-1");
   });
 });
 

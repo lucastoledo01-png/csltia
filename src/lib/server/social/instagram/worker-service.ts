@@ -265,6 +265,38 @@ async function montarContainer(
 type SlideSubido = { index: number; url: string; filename: string };
 
 /**
+ * Registra "publicação incerta" e ESCALA se nem isso puder ser registrado.
+ *
+ * Este é o pior estado do sistema: a Meta pode ter publicado, e daqui não se
+ * sabe. A linha marcada como `failed` com o motivo é o que impede o próximo
+ * giro de tentar de novo e possivelmente duplicar o post.
+ *
+ * Se a gravação desse registro falhar, a linha continua `scheduled`,
+ * `findDuePosts` a pega no giro seguinte, e o risco de post duplicado volta.
+ * Não há nada no código que resolva isso sozinho: o que existe é avisar
+ * alguém, com o id do container na mão, enquanto ainda dá para reconciliar.
+ */
+async function registrarRevisao(
+  socialPostId: string,
+  motivo: string,
+  creationId?: string | null,
+): Promise<void> {
+  const r = await markPostFailed(socialPostId, `PUBLICAÇÃO INCERTA: ${motivo}`);
+  console.error(`[INSTAGRAM WORKER] ${socialPostId} precisa de revisão: ${motivo}`);
+
+  if (!r.gravado) {
+    await sendAlert(
+      "critical",
+      "Publicação incerta que NÃO consegui registrar",
+      `Post ${socialPostId} teve desfecho incerto e a marcação falhou: ${r.erro}.\n` +
+        `A linha continua elegível para o worker, então há risco de post duplicado.\n` +
+        `Motivo original: ${motivo}` +
+        (creationId ? `\nContainer: ${creationId}` : ""),
+    );
+  }
+}
+
+/**
  * O que os dois ramos entregam à parte irreversível.
  *
  * `carousel` só existe no legado: é o roteiro que ele acabou de gerar, e o
@@ -517,8 +549,7 @@ export async function processScheduledPost(
     }
 
     if (jaTentado?.desfecho === "revisar") {
-      await markPostFailed(socialPostId, `PUBLICAÇÃO INCERTA: ${jaTentado.motivo}`);
-      console.error(`[INSTAGRAM WORKER] ${socialPostId} precisa de revisão: ${jaTentado.motivo}`);
+      await registrarRevisao(socialPostId, jaTentado.motivo, post.provider_creation_id ?? undefined);
       return {
         ok: false,
         projectId,
@@ -587,8 +618,7 @@ export async function processScheduledPost(
     const publicacao = await publicarComRegistro(supabase, socialPostId, creationId, igEnv, fetcher);
 
     if (publicacao.desfecho === "revisar") {
-      await markPostFailed(socialPostId, `PUBLICAÇÃO INCERTA: ${publicacao.motivo}`);
-      console.error(`[INSTAGRAM WORKER] ${socialPostId} precisa de revisão: ${publicacao.motivo}`);
+      await registrarRevisao(socialPostId, publicacao.motivo, publicacao.creationId);
       return {
         ok: false,
         projectId,

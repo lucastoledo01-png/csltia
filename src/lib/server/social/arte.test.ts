@@ -10,7 +10,7 @@ function asset(over: Partial<AssetVisual> = {}): AssetVisual {
   return {
     entityName: "Departamento de Estado",
     entityNormalized: "departamento de estado",
-    entityType: "organizacao",
+    entityType: "government_agency",
     source: "wikimedia_commons",
     sourceAssetId: "Harry_S._Truman_Building.jpg",
     imageUrl: "https://upload.wikimedia.org/foto.jpg",
@@ -29,7 +29,7 @@ function asset(over: Partial<AssetVisual> = {}): AssetVisual {
     storagePath: null,
     perceptualHash: null,
     imageRelevanceScore: 0.8,
-    imageContextType: "entity_reference",
+    imageContextType: "institution",
     metadata: {},
     ...over,
   };
