@@ -134,21 +134,26 @@ describe("modo dry_run", () => {
   });
 
   it("nenhum registro fica elegível para o worker antigo", async () => {
-    // O worker seleciona por platform, status e scheduled_at, e ignora a
-    // coluna dry_run. Se o dry-run gravasse com status scheduled, ele
-    // publicaria. Por isso ele não grava.
+    /*
+     * `findDuePosts` seleciona por `platform`, `status` e `scheduled_at`, e
+     * ignora `dry_run`. Se o dry-run gravasse com `status = scheduled`, o
+     * worker publicaria. A garantia, então, não pode ser uma coluna: tem que
+     * ser não chamar a gravação.
+     *
+     * A volta anterior deste teste filtrava as linhas com um predicado que era
+     * sempre verdadeiro, e as duas asserções diziam a mesma coisa: "nada foi
+     * gravado". Quem casa a linha do V2 contra o critério real do worker é
+     * `social-posts-store.test.ts`, onde a linha existe.
+     */
     const { store, tentativas } = storeEspiao();
-    await rodarCicloSocial(
+    const r = await rodarCicloSocial(
       [pauta("1", "USCIS amplia prazo"), pauta("2", "Outra pauta do USCIS", "DHS")],
       opcoes({ SOCIAL_PIPELINE_V2: "dry_run" }, { store }),
     );
 
-    const linhasCriadas = tentativas.flat();
-    const elegiveis = linhasCriadas.filter(
-      (l) => (l as { post?: unknown }) && true,
-    );
-    expect(linhasCriadas).toHaveLength(0);
-    expect(elegiveis).toHaveLength(0);
+    // O ciclo rodou de verdade: houve o que gravar, e não se gravou.
+    expect(r.previews.length).toBeGreaterThan(0);
+    expect(tentativas).toHaveLength(0);
   });
 
   it("expõe a chave de idempotência que a gravação usaria", async () => {

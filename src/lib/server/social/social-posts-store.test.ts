@@ -157,6 +157,49 @@ describe("persistência", () => {
   });
 });
 
+describe("o worker antigo enxerga a linha do V2", () => {
+  /*
+   * `findDuePosts` (scheduler.ts) seleciona por três coisas e só por elas:
+   * `platform = instagram`, `status = scheduled` e `scheduled_at <= agora`.
+   * Ele não conhece `dry_run` nem `generation_version`.
+   *
+   * Esta cópia do critério existe para o teste falhar se a linha do V2 parar
+   * de casar com ele, em qualquer direção. Não é um detalhe de implementação
+   * escondido num teste: é a fronteira entre gravar e publicar.
+   */
+  const vencido = (linha: Record<string, unknown>): boolean =>
+    linha.platform === "instagram" &&
+    linha.status === "scheduled" &&
+    String(linha.scheduled_at ?? "") <= "2026-09-07T00:00:00.000Z";
+
+  it("em enforce a linha é elegível, e é por isso que enforce tem trava", async () => {
+    /*
+     * O V2 grava `status = scheduled`, então o worker pega. Isso é o desenho:
+     * quem publica continua sendo o worker, que é onde mora o Chromium.
+     *
+     * E é a razão de `enforce` estar travado atrás de duas condições. O worker
+     * de hoje, ao pegar esta linha, chama `generateCarouselForPost` e
+     * REGENERA a copy pelo caminho antigo, jogando fora a que passou pelo
+     * Social Guard. Enquanto ele não souber respeitar `generation_version =
+     * social-v2`, ligar enforce publica o pipeline velho com dados do novo.
+     */
+    const { client, gravadas } = bancoFalso();
+    await criarSocialPostsStore(client).gravar([paraGravar()]);
+
+    expect(gravadas[0].status).toBe("scheduled");
+    expect(gravadas[0].dry_run).toBe(false);
+    expect(gravadas[0].generation_version).toBe("social-v2");
+    expect(vencido(gravadas[0])).toBe(true);
+  });
+
+  it("uma linha que o V2 não gravou não é inventada pelo critério", () => {
+    // Sanidade do critério copiado: ele tem que recusar o que não casa.
+    expect(vencido({ platform: "instagram", status: "generated", scheduled_at: "2026-09-06T12:00:00.000Z" })).toBe(false);
+    expect(vencido({ platform: "facebook", status: "scheduled", scheduled_at: "2026-09-06T12:00:00.000Z" })).toBe(false);
+    expect(vencido({ platform: "instagram", status: "scheduled", scheduled_at: "2026-09-30T12:00:00.000Z" })).toBe(false);
+  });
+});
+
 describe("idempotência", () => {
   it("a mesma pauta não vira duas linhas no mesmo dia", async () => {
     const { client, gravadas } = bancoFalso([
