@@ -277,12 +277,40 @@ describe("B e C. o post social-v2 não regenera nada", () => {
     expect(renderizouV2).toHaveBeenCalledTimes(1);
   });
 
-  it("não grava status=generated, porque nada foi gerado", async () => {
+  it("marca posse ANTES de renderizar, senão dois giros publicam o mesmo post", async () => {
+    /*
+     * `findDuePosts` filtra por `status = scheduled`. Enquanto a linha
+     * continuasse nesse estado, ela seguia elegível — e o V2 renderiza no
+     * Chromium, que leva segundos. Dois giros concorrentes desenhariam e
+     * publicariam a mesma peça duas vezes.
+     *
+     * O valor é `generated` porque o CHECK da tabela só aceita
+     * ('draft','generated','approved','scheduled','published','failed'), e no
+     * legado ele já significa "o worker pegou e produziu o artefato". Um
+     * `processing` novo exigiria migration.
+     */
     tabelas.social_posts = { row: linhaV2() };
     const { fetcher } = metaFalsa();
     await processScheduledPost("post-v2", {}, ENV, fetcher);
 
-    expect(updates.find((u) => u.status === "generated")).toBeUndefined();
+    const iPosse = updates.findIndex((u) => u.status === "generated");
+    expect(iPosse).toBeGreaterThanOrEqual(0);
+
+    // E a posse é gravada antes do render, não depois.
+    const iManifesto = updates.findIndex((u) => u.slides_manifest);
+    expect(iManifesto).toBeGreaterThan(iPosse);
+    expect(renderizouV2).toHaveBeenCalledTimes(1);
+  });
+
+  it("a marca de posse não carrega conteúdo: é só o status", async () => {
+    // O legado grava título, legenda e content_json junto com `generated`,
+    // porque ele acabou de produzir os três. Aqui não se produziu nada.
+    tabelas.social_posts = { row: linhaV2() };
+    const { fetcher } = metaFalsa();
+    await processScheduledPost("post-v2", {}, ENV, fetcher);
+
+    const posse = updates.find((u) => u.status === "generated")!;
+    expect(Object.keys(posse).sort()).toEqual(["status", "updated_at"]);
   });
 
   it("não toca em title, caption nem nas chaves editoriais de content_json", async () => {

@@ -365,6 +365,24 @@ async function prepararV2(
 
   const { carga } = leitura;
 
+  /*
+   * Marca de posse ANTES de renderizar, e o valor é o que o CHECK já aceita.
+   *
+   * `findDuePosts` seleciona por `status = scheduled`. Renderizar primeiro e
+   * gravar depois deixava a linha elegível durante o Chromium inteiro, e dois
+   * giros concorrentes desenhariam e publicariam o mesmo post duas vezes. O
+   * caminho legado nunca teve essa janela porque grava `generated` antes de
+   * renderizar; aqui era pior justamente por gravar menos.
+   *
+   * O status é `generated` e não um `processing` novo: o CHECK da tabela aceita
+   * ('draft','generated','approved','scheduled','published','failed'), e
+   * inventar valor fora disso exigiria migration. No legado `generated`
+   * significa "o worker pegou e produziu o artefato", que é exatamente o que
+   * acontece na linha seguinte. Vocabulário compartilhado vale mais que
+   * vocabulário preciso quando o preço da precisão é uma migration.
+   */
+  await gravarOuFalhar(supabase, socialPostId, { status: "generated" }, "a posse da vaga");
+
   console.log(
     `[INSTAGRAM WORKER V2] ${project.slug} ${editionDate}: "${carga.headline.slice(0, 60)}" ` +
       `(${carga.foto ? "com foto" : `capa de texto, ${carga.motivoSemFoto}`}, origem ${carga.originChannel})`,
@@ -412,10 +430,15 @@ export async function processScheduledPost(
   const { data: post, error: postErr } = await supabase
     .from("social_posts")
     /*
-     * As colunas do V2 entram aqui, e nenhuma delas muda o caminho legado:
-     * numa linha antiga elas voltam nulas, `ehSocialV2` diz não, e o fluxo
-     * segue igual. Ler a mais é barato; ler a menos obrigaria uma segunda
-     * consulta no meio da decisão.
+     * As colunas do V2 entram aqui, e o VALOR delas não muda o caminho legado:
+     * numa linha antiga voltam nulas, `ehSocialV2` diz não, o fluxo segue.
+     *
+     * A EXISTÊNCIA delas, porém, é compartilhada. PostgREST recusa a consulta
+     * inteira com 42703 se uma única coluna do select não existir no schema, e
+     * isso derrubaria todo post, legado incluído. Conferido contra o banco de
+     * produção: as 17 estão lá. É por isso que a falha abaixo virou alerta em
+     * vez de exceção muda — a próxima coluna que alguém acrescentar aqui não
+     * pode falhar em silêncio.
      */
     // Uma linha só, e literal: o cliente tipado do Supabase infere as colunas
     // lendo esta string em tempo de compilação, e concatená-la apaga os tipos.
@@ -423,7 +446,25 @@ export async function processScheduledPost(
     .eq("id", socialPostId)
     .maybeSingle();
 
-  if (postErr || !post) {
+  /*
+   * Falha de leitura não é o mesmo que post inexistente, e as duas ficavam com
+   * a mesma frase.
+   *
+   * Este `throw` acontece ANTES do `try` que trata o resto do fluxo, então ele
+   * não passa por `markPostFailed` nem por `sendAlert`: a linha continua
+   * `scheduled`, elegível no giro seguinte, sem rastro. Para um post que não
+   * existe isso é correto e inofensivo. Para um erro de schema ou de conexão
+   * seria um laço silencioso a cada giro, e é o tipo de coisa que se descobre
+   * pelo Instagram vazio.
+   */
+  if (postErr) {
+    const motivo = `Não consegui ler o post ${socialPostId}: ${postErr.message}`;
+    console.error(`[INSTAGRAM WORKER] ${motivo}`);
+    await sendAlert("critical", "Worker do Instagram não conseguiu ler a vaga", motivo);
+    throw new Error(motivo);
+  }
+
+  if (!post) {
     throw new Error(`Post ${socialPostId} não encontrado.`);
   }
 

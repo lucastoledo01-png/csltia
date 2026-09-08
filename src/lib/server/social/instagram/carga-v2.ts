@@ -101,7 +101,19 @@ export type LeituraDaCarga =
 export function lerCargaV2(linha: LinhaDePost): LeituraDaCarga {
   const faltando: string[] = [];
 
-  if (linha.dry_run === true) faltando.push("dry_run=true: é ensaio, não publica");
+  /*
+   * A única guarda que poderia falhar ABERTA, e o default do banco é o valor
+   * perigoso.
+   *
+   * A coluna é `dry_run boolean not null default true`. Escrito como
+   * `=== true`, um `undefined` — coluna fora do select, coluna fora do schema,
+   * linha vinda de outro caminho — apagaria a guarda em silêncio e publicaria
+   * um ensaio. Exigir `false` explicitamente inverte o erro para o lado que
+   * não põe nada no ar.
+   */
+  if (linha.dry_run !== false) {
+    faltando.push(`dry_run=${String(linha.dry_run)}: só publica o que está marcado como não-ensaio`);
+  }
 
   const guarda = texto(linha.social_guard_status);
   if (guarda !== "passed") {
