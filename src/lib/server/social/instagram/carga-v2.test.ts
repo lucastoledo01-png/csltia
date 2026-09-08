@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { criarSocialPostsStore } from "../social-posts-store";
 import type { PostParaGravar } from "../social-posts-store";
-import { ehSocialV2, lerCargaV2, MOTIVO_CARGA_INCOMPLETA } from "./carga-v2";
+import { ehEnsaio, ehLegado, ehSocialV2, lerCargaV2, MOTIVO_CARGA_INCOMPLETA } from "./carga-v2";
 
 /**
  * O encaixe entre quem grava e quem lê.
@@ -166,6 +166,16 @@ describe("a linha que o pipeline grava é aceita pelo worker", () => {
     const linha = await linhaGravada(SEM_FOTO);
     expect(linha.dry_run).toBe(false);
     expect(linha.social_guard_status).toBe("passed");
+    expect(ehEnsaio(linha)).toBe(false);
+  });
+
+  it("ensaio é qualquer coisa que não seja o booleano false", async () => {
+    // A pergunta sobe para antes da reconciliação com a Meta, então ela não
+    // pode depender de mais nada e não pode falhar aberta.
+    for (const v of [true, undefined, null, "false", 0]) {
+      expect(ehEnsaio({ dry_run: v }), String(v)).toBe(true);
+    }
+    expect(ehEnsaio({ dry_run: false })).toBe(false);
   });
 });
 
@@ -177,9 +187,36 @@ describe("entradas adversárias na leitura da carga", () => {
     expect(ehSocialV2(linha)).toBe(true);
   });
 
-  it("generation_version em maiúscula NÃO é: a coluna é declaração exata", async () => {
-    const linha = { ...(await base()), generation_version: "SOCIAL-V2" };
-    expect(ehSocialV2(linha)).toBe(false);
+  it("generation_version em maiúscula É reconhecida, porque o custo do erro é assimétrico", async () => {
+    /*
+     * A primeira volta deste teste afirmava o contrário, tratando a coluna como
+     * declaração exata. Está errado, e o motivo é para onde o quase-acerto cai:
+     * quem não é reconhecido como V2 iria para o ramo legado, que REGENERA a
+     * copy. Reconhecer um "SOCIAL-V2" a mais não faz mal; deixar de reconhecer
+     * destrói o post aprovado.
+     */
+    expect(ehSocialV2({ ...(await base()), generation_version: "SOCIAL-V2" })).toBe(true);
+    expect(ehSocialV2({ ...(await base()), generation_version: " Social-V2 " })).toBe(true);
+  });
+
+  it("versão escrita e não reconhecida não é legado: ela para", async () => {
+    /*
+     * "não é V2" e "é legado" não são a mesma coisa. Legado é a AUSÊNCIA de
+     * versão. Uma linha com `social_v3` tratada como legada iria para o gerador
+     * antigo e teria a copy reescrita, que é o pior desfecho para um erro de
+     * digitação numa coluna.
+     */
+    for (const versao of ["social_v2", "social-v3", "v2", "socialv2"]) {
+      const linha = { ...(await base()), generation_version: versao };
+      expect(ehSocialV2(linha), versao).toBe(false);
+      expect(ehLegado(linha), versao).toBe(false);
+    }
+  });
+
+  it("legado é a ausência de versão, e só ela", async () => {
+    for (const versao of [null, undefined, "", "   "]) {
+      expect(ehLegado({ ...(await base()), generation_version: versao }), String(versao)).toBe(true);
+    }
   });
 
   it("hashtags só com strings vazias contam como ausentes", async () => {

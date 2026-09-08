@@ -27,6 +27,12 @@ const updates: Array<Record<string, unknown>> = [];
  */
 const falharUpdate: { campo: string | null; mensagem: string } = { campo: null, mensagem: "conexão perdida" };
 
+/**
+ * Quando ligado, a reivindicação atômica da vaga não afeta nenhuma linha, que é
+ * o que o Postgres devolve para quem chegou em segundo lugar.
+ */
+const perderDisputa = { ligado: false };
+
 function construirQuery(tabela: string) {
   const query: Record<string, unknown> = {
     select: () => query,
@@ -38,13 +44,28 @@ function construirQuery(tabela: string) {
     single: async () => ({ data: tabelas[tabela]?.row ?? null, error: null }),
     update: (valores: Record<string, unknown>) => {
       if (tabela === "social_posts") updates.push(valores);
+
       if (tabela === "social_posts" && falharUpdate.campo && falharUpdate.campo in valores) {
-        return {
-          ...query,
-          eq: async () => ({ data: null, error: { message: falharUpdate.mensagem } }),
-        };
+        return { ...query, eq: async () => ({ data: null, error: { message: falharUpdate.mensagem } }) };
       }
-      return query;
+
+      /*
+       * A reivindicação da vaga: `update(...).eq(id).eq(status).select("id")`.
+       *
+       * O que decide a disputa é quantas linhas o UPDATE afetou, então o dublê
+       * precisa devolver a lista — vazia para quem perdeu, com uma linha para
+       * quem ganhou. Devolver o `query` genérico faria toda reivindicação
+       * parecer perdida.
+       */
+      const reivindicacao = {
+        ...query,
+        eq: () => reivindicacao,
+        select: async () => ({
+          data: perderDisputa.ligado ? [] : [{ id: "post-v2" }],
+          error: null,
+        }),
+      };
+      return reivindicacao;
     },
     upsert: () => query,
     insert: () => query,
@@ -87,8 +108,20 @@ vi.mock("./opendesign-renderer", () => ({
   uploadOpenDesignSlideToStorage: async () => "https://storage.exemplo/legado.png",
 }));
 
-/** O renderizador determinístico do V2, sem abrir navegador no teste. */
+/**
+ * O renderizador determinístico do V2, sem abrir navegador no teste.
+ *
+ * Os defeitos de render que os testes precisam simular (fonte que não chegou,
+ * PNG acima do teto) entram por `arteDefeituosa`, que o `beforeEach` limpa.
+ * Reatribuir o export do módulo no meio de um teste vazaria para os seguintes,
+ * e foi o que aconteceu na primeira volta: três testes depois deste quebraram
+ * por causa de um mock que ficou de pé.
+ */
 const renderizouV2 = vi.fn();
+const arteDefeituosa: { fontesQueFaltaram: string[]; bytes: number | null } = {
+  fontesQueFaltaram: [],
+  bytes: null,
+};
 vi.mock("../arte", () => ({
   renderizarCapas: (entradas: Array<Record<string, unknown>>) => {
     renderizouV2(entradas);
@@ -96,8 +129,12 @@ vi.mock("../arte", () => ({
       entradas.map((e) => ({
         capa: { comFoto: Boolean(e.asset), motivoSemFoto: String(e.motivoSemFoto ?? "") },
         html: "<html></html>",
-        png: Buffer.from(`arte-v2:${String(e.headline)}`),
+        png:
+          arteDefeituosa.bytes === null
+            ? Buffer.from(`arte-v2:${String(e.headline)}`)
+            : Buffer.alloc(arteDefeituosa.bytes),
         jpeg: Buffer.from("jpeg"),
+        fontesQueFaltaram: arteDefeituosa.fontesQueFaltaram,
         usouLayoutDesenhado: false,
         diagnosticoDoLayout: "LAYOUT_NOT_APPLICABLE_NO_PHOTO",
       })),
@@ -252,6 +289,9 @@ beforeEach(() => {
   subiuArte.mockClear();
   alertas.length = 0;
   falharUpdate.campo = null;
+  perderDisputa.ligado = false;
+  arteDefeituosa.fontesQueFaltaram = [];
+  arteDefeituosa.bytes = null;
   tabelas.projects = { row: PROJETO };
 });
 
@@ -325,6 +365,30 @@ describe("B e C. o post social-v2 não regenera nada", () => {
     const iManifesto = updates.findIndex((u) => u.slides_manifest);
     expect(iManifesto).toBeGreaterThan(iPosse);
     expect(renderizouV2).toHaveBeenCalledTimes(1);
+  });
+
+  it("quem perde a reivindicação não renderiza, não publica e não marca falha", async () => {
+    /*
+     * A reivindicação é atômica: `UPDATE ... WHERE id = X AND status =
+     * 'scheduled'`. Quem chega depois não afeta linha nenhuma.
+     *
+     * O que este teste protege é a consequência: o perdedor NÃO pode seguir
+     * para o `markPostFailed`, senão ele marcaria `failed` a linha que o
+     * vencedor está publicando neste instante, e o desfecho seria uma linha
+     * marcada como falha com um post no ar.
+     */
+    tabelas.social_posts = { row: linhaV2() };
+    perderDisputa.ligado = true;
+    const { fetcher, chamadas } = metaFalsa();
+
+    const r = await processScheduledPost("post-v2", {}, ENV, fetcher);
+
+    expect(r.status).toBe("skipped");
+    expect(r.ok).toBe(true);
+    expect(renderizouV2).not.toHaveBeenCalled();
+    expect(chamadas).toHaveLength(0);
+    expect(updates.find((u) => u.status === "failed")).toBeUndefined();
+    expect(alertas).toHaveLength(0);
   });
 
   it("a marca de posse não carrega conteúdo: é só o status", async () => {
@@ -528,6 +592,40 @@ describe("H. retry não cria um segundo container", () => {
 });
 
 // ---------------------------------------------------------------- extra
+describe("a peça publicada tem que ser a peça aprovada", () => {
+  it("fonte que não carregou bloqueia a publicação", async () => {
+    /*
+     * `document.fonts.ready` resolve mesmo quando o Google Fonts não respondeu.
+     * Sem Playfair Display, o ajuste mede a manchete na serifa do sistema,
+     * encolhe de outro jeito e quebra em outro ponto. A diferença é pequena o
+     * bastante para passar batida, que é o que a torna perigosa.
+     */
+    arteDefeituosa.fontesQueFaltaram = ["Playfair Display"];
+    tabelas.social_posts = { row: linhaV2() };
+    const { fetcher, chamadas } = metaFalsa();
+
+    const r = await processScheduledPost("post-v2", {}, ENV, fetcher);
+
+    expect(r.ok).toBe(false);
+    expect(String(r.error)).toContain("Playfair Display");
+    expect(chamadas).toHaveLength(0);
+    expect(subiuArte).not.toHaveBeenCalled();
+  });
+
+  it("arte acima do teto de bytes da Meta não sobe nem publica", async () => {
+    arteDefeituosa.bytes = 9 * 1024 * 1024;
+    tabelas.social_posts = { row: linhaV2() };
+    const { fetcher, chamadas } = metaFalsa();
+
+    const r = await processScheduledPost("post-v2", {}, ENV, fetcher);
+
+    expect(r.ok).toBe(false);
+    expect(String(r.error)).toContain("teto da Meta");
+    expect(subiuArte).not.toHaveBeenCalled();
+    expect(chamadas).toHaveLength(0);
+  });
+});
+
 describe("publicação de desfecho incerto", () => {
   /** A Meta aceita o container e depois o publish falha: não se sabe se saiu. */
   function metaQueEngasgaNoPublish() {

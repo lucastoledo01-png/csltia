@@ -56,6 +56,46 @@ export async function gravarOuFalhar(
 }
 
 /**
+ * Reivindica a vaga, e só uma reivindicação vence.
+ *
+ * `gravarOuFalhar` com `status` não serve para isso: `UPDATE ... WHERE id = X`
+ * dá certo nos dois giros que estejam disputando a mesma linha, porque nenhum
+ * dos dois pergunta em que estado ela estava. Os dois seguem em frente, os dois
+ * renderizam, os dois publicam.
+ *
+ * A condição no WHERE é o que torna a troca atômica: quem chegar depois não
+ * casa mais com `status = de`, não afeta linha nenhuma, e descobre pela
+ * contagem que perdeu. É o Postgres decidindo, e não a ordem em que dois
+ * processos acordaram.
+ */
+export async function reivindicarVaga(
+  client: SupabaseClient,
+  socialPostId: string,
+  de: string,
+  para: string,
+): Promise<{ ganhou: boolean; motivo: string }> {
+  const { data, error } = await client
+    .from("social_posts")
+    .update({ status: para, updated_at: new Date().toISOString() })
+    .eq("id", socialPostId)
+    .eq("status", de)
+    .select("id");
+
+  if (error) {
+    return { ganhou: false, motivo: `não consegui reivindicar a vaga: ${error.message}` };
+  }
+
+  if (!data || data.length === 0) {
+    return {
+      ganhou: false,
+      motivo: `a vaga não estava mais em "${de}": outro giro pegou este post primeiro, ou ele já mudou de estado`,
+    };
+  }
+
+  return { ganhou: true, motivo: "" };
+}
+
+/**
  * Grava o `media_id` com insistência.
  *
  * Esta é a única escrita do fluxo que acontece DEPOIS de um efeito externo

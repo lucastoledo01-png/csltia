@@ -208,6 +208,19 @@ export type ArteRenderizada = {
    * abre não é preview.
    */
   jpeg: Buffer;
+  /**
+   * As fontes que o navegador NÃO tinha na hora de medir e desenhar.
+   *
+   * `document.fonts.ready` resolve mesmo quando o Google Fonts não respondeu:
+   * ele promete que o carregamento terminou, não que deu certo. Sem esta
+   * conferência, uma peça renderizada com a serifa do sistema em vez de
+   * Playfair Display sairia com outra medida de tipo, outro número de linhas e
+   * outro desenho — sem erro, sem log, e visualmente parecida o suficiente para
+   * ninguém notar num relatório.
+   *
+   * Vazio é o caso normal.
+   */
+  fontesQueFaltaram: string[];
   /** Se o desenho do painel foi usado, ou se a variante de código assumiu. */
   usouLayoutDesenhado: boolean;
   /** Por que foi ou não foi usado. Ver `diagnosticarLayout`. */
@@ -242,6 +255,40 @@ async function baixarComoDataUrl(
   }
 }
 
+/** Uma face de fonte como o navegador a reporta. */
+export type FaceDeFonte = { family: string; status: string };
+
+/**
+ * Quais famílias o navegador não tinha, decidido fora do navegador.
+ *
+ * A decisão mora aqui, e não dentro do `page.evaluate`, para poder ser testada
+ * nas duas direções sem subir Chromium. O navegador só reporta o que tem.
+ *
+ * Como o sinal foi escolhido, porque não é óbvio:
+ *
+ *   - `document.fonts.check("16px 'Playfair Display'")` NÃO serve. Sem peso na
+ *     especificação, `check` pergunta por 400, e o Playfair deste projeto
+ *     carrega 600 a 900: a resposta era `false` com a fonte perfeitamente
+ *     carregada, e a primeira versão desta guarda bloqueava toda publicação.
+ *
+ *   - Contar faces carregadas também não serve. O carregamento é sob demanda:
+ *     numa peça só de manchete, das 70 faces declaradas só 2 carregam, e as
+ *     outras 68 ficam `unloaded` sem que nada esteja errado.
+ *
+ *   - O que distingue os dois mundos, medido: com a rede normal há 70 faces
+ *     registradas e nenhuma em erro. Com o Google Fonts bloqueado há ZERO
+ *     faces, porque a folha de estilo não chegou, e a mesma manchete passa a
+ *     ocupar 709px de altura onde ocupava 557px.
+ *
+ * Então: família que não aparece no conjunto, ou face que terminou em erro.
+ */
+export function familiasQueFaltaram(faces: FaceDeFonte[], esperadas: string[]): string[] {
+  const registradas = new Set(faces.map((f) => f.family));
+  const ausentes = esperadas.filter((f) => !registradas.has(f));
+  const comErro = faces.filter((f) => f.status === "error").map((f) => f.family);
+  return [...new Set([...ausentes, ...comErro])];
+}
+
 export async function renderizarCapas(
   entradas: EntradaDaCapa[],
   opcoes?: { fetcher?: typeof fetch },
@@ -260,6 +307,11 @@ export async function renderizarCapas(
     resolveFormatConfigFromDb("noticia"),
     resolveLayout("noticia", "cover"),
   ]);
+
+  const { primeiraFamilia } = await import("@/lib/carousel-templates/fonts");
+  const familiasEsperadas = [
+    ...new Set([tokens.fonts.display, tokens.fonts.body, tokens.fonts.accent].map(primeiraFamilia)),
+  ];
 
   const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?.trim() || undefined;
   const browser = await chromium.launch({ headless: true, executablePath });
@@ -316,9 +368,49 @@ export async function renderizarCapas(
         .catch(() => undefined);
       await page.waitForTimeout(120);
 
+      /*
+       * Quais famílias o navegador realmente tem, depois de `fonts.ready`.
+       *
+       * `document.fonts.check("16px 'Playfair Display'")` NÃO serve, e a
+       * primeira versão disto usava justamente ele: sem peso na especificação,
+       * `check` pergunta por 400, e o Playfair deste projeto carrega 600 a 900.
+       * A resposta era `false` com a fonte perfeitamente carregada, e a guarda
+       * bloqueava toda publicação.
+       *
+       * O sinal certo saiu de medir os dois casos. Com a rede normal: 70 faces
+       * declaradas, 2 carregadas (só as que a peça usa, porque o carregamento é
+       * sob demanda), nenhuma com erro. Com o Google Fonts bloqueado: NENHUMA
+       * face registrada, porque a própria folha de estilo não chegou — e o
+       * texto passou a ocupar 709px onde ocupava 557px, 27% mais alto na
+       * serifa do sistema.
+       *
+       * Então a pergunta é presença no conjunto, mais faces em erro. Nada de
+       * peso: exigir peso reprovaria uma peça correta, e é sempre pior errar
+       * para o lado de bloquear o que funciona.
+       */
+      const faces = await page.evaluate(() =>
+        [...(document.fonts as unknown as Set<FontFace>)].map((f) => ({
+          family: f.family,
+          status: String(f.status),
+        })),
+      );
+      const fontesQueFaltaram = familiasQueFaltaram(faces, familiasEsperadas);
+
+      if (fontesQueFaltaram.length > 0) {
+        console.warn(`[ARTE] Fontes ausentes no render: ${fontesQueFaltaram.join(", ")}`);
+      }
+
       const png = await page.screenshot({ type: "png", fullPage: false });
       const jpeg = await page.screenshot({ type: "jpeg", quality: 70, fullPage: false, scale: "css" });
-      feitas.push({ capa, html, png, jpeg, usouLayoutDesenhado: usaDesenho, diagnosticoDoLayout });
+      feitas.push({
+        capa,
+        html,
+        png,
+        jpeg,
+        fontesQueFaltaram,
+        usouLayoutDesenhado: usaDesenho,
+        diagnosticoDoLayout,
+      });
     }
   } finally {
     await browser.close();

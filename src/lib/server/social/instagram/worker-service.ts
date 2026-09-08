@@ -14,7 +14,16 @@ import {
 } from "./pipeline";
 import { resolveInstagramToken } from "./meta-token";
 import { markPostFailed } from "./scheduler";
-import { ehSocialV2, lerCargaV2, MOTIVO_CARGA_INCOMPLETA, type LinhaDePost } from "./carga-v2";
+import {
+  ehEnsaio,
+  ehLegado,
+  ehSocialV2,
+  lerCargaV2,
+  MOTIVO_CARGA_INCOMPLETA,
+  MOTIVO_VAGA_DISPUTADA,
+  MOTIVO_VERSAO_DESCONHECIDA,
+  type LinhaDePost,
+} from "./carga-v2";
 import { prepararArteV2 } from "./worker-v2";
 import { getArticleBySlug } from "../../articles-service";
 import { montarCarrosselDeCampanha } from "../../prompt-system/carrossel-de-campanha";
@@ -25,6 +34,7 @@ import {
   gravarOuFalhar,
   publicarComRegistro,
   reconciliarTentativaAnterior,
+  reivindicarVaga,
 } from "./publicacao-segura";
 import { formatError, sendAlert } from "../../alerts";
 import type { CarouselFormat, InstagramCarouselContent } from "./schemas";
@@ -398,22 +408,26 @@ async function prepararV2(
   const { carga } = leitura;
 
   /*
-   * Marca de posse ANTES de renderizar, e o valor é o que o CHECK já aceita.
+   * Reivindica a vaga ANTES de renderizar, e de forma atômica.
    *
    * `findDuePosts` seleciona por `status = scheduled`. Renderizar primeiro e
    * gravar depois deixava a linha elegível durante o Chromium inteiro, e dois
-   * giros concorrentes desenhariam e publicariam o mesmo post duas vezes. O
-   * caminho legado nunca teve essa janela porque grava `generated` antes de
-   * renderizar; aqui era pior justamente por gravar menos.
+   * giros concorrentes desenhariam e publicariam o mesmo post duas vezes.
    *
-   * O status é `generated` e não um `processing` novo: o CHECK da tabela aceita
+   * Gravar o status sem condição não resolveria: `UPDATE ... WHERE id = X` dá
+   * certo nos dois giros, e os dois seguem. `reivindicarVaga` põe o estado
+   * anterior no WHERE, então quem chega depois não afeta linha nenhuma e para
+   * aqui. Quem decide é o Postgres, não a ordem em que dois processos
+   * acordaram.
+   *
+   * O estado novo é `generated` e não um `processing`: o CHECK da tabela aceita
    * ('draft','generated','approved','scheduled','published','failed'), e
    * inventar valor fora disso exigiria migration. No legado `generated`
-   * significa "o worker pegou e produziu o artefato", que é exatamente o que
-   * acontece na linha seguinte. Vocabulário compartilhado vale mais que
-   * vocabulário preciso quando o preço da precisão é uma migration.
+   * significa "o worker pegou e produziu o artefato", que é o que acontece nas
+   * linhas seguintes.
    */
-  await gravarOuFalhar(supabase, socialPostId, { status: "generated" }, "a posse da vaga");
+  const posse = await reivindicarVaga(supabase, socialPostId, "scheduled", "generated");
+  if (!posse.ganhou) throw new Error(`${MOTIVO_VAGA_DISPUTADA}: ${posse.motivo}`);
 
   console.log(
     `[INSTAGRAM WORKER V2] ${project.slug} ${editionDate}: "${carga.headline.slice(0, 60)}" ` +
@@ -501,8 +515,33 @@ export async function processScheduledPost(
   }
 
   const projectId = post.project_id as string;
+  const linha = post as LinhaDePost;
 
   try {
+    /*
+     * Duas perguntas que vêm antes de falar com a Meta.
+     *
+     * A reconciliação de tentativa anterior pode REPUBLICAR um container que
+     * ficou pendente, e ela roda antes da bifurcação — de propósito, porque
+     * "isto já foi ao ar?" não depende de quem gerou o post. O efeito colateral
+     * é que as guardas do V2, que moram em `lerCargaV2`, ficam depois dela.
+     *
+     * Então o que não pode esperar sobe para cá: um ensaio nunca vai ao ar, e
+     * uma versão de geração escrita e não reconhecida nunca vai para o gerador
+     * antigo. Nos dois casos o post para, com código no `error_message`, e
+     * alguém olha.
+     */
+    if (!ehLegado(linha) && !ehSocialV2(linha)) {
+      throw new Error(
+        `${MOTIVO_VERSAO_DESCONHECIDA}: generation_version="${String(post.generation_version)}" ` +
+          `não é reconhecida. Não mando para o gerador antigo, que reescreveria a copy.`,
+      );
+    }
+
+    if (ehSocialV2(linha) && ehEnsaio(linha)) {
+      throw new Error(`${MOTIVO_CARGA_INCOMPLETA}: dry_run=${String(post.dry_run)}, é ensaio e não publica`);
+    }
+
     if (post.status === "published") {
       return {
         ok: true,
@@ -576,9 +615,9 @@ export async function processScheduledPost(
      * ser o mesmo código, porque a parte irreversível não deve ter duas
      * implementações se envelhecendo em paralelo.
      */
-    const ehV2 = ehSocialV2(post as LinhaDePost);
+    const ehV2 = ehSocialV2(linha);
     const preparo = ehV2
-      ? await prepararV2(supabase, post as LinhaDePost, project, editionDate, socialPostId, fetcher)
+      ? await prepararV2(supabase, linha, project, editionDate, socialPostId, fetcher)
       : await prepararLegado(supabase, meta, project, editionDate, socialPostId, env, fetcher);
 
     const slides = preparo.slides;
@@ -671,9 +710,31 @@ export async function processScheduledPost(
       executionTimeMs: Date.now() - startTime,
     };
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+
+    /*
+     * Vaga disputada sai ANTES de qualquer gravação, e a ordem aqui é o ponto.
+     *
+     * Quem perdeu a reivindicação atômica perdeu porque outro giro está
+     * publicando este post agora. Se o perdedor seguisse para o
+     * `markPostFailed` abaixo, ele marcaria `failed` justamente a linha que o
+     * vencedor acabou de reivindicar, e o desfecho seria uma linha marcada como
+     * falha com um post no ar. A disputa resolvida não é falha de ninguém.
+     */
+    if (message.startsWith(MOTIVO_VAGA_DISPUTADA)) {
+      console.log(`[INSTAGRAM WORKER] ${socialPostId}: ${message}`);
+      return {
+        ok: true,
+        projectId,
+        socialPostId,
+        status: "skipped",
+        error: message,
+        executionTimeMs: Date.now() - startTime,
+      };
+    }
+
     // O motivo fica gravado: as colunas error_message existiam e nunca eram
     // preenchidas, então uma falha só era descoberta olhando o Instagram.
-    const message = err instanceof Error ? err.message : String(err);
     await markPostFailed(socialPostId, message);
     console.error(`[INSTAGRAM WORKER] Post ${socialPostId} falhou: ${message}`);
 
@@ -686,6 +747,7 @@ export async function processScheduledPost(
      * aviso diz que é decisão e não incêndio.
      */
     const cargaIncompleta = message.startsWith(MOTIVO_CARGA_INCOMPLETA);
+
     await sendAlert(
       cargaIncompleta ? "warning" : "critical",
       cargaIncompleta ? "Post social-v2 bloqueado por carga incompleta" : "Post do Instagram falhou",

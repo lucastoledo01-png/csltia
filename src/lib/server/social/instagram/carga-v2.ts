@@ -20,6 +20,20 @@ export const GERACAO_V2 = "social-v2";
 /** Vai no `error_message`, na mesma convenção de `PUBLICAÇÃO INCERTA:`. */
 export const MOTIVO_CARGA_INCOMPLETA = "SOCIAL_V2_PAYLOAD_INCOMPLETE";
 
+/** Outro giro pegou a mesma vaga primeiro. Não é falha: é a disputa resolvida. */
+export const MOTIVO_VAGA_DISPUTADA = "SOCIAL_V2_SLOT_TAKEN";
+
+/**
+ * Versão de geração escrita, mas não reconhecida.
+ *
+ * O caso perigoso não é o valor errado, é para onde ele cai. `generation_version`
+ * vazia significa post legado, e o ramo legado REGENERA a copy. Então um
+ * `social_v2` com underscore, ou um `social-v3` de amanhã, cairia no caminho
+ * que destrói o conteúdo aprovado — o pior desfecho possível para um erro de
+ * digitação.
+ */
+export const MOTIVO_VERSAO_DESCONHECIDA = "SOCIAL_V2_UNKNOWN_GENERATION";
+
 /** O que a linha precisa ter para publicar sem regenerar nada. */
 export type CargaV2 = {
   /** Manchete da arte. Vem da coluna `title`, imutável a partir daqui. */
@@ -60,9 +74,29 @@ export type LinhaDePost = {
  * pelo conteúdo faria uma linha legada com as chaves parecidas entrar no ramo
  * novo, e uma linha V2 com uma chave a menos cair no ramo antigo, que
  * regeneraria tudo. A coluna é declaração explícita de quem gravou.
+ *
+ * A comparação ignora caixa e espaço porque o custo dos dois lados é
+ * assimétrico: reconhecer um `SOCIAL-V2` a mais não faz mal nenhum, e deixar
+ * de reconhecer joga o post no ramo que reescreve a copy aprovada.
  */
 export function ehSocialV2(linha: LinhaDePost): boolean {
-  return String(linha.generation_version ?? "").trim() === GERACAO_V2;
+  return normalizarVersao(linha) === GERACAO_V2;
+}
+
+function normalizarVersao(linha: LinhaDePost): string {
+  return String(linha.generation_version ?? "").trim().toLowerCase();
+}
+
+/**
+ * Post legado é o que NÃO declara versão nenhuma.
+ *
+ * Esta é a outra metade de `ehSocialV2`, e ela existe porque "não é V2" e "é
+ * legado" não são a mesma coisa. Uma linha com `generation_version = social_v3`
+ * não é V2, e tratá-la como legada a mandaria para o gerador antigo, que
+ * reescreveria tudo. Versão escrita e não reconhecida tem que parar, não seguir.
+ */
+export function ehLegado(linha: LinhaDePost): boolean {
+  return normalizarVersao(linha) === "";
 }
 
 function texto(v: unknown): string {
@@ -71,6 +105,19 @@ function texto(v: unknown): string {
 
 function objeto(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+}
+
+/**
+ * Ensaio não vai ao ar, e isto é conferido ANTES de tudo.
+ *
+ * `lerCargaV2` roda depois da reconciliação com a Meta, que pode republicar um
+ * container de uma tentativa anterior. Uma linha marcada como ensaio que, por
+ * qualquer motivo, tenha um container registrado seria publicada por esse
+ * caminho sem passar por nenhuma guarda do V2. A pergunta é barata e a resposta
+ * não depende de mais nada, então ela vem primeiro.
+ */
+export function ehEnsaio(linha: LinhaDePost): boolean {
+  return linha.dry_run !== false;
 }
 
 export type LeituraDaCarga =
@@ -111,8 +158,12 @@ export function lerCargaV2(linha: LinhaDePost): LeituraDaCarga {
    * um ensaio. Exigir `false` explicitamente inverte o erro para o lado que
    * não põe nada no ar.
    */
-  if (linha.dry_run !== false) {
-    faltando.push(`dry_run=${String(linha.dry_run)}: só publica o que está marcado como não-ensaio`);
+  if (ehEnsaio(linha)) {
+    const bruto = linha.dry_run;
+    faltando.push(
+      `dry_run=${typeof bruto === "string" ? `"${bruto}"` : String(bruto)} (${typeof bruto}): ` +
+        `só publica com o booleano false`,
+    );
   }
 
   const guarda = texto(linha.social_guard_status);

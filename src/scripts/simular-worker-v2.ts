@@ -221,7 +221,7 @@ async function main() {
     }
     const linha = gravadas[0];
 
-    const antes = {
+    const antes: Record<string, string | string[]> = {
       headline: String(linha.title),
       legenda: String(linha.caption),
       hashtags: ((linha.content_json as Record<string, unknown>).hashtags as string[]) ?? [],
@@ -255,19 +255,51 @@ async function main() {
     const { carga } = leitura;
 
     // ---- 3. Nada foi reescrito -------------------------------------
+    /*
+     * O "depois" tem que sair do que o WORKER consumiu, não da linha.
+     *
+     * A primeira volta deste script comparava `visual` e `arte` com eles
+     * mesmos: as duas colunas da tabela recebiam `antes.visual` e `antes.arte`,
+     * e davam "igual" porque eram o mesmo objeto. Prova tautológica é pior que
+     * prova nenhuma, porque parece uma.
+     *
+     * Agora os dois lados são reconstruídos a partir da carga que o worker leu:
+     * a foto que ele vai desenhar e o eixo que ele vai imprimir. Se `lerCargaV2`
+     * perder um campo no caminho, a comparação acusa.
+     */
     const depois = {
       headline: carga.headline,
       legenda: carga.legenda,
       hashtags: carga.hashtags,
-      visual: antes.visual,
-      arte: antes.arte,
+      visual: JSON.stringify(
+        carga.foto
+          ? { imageUrl: carga.foto.imageUrl, attribution: carga.foto.attribution }
+          : { capa: "texto", motivo: carga.motivoSemFoto },
+      ),
+      arte: JSON.stringify({ eixo: carga.eixo }),
     };
+
+    /*
+     * E o "antes" dos dois campos derivados é extraído da linha do mesmo jeito,
+     * para a comparação ser entre o que foi gravado e o que foi lido, e não
+     * entre dois formatos diferentes do mesmo dado.
+     */
+    const visualDaLinha = (linha.content_json as Record<string, unknown>).visual as Record<string, unknown>;
+    const arteDaLinha = (linha.content_json as Record<string, unknown>).arte as Record<string, unknown>;
+    antes.visual = JSON.stringify(
+      visualDaLinha.imageUrl
+        ? { imageUrl: visualDaLinha.imageUrl, attribution: visualDaLinha.attribution ?? "" }
+        : { capa: visualDaLinha.capa, motivo: visualDaLinha.motivo },
+    );
+    antes.arte = JSON.stringify({ eixo: arteDaLinha.eixo });
 
     escrever(`| campo | antes | depois | igual |`);
     escrever(`| --- | --- | --- | --- |`);
-    for (const k of Object.keys(antes) as Array<keyof typeof antes>) {
-      const a = typeof antes[k] === "string" ? (antes[k] as string) : JSON.stringify(antes[k]);
-      const b = typeof depois[k] === "string" ? (depois[k] as string) : JSON.stringify(depois[k]);
+    const comoTexto = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v));
+    const doDepois = depois as Record<string, unknown>;
+    for (const k of Object.keys(antes)) {
+      const a = comoTexto(antes[k]);
+      const b = comoTexto(doDepois[k]);
       const igual = sha(a) === sha(b);
       escrever(`| ${k} | \`${sha(a)}\` | \`${sha(b)}\` | ${igual ? "sim" : "**NÃO**"} |`);
       if (!igual) problemas.push(`${caso.nome}: ${k} mudou entre o pipeline e o worker`);
