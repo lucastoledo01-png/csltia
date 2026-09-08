@@ -1,4 +1,4 @@
-import { esc, pad2, safeImageUrl } from "./util";
+import { esc, manterCodigosJuntos, pad2, safeImageUrl } from "./util";
 import { overlayBrand } from "./shell";
 import type {
   InstagramSlide,
@@ -169,7 +169,7 @@ const coverNoticiaSemFoto: SlideVariant = {
     ${editoria ? `<span class="n-editoria">${esc(editoria)}</span>` : ""}
     <span class="n-regua"></span>
   </div>
-  <div class="n-manchete lay-texto" data-ajuste="encolher" data-min="54" data-max="168"><span>${esc(titulo)}</span></div>
+  <div class="n-manchete lay-texto" data-ajuste="encolher" data-min="54" data-max="168"><span>${manterCodigosJuntos(esc(titulo))}</span></div>
 </div>`,
     };
   },

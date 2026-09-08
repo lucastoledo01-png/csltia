@@ -135,9 +135,35 @@ async function main() {
   const dominiosQueEntregaram = new Map<string, number>();
   const dominiosQueSobreviveram = new Map<string, number>();
 
+  /*
+   * A origem por dia, e por que ela não sai do resumo do funil.
+   *
+   * `origin_channel` não é derivado dos tetos desta medição: `resolverOrigem`
+   * pergunta ao `editorial_history` se aquela pauta saiu no e-mail. Como este
+   * script levanta os tetos, a coluna "newsletter levaria" mente de propósito,
+   * mas a origem continua verdadeira, porque ela se apoia em publicação e não
+   * em seleção hipotética.
+   */
+  const origemPorDia = new Map<string, { newsletter: number; social: number }>();
+
+  /**
+   * O funil por fonte nomeada.
+   *
+   * Volume bruto não é sucesso: uma fonte que entrega 40 itens e nenhum post
+   * confirmado é pior que uma que entrega 3 e confirma 2. Por isso a tabela
+   * carrega as quatro etapas, e não só a primeira.
+   */
+  type EtapasDaFonte = { entregou: number; pool: number; confirmadas: number; posts: number };
+  const porFonte = new Map<string, EtapasDaFonte>();
+  const etapasDe = (nome: string): EtapasDaFonte => {
+    const chave = nome || "(sem nome)";
+    if (!porFonte.has(chave)) porFonte.set(chave, { entregou: 0, pool: 0, confirmadas: 0, posts: 0 });
+    return porFonte.get(chave)!;
+  };
+
   for (const dia of dias.slice().reverse()) {
     console.log(`\n=== ${dia} (${porDia.get(dia)!.length} candidatas) ===`);
-    const { resumo, ciclo, recusadas } = await rodarFunilDoDia(porDia.get(dia)!, {
+    const { resumo, ciclo, recusadas, guarda, conferencia } = await rodarFunilDoDia(porDia.get(dia)!, {
       dia,
       projectId: project.id,
       marca: {
@@ -167,6 +193,15 @@ async function main() {
       dominiosQueSobreviveram.set(d, (dominiosQueSobreviveram.get(d) ?? 0) + 1);
     }
 
+    const origem = { newsletter: 0, social: 0 };
+    for (const p of ciclo.previews) origem[p.origem.originChannel] += 1;
+    origemPorDia.set(dia, origem);
+
+    for (const c of porDia.get(dia)!) etapasDe(c.source_name).entregou += 1;
+    for (const pa of guarda.approvedEditorialPool) etapasDe(pa.grupo.primary.source_name).pool += 1;
+    for (const cf of conferencia.confirmadas) etapasDe(cf.grupo.primary.source_name).confirmadas += 1;
+    for (const p of ciclo.previews) etapasDe(p.post.pauta.grupo.primary.source_name).posts += 1;
+
     console.log(
       `${dia}: ${resumo.gruposUnicos} grupos, ${resumo.approvedEditorialPool} no pool, ` +
         `${resumo.confirmadas} confirmadas, ${resumo.postsFinais} post(s)`,
@@ -177,15 +212,18 @@ async function main() {
   escrever(`## 1. Dia a dia`);
   escrever();
   escrever(
-    `| dia | coletadas | grupos | classif. | reuso | rejeitadas | pool | conferidos | confirm | reject | conflito | cortes div. | copy fail | sem img | **posts** |`,
+    `| dia | coletadas | grupos | classif. | reuso | rejeitadas | pool | conferidos | confirm | reject | conflito | cortes div. | copy fail | sem img | **posts** | origem NL | origem social |`,
   );
-  escrever(`| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |`);
+  escrever(
+    `| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |`,
+  );
   for (const r of resumos) {
     escrever(
       `| ${r.dia} | ${r.coletadas} | ${r.gruposUnicos} | ${r.classificadasAgora} | ${r.reaproveitadasDaClassificacao} | ` +
         `${r.recusadasNaLinhaEditorial} | ${r.approvedEditorialPool} | ${r.finalistasConferidos} | ${r.confirmadas} | ` +
         `${r.recusadasNaVerificacao} | ${r.emConflito} | ${r.cortadasPorDiversidade} | ${r.descartadasNaCopy} | ` +
-        `${r.semImagem} | **${r.postsFinais}** |`,
+        `${r.semImagem} | **${r.postsFinais}** | ${origemPorDia.get(r.dia)?.newsletter ?? 0} | ` +
+        `${origemPorDia.get(r.dia)?.social ?? 0} |`,
     );
   }
   escrever();
@@ -273,6 +311,33 @@ async function main() {
   );
   escrever();
   escrever(tabela(semImagem));
+  escrever();
+
+  // ------------------------------------------------------------------
+  escrever(`## 2b. Funil por fonte`);
+  escrever();
+  escrever(
+    `Volume bruto não é sucesso. As quatro colunas são a mesma pergunta em quatro alturas: ` +
+      `quantos itens a fonte entregou, quantos passaram na linha editorial, quantos o verificador ` +
+      `confirmou, e quantos viraram post de fato.`,
+  );
+  escrever();
+  escrever(`| fonte | entregou | pool | confirmadas | **posts** |`);
+  escrever(`| --- | ---: | ---: | ---: | ---: |`);
+  const ordenadas = [...porFonte.entries()].sort(
+    (a, b) => b[1].posts - a[1].posts || b[1].confirmadas - a[1].confirmadas || b[1].pool - a[1].pool || b[1].entregou - a[1].entregou,
+  );
+  for (const [nome, e] of ordenadas) {
+    escrever(`| ${nome} | ${e.entregou} | ${e.pool} | ${e.confirmadas} | **${e.posts}** |`);
+  }
+  escrever();
+
+  const mudas = ordenadas.filter(([, e]) => e.posts === 0);
+  escrever(
+    `${mudas.length} de ${ordenadas.length} fontes não produziram nenhum post no período. ` +
+      `Entre elas, ${mudas.filter(([, e]) => e.pool > 0).length} chegaram ao pool e morreram depois, ` +
+      `e ${mudas.filter(([, e]) => e.pool === 0).length} nunca passaram da linha editorial.`,
+  );
   escrever();
 
   // ------------------------------------------------------------------

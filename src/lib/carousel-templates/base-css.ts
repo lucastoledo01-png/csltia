@@ -187,6 +187,8 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 .n-manchete{flex:0 0 60%;display:flex;flex-direction:column;justify-content:flex-end;
   font-family:var(--s-font-accent);font-weight:800;letter-spacing:-0.015em;line-height:1.06;
   color:var(--s-ink);}
+/* I-765 e H-1B sao o nome da coisa, nao hifenizacao: nao quebram no hifen. */
+.n-junto{white-space:nowrap;}
 
 .e-mark{width:74px;height:74px;color:var(--s-accent);}
 .e-mark svg{width:100%;height:100%;}

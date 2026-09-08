@@ -284,7 +284,43 @@ describe("a capa de texto é decisão, não fallback quebrado", () => {
     // Uma vez na sobrancelha, e não uma segunda dentro de um cartão.
     expect(h.split("PROCESSO").length - 1).toBe(1);
     expect(h).toContain("n-manchete");
-    expect(h).toContain(CURTA);
+    // O código de visto vem embrulhado; o resto da manchete, literal.
+    expect(h).toContain("Corte suspende regra de vistos ");
+    expect(h).toContain(`<span class="n-junto">H-1B</span>`);
+  });
+
+  it("código de formulário e de visto não quebra no meio", () => {
+    /*
+     * `USCIS muda prazo de análise do I-765` saiu da arte como `do I-` numa
+     * linha e `765` na seguinte. O navegador trata o hífen como oportunidade
+     * de quebra e não sabe que ali é o nome da coisa, e nesta vertical isso
+     * apareceria em quase toda manchete.
+     */
+    for (const [manchete, codigo] of [
+      ["USCIS muda prazo de análise do I-765", "I-765"],
+      ["Corte derruba limite do H-1B para 2027", "H-1B"],
+      ["Fila do EB-2 anda três meses", "EB-2"],
+      ["Consulado exige DS-160 revisado", "DS-160"],
+      ["Prazo do N-400 cai para seis meses", "N-400"],
+      ["Novo teto para o EB-1A entra em vigor", "EB-1A"],
+    ] as const) {
+      expect(html(manchete), manchete).toContain(`<span class="n-junto">${codigo}</span>`);
+    }
+  });
+
+  it("o que não é código fica em paz", () => {
+    /*
+     * Intervalo de anos e palavra hifenizada continuam quebráveis. A conferência
+     * é no `corpo`: a REGRA `.n-junto` está na folha de estilo de todo slide, e
+     * procurar a classe no documento inteiro casaria sempre.
+     */
+    for (const manchete of [
+      "Regra vale de 2026-2027 segundo o governo",
+      "Programa pós-graduação perde vagas no Texas",
+      "Taxa sobe de 410 para 520 dólares",
+    ]) {
+      expect(corpo(html(manchete)), manchete).not.toContain("n-junto");
+    }
   });
 
   it("o corpo do tipo é medido pelo navegador, não fixado no HTML", () => {

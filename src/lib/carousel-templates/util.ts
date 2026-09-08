@@ -8,6 +8,26 @@ export function esc(value: unknown): string {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * Código de formulário e de visto não quebra no meio.
+ *
+ * `USCIS muda prazo de análise do I-765` saiu da arte como `do I-` numa linha
+ * e `765` na seguinte: para o navegador, o hífen é oportunidade de quebra, e
+ * ele não sabe que ali não é hifenização, é o nome da coisa. Nesta vertical
+ * isso não é caso de borda: I-765, H-1B, EB-2, DS-160 e N-400 são o vocabulário
+ * de todo dia.
+ *
+ * O `nowrap` fica num `span` em vez de num hífen sem quebra (U+2011) porque
+ * Playfair Display não tem esse glifo, e caractere ausente vira retângulo
+ * vazio na manchete.
+ *
+ * Recebe texto JÁ escapado: a entrada é a saída de `esc`, e nenhuma das
+ * entidades que ela produz (`&amp;` e companhia) casa com o padrão.
+ */
+export function manterCodigosJuntos(escapado: string): string {
+  return escapado.replace(/\b([A-Z]{1,3})-([0-9]{1,4}[A-Z]?[0-9]?)\b/g, '<span class="n-junto">$1-$2</span>');
+}
+
 /** `3` → `"03"`. */
 export function pad2(n: number): string {
   return String(Math.max(0, Math.trunc(n))).padStart(2, "0");
