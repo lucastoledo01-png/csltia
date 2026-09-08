@@ -100,7 +100,7 @@ function ctaButton(ctx: VariantContext, slide: InstagramSlide): string {
 const coverFullbleedPortrait: SlideVariant = {
   key: "fullbleed_portrait",
   label: "Retrato full-bleed + card social",
-  render: (slide): VariantOutput => ({
+  render: (slide, ctx): VariantOutput => ({
     full: true,
     onDark: true,
     body: `
@@ -115,7 +115,7 @@ ${photo(slide.bg_image_url)}
     </div>
     <div class="s-title" style="color:#fff;text-shadow:0 4px 20px rgba(0,0,0,0.7)">${esc(slide.title)}</div>
   </div>
-  <div class="s-swipe">Arrasta que eu te atualizo em 1 minuto →</div>
+  ${ctx.total > 1 ? `<div class="s-swipe">Arrasta que eu te atualizo em 1 minuto →</div>` : ""}
 </div>`,
   }),
 };

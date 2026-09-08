@@ -11,6 +11,7 @@ import { carregarConfigSocial } from "../lib/server/social/selecao";
 import { rodarFunilDoDia } from "../lib/server/social/funil";
 import type { FunilDoDia } from "../lib/server/social/funil";
 import { dominioDe } from "../lib/server/editorial/url-canonica";
+import { escreverRelatorio } from "./relatorio";
 
 /**
  * Onde o volume se perde, ao longo de vários dias.
@@ -408,7 +409,7 @@ async function main() {
     escrever();
   }
 
-  fs.writeFileSync(path.resolve(process.cwd(), saida), linhas.join("\n"), "utf-8");
+  escreverRelatorio(saida, linhas.join("\n"));
   console.log(`\nRelatório em ${saida}`);
 
   fs.writeFileSync(

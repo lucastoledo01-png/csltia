@@ -7,6 +7,7 @@ import { deduplicateCandidates } from "../lib/server/newsroom/deduplicator";
 import { classificarPautas, decidirPauta } from "../lib/server/editorial/classificador";
 import type { Classificacao } from "../lib/server/editorial/classificador";
 import { carregarConfigEditorial } from "../lib/server/editorial/config";
+import { escreverRelatorio } from "./relatorio";
 
 /**
  * Quanto o classificador muda de ideia sobre a mesma matéria.
@@ -214,7 +215,7 @@ async function main() {
   escrever();
   escrever(`${tokens.toLocaleString("pt-BR")} tokens nas ${rodadas} rodadas.`);
 
-  fs.writeFileSync(saida, linhas.join("\n"), "utf-8");
+  escreverRelatorio(saida, linhas.join("\n"));
   console.log(`\nRelatório em ${saida}`);
 }
 

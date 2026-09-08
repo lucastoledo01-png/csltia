@@ -10,6 +10,7 @@ import type { ResultadoVisual } from "../lib/server/visual/tipos";
 import { carregarConfigDeImagem } from "../lib/server/visual/relevancia";
 import { renderizarCapas } from "../lib/server/social/arte";
 import { paginaDePreview } from "../lib/server/social/preview";
+import { escreverRelatorio } from "./relatorio";
 
 /**
  * Resolução de imagem sobre pautas reais, sem publicar nada.
@@ -244,7 +245,7 @@ async function main() {
   escrever("Nada foi publicado. " + (gravar ? "Os assets escolhidos foram gravados na biblioteca." : "Nada foi gravado."));
 
   if (saida) {
-    fs.writeFileSync(path.resolve(process.cwd(), saida), linhas.join("\n"), "utf-8");
+    escreverRelatorio(saida, linhas.join("\n"));
     console.log(`\n[relatório em ${saida}]`);
   }
 

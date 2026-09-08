@@ -15,6 +15,7 @@ import { rodarFunilDoDia } from "../lib/server/social/funil";
 import { renderizarCapas } from "../lib/server/social/arte";
 import { paginaDePreview } from "../lib/server/social/preview";
 import type { PostDePreview } from "../lib/server/social/preview";
+import { escreverRelatorio } from "./relatorio";
 
 /**
  * O dia do Instagram, do candidato bruto até a grade de horários.
@@ -125,7 +126,7 @@ async function main() {
 
   if (!porDia.has(dia)) {
     escrever(`Nenhuma candidata em ${dia}. Dias disponíveis: ${disponiveis.slice(0, 8).join(", ")}.`);
-    fs.writeFileSync(saida, linhas.join("\n"), "utf-8");
+    escreverRelatorio(saida, linhas.join("\n"));
     return;
   }
 
@@ -481,7 +482,7 @@ async function main() {
   escrever(`${guarda.tokens.total.toLocaleString("pt-BR")} tokens na classificação e avaliação do dia inteiro.`);
   escrever(`Copy e busca de imagem rodaram; o custo delas não está somado aqui.`);
 
-  fs.writeFileSync(saida, linhas.join("\n"), "utf-8");
+  escreverRelatorio(saida, linhas.join("\n"));
   console.log(`\nRelatório em ${saida}`);
 
   // ------------------------------------------------------------------
@@ -635,7 +636,7 @@ async function main() {
   });
 
   const caminhoDaPagina = path.join(pasta, "index.html");
-  fs.writeFileSync(caminhoDaPagina, paginaHtml, "utf-8");
+  escreverRelatorio(caminhoDaPagina, paginaHtml);
   console.log(`Preview em ${caminhoDaPagina}`);
 }
 

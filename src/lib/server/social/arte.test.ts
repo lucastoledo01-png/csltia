@@ -129,6 +129,51 @@ describe("capa do post do feed", () => {
   });
 });
 
+describe("a peça única não convida a arrastar, nem com foto", () => {
+  /*
+   * A capa de texto já não emitia nada de carrossel. A capa COM foto emitia:
+   * `fullbleed_portrait` imprimia "Arrasta que eu te atualizo em 1 minuto" num
+   * post de imagem única.
+   *
+   * Isso passou despercebido no render porque existe um desenho salvo no
+   * painel para a capa de notícia, e desenho vence a variante de código
+   * inteira. Some o desenho, ou salve um sem bloco de imagem, e a afordância
+   * volta. Defeito mascarado continua sendo defeito.
+   */
+  function comFoto(total: number): string {
+    const capa = montarCapaDoPost({
+      headline: "Suprema Corte aceita analisar regra de asilo",
+      eixo: "decisao_judicial",
+      asset: {
+        imageUrl: "https://upload.wikimedia.org/foto.jpg",
+        license: "Public domain",
+        attribution: "",
+        source: "wikimedia",
+        imageContextType: "institution",
+      } as never,
+    });
+    return assembleSlide(capa.slide, {
+      format: "noticia",
+      tokens: DEFAULT_TOKENS,
+      formatConfig: resolveFormatConfig("noticia"),
+      slideIndex: 1,
+      total,
+      layout: null,
+    });
+  }
+
+  it("um slide só: nada de arrastar", () => {
+    const h = comFoto(1);
+    expect(h).toContain("s-title");
+    expect(h).not.toContain("Arrasta");
+    expect(h).not.toContain("s-swipe\"");
+  });
+
+  it("carrossel de verdade continua convidando", () => {
+    expect(comFoto(5)).toContain("Arrasta");
+  });
+});
+
 describe("o desenho do painel só manda quando consegue mostrar a foto", () => {
   /** O desenho de `noticia/cover` como está em produção: sem bloco de imagem. */
   const comoEstaEmProducao = {

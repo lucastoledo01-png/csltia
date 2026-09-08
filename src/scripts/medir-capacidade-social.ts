@@ -12,6 +12,7 @@ import { avaliarPautas } from "../lib/server/editorial/guarda";
 import { classificarPautas } from "../lib/server/editorial/classificador";
 import { getSupabaseAdminClient } from "../lib/server/supabase-admin";
 import { dominioDe } from "../lib/server/editorial/url-canonica";
+import { escreverRelatorio } from "./relatorio";
 
 /**
  * Quanta pauta boa existe por dia.
@@ -216,7 +217,7 @@ async function main() {
   escrever();
 
   if (soColeta) {
-    fs.writeFileSync(saida, linhas.join("\n"), "utf-8");
+    escreverRelatorio(saida, linhas.join("\n"));
     console.log(`\nRelatório em ${saida}`);
     return;
   }
@@ -293,7 +294,7 @@ async function main() {
   }
 
   if (soDistribuicao) {
-    fs.writeFileSync(saida, linhas.join("\n"), "utf-8");
+    escreverRelatorio(saida, linhas.join("\n"));
     console.log(`\nRelatório em ${saida}`);
     return;
   }
@@ -465,7 +466,7 @@ async function main() {
       `O número de tokens é o dado confiável.`,
   );
 
-  fs.writeFileSync(saida, linhas.join("\n"), "utf-8");
+  escreverRelatorio(saida, linhas.join("\n"));
   console.log(`\nRelatório em ${saida}`);
 }
 

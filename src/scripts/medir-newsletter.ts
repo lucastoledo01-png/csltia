@@ -13,6 +13,7 @@ import { getSupabaseAdminClient } from "../lib/server/supabase-admin";
 import { conferirFinalistas } from "../lib/server/editorial/finalistas";
 import { carregarConfigSocial, comporFeedSocial } from "../lib/server/social/selecao";
 import { composicaoAlternativa } from "../lib/server/newsroom/composicao-alternativa";
+import { escreverRelatorio } from "./relatorio";
 
 /**
  * Quantos dias fechariam uma newsletter válida.
@@ -226,11 +227,7 @@ async function main() {
     }
   }
 
-  fs.writeFileSync(
-    path.resolve(process.cwd(), saida),
-    JSON.stringify({ rotulo, config, alternativa, desativadas, acrescentadas, linhas }, null, 1),
-    "utf-8",
-  );
+  escreverRelatorio(saida, JSON.stringify({ rotulo, config, alternativa, desativadas, acrescentadas, linhas }, null, 1));
   console.log(`[${rotulo}] ${linhas.filter((l) => l.fechaNewsletter).length} de ${linhas.length} rodada(s) fechariam newsletter. Dados em ${saida}`);
 }
 
