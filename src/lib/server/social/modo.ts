@@ -37,10 +37,16 @@ export function descreverModoSocial(modo: ModoSocial): string {
 /**
  * `enforce` existe no código e ainda não é permitido rodar.
  *
- * Duas pendências o bloqueiam, e as duas são da imagem: a relevância temporal
- * e a centralidade semântica do resolvedor visual. Enquanto elas estiverem
- * abertas, um post factual pode sair com foto de 1937 ou com retrato do chefe
- * de Estado de uma pauta que não é sobre ele.
+ * O bloqueio original era da imagem: relevância temporal e centralidade
+ * semântica do resolvedor visual. As duas estão implementadas e testadas
+ * (`temporalidade.ts`, `figura-nao-central.test.ts`), e a bifurcação do worker
+ * — que era o último bloqueio técnico, porque o worker antigo regeneraria a
+ * copy de um post V2 — também está fechada (`carga-v2.ts`, `worker-v2.ts`).
+ *
+ * Então por que a trava continua? Porque estar implementado não é a mesma
+ * coisa que estar decidido. Quem liga o perfil é o dono do produto, olhando a
+ * capacidade medida e a qualidade das peças, e não o commit que fechou o
+ * último item. As duas variáveis abaixo são essa decisão, escrita.
  *
  * Deixar isso como comentário num README seria a mesma coisa que não ter: a
  * função devolve o motivo, e quem chamar decide o que fazer com ele.
