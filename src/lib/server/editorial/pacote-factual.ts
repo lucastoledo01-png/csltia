@@ -272,9 +272,46 @@ export function validarAncoragem(
   return { ancorado: bloqueios.length === 0, naoSustentadas, conferidos };
 }
 
+/**
+ * O número aparece no material, e aparece como NÚMERO.
+ *
+ * As três buscas eram `includes` sem fronteira, e isso é o que faz uma
+ * verificação de número virar uma verificação de substring de dígito. Medido:
+ * com a fonte dizendo "Foram 1540 pedidos", o texto "a espera chega a 540 dias"
+ * passava, porque "540" está dentro de "1540"; e com a fonte citando
+ * "8 CFR 245.1", "o processo leva 245 dias" passava, porque o número da norma
+ * serve de âncora para qualquer prazo inventado.
+ *
+ * Isso é grave em qualquer pauta e é pior no conteúdo permanente, onde o
+ * palheiro é a página inteira de um manual oficial, cheia de número de seção,
+ * de formulário e de taxa. Cada um deles autoriza um prazo que ninguém escreveu.
+ *
+ * A busca agora exige fronteira: o dígito não pode ter dígito colado antes nem
+ * depois. "1.440" continua sustentando "1,440" e "1440", porque a comparação por
+ * dígitos puros continua existindo; o que deixa de valer é "440" dentro de
+ * "1.440".
+ */
+function comFronteira(palheiro: string, agulha: string): boolean {
+  if (!agulha) return false;
+
+  let de = 0;
+  for (;;) {
+    const i = palheiro.indexOf(agulha, de);
+    if (i < 0) return false;
+
+    const antes = palheiro[i - 1];
+    const depois = palheiro[i + agulha.length];
+    const digitoAntes = antes !== undefined && /[\d.,]/.test(antes);
+    const digitoDepois = depois !== undefined && /\d/.test(depois);
+
+    if (!digitoAntes && !digitoDepois) return true;
+    de = i + 1;
+  }
+}
+
 function numeroSustentado(bruto: string, palheiro: string): boolean {
   const so = normalizar(bruto);
-  if (palheiro.includes(so)) return true;
+  if (comFronteira(palheiro, so)) return true;
 
   // "1,2 milhão" na fonte e "1.2 milhão" no texto são o mesmo número.
   const digitos = so.replace(/[^\d]/g, "");
@@ -282,7 +319,7 @@ function numeroSustentado(bruto: string, palheiro: string): boolean {
 
   // Número solto dentro de outra grafia ("540" em "540 dias").
   const soDigito = so.match(/^\d[\d.,]*/)?.[0]?.replace(/[.,]$/, "");
-  return Boolean(soDigito && palheiro.includes(soDigito));
+  return Boolean(soDigito && comFronteira(palheiro, soDigito));
 }
 
 function parteDaDataSustentada(valor: string, palheiro: string): boolean {

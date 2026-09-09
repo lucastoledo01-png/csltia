@@ -182,3 +182,62 @@ describe("início de frase", () => {
     expect(r.ancorado).toBe(false);
   });
 });
+
+describe("número sustentado precisa de fronteira de dígito", () => {
+  /**
+   * A verificação de número era uma verificação de SUBSTRING de dígito.
+   *
+   * Encontrado na revisão adversarial do carrossel, e vale para qualquer pauta:
+   * "a espera chega a 540 dias" passava quando a fonte dizia "1540 pedidos",
+   * porque "540" está dentro de "1540". No conteúdo permanente é pior, porque o
+   * palheiro é a página inteira de um manual oficial, cheia de número de seção,
+   * de formulário e de taxa, e cada um autoriza um prazo que ninguém escreveu.
+   */
+  const comOrigem = (texto: string): PacoteFactual =>
+    ({
+      verified_facts: [],
+      people: [],
+      organizations: [],
+      places: [],
+      dates: [],
+      numbers: [],
+      gaps: [],
+      source_urls: [],
+      texto_de_origem: texto,
+    }) as unknown as PacoteFactual;
+
+  const passa = (origem: string, gerado: string) =>
+    validarAncoragem(gerado, comOrigem(origem)).naoSustentadas.filter((c) => c.severidade === "bloqueio")
+      .length === 0;
+
+  it("540 não é sustentado por 1540", () => {
+    expect(passa("Foram 1540 pedidos protocolados.", "A espera chega a 540 dias.")).toBe(false);
+  });
+
+  it("440 não é sustentado por 1.440", () => {
+    expect(passa("The filing fee is $1,440.", "A taxa e 440 dolares.")).toBe(false);
+  });
+
+  it("o mesmo número em outra grafia continua sustentado", () => {
+    expect(passa("The filing fee is $1,440.", "A taxa e 1.440 dolares.")).toBe(true);
+    expect(passa("Foram 1,2 milhao de pedidos.", "Foram 1.2 milhao de pedidos.")).toBe(true);
+  });
+
+  it("o número que está na fonte continua sustentado", () => {
+    expect(passa("O prazo e de 540 dias.", "A espera chega a 540 dias.")).toBe(true);
+  });
+
+  it("LIMITE CONHECIDO: número de norma citado na fonte ancora qualquer prazo", () => {
+    /*
+     * Isto NÃO é fronteira de dígito: em "INA 245(a)" o 245 é um número solto
+     * de verdade, com parêntese depois. Separar "número da norma" de
+     * "quantidade" exige entender o que a frase diz, o que uma verificação
+     * determinística não faz.
+     *
+     * Fica travado aqui como comportamento conhecido, e não como acerto: se
+     * alguém resolver isso, é este teste que muda, de propósito, para o valor
+     * novo aparecer em revisão em vez de passar em silêncio.
+     */
+    expect(passa("See 8 CFR 245.1(c)(8) and INA 245(a).", "O processo leva 245 dias.")).toBe(true);
+  });
+});

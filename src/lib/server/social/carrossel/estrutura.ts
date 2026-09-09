@@ -153,9 +153,18 @@ export function minimoDaEstrutura(estrutura: EstruturaDoCarrossel): number {
   return ESTRUTURAS[estrutura].filter((p) => p.obrigatorio).length;
 }
 
-/** Quantos slides a estrutura aceita no máximo, respeitando o teto geral. */
-export function maximoDaEstrutura(estrutura: EstruturaDoCarrossel): number {
-  return Math.min(ESTRUTURAS[estrutura].length, MAXIMO_DE_SLIDES);
+/**
+ * Quantos slides a estrutura aceita no máximo, respeitando o teto geral.
+ *
+ * `comCta` importa porque o fechamento é um dos papéis: sem CTA, o máximo
+ * alcançável é a estrutura MENOS um. Sem esse parâmetro, a decisão de formato
+ * anunciava um slide que `papeisPara` não conseguia montar, e o número
+ * inflado ia para o relatório do dry-run como se fosse o do post.
+ */
+export function maximoDaEstrutura(estrutura: EstruturaDoCarrossel, comCta = true): number {
+  const papeis = ESTRUTURAS[estrutura];
+  const alcancaveis = comCta ? papeis.length : papeis.filter((p) => p.tipo !== "cta").length;
+  return Math.min(alcancaveis, MAXIMO_DE_SLIDES);
 }
 
 /**
@@ -180,7 +189,7 @@ export function papeisPara(estrutura: EstruturaDoCarrossel, slides: number, comC
    * chamador é quem já conferiu que há fato para cada um.
    */
   const piso = minimoDaEstrutura(estrutura) + (comFechamento ? 1 : 0);
-  const alvo = Math.max(piso, Math.min(slides, maximoDaEstrutura(estrutura)));
+  const alvo = Math.max(piso, Math.min(slides, maximoDaEstrutura(estrutura, comFechamento)));
 
   const elegiveis = todos.filter((p) => p !== fechamento);
   const escolhidos = new Set<PapelDeSlide>(elegiveis.filter((p) => p.obrigatorio));

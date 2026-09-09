@@ -266,10 +266,19 @@ async function main() {
   const estaticos = todosOsFormatos.filter((f) => f.formato === "static");
   const noticiasNaSemana = soNews.reduce((a, b) => a + b, 0);
 
-  if (todosOsFormatos.length === 0) {
+  /*
+   * Sem lastro, formato NAO e medicao, e o relatorio precisa dizer isso.
+   *
+   * A guarda olhava a lista estar vazia, e ela nunca esta: sem lastro o pacote
+   * falso nao tem `verified_facts`, `fatosQueViramSlide` devolve zero, e todo
+   * item sai `static`. O relatorio entao imprimia "Evergreen carousel 0" e
+   * "0% em carrossel" com cara de numero medido. Quem manda e a flag.
+   */
+  if (!comLastro || todosOsFormatos.length === 0) {
     escrever(
-      `Sem lastro buscado, o formato não pode ser decidido: ele depende de quantos fatos ` +
-        `o pacote factual sustenta. Rode com \`--com-lastro\` para medir formato.`,
+      `Sem lastro buscado, o formato NÃO foi medido: ele depende de quantos fatos o pacote ` +
+        `factual sustenta, e o pacote presumido desta simulação não tem fato nenhum. ` +
+        `Rode com \`--com-lastro\` para medir formato.`,
     );
     escrever();
   } else {

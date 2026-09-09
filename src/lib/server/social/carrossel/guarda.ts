@@ -21,6 +21,49 @@ import { papeisDoModelo, type PapelDeSlide } from "./estrutura";
 /** Os motivos do carrossel vivem no objeto da guarda, para o tipo alcançá-los. */
 const MOTIVOS_DO_CARROSSEL = MOTIVOS_DO_SOCIAL_GUARD;
 
+/**
+ * O destaque é um trecho literal da manchete, ou não serve para a arte.
+ *
+ * O prompt pede "de 1 a 4 palavras copiadas LITERALMENTE do headline", e nada
+ * conferia isso. No carrossel o campo passou a ser IMPRESSO, como título do
+ * slide de fechamento, e a manchete é ancorada mas o destaque não é: um destaque
+ * com número inventado ia congelado para a Meta sem nenhuma conferência, no
+ * último slide, que é o que quem desliza até o fim lê.
+ *
+ * Exigir que ele seja um pedaço da manchete resolve pela raiz: o que é trecho de
+ * um texto ancorado está ancorado. Comparação sem caixa e sem acento porque o
+ * modelo reescreve o acento ao copiar, e recusar por isso gastaria um reparo num
+ * problema que não existe.
+ */
+export function destaqueEhTrechoDaManchete(destaque: string, headline: string): boolean {
+  const limpo = (destaque ?? "").trim();
+  if (!limpo) return true;
+
+  const normal = (t: string) =>
+    (t ?? "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  return normal(headline).includes(normal(limpo));
+}
+
+export function conferirDestaque(destaque: string, headline: string): ProblemaDoPost[] {
+  if (destaqueEhTrechoDaManchete(destaque, headline)) return [];
+
+  return [
+    {
+      motivo: MOTIVOS_DO_CARROSSEL.SLIDE_FORA_DA_FORMA,
+      detalhe:
+        `o destaque "${destaque}" não é um trecho da manchete "${headline}". ` +
+        `Ele é impresso no slide de fechamento: copie de 1 a 4 palavras da própria manchete.`,
+      reparavel: true,
+    },
+  ];
+}
+
 /** Compara papéis ignorando caixa e acento, que é ruído de escrita e não erro. */
 function mesmoPapel(a: string, b: string): boolean {
   const normal = (s: string) =>

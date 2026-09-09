@@ -9,6 +9,7 @@ import { gerarCopyDoCarrossel, repararCopyDoCarrossel, type SlideDeTexto } from 
 import { papeisPara, type EstruturaDoCarrossel, type PapelDeSlide } from "./carrossel/estrutura";
 import type { DecisaoDeFormato } from "./carrossel/formato";
 import {
+  conferirDestaque,
   conferirFormaDosSlides,
   conferirLinguagemDoCarrossel,
   problemasDeAncoragem,
@@ -259,6 +260,7 @@ async function gerarCarrosselDaPauta(
           ...problemasDeAncoragem(semLastro),
           ...conferirFormaDosSlides(copy.slides, papeis),
           ...conferirLinguagemDoCarrossel(copy.headline, copy.slides, montarLegenda(copy)),
+          ...conferirDestaque(copy.destaque, copy.headline),
         ],
       };
     };

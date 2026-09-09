@@ -15,6 +15,7 @@ import type { InstagramSlide } from "../../../carousel-templates/types";
 import type { EntradaDaCapa, FotoDaCapa } from "../arte";
 import type { CopyDoCarrossel, SlideDeTexto } from "./copy";
 import { papeisDoModelo, type PapelDeSlide } from "./estrutura";
+import { destaqueEhTrechoDaManchete } from "./guarda";
 
 /**
  * As variantes de desenho de cada tipo de slide do carrossel.
@@ -169,14 +170,24 @@ export function entradasDoCarrossel(
     if (papel.tipo === "cta") {
       const slide = slideVazio(posicao, "cta", VARIANTE_POR_TIPO.cta);
       /*
-       * O título do fechamento não é escrito pelo modelo nem inventado aqui.
+       * O título do fechamento é sempre texto ANCORADO.
        *
-       * É a manchete de novo, curta, para o slide fechar no assunto em vez de
-       * fechar num pedido solto. E o texto do CTA é o `copy.cta`, que veio de
-       * `ctaDaPosicao` com a keyword canônica: sem automação escutando, este
-       * slide não existe, porque `papeisPara` não o inclui.
+       * `copy.destaque` só entra se for um trecho literal da manchete, que é o
+       * que a guarda ancorou: trecho de texto ancorado está ancorado. Sem isso,
+       * um destaque com número inventado ia impresso no último slide sem
+       * nenhuma conferência, e era o caso em três de cada quatro posts, porque
+       * o slide de fechamento existe sempre que há CTA.
+       *
+       * Quando o destaque não serve, a manchete inteira serve, e a peça sai com
+       * um título mais longo em vez de um título não conferido.
+       *
+       * O texto do CTA é o `copy.cta`, que veio de `ctaDaPosicao` com a keyword
+       * canônica: sem automação escutando, este slide não existe, porque
+       * `papeisPara` não o inclui.
        */
-      slide.title = copy.destaque || copy.headline;
+      slide.title = destaqueEhTrechoDaManchete(copy.destaque, copy.headline)
+        ? copy.destaque || copy.headline
+        : copy.headline;
       slide.cta_text = copy.cta;
       slide.highlight_text = palavraDoCta(copy.cta);
       entradas.push({

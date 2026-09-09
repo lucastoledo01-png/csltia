@@ -214,7 +214,7 @@ export function determinarFormatoEvergreen(
   const sustentados = capa + fatosUteis + fechamento;
 
   const pisoDaEstrutura = Math.max(minimoDaEstrutura(estrutura) + fechamento, MINIMO_DE_SLIDES);
-  const teto = Math.min(maximoDaEstrutura(estrutura), preferencia.max, MAXIMO_DE_SLIDES);
+  const teto = Math.min(maximoDaEstrutura(estrutura, opcoes.comCta), preferencia.max, MAXIMO_DE_SLIDES);
   const slides = Math.min(sustentados, teto);
 
   if (slides < pisoDaEstrutura) {

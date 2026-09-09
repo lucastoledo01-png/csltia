@@ -553,12 +553,27 @@ async function prepararV2(
     provider_child_id: doManifesto.get(s.index) ?? null,
   }));
 
-  await gravarOuFalhar(
-    supabase,
-    socialPostId,
-    { slides_manifest: manifesto, asset_paths: manifesto.map((m) => m.url) },
-    "o manifesto dos artefatos conferidos",
-  );
+  /*
+   * A gravação do manifesto é SÓ do carrossel, e isso não é economia.
+   *
+   * Na peça única o manifesto já foi gravado por quem aprovou o post, e não há
+   * container filho para registrar. Gravar de novo aqui acrescentava uma
+   * escrita no banco entre a conferência do hash e a criação do container no
+   * caminho da NOTÍCIA, que hoje publica em produção: uma falha de PostgREST
+   * naquele instante passaria a derrubar um post que antes saía, e o post
+   * terminaria em `failed`, fora da fila.
+   *
+   * Foi apontado na revisão adversarial, e a correção é não tocar no caminho
+   * que não precisa da escrita.
+   */
+  if (carga.formato === "carousel") {
+    await gravarOuFalhar(
+      supabase,
+      socialPostId,
+      { slides_manifest: manifesto, asset_paths: manifesto.map((m) => m.url) },
+      "o manifesto dos artefatos conferidos",
+    );
+  }
 
   const filhos: EstadoDosFilhos = {
     conhecidos: doManifesto,
