@@ -542,7 +542,7 @@ const conteudoEvergreen: SlideVariant = {
   ${eyebrow(ctx, slide)}
   ${tituloHtml(slide, "sm")}
   ${bullets.length > 1 ? `<div class="e-nums">${linhas}</div>` : ""}
-  ${slide.body ? `<div class="e-lede lay-texto" data-ajuste="encolher" data-min="26" data-max="42"><span>${manterCodigosJuntos(esc(slide.body))}</span></div>` : ""}
+  ${slide.body ? `<div class="e-lede lay-texto e-corpo" data-ajuste="encolher" data-min="26" data-max="42"><span>${manterCodigosJuntos(esc(slide.body))}</span></div>` : ""}
   ${bullets.length === 1 ? `<div class="e-quote">${esc(bullets[0])}</div>` : ""}
 </div>`,
     };

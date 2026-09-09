@@ -1,6 +1,6 @@
 import { BASE_CSS } from "./base-css";
 import { tokensToCss, type CarouselTokens } from "./tokens";
-import { cantosEditorial, chromeFooter, chromeHeader } from "./chrome";
+import { cantosEditorial, chromeFooter, chromeHeader, type Affordance } from "./chrome";
 import { fontLinkTag } from "./fonts";
 import { CSS_DO_LAYOUT, SCRIPT_DE_AJUSTE } from "./layout-render";
 import { esc } from "./util";
@@ -16,7 +16,7 @@ import type { VariantOutput } from "./types";
  */
 export function renderShell(
   out: VariantOutput,
-  opts: { slideIndex: number; total: number; tokens: CarouselTokens; credito?: string },
+  opts: { slideIndex: number; total: number; tokens: CarouselTokens; credito?: string; affordance?: Affordance },
 ): string {
   // O <link> sai das fontes que os tokens realmente escolheram: declarar uma
   // família sem requisitá-la é o bug silencioso que `fonts.ts` existe para
@@ -48,7 +48,7 @@ export function renderShell(
 ${cantos}
 ${chromeHeader(chrome, opts.slideIndex, opts.total)}
 ${out.body}
-${chromeFooter(chrome, opts.slideIndex, opts.total)}
+${chromeFooter(chrome, opts.slideIndex, opts.total, opts.affordance)}
 ${tira}
 </div>`;
 

@@ -74,7 +74,7 @@ export function slideDoPapel(
   slide.eyebrow = rotuloDoPapel(papel, eixo);
   slide.title = texto.titulo;
 
-  if (papel.variante === "comparacaoDuasColunas") {
+  if (papel.variante === "comparacao_duas_colunas") {
     slide.bullet_points = [texto.lado_a, texto.lado_b].filter(Boolean);
     slide.highlight_text = [texto.lado_a ? "de um lado" : "", texto.lado_b ? "do outro" : ""]
       .filter(Boolean)
@@ -161,6 +161,7 @@ export function entradasDoCarrossel(
         motivoSemFoto: opcoes.motivoSemFoto,
         posicao,
         total,
+        affordance: "discreta",
       });
       return;
     }
@@ -178,7 +179,14 @@ export function entradasDoCarrossel(
       slide.title = copy.destaque || copy.headline;
       slide.cta_text = copy.cta;
       slide.highlight_text = palavraDoCta(copy.cta);
-      entradas.push({ headline: copy.headline, asset: null, slidePronto: slide, posicao, total });
+      entradas.push({
+        headline: copy.headline,
+        asset: null,
+        slidePronto: slide,
+        posicao,
+        total,
+        affordance: "discreta",
+      });
       return;
     }
 
@@ -192,6 +200,15 @@ export function entradasDoCarrossel(
       slidePronto: slideDoPapel(papel, texto, posicao, opcoes.eixo),
       posicao,
       total,
+      /*
+       * Paginação sim, convite escrito não.
+       *
+       * O chrome de `noticia` é o editorial, e o rodapé dele escreve
+       * "SWIPE" com seta em toda peça de mais de um slide. Na peça única
+       * isso nunca apareceu porque `total` é 1; no primeiro carrossel
+       * desenhado apareceu em todos os slides.
+       */
+      affordance: "discreta",
     });
   });
 

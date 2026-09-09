@@ -1,3 +1,4 @@
+import type { Affordance } from "./chrome";
 import { renderShell } from "./shell";
 import { renderLayout } from "./layout-render";
 import type { Layout } from "./layout";
@@ -40,6 +41,8 @@ export function assembleSlide(
     layout?: Layout | null;
     /** Atribuição exigida pela licença da foto, impressa sobre a arte. */
     credito?: string;
+    /** Quanto o rodapé promete. Ver `Affordance` em `chrome.ts`. */
+    affordance?: Affordance;
   },
 ): string {
   const { format, tokens, formatConfig, slideIndex, total } = opts;
@@ -59,7 +62,7 @@ export function assembleSlide(
         }),
         full: true,
       },
-      { slideIndex, total, tokens, credito: opts.credito },
+      { slideIndex, total, tokens, credito: opts.credito, affordance: opts.affordance },
     );
   }
 
@@ -74,7 +77,7 @@ export function assembleSlide(
   if (!variant) {
     return renderShell(
       { body: `<div class="s-mid"><div class="s-title sm">${esc(slide.title)}</div></div>` },
-      { slideIndex, total, tokens, credito: opts.credito },
+      { slideIndex, total, tokens, credito: opts.credito, affordance: opts.affordance },
     );
   }
 
@@ -87,5 +90,5 @@ export function assembleSlide(
     total,
   };
 
-  return renderShell(variant.render(slide, ctx), { slideIndex, total, tokens, credito: opts.credito });
+  return renderShell(variant.render(slide, ctx), { slideIndex, total, tokens, credito: opts.credito, affordance: opts.affordance });
 }

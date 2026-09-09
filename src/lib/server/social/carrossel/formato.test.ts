@@ -327,7 +327,7 @@ describe("papéis da estrutura", () => {
     const papeis = papeisPara("comparison", 7, true);
     const diferencas = papeis.filter((p) => p.papel.startsWith("diferença"));
     expect(diferencas.length).toBeGreaterThanOrEqual(1);
-    for (const d of diferencas) expect(d.variante).toBe("comparacaoDuasColunas");
+    for (const d of diferencas) expect(d.variante).toBe("comparacao_duas_colunas");
   });
 });
 

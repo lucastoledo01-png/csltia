@@ -127,7 +127,7 @@ export function conferirFormaDosSlides(slides: SlideDeTexto[], papeis: PapelDeSl
      * `lado_a` e `lado_b`. O efeito era reprovar toda comparação bem formada,
      * e o carrossel de comparação nunca sairia.
      */
-    const temColunas = papel.variante === "comparacaoDuasColunas";
+    const temColunas = papel.variante === "comparacao_duas_colunas";
 
     if (temColunas) {
       const a = (slide.lado_a ?? "").trim();

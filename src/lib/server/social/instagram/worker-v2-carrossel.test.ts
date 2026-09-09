@@ -224,7 +224,7 @@ function metaFalsa(opcoes: { falharPai?: number } = {}) {
     if (u.startsWith("https://storage.exemplo/")) {
       const bytes = noStorage.get(u);
       if (!bytes) return new Response("", { status: 404 });
-      return new Response(bytes, { status: 200 });
+      return new Response(new Uint8Array(bytes), { status: 200 });
     }
 
     const corpo = Object.fromEntries(new URLSearchParams(String(init?.body ?? "")));

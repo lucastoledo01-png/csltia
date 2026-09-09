@@ -268,7 +268,9 @@ async function main() {
 
     // ---- 2. O pipeline persiste a linha apontando para o arquivo -------
     const { client, linhas: gravadas } = bancoEmMemoria();
-    const r = await criarSocialPostsStore(client).gravar([{ ...caso.post, artefato: a }]);
+    const r = await criarSocialPostsStore(client).gravar([
+      { ...caso.post, formato: "static", artefatos: [{ ...a, index: 1 }] },
+    ]);
     if (r.gravados !== 1) {
       problemas.push(`${caso.nome}: o store não gravou (${r.erros.join("; ") || "sem erro"})`);
       continue;

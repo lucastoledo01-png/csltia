@@ -50,6 +50,13 @@ export type PapelDeSlide = {
    *
    * É assim que a comparação existe sem um tipo de slide novo: `variant` já é
    * o primeiro nível da resolução em `assembleSlide`, acima do mapa por tipo.
+   *
+   * O valor é a CHAVE do registro de variantes, exatamente como escrita em
+   * `SLIDE_VARIANTS`. Escrevi `comparacaoDuasColunas` na primeira volta, e a
+   * chave é `comparacao_duas_colunas`: `assembleSlide` não achou a variante,
+   * caiu na primeira do tipo, e a comparação foi desenhada como uma lista de
+   * bullets. Nenhum teste de unidade viu, porque a resolução acontece no
+   * render; quem viu foi o validador visual, contando as colunas do DOM.
    * Acrescentar `comparison` ao enum de tipos obrigaria a mexer no schema que
    * o caminho legado também usa, e a declarar tokens de eyebrow e CTA para um
    * formato que o legado nunca vai desenhar.
@@ -68,7 +75,21 @@ export const ESTRUTURAS: Record<EstruturaDoCarrossel, PapelDeSlide[]> = {
     { papel: "capa", tipo: "cover", pede: "a manchete", obrigatorio: true, escritoEmCodigo: true },
     { papel: "o que é", tipo: "content", pede: "o que é a coisa, em uma ideia só", obrigatorio: true },
     { papel: "como funciona", tipo: "content", pede: "como funciona na prática, em uma ideia só", obrigatorio: true },
-    { papel: "para quem", tipo: "practical_impact", pede: "para quem isso vale, ou em que contexto aparece", obrigatorio: false },
+    /*
+     * `content`, e não `practical_impact`, e a diferença não é cosmética.
+     *
+     * A variante de conteúdo permanente está registrada sob `content`. Com o
+     * tipo `practical_impact`, `assembleSlide` não a acha, cai na primeira
+     * variante daquele tipo, e a primeira é `gold_dark_card`, que traz
+     * "COMO APLICAR EM REDES & VENDAS" cravado no HTML, herança do nicho de
+     * tecnologia. Um post de imigração sairia com esse rótulo.
+     */
+    {
+      papel: "para quem",
+      tipo: "content",
+      pede: "para quem isso vale, ou em que contexto aparece",
+      obrigatorio: false,
+    },
     { papel: "ressalva", tipo: "quote_highlight", pede: "o ponto que o leitor erra, ou o que a fonte NÃO diz", obrigatorio: false },
     { papel: "fechamento", tipo: "cta", pede: "o fechamento", obrigatorio: false, escritoEmCodigo: true },
   ],
@@ -79,14 +100,14 @@ export const ESTRUTURAS: Record<EstruturaDoCarrossel, PapelDeSlide[]> = {
     {
       papel: "diferença 1",
       tipo: "content",
-      variante: "comparacaoDuasColunas",
+      variante: "comparacao_duas_colunas",
       pede: "a diferença que mais muda a decisão de quem lê, com um lado em cada coluna",
       obrigatorio: true,
     },
     {
       papel: "diferença 2",
       tipo: "content",
-      variante: "comparacaoDuasColunas",
+      variante: "comparacao_duas_colunas",
       pede: "a segunda diferença que importa, com um lado em cada coluna",
       obrigatorio: false,
     },

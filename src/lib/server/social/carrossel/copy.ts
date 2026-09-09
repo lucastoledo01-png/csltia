@@ -106,7 +106,7 @@ function descreverPapeis(papeis: PapelDeSlide[]): string {
       if (p.escritoEmCodigo) {
         return `${n}. papel "${p.papel}": NÃO escreva este slide. Ele é montado em código. Não inclua no array.`;
       }
-      const extra = p.variante === "comparacaoDuasColunas"
+      const extra = p.variante === "comparacao_duas_colunas"
         ? ' Este slide tem DUAS COLUNAS: preencha "lado_a" e "lado_b" com o que vale de cada lado, e use "titulo" para nomear a diferença. Deixe "corpo" vazio.'
         : "";
       return `${n}. papel "${p.papel}": ${p.pede}.${extra}`;

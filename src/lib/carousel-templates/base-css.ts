@@ -229,6 +229,18 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 .e-nums .t{font-family:var(--s-font-display);font-size:40px;font-weight:700;
   letter-spacing:-0.02em;color:var(--s-ink);}
 
+/* Caixa de corpo com altura DEFINIDA, para o ajuste automático poder agir.
+
+   O script de ajuste mede a altura disponível ANTES de trocar a fonte, o que só
+   faz sentido num bloco de altura definida: ele foi escrito para os blocos
+   posicionados do painel, que têm caixa fixa. Num bloco de altura automática,
+   "altura disponível" é a altura do texto no tamanho atual, então o script nunca
+   deixa o texto crescer e o corpo fica preso no valor do token, medido em 26px.
+
+   A capa não sofre disso porque a caixa da manchete é fracionada em 60% do
+   campo. Esta caixa é o mesmo recurso para o slide de conteúdo. */
+.e-corpo{flex:0 0 46%;display:flex;flex-direction:column;justify-content:flex-start;}
+
 /* Duas colunas, para a comparação. É a única primitiva de LADO A LADO da folha:
    nenhuma das variantes anteriores precisava de duas colunas, e uma comparação
    empilhada em duas linhas deixa de ser comparação, porque quem lê perde o eixo

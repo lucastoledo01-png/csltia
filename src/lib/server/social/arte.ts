@@ -1,5 +1,6 @@
 import type { CarouselFormat, InstagramSlide } from "@/lib/carousel-templates/types";
 import type { Layout } from "@/lib/carousel-templates/layout";
+import type { Affordance } from "@/lib/carousel-templates/chrome";
 import type { AssetVisual } from "../visual/tipos";
 
 /**
@@ -44,8 +45,15 @@ export function publicavelSemFoto(formato: CarouselFormat): boolean {
 
 export type CapaDoPost = {
   slide: InstagramSlide;
-  /** Variante do template. Muda com a presença da foto, e só com ela. */
-  variante: "fullbleed_portrait" | "noticia_sem_foto";
+  /**
+   * Variante do template.
+   *
+   * Na CAPA ela muda com a presença da foto, e só com ela. Num slide de
+   * conteúdo do carrossel, ela é a variante que o papel declarou, e por isso o
+   * tipo é aberto: fechá-lo nas duas capas obrigaria a listar aqui todas as
+   * variantes de conteúdo, que são decisão de quem monta o carrossel.
+   */
+  variante: string;
   comFoto: boolean;
   /** Crédito a ser impresso na arte. Vazio quando a licença não exige. */
   credito: string;
@@ -138,6 +146,15 @@ export type EntradaDaCapa = {
   /** Posição e total, para a paginação. Peça única é 1 de 1. */
   posicao?: number;
   total?: number;
+  /**
+   * Quanto o rodapé promete.
+   *
+   * O chrome de `noticia` é o editorial, e o rodapé dele escreve "SWIPE" com
+   * seta quando há mais de um slide. Na peça única isso nunca aparecia, porque
+   * `total` é 1; no carrossel apareceu em todos os slides, e o pedido é
+   * explícito em não usar. `discreta` mantém a paginação e tira o convite.
+   */
+  affordance?: Affordance;
 };
 
 /**
@@ -409,6 +426,7 @@ export async function renderizarCapas(
         total: entrada.total ?? 1,
         layout: usaDesenho ? layout : null,
         credito: capa.credito,
+        affordance: entrada.affordance,
       });
 
       await page.setContent(html, { waitUntil: "networkidle" });
