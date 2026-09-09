@@ -29,6 +29,9 @@ import { criarProvedorOpenAI } from "../editorial/embeddings";
 import { criarHistoricoStore, gerarStoryId } from "../editorial/history";
 import type { RegistroHistorico } from "../editorial/history";
 import { avaliarPautas, registroDaPauta } from "../editorial/guarda";
+import { rodarSocialDoDia, diagnosticoSocialAusente } from "../social/ciclo-do-dia";
+import type { DiagnosticoSocialDoDia } from "../social/ciclo-do-dia";
+import { modoDoPipelineSocial } from "../social/modo";
 import { descreverModo, modoDaGuarda } from "../editorial/modo";
 import { paraRenderizacao, resolverImagens } from "../editorial/imagens";
 import { descreverModoVisual, diagnosticoVazio, modoDoResolvedorVisual } from "../visual/modo";
@@ -617,6 +620,14 @@ export async function runNewsroom(
   } = { degraded: false, lidas: 0, reaproveitadas: 0, classificadasAgora: 0, gravadas: 0, erros: [] };
   // Guardado para a escolha de imagem, que precisa saber o que já foi usado.
   let historicoDaGuarda: RegistroHistorico[] = [];
+  /*
+   * O que o Instagram fez hoje, no resultado do newsroom.
+   *
+   * Ele começa como "não rodou" e só muda se rodar. Ficar ausente do resultado
+   * seria indistinguível de ter rodado e não produzido nada, que é a diferença
+   * que este campo existe para dizer.
+   */
+  let diagnosticoSocial: DiagnosticoSocialDoDia = diagnosticoSocialAusente(modoDoPipelineSocial(env));
 
   if (modo !== "off") {
     const store = criarHistoricoStore(getSupabaseAdminClient());
@@ -675,6 +686,63 @@ export async function runNewsroom(
     );
 
     for (const linha of resultado.linhasDeLog) console.log(linha);
+
+    /*
+     * O Instagram entra AQUI, e o lugar é a regra de produto.
+     *
+     * Logo abaixo vem a composição da newsletter e o mínimo de duas pautas, e
+     * um dia que não fecha edição sai por um `return` que não executa mais
+     * nada. Se o social morasse depois disso, um dia com três pautas aprovadas
+     * em que a newsletter leva uma e cancela levaria o feed junto — e esse é
+     * exatamente o dia mais comum na capacidade medida.
+     *
+     * São dois consumidores do mesmo trabalho editorial, não um dentro do
+     * outro. O social recebe o `approvedEditorialPool`, que é a camada
+     * compartilhada, e daqui para baixo não toca em nada da newsletter.
+     *
+     * O `try` não é decoração: falha técnica do social não pode derrubar a
+     * edição. O motivo vira diagnóstico e alerta, e o e-mail segue.
+     */
+    try {
+      const social = await rodarSocialDoDia(resultado.approvedEditorialPool, {
+        projectId: project.id,
+        projectSlug: project.slug,
+        editionDate: todayStr,
+        marca: {
+          nome: project.brand.displayName || project.name,
+          nicho: project.niche,
+          extra: project.editorialPromptExtra ?? "",
+          keyword: String(project.settings?.instagram_keyword ?? "").trim(),
+        },
+        historico,
+        config: configEditorial,
+        client: getSupabaseAdminClient(),
+        persistenciaDegradada: resultado.reuso.erros.length > 0,
+        env,
+        fetcher,
+      });
+
+      diagnosticoSocial = social.diagnostico;
+      for (const l of social.ciclo?.linhasDeLog ?? []) console.log(l);
+
+      if (social.diagnostico.mode !== "off") {
+        console.log(
+          `[NEWSROOM] socialV2 ${social.diagnostico.mode}: ` +
+            `${social.diagnostico.candidates} candidatas, ${social.diagnostico.verified} verificadas, ` +
+            `${social.diagnostico.selected} post(s), ${social.diagnostico.scheduled} agendado(s), ` +
+            `${social.diagnostico.skipped} descartada(s).`,
+        );
+      }
+    } catch (erro) {
+      const motivo = erro instanceof Error ? erro.message : String(erro);
+      diagnosticoSocial = { ...diagnosticoSocialAusente(modoDoPipelineSocial(env)), errors: [motivo] };
+      console.error(`[NEWSROOM] socialV2 falhou, e a newsletter segue: ${motivo}`);
+      await sendAlert(
+        "warning",
+        "Social V2 falhou no ciclo do newsroom",
+        `A edição de ${todayStr} segue pelo caminho normal.\n${motivo}`,
+      );
+    }
 
     const daGuarda: RankedCandidate[] = resultado.selecionadas.map((p) => ({
       group: p.grupo,
@@ -753,6 +821,14 @@ export async function runNewsroom(
           approvedCount: resultado.selecionadas.length,
           rejectedCount: resultado.recusadas.length,
           minimumRequired: configEditorial.minimoDePautas,
+          /*
+           * O social sai NESTE retorno também, e é o caso que mais importa.
+           *
+           * Este é o dia em que a newsletter não fecha. Se o diagnóstico do
+           * Instagram só aparecesse no caminho de sucesso, o dia em que ele
+           * mais tem valor seria o dia em que ninguém saberia se ele rodou.
+           */
+          socialV2: diagnosticoSocial,
           idempotencyKey,
         };
       }
@@ -1343,6 +1419,15 @@ export async function runNewsroom(
     /** Modo efetivo do resolvedor de imagem, normalizado, lido pelo processo. */
     visualResolverMode: modoVisual,
     visualResolution: diagnosticoVisual,
+    /**
+     * O que o Instagram fez hoje.
+     *
+     * `executed: false` com `mode: "off"` é o estado normal enquanto a flag
+     * não for ligada. `executed: false` com `mode: "dry_run"` significa que a
+     * flag está ligada e o ciclo NÃO foi alcançado — que é a diferença que este
+     * campo existe para tornar visível.
+     */
+    socialV2: diagnosticoSocial,
     minEditorialQaScore: configEditorial.notaMinimaDeQA,
     maxEditorialRepairAttempts: configEditorial.maximoDeReparos,
     publishedToPortal: Boolean(createdArticleSlug),
