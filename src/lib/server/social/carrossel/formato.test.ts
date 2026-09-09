@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { determinarFormatoEvergreen, fatosQueViramSlide, preferenciaDaFamilia } from "./formato";
+import { alternarFormatos, determinarFormatoEvergreen, fatosQueViramSlide, preferenciaDaFamilia } from "./formato";
 import { ESTRUTURAS, MAXIMO_DE_SLIDES, MINIMO_DE_SLIDES, papeisPara, minimoDaEstrutura } from "./estrutura";
 import { CATALOGO_EVERGREEN } from "../evergreen/catalogo";
 import type { FamiliaEvergreen, ItemEvergreen, TopicoEvergreen } from "../evergreen/tipos";
@@ -357,5 +357,84 @@ describe("o catálogo real", () => {
     const proporcao = carrossel / total;
     expect(proporcao).toBeGreaterThan(0.5);
     expect(proporcao).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("intercalar formatos é desempate, não quota", () => {
+  type Fake = { id: number; f: "static" | "carousel" };
+  const fmt = (x: Fake) => x.f;
+  const lista = (padrao: string): Fake[] =>
+    padrao.split("").map((c, i) => ({ id: i, f: c === "C" ? "carousel" : "static" }));
+  const desenho = (xs: Fake[]) => xs.map((x) => (x.f === "carousel" ? "C" : "S")).join("");
+
+  const CASOS = ["C", "CS", "CCC", "CCCS", "CSSS", "CCCCSSSS", "CCCCCSS", "SSSSC", "CCSSCC"];
+
+  it("nada é perdido, nada é duplicado, em nenhum caso", () => {
+    /*
+     * A régua é de ORDEM. Perder ou duplicar um post aqui seria transformar
+     * diversidade de formato em quota, que é exatamente o que o pedido proíbe.
+     */
+    for (const padrao of CASOS) {
+      const entrada = lista(padrao);
+      const saida = alternarFormatos(entrada, fmt);
+
+      expect(saida, padrao).toHaveLength(entrada.length);
+      expect(new Set(saida.map((x) => x.id)).size, padrao).toBe(entrada.length);
+      expect(saida.filter((x) => x.f === "carousel").length, padrao).toBe(
+        entrada.filter((x) => x.f === "carousel").length,
+      );
+    }
+  });
+
+  it("é determinística: duas chamadas devolvem a mesma ordem", () => {
+    for (const padrao of CASOS) {
+      const entrada = lista(padrao);
+      expect(desenho(alternarFormatos(entrada, fmt)), padrao).toBe(desenho(alternarFormatos(entrada, fmt)));
+    }
+  });
+
+  it("um formato só volta exatamente como veio", () => {
+    for (const padrao of ["CCCC", "SSSS"]) {
+      const entrada = lista(padrao);
+      expect(alternarFormatos(entrada, fmt).map((x) => x.id)).toEqual(entrada.map((x) => x.id));
+    }
+  });
+
+  it("espalha a minoria em vez de alternar cegamente", () => {
+    /*
+     * Com quatro carrosséis e um estático, alternar daria C S C C C, com bloco
+     * de três no fim. Espalhar dá C C S C C, que é o que se quer.
+     */
+    expect(desenho(alternarFormatos(lista("CCCCS"), fmt))).toBe("CCSCC");
+  });
+
+  it("nenhum caso produz sequência do mesmo formato maior que a entrada permite", () => {
+    for (const padrao of CASOS) {
+      const saida = alternarFormatos(lista(padrao), fmt);
+      const c = saida.filter((x) => x.f === "carousel").length;
+      const s = saida.length - c;
+
+      /*
+       * O piso teórico da maior sequência é `ceil(maioria / (minoria + 1))`:
+       * com m da maioria e k da minoria há k+1 blocos, e o maior deles não pode
+       * ser menor que isso. A saída não precisa ser ótima, mas não pode ser
+       * pior que dois blocos acima do piso, senão a intercalação não está
+       * intercalando.
+       */
+      const maioria = Math.max(c, s);
+      const minoria = Math.min(c, s);
+      const piso = minoria === 0 ? maioria : Math.ceil(maioria / (minoria + 1));
+
+      let maior = 0;
+      let corrente = 0;
+      let anterior = "";
+      for (const x of saida) {
+        corrente = x.f === anterior ? corrente + 1 : 1;
+        anterior = x.f;
+        maior = Math.max(maior, corrente);
+      }
+
+      expect(maior, `${padrao} -> ${desenho(saida)} (piso ${piso})`).toBeLessThanOrEqual(piso + 1);
+    }
   });
 });

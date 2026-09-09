@@ -332,6 +332,66 @@ real, esses quatro testes continuarão verdes.
 **O que fazer.** Ou `pipeline-v2` passa a chamar `comporFeedDoDia`, ou os testes
 migram para o caminho real e a função sai.
 
+### Campo validado e campo impresso não eram o mesmo campo
+
+**Sintoma.** Nenhum, e foi encontrado por revisão adversarial antes de publicar.
+
+**Causa.** `copy.destaque` era campo morto no render: a capa estática o ignora e
+seta `highlight_text: ""`. O carrossel criou o primeiro consumidor de render dele,
+como título do slide de fechamento. Só que a guarda ancora `copy.headline` e
+`montarLegenda(copy)`, e `montarLegenda` não inclui `destaque`. Resultado: um
+destaque com número inventado ia congelado para a Meta sem nenhuma conferência,
+no último slide, em três de cada quatro posts (o slide de fechamento existe
+sempre que há CTA).
+
+**Pior que o defeito.** O comentário que eu mesmo escrevi afirmava o contrário do
+que o código fazia: "a manchete mais o destaque, que já existem na copy, já são
+ancorados pela guarda". Um comentário errado é pior que comentário ausente,
+porque ele encerra a investigação de quem for olhar depois.
+
+**Corrigido.** O destaque só vai para a arte se for trecho LITERAL da manchete, que
+é o que o prompt já pedia e ninguém conferia: trecho de texto ancorado está
+ancorado. Quando não é, a peça sai com a manchete inteira, e a guarda aponta.
+
+**Lição.** Ao dar a um campo o seu primeiro consumidor de RENDER, a pergunta não é
+se ele existe: é por qual conferência ele passa. Campo que ninguém imprimia não
+tinha por que ser validado, e passar a imprimi-lo é mudar o contrato dele.
+
+### A verificação de número era verificação de substring de dígito
+
+**Sintoma.** Nenhum visível. Medido na revisão adversarial do carrossel.
+
+**Causa.** As três buscas de `numeroSustentado` eram `palheiro.includes(...)` sem
+fronteira. Com a fonte dizendo "Foram 1540 pedidos", o texto "a espera chega a
+540 dias" passava, porque "540" está dentro de "1540". Com "$1,440", passava "a
+taxa é 440 dólares".
+
+É grave em qualquer pauta e pior no conteúdo permanente, onde o palheiro é a
+página inteira de um manual oficial: número de seção, de formulário e de taxa em
+profusão, cada um servindo de âncora livre para um prazo que ninguém escreveu.
+
+**Corrigido.** A busca exige fronteira de dígito. A comparação por dígitos puros
+continua existindo, então "1.440" segue sustentando "1,440" e "1440".
+
+**PENDENTE, travado em teste como limite conhecido.** Número de norma citado na
+fonte ancora prazo inventado: com "INA 245(a)" no material, "o processo leva 245
+dias" passa, porque ali o 245 é um número solto de verdade. Separar "número da
+norma" de "quantidade" exige entender o que a frase diz, e uma verificação
+determinística não faz isso. O teste existe e afirma o comportamento ATUAL, para
+que quem resolver isso tenha que mudar o teste de propósito.
+
+**Segundo limite, do mesmo tipo.** Slide de prosa puramente qualitativa volta com
+zero claims conferidas e zero bloqueios, ou seja aprovado sem que nada nele tenha
+sido verificado. A ancoragem determinística confere número, data e nome próprio;
+afirmação sem nenhum dos três não tem o que conferir. O carrossel multiplica a
+exposição, porque são de quatro a cinco blocos de texto novos por post em vez de
+dois.
+
+**Lição.** Uma guarda que confere três classes de coisa não é uma guarda de
+veracidade, e o prompt não pode prometer o que ela não entrega. Antes de apontar
+uma verificação existente para um texto de origem muito maior, vale medir do que
+ela é feita.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta
