@@ -16,7 +16,15 @@ import type { ArtefatoCongelado } from "./artefato";
  */
 
 export type OrigemDoPost = {
-  originChannel: "newsletter" | "social";
+  /**
+   * De onde o post veio.
+   *
+   * `evergreen` é o terceiro valor, e a coluna é `text` sem CHECK: conferido no
+   * banco de produção antes de escolher isto, justamente para não exigir
+   * migration. O worker não lê este campo — para ele os três são a mesma linha
+   * com o mesmo `generation_version`.
+   */
+  originChannel: "newsletter" | "social" | "evergreen";
   originStoryId: string | null;
   motivo: string;
 };
@@ -35,6 +43,25 @@ export type OrigemDoPost = {
  * mesmo lugar.
  */
 export function resolverOrigem(storyId: string, historico: RegistroHistorico[]): OrigemDoPost {
+  /*
+   * Conteúdo permanente se declara pela própria identidade.
+   *
+   * `evg:{topico}:{angulo}` é a chave que o catálogo evergreen gera, e ela não
+   * existe no noticiário. Perguntar ao `editorial_history` se um explicador de
+   * EB-2 "saiu na newsletter" não faz sentido: ele nunca esteve numa edição, e
+   * a resposta seria "social-only" por ausência, não por decisão.
+   *
+   * A alternativa seria um parâmetro a mais em toda a cadeia. O prefixo diz a
+   * mesma coisa sem que ninguém precise carregá-lo.
+   */
+  if (storyId.startsWith("evg:")) {
+    return {
+      originChannel: "evergreen",
+      originStoryId: null,
+      motivo: "conteúdo permanente do catálogo, ancorado em fonte oficial",
+    };
+  }
+
   const naNewsletter = historico.find((h) => h.storyId === storyId && h.canal === "newsletter");
 
   if (naNewsletter) {

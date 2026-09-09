@@ -5,6 +5,7 @@ import type { ConfigEditorial } from "../editorial/config";
 import type { PacoteFactual } from "../editorial/pacote-factual";
 import { montarPacotesDasPautas } from "../editorial/pacote-factual";
 import { conferirFinalistas } from "../editorial/finalistas";
+import type { ResultadoDosFinalistas } from "../editorial/finalistas";
 import { criarCandidatosStore } from "../editorial/candidatos-store";
 import { resolveVisualAsset } from "../visual/resolver";
 import { carregarConfigSocial } from "./selecao";
@@ -12,6 +13,8 @@ import { criarSocialPostsStore } from "./social-posts-store";
 import { modoDoPipelineSocial } from "./modo";
 import type { ModoSocial } from "./modo";
 import { rodarCicloSocial } from "./pipeline-v2";
+import { pacotesDoEvergreen, prepararEvergreen } from "./evergreen/ciclo";
+import type { DiagnosticoDoEvergreen, OpcoesDoEvergreen, ResultadoDoEvergreen } from "./evergreen/ciclo";
 import type { MarcaSocial } from "./copy";
 import type { OpcoesDoCiclo, ResultadoDoCicloSocial } from "./pipeline-v2";
 
@@ -52,6 +55,8 @@ export type DiagnosticoSocialDoDia = {
   skippedReasons: Record<string, number>;
   /** Falha técnica. Nunca derruba a newsletter. */
   errors: string[];
+  /** O que o conteúdo permanente fez hoje. Ausente quando a flag está off. */
+  evergreen?: DiagnosticoDoEvergreen;
 };
 
 export function diagnosticoSocialAusente(mode: ModoSocial = "off"): DiagnosticoSocialDoDia {
@@ -91,12 +96,23 @@ export type OpcoesDoSocialDoDia = {
    */
   congelarArte?: OpcoesDoCiclo["congelarArte"];
   resolverKeyword?: OpcoesDoCiclo["resolverKeyword"];
+  /**
+   * Conteúdo permanente para as vagas que a notícia deixou.
+   *
+   * Ausente, o dia é exatamente o que era: só notícia. Presente, ele é
+   * calculado DEPOIS da verificação dos finalistas, porque é o número de
+   * notícias confirmadas que define quantas vagas sobram.
+   */
+  evergreen?: Omit<OpcoesDoEvergreen, "noticiasNoDia" | "maximoPorDia" | "agoraMs" | "projectId"> & {
+    agoraMs?: number;
+  };
 };
 
 export type ResultadoDoSocialDoDia = {
   diagnostico: DiagnosticoSocialDoDia;
   ciclo: ResultadoDoCicloSocial | null;
   conferencia: Awaited<ReturnType<typeof conferirFinalistas>> | null;
+  evergreen?: ResultadoDoEvergreen | null;
 };
 
 /**
@@ -118,11 +134,6 @@ export async function rodarSocialDoDia(
 
   if (modo === "off") return { diagnostico, ciclo: null, conferencia: null };
 
-  if (approvedEditorialPool.length === 0) {
-    diagnostico.executed = true;
-    return { diagnostico, ciclo: null, conferencia: null };
-  }
-
   const configSocial = carregarConfigSocial(env);
   const candidatosStore = criarCandidatosStore(opcoes.client);
 
@@ -133,53 +144,111 @@ export async function rodarSocialDoDia(
    * guarda usou, então pauta verificada por um canal não é paga de novo pelo
    * outro. É o que faz "compartilhar upstream" ser literal e não retórico.
    */
-  const conferencia = await conferirFinalistas(approvedEditorialPool, {
-    canal: "instagram",
-    vagas: configSocial.maximoPorDia,
-    config: opcoes.config,
-    store: candidatosStore,
-    projectId: opcoes.projectId,
-    env,
-    fetcher,
-  });
+  /*
+   * Sem pool aprovado não se chama o verificador: não há o que verificar, e a
+   * chamada custaria tokens para devolver listas vazias. O dia continua, porque
+   * o evergreen pode sustentá-lo sozinho.
+   */
+  const conferencia: ResultadoDosFinalistas =
+    approvedEditorialPool.length > 0
+      ? await conferirFinalistas(approvedEditorialPool, {
+          canal: "instagram",
+          vagas: configSocial.maximoPorDia,
+          config: opcoes.config,
+          store: candidatosStore,
+          projectId: opcoes.projectId,
+          env,
+          fetcher,
+        })
+      : {
+          confirmadas: [],
+          recusadas: [],
+          emConflito: [],
+          naoConferidas: [],
+          diagnostico: {
+            finalistas: 0,
+            verificadasAgora: 0,
+            reaproveitadasDoBanco: 0,
+            chamadasAoVerificador: 0,
+            tokens: 0,
+            custoUsd: 0,
+          },
+          linhasDeLog: [],
+        };
 
   diagnostico.verified = conferencia.confirmadas.length;
   diagnostico.executed = true;
-
-  if (conferencia.confirmadas.length === 0) {
-    diagnostico.skipped = conferencia.recusadas.length + conferencia.emConflito.length;
-    diagnostico.skippedReasons = {
-      VERIFIED_REJECT: conferencia.recusadas.length,
-      EDITORIAL_CLASSIFICATION_CONFLICT: conferencia.emConflito.length,
-    };
-    return { diagnostico, ciclo: null, conferencia };
-  }
+  diagnostico.skipped = conferencia.recusadas.length + conferencia.emConflito.length;
+  diagnostico.skippedReasons = {
+    VERIFIED_REJECT: conferencia.recusadas.length,
+    EDITORIAL_CLASSIFICATION_CONFLICT: conferencia.emConflito.length,
+  };
 
   /*
    * O pacote factual é o que ancora a copy. Sem ele o gerador escreve sobre o
    * título, e escrever sobre o título é como se inventa detalhe.
    */
   const pacotes = new Map<string, PacoteFactual>();
-  const construcao = await montarPacotesDasPautas(
-    conferencia.confirmadas.map((p) => ({
-      url: p.grupo.primary.url,
-      titulo: p.grupo.primary.title,
-      texto: p.enriquecimento?.texto ?? "",
-      urls: [p.grupo.primary.url],
-    })),
-    env,
-    fetcher,
-  );
-  const porUrl = new Map(conferencia.confirmadas.map((p) => [p.grupo.primary.url, p.storyId]));
-  for (const [url, pacote] of construcao.pacotes.entries()) {
-    const storyId = porUrl.get(url);
-    if (storyId) pacotes.set(storyId, pacote);
+  if (conferencia.confirmadas.length > 0) {
+    const construcao = await montarPacotesDasPautas(
+      conferencia.confirmadas.map((p) => ({
+        url: p.grupo.primary.url,
+        titulo: p.grupo.primary.title,
+        texto: p.enriquecimento?.texto ?? "",
+        urls: [p.grupo.primary.url],
+      })),
+      env,
+      fetcher,
+    );
+    const porUrl = new Map(conferencia.confirmadas.map((p) => [p.grupo.primary.url, p.storyId]));
+    for (const [url, pacote] of construcao.pacotes.entries()) {
+      const storyId = porUrl.get(url);
+      if (storyId) pacotes.set(storyId, pacote);
+    }
   }
 
   const candidatas = await candidatosStore.buscarPorStoryIds(
     opcoes.projectId,
     conferencia.confirmadas.map((p) => p.storyId),
   );
+
+  /*
+   * O evergreen entra aqui, e a posição não é arbitrária.
+   *
+   * Só agora se sabe quantas notícias o dia tem de verdade — depois da linha
+   * editorial e do verificador —, e é esse número que define as vagas
+   * restantes. Calcular antes usaria o pool aprovado, que é maior que o que
+   * vira post, e o dia estouraria o teto.
+   */
+  const evergreen = opcoes.evergreen
+    ? await prepararEvergreen({
+        ...opcoes.evergreen,
+        projectId: opcoes.projectId,
+        noticiasNoDia: conferencia.confirmadas.length,
+        maximoPorDia: configSocial.maximoPorDia,
+        programasDaNoticia: conferencia.confirmadas.flatMap((p) => p.classificacao.atores ?? []),
+        agoraMs: opcoes.evergreen.agoraMs ?? opcoes.agoraMs ?? Date.now(),
+        env,
+        fetcher,
+      })
+    : null;
+
+  if (evergreen) {
+    for (const [chave, candidata] of evergreen.candidatas) candidatas.set(chave, candidata);
+    for (const [chave, pacote] of pacotesDoEvergreen(evergreen.lastros)) pacotes.set(chave, pacote);
+  }
+
+  /*
+   * Nada de notícia e nada de permanente: o dia não tem o que publicar.
+   *
+   * Isto substitui o retorno antecipado que existia quando o verificador não
+   * confirmava nada. Ele estava certo enquanto só a notícia alimentava o feed, e
+   * passou a estar errado: um dia sem notícia é exatamente o dia em que o
+   * evergreen tem mais valor, e o retorno antigo o impedia de rodar.
+   */
+  if (conferencia.confirmadas.length === 0 && (evergreen?.extras.length ?? 0) === 0) {
+    return { diagnostico, ciclo: null, conferencia, evergreen };
+  }
 
   const ciclo = await rodarCicloSocial(conferencia.confirmadas, {
     projectId: opcoes.projectId,
@@ -200,6 +269,7 @@ export async function rodarSocialDoDia(
     env: opcoes.modoForcado ? { ...env, SOCIAL_PIPELINE_V2: opcoes.modoForcado } : env,
     fetcher,
     agoraMs: opcoes.agoraMs,
+    ...(evergreen?.extras.length ? { extras: evergreen.extras } : {}),
     ...(opcoes.congelarArte ? { congelarArte: opcoes.congelarArte } : {}),
     ...(opcoes.resolverKeyword ? { resolverKeyword: opcoes.resolverKeyword } : {}),
     resolverVisual: async (pauta) =>
@@ -233,6 +303,7 @@ export async function rodarSocialDoDia(
     diagnostico.skippedReasons[chave] = (diagnostico.skippedReasons[chave] ?? 0) + 1;
   }
   diagnostico.errors = ciclo.gravacao?.erros ?? [];
+  if (evergreen) diagnostico.evergreen = evergreen.diagnostico;
 
-  return { diagnostico, ciclo, conferencia };
+  return { diagnostico, ciclo, conferencia, evergreen };
 }

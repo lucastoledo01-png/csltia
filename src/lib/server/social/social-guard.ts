@@ -250,7 +250,7 @@ export function avaliarPostSocial(
    */
   const contextoDaLegenda: ContextoDaLegenda = {
     titulo: pauta.grupo.primary.title,
-    resumo: pauta.enriquecimento?.texto ?? "",
+    resumo: pauta.enriquecimento?.assuntoParaHashtags?.trim() || pauta.enriquecimento?.texto || "",
     categoria: pauta.classificacao.eixo,
     pais: pauta.classificacao.pais === "Brasil" ? "BR" : "US",
     entidades: [...pauta.classificacao.atores, ...pauta.classificacao.lugares],

@@ -111,6 +111,20 @@ export type OpcoesDoCiclo = {
   congelarArte?: (entrada: EntradaDoCongelamento) => Promise<ResultadoDoCongelamento>;
   /** Prefixo do caminho no bucket. Sem ele, o ciclo não congela e não grava. */
   slugDoProjeto?: string;
+  /**
+   * Pautas que entram DEPOIS da composição da notícia, sem passar por ela.
+   *
+   * É por aqui que o evergreen entra, e a escolha de não jogá-lo no `pool` tem
+   * uma razão só: `comporFeedSocial` aplica as réguas de diversidade do
+   * noticiário sobre tudo o que recebe, e um evergreen com nota menor poderia
+   * fazer uma notícia válida perder vaga por teto de eixo. Notícia nunca perde
+   * vaga para conteúdo permanente.
+   *
+   * Quem decide quantos cabem é quem chama: o compositor do dia calcula as
+   * vagas restantes e só manda o que couber. Ausente, o ciclo é exatamente o
+   * que era.
+   */
+  extras?: PautaAvaliada[];
   env?: Record<string, string | undefined>;
   fetcher?: typeof fetch;
 };
@@ -181,9 +195,24 @@ export async function rodarCicloSocial(
     );
   }
 
+  /*
+   * A notícia composta, mais o que veio por fora.
+   *
+   * A ordem importa e é a da prioridade: a notícia primeiro, o extra depois. A
+   * agenda distribui os horários do dia numa passada só sobre esta lista, o que
+   * é o único jeito de os dois canais não receberem o mesmo horário.
+   */
+  const paraGerar = [...composicao.escolhidas.map((e) => e.pauta), ...(opcoes.extras ?? [])];
+
+  if (opcoes.extras?.length) {
+    linhas.push(
+      `[SOCIAL V2] ${composicao.escolhidas.length} de notícia + ${opcoes.extras.length} de conteúdo permanente`,
+    );
+  }
+
   // 3. Copy, guarda e reparo.
   const geracao = await gerarPostsDoDia(
-    composicao.escolhidas.map((e) => e.pauta),
+    paraGerar,
     config.maximoPorDia,
     { marca, pacotes: opcoes.pacotes, candidatas: opcoes.candidatas, env, fetcher: opcoes.fetcher },
   );

@@ -39,6 +39,17 @@ export type StatusDeEnriquecimento =
 
 export type ResultadoDoEnriquecimento = {
   texto: string;
+  /**
+   * O assunto da pauta em poucas linhas, quando o texto de origem não serve.
+   *
+   * A hashtag é inferida do texto, e a régua é "o assunto precisa aparecer no
+   * título, no resumo, nas entidades ou na categoria". Uma matéria cumpre isso:
+   * ela trata de um assunto. Uma página de manual oficial não, porque enumera o
+   * sistema inteiro, e a inferência larga acaba descrevendo o site da origem em
+   * vez do post. Quem tem um resumo curado do assunto declara aqui; quem não
+   * tem deixa vazio e segue usando `texto`.
+   */
+  assuntoParaHashtags?: string;
   /** De onde veio o texto que será usado. */
   contentSource: "feed" | "pagina_original" | "fonte_secundaria" | "nenhuma";
   contentLength: number;

@@ -298,7 +298,18 @@ const REGRAS: RegraDeHashtag[] = [
   { padrao: /\bf 1\b|\bvisto f1\b/, tag: "#VistoF1", substitui: ["#VistoDeEstudante"], imigracao: true },
   { padrao: /\bvisto de estudante\b/, tag: "#VistoDeEstudante", imigracao: true },
   { padrao: /\bvisto de turismo\b|\bb1 b2\b|\bb 1 b 2\b|\bturista\b/, tag: "#VistoDeTurista", imigracao: true },
-  { padrao: /\bgreen card\b|\bgreencard\b|\bresidencia permanente\b/, tag: "#GreenCard", imigracao: true },
+  {
+    /*
+     * "residente permanente" é a mesma coisa que "residência permanente".
+     *
+     * A flexão faltava, e o efeito apareceu num tópico cujo resumo é "virar
+     * residente permanente sem precisar sair dos Estados Unidos": assunto de
+     * green card do começo ao fim, e nenhuma hashtag de green card.
+     */
+    padrao: /\bgreen card\b|\bgreencard\b|\bresidencia permanente\b|\bresidente permanente\b|\bresidentes permanentes\b/,
+    tag: "#GreenCard",
+    imigracao: true,
+  },
   { padrao: /\basilo\b|\brefugio\b|\brefugiad/, tag: "#Asilo", imigracao: true },
   { padrao: /\bcidadania\b|\bnaturalizac/, tag: "#CidadaniaAmericana", imigracao: true },
   { padrao: /\bloteria de vistos\b|\bdiversity visa\b/, tag: "#LoteriaDeVistos", imigracao: true },
@@ -353,9 +364,19 @@ type Sinais = {
 };
 
 const GATILHOS = {
-  /** Processo migratório citado, não "os EUA" como assunto. */
+  /*
+   * Processo migratório citado, não "os EUA" como assunto.
+   *
+   * As flexões estavam incompletas: "imigrac" e "imigrant" deixavam de fora
+   * "imigrar" e, principalmente, "migratório", que é como se escreve quando se
+   * fala de "caminhos migratórios". Cinco tópicos do catálogo evergreen usam
+   * exatamente essa palavra e nenhum era reconhecido como assunto de imigração.
+   *
+   * "petição" ficou fora de propósito: no Brasil é peça de processo judicial, e
+   * um despacho do STF não é assunto de imigração.
+   */
   imigracao:
-    /\bimigrac|\bimigrant|\bvisto\b|\bvistos\b|\bgreen card\b|\bgreencard\b|\bresidencia permanente\b|\bcidadania\b|\bnaturalizac|\bdeportac|\basilo\b|\buscis\b|\bconsulado\b|\bembaixada\b|\bfronteira\b|\bniw\b|\beb 1\b|\beb 2\b|\beb 3\b|\beb 5\b|\bh1b\b|\bh 1b\b|\bo 1\b|\bmorar nos eua\b|\bmudar para os eua\b/,
+    /\bimigra[cnrv]|\bmigrator|\bvisto\b|\bvistos\b|\bgreen card\b|\bgreencard\b|\bresidencia permanente\b|\bresidente permanente\b|\bresidentes permanentes\b|\bcidadania\b|\bnaturalizac|\bdeportac|\basilo\b|\buscis\b|\bconsulado\b|\bembaixada\b|\bfronteira\b|\bniw\b|\beb 1\b|\beb 2\b|\beb 3\b|\beb 5\b|\bh1b\b|\bh 1b\b|\bo 1\b|\bmorar nos eua\b|\bmudar para os eua\b/,
   visto: /\bvisto\b|\bvistos\b|\bvisa\b|\bconsulado\b|\bembaixada\b|\buscis\b|\bgreen card\b|\bgreencard\b|\bniw\b/,
   /*
    * Estudo é vida de estudante, não diploma no currículo.
