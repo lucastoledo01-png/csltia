@@ -1,14 +1,11 @@
 import type { NewsCandidate } from "../newsroom/collector";
 import { deduplicateCandidates } from "../newsroom/deduplicator";
 import { avaliarPautas } from "../editorial/guarda";
-import { conferirFinalistas } from "../editorial/finalistas";
-import { montarPacotesDasPautas } from "../editorial/pacote-factual";
-import type { PacoteFactual } from "../editorial/pacote-factual";
+import type { ResultadoDosFinalistas } from "../editorial/finalistas";
 import { criarCandidatosStore } from "../editorial/candidatos-store";
-import { resolveVisualAsset } from "../visual/resolver";
-import { rodarCicloSocial } from "./pipeline-v2";
+import { rodarSocialDoDia } from "./ciclo-do-dia";
+import { diagnosticoSocialVazio } from "./modo";
 import type { ResultadoDoCicloSocial } from "./pipeline-v2";
-import { carregarConfigSocial } from "./selecao";
 import type { MarcaSocial } from "./copy";
 import type { ConfigSocial } from "./selecao";
 import type { ConfigEditorial } from "../editorial/config";
@@ -98,7 +95,7 @@ export type ResultadoDoFunil = {
    * pauta específica, o texto de cada recusa.
    */
   guarda: Awaited<ReturnType<typeof avaliarPautas>>;
-  conferencia: Awaited<ReturnType<typeof conferirFinalistas>>;
+  conferencia: ResultadoDosFinalistas;
 };
 
 export type OpcoesDoFunil = {
@@ -130,7 +127,6 @@ export async function rodarFunilDoDia(
   const inicio = Date.now();
   const env = opcoes.env ?? process.env;
   const fetcher = opcoes.fetcher ?? fetch;
-  const configSocial = opcoes.configSocial ?? carregarConfigSocial(env);
   const candidatosStore = criarCandidatosStore(opcoes.client);
   const recusadas: ResultadoDoFunil["recusadas"] = [];
 
@@ -150,23 +146,64 @@ export async function rodarFunilDoDia(
     recusadas.push({ etapa: "linha editorial", motivo: r.motivo, titulo: r.titulo, detalhe: r.explicacao });
   }
 
-  const conferencia = await conferirFinalistas(guarda.approvedEditorialPool, {
-    canal: "instagram",
-    vagas: configSocial.maximoPorDia,
-    config: opcoes.config,
-    store: candidatosStore,
+  /*
+   * Daqui para baixo é o MESMO caminho que o newsroom de produção executa.
+   *
+   * Enquanto eram duas implementações, esta função media um pipeline que não
+   * era o que rodava no cron, e um ajuste num dos dois passava despercebido no
+   * outro. O modo vem forçado porque esta função existe para diagnosticar, e
+   * diagnóstico não vira publicação por descuido.
+   */
+  const social = await rodarSocialDoDia(guarda.approvedEditorialPool, {
     projectId: opcoes.projectId,
+    projectSlug: opcoes.projectId,
+    editionDate: opcoes.dia,
+    marca: opcoes.marca,
+    historico: opcoes.historico,
+    config: opcoes.config,
+    client: opcoes.client,
+    persistenciaDegradada: guarda.reuso.erros.length > 0,
     env,
     fetcher,
+    // A véspera da janela do dia simulado, para a grade sair no dia certo.
+    agoraMs: new Date(`${opcoes.dia}T03:00:00Z`).getTime(),
+    modoForcado: "dry_run",
   });
 
   /*
-   * O motivo nominal e o motivo escrito são coisas diferentes.
+   * Pool vazio, ou nenhuma confirmada: o ciclo não roda e não há resultado.
    *
-   * "VERIFIED_REJECT" agrupa; o texto do verificador é o que diz se a recusa
-   * foi acerto ou perda. Sem ele, "o verificador matou 11" não distingue matar
-   * ruído de política brasileira de matar pauta oficial de imigração.
+   * O relatório precisa de um dia inteiro mesmo assim — zero post é resultado,
+   * não ausência de execução —, então os vazios são construídos aqui com os
+   * tipos de verdade, e não com um `as unknown` que apagaria a conferência do
+   * compilador justamente onde ela ajuda.
    */
+  const conferencia: ResultadoDosFinalistas = social.conferencia ?? {
+    confirmadas: [],
+    recusadas: [],
+    emConflito: [],
+    naoConferidas: [],
+    diagnostico: {
+      finalistas: 0,
+      verificadasAgora: 0,
+      reaproveitadasDoBanco: 0,
+      chamadasAoVerificador: 0,
+      tokens: 0,
+      custoUsd: 0,
+    },
+    linhasDeLog: [],
+  };
+
+  const ciclo: ResultadoDoCicloSocial = social.ciclo ?? {
+    modo: "dry_run",
+    previews: [],
+    descartados: [],
+    composicao: null,
+    diagnostico: diagnosticoSocialVazio("dry_run"),
+    gravacao: null,
+    linhasDeLog: [],
+  };
+
   for (const r of conferencia.recusadas) {
     recusadas.push({
       etapa: "verificação",
@@ -185,67 +222,6 @@ export async function rodarFunilDoDia(
       titulo: c.pauta.grupo.primary.title,
     });
   }
-
-  /*
-   * O pacote factual é o que ancora a copy. Sem ele o gerador escreve sobre o
-   * título, e escrever sobre o título é como se inventa detalhe.
-   */
-  const pacotes = new Map<string, PacoteFactual>();
-  if (conferencia.confirmadas.length > 0) {
-    const construcao = await montarPacotesDasPautas(
-      conferencia.confirmadas.map((p) => ({
-        url: p.grupo.primary.url,
-        titulo: p.grupo.primary.title,
-        texto: p.enriquecimento?.texto ?? "",
-        urls: [p.grupo.primary.url],
-      })),
-      env,
-      fetcher,
-    );
-    const porUrl = new Map(conferencia.confirmadas.map((p) => [p.grupo.primary.url, p.storyId]));
-    for (const [url, pacote] of construcao.pacotes.entries()) {
-      const storyId = porUrl.get(url);
-      if (storyId) pacotes.set(storyId, pacote);
-    }
-  }
-
-  const candidatasPorStory = await candidatosStore.buscarPorStoryIds(
-    opcoes.projectId,
-    conferencia.confirmadas.map((p) => p.storyId),
-  );
-
-  const ciclo = await rodarCicloSocial(conferencia.confirmadas, {
-    projectId: opcoes.projectId,
-    editionDate: opcoes.dia,
-    marca: opcoes.marca,
-    historico: opcoes.historico,
-    pacotes,
-    candidatas: candidatasPorStory,
-    persistenciaDegradada: guarda.reuso.erros.length > 0,
-    config: configSocial,
-    // O modo vem forçado: esta função existe para diagnosticar, e diagnóstico
-    // não vira publicação por descuido.
-    env: { ...env, SOCIAL_PIPELINE_V2: "dry_run" },
-    fetcher,
-    // A véspera da janela do dia simulado, para a grade sair no dia certo.
-    agoraMs: new Date(`${opcoes.dia}T03:00:00Z`).getTime(),
-    resolverVisual: async (pauta) =>
-      resolveVisualAsset(
-        {
-          storyId: pauta.storyId,
-          titulo: pauta.grupo.primary.title,
-          resumo: pauta.enriquecimento?.texto ?? "",
-          categoria: pauta.classificacao.eixo,
-          classificacao: {
-            atores: pauta.classificacao.atores,
-            lugares: pauta.classificacao.lugares,
-            acontecimento: pauta.classificacao.acontecimento,
-            pais: pauta.classificacao.pais,
-          },
-        },
-        { env, fetcher, somenteLeitura: true },
-      ),
-  });
 
   for (const d of ciclo.descartados) {
     recusadas.push({
