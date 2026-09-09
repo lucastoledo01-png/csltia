@@ -329,6 +329,36 @@ describe("grounding: cada slide precisa de lastro", () => {
     expect(motivos).toContain("SOCIAL_REJECT_SLIDE_SHAPE");
   });
 
+  it("slide fora de ordem é apontado pelo papel que o modelo ecoou", async () => {
+    /*
+     * O campo `papel` existe no schema para isto. Sem a conferência, um modelo
+     * que devolve a resposta antes da pergunta produz um carrossel invertido, e
+     * a única coisa que veria isso seria o olho de alguém abrindo o preview.
+     */
+    const invertido = carrosselBom();
+    const [a, b] = [invertido.slides[0], invertido.slides[1]];
+    invertido.slides[0] = b;
+    invertido.slides[1] = a;
+
+    const { fetcher } = modelo([invertido]);
+    const r = await gerarPostDaPauta(PAUTA, 0, { ...opcoes(fetcher, true), maximoDeReparos: 0 });
+
+    const problemas = r.descarte?.problemas ?? r.post?.veredicto.issues ?? [];
+    expect(problemas.map((p) => p.motivo)).toContain("SOCIAL_REJECT_SLIDE_SHAPE");
+    expect(problemas.find((p) => p.detalhe.includes("deveria ser"))?.detalhe).toContain("lado A");
+  });
+
+  it("papel sem acento não é tratado como fora de ordem", async () => {
+    const semAcento = carrosselBom();
+    semAcento.slides[2].papel = "diferenca 1";
+    semAcento.slides[3].papel = "diferenca 2";
+
+    const { fetcher } = modelo([semAcento]);
+    const r = await gerarPostDaPauta(PAUTA, 0, opcoes(fetcher, true));
+
+    expect(r.post).toBeTruthy();
+  });
+
   it("contagem de slides diferente da estrutura é apontada", async () => {
     const faltando = carrosselBom({ slides: carrosselBom().slides.slice(0, 2) });
 

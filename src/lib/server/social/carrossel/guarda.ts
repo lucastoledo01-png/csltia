@@ -21,6 +21,17 @@ import { papeisDoModelo, type PapelDeSlide } from "./estrutura";
 /** Os motivos do carrossel vivem no objeto da guarda, para o tipo alcançá-los. */
 const MOTIVOS_DO_CARROSSEL = MOTIVOS_DO_SOCIAL_GUARD;
 
+/** Compara papéis ignorando caixa e acento, que é ruído de escrita e não erro. */
+function mesmoPapel(a: string, b: string): boolean {
+  const normal = (s: string) =>
+    (s ?? "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]/g, "");
+  return normal(a) === normal(b);
+}
+
 /** Todo o texto de um slide, que é o que precisa ter lastro. */
 export function textoDoSlide(slide: SlideDeTexto): string {
   return [slide.titulo, slide.corpo, ...(slide.bullets ?? []), slide.lado_a, slide.lado_b]
@@ -105,6 +116,29 @@ export function conferirFormaDosSlides(slides: SlideDeTexto[], papeis: PapelDeSl
   slides.forEach((slide, i) => {
     const papel = doModelo[i];
     const posicao = papeis.indexOf(papel) + 1;
+
+    /*
+     * O papel que o modelo ecoou tem que ser o papel esperado naquela posição.
+     *
+     * O campo `papel` existe no schema exatamente para isto, e coletá-lo sem
+     * conferir seria pior que não tê-lo: daria a impressão de que a ordem está
+     * protegida. Sem a conferência, um modelo que devolve a resposta antes da
+     * pergunta produz um carrossel invertido, e a única coisa que veria isso
+     * seria o olho de alguém abrindo o preview.
+     *
+     * A comparação é frouxa de propósito, ignorando caixa e acento: o modelo
+     * escreve "diferenca 1" e o papel é "diferença 1", e recusar por acento
+     * gastaria um reparo num problema que não existe.
+     */
+    if (papel && !mesmoPapel(slide.papel, papel.papel)) {
+      problemas.push({
+        motivo: MOTIVOS_DO_CARROSSEL.SLIDE_FORA_DA_FORMA,
+        detalhe:
+          `o slide ${posicao} deveria ser "${papel.papel}" e veio como "${slide.papel}": ` +
+          `devolva os slides na ordem pedida, um por papel`,
+        reparavel: true,
+      });
+    }
 
     const corpo = (slide.corpo ?? "").trim();
     const bullets = (slide.bullets ?? []).filter(Boolean);
