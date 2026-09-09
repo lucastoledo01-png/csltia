@@ -7,6 +7,7 @@ import { limparVicios } from "./anti-vicios";
 import type { ClaimNaoSustentada, PacoteFactual } from "../editorial/pacote-factual";
 import { validarAncoragem } from "../editorial/pacote-factual";
 import type { ResultadoDeClaims } from "../editorial/claims-semanticas";
+import { conferirLinguagemDoLeitor } from "./leitor";
 import { auditarClaims } from "../editorial/claims-semanticas";
 
 /**
@@ -18,7 +19,18 @@ import { auditarClaims } from "../editorial/claims-semanticas";
  */
 export type ProblemaEditorial = {
   indice: number;
-  tipo: "fato" | "claim" | "qa";
+  /**
+   * `leitor` é o quarto tipo, e ele difere dos outros três.
+   *
+   * `fato`, `claim` e `qa` são sobre a edição estar CERTA. `leitor` é sobre ela
+   * ser LEGÍVEL para quem quer morar nos EUA. Um texto pode estar impecável nos
+   * três primeiros e continuar escrito para advogado, que foi o caso da edição
+   * de 09/09.
+   *
+   * Ele é reparável e nunca bloqueia: derrubar a edição por texto difícil
+   * trocaria um problema de forma por um dia sem newsletter.
+   */
+  tipo: "fato" | "claim" | "qa" | "leitor";
   descricao: string;
 };
 
@@ -110,6 +122,46 @@ ${marca.nicho}
 BRIEFING EDITORIAL DESTA PUBLICAÇÃO (vale sobre qualquer regra genérica abaixo):
 ${marca.extra}
 
+PARA QUEM VOCÊ ESCREVE (isto vale sobre qualquer outra regra de estilo):
+Uma pessoa comum que quer morar, trabalhar, estudar ou construir uma vida nos Estados Unidos. Ela não é advogada, não trabalha com imigração e não conhece o vocabulário dos processos. Ela é adulta, inteligente e ocupada.
+A pergunta que cada matéria responde é: "por que isso importa para alguém que pensa em viver nos EUA?". Se a matéria não responde isso, ela não está pronta, por mais correta que esteja.
+
+ORDEM DE PRIORIDADE, quando duas coisas entrarem em conflito:
+1. VERDADE FACTUAL. Nada fora do pacote.
+2. ESCOPO CORRETO. Caso individual não vira regra geral; decisão de um estado não vira decisão nacional.
+3. RELEVÂNCIA para quem quer morar nos EUA.
+4. CLAREZA para quem não é da área.
+5. ATRATIVIDADE: dar vontade de ler.
+6. BREVIDADE.
+Nunca inverta. Título atraente que sacrifica precisão está errado. Mas "tecnicamente correto" não autoriza título que ninguém teria vontade de abrir: os dois primeiros são pisos, não desculpas.
+
+TÍTULO DE CADA MATÉRIA (campo "title"):
+Estrutura que funciona: O QUE MUDOU + PARA QUEM ISSO IMPORTA. Ou: OPORTUNIDADE/IMPACTO + CONTEXTO.
+- Específico, humano, compreensível sem conhecimento jurídico.
+- Positivo quando o fato permitir. Positividade não é promessa: nada de "agora ficou fácil", "qualquer pessoa pode", "garantido", "visto liberado".
+- No máximo 95 caracteres. Título mais longo que isso ocupa quatro linhas num celular, e quase todo leitor abre no celular.
+
+Títulos REAIS que saíram e não deveriam ter saído:
+- "Na Califórnia, acordos nupciais geralmente não encerram o I-864" — começa por jurisdição, usa o número do formulário como se o leitor soubesse, e não diz a quem interessa.
+- "Regra permite registro de residência para determinadas crianças nascidas nos EUA" — "determinadas" esconde exatamente a informação que o leitor procura: quais crianças.
+Uma direção melhor para o segundo, SE o pacote sustentar: "Nova regra pode facilitar o caminho da residência para filhos de certos funcionários estrangeiros". Se o pacote não sustentar "facilitar", não escreva "facilitar".
+
+PROIBIDO no título da matéria:
+- abrir com o nome do órgão praticando ato burocrático: "DHS publica regra referente a...", "USCIS anuncia atualização relacionada a...", "Ordem judicial determina..."
+- "determinadas pessoas", "certos casos", "alguns requerentes" sem dizer quais, quando o pacote diz quais
+- número de formulário ou sigla de visto SOZINHO, sem o que ele é ou para quem serve
+- linguagem processual: "encerra a obrigação", "vedada a renúncia", "consta no rol taxativo"
+
+JARGÃO: explique na primeira vez, sempre.
+O leitor não sabe o que é adjustment of status, affidavit of support, priority date, petitioner, beneficiary, public charge, consular processing, injunction, waiver, parole, I-864, I-765, EB-2, NIW, DS-160, EAD.
+Quando o termo for necessário, explique ali mesmo, em uma oração curta: "o Form I-864, documento em que alguém se compromete a sustentar financeiramente o imigrante, ...". Não explique o que o pacote não diz: se o pacote não define o termo, use a descrição genérica do tipo de documento e siga.
+Quando o termo NÃO for necessário, não use. "A obrigação federal de suporte permanece no centro da análise" não informa nada a quem lê; "quem assinou o compromisso de sustento continua responsável" informa.
+
+FRASE E PARÁGRAFO:
+- Uma ideia por parágrafo.
+- Frases curtas. Nunca duas ou três subordinadas jurídicas na mesma frase.
+- Deixe explícito quando é caso individual, exemplo, decisão específica de um estado ou regra geral. Não generalize um caso.
+
 E-MAIL AUTOSSUFICIENTE, MAS CURTO:
 - O leitor termina informado sem clicar em nada. Isso e' sobre completude, nao sobre tamanho.
 - NAO crie "teasers" nem suspense convidando a sair do e-mail.
@@ -182,10 +234,10 @@ ESTRUTURA DO JSON DE SAÍDA (retorne exclusivamente este JSON estrito):
     {
       "rank": 1,
       "category": "Categoria curta da pauta, coerente com o nicho da publicação",
-      "title": "Título atrativo e claro da pauta 1",
+      "title": "O QUE MUDOU + PARA QUEM IMPORTA. Máximo 95 caracteres. Sem jargão sozinho, sem órgão praticando ato burocrático.",
       "summary": "Resumo COMPLETO e aprofundado do fato em 2 a 3 parágrafos explicativos (sem cortar a informação pela metade).",
       "context": "Contexto do mercado ou da ferramenta.",
-      "why_it_matters": "Por que isso importa de verdade para o público descrito no briefing.",
+      "why_it_matters": "Por que isso importa para quem quer morar, trabalhar ou estudar nos EUA. Diga QUEM é afetado, com substantivo concreto: brasileiros que, estudantes que, profissionais que, famílias que.",
       "practical_impact": "O que muda na prática: para quem vale, a partir de quando, e o que a pessoa precisa fazer ou observar.",
       "humor_line": "Observação curta e humana sobre a pauta. Vazia quando o assunto não comporta leveza.",
       "source_name": "Nome da fonte original",
@@ -565,6 +617,18 @@ Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
     for (const issue of qa.issues) {
       lista.push({ indice: -1, tipo: "qa", descricao: issue });
     }
+
+    /*
+     * Linguagem do leitor: juridiquês, relevância e comprimento de título.
+     *
+     * Entra na mesma lista de reparo dos outros apontamentos, e de propósito:
+     * o gerador já sabe reescrever "somente o necessário" a partir de uma lista
+     * nominal, e criar um segundo laço de reparo dobraria o custo de cada
+     * edição para resolver o mesmo tipo de problema.
+     */
+    for (const a of conferirLinguagemDoLeitor(parsedEdition)) {
+      lista.push({ indice: a.indice, tipo: "leitor", descricao: `${a.motivo}: ${a.descricao}` });
+    }
     if (qa.hallucination_risk && qa.issues.length === 0) {
       lista.push({ indice: -1, tipo: "qa", descricao: "auditor marcou risco de alucinação sem detalhar" });
     }
@@ -612,6 +676,9 @@ APONTAMENTOS:
 ${problemas.map((p) => `- ${p.indice >= 0 ? `pauta ${p.indice + 1}` : "edição"}: ${p.descricao}`).join("\n")}
 
 COMO CORRIGIR:
+- LEGAL_JARGON_OVERLOAD: explique cada termo na primeira vez que ele aparece, em linguagem comum, ou reescreva a frase sem o termo. Exemplo: "o Form I-864, documento em que alguém se compromete a sustentar financeiramente o imigrante, ...". Não invente o que o termo significa: se o pacote não diz, use a descrição genérica do que é aquele tipo de documento.
+- LOW_READER_RELEVANCE: escreva quem é afetado e o que essa pessoa deve fazer ou observar agora. O público é pessoa comum que quer morar, trabalhar ou estudar nos EUA, não advogado. Não invente consequência: se o pacote não sustenta um impacto, diga a quem o assunto se aplica e que a fonte não detalhou o resto.
+- HEADLINE_TOO_LONG: reescreva o título mais curto, mantendo o fato. Corte a qualificação jurídica e mantenha o que mudou e para quem.
 - Afirmação que o pacote não sustenta: remova a afirmação ou troque pelo que o pacote diz. Se o leitor precisa daquilo, escreva que a fonte não informou.
 - Nome, número ou data fora do pacote: tire. Não substitua por outro nome, número ou data.
 - Não invente nada novo para tapar o buraco deixado pela correção.
