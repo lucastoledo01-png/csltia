@@ -48,3 +48,28 @@ O legado tem a mesma propriedade que o V2 tinha: reivindica a vaga gravando
 recuperação implementada filtra explicitamente por `generation_version =
 social-v2`, porque alargá-la para o legado aumentaria risco de republicação em
 troca de nada.
+
+## SOCIAL_READER_LANGUAGE_ALIGNMENT
+
+O post do Instagram agendado para 09/09 às 21:30 saiu com o mesmo defeito da
+newsletter: "Na Califórnia, acordos nupciais geralmente não encerram o I-864",
+com o corpo dizendo que "a obrigação federal de suporte permanece no centro da
+análise". Foi retirado da fila (`status = draft`, linha mantida para
+auditoria).
+
+O que isso mostra: as regras de linguagem que entraram na newsletter — público,
+ordem de prioridade, jargão explicado, título orientado a impacto — valem igual
+para o social, e o Social Guard tem molde próprio, separado do guard editorial.
+
+Não foi feito nesta rodada por decisão de escopo: primeiro estabilizar a
+newsletter, depois aplicar o mesmo princípio ao social reaproveitando o que
+fizer sentido. Reconstruir o Social V2 agora seria abrir uma frente antes de a
+primeira estar validada em produção.
+
+## Rodapé do e-mail ainda denso no celular
+
+O item 25 pedia rodapé mais compacto no mobile. A largura, o padding, os
+títulos e as imagens foram corrigidos e medidos, mas o pé da edição continua
+com quatro blocos empilhados: cartão de análise de perfil, cartão do Instagram,
+assinatura e "quem somos" com o aviso legal inteiro. Não é enorme, e não estava
+entre os defeitos que estragavam a leitura, então ficou para a próxima passada.

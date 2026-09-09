@@ -189,7 +189,11 @@ async function main() {
   escrever(`| antes | ${ta.achados.join(", ") || "nenhum"} | ${ta.codigos.join(", ") || "nenhum"} |`);
   escrever(`| depois | ${td.achados.join(", ") || "nenhum"} | ${td.codigos.join(", ") || "nenhum"} |`);
   escrever();
-  escrever(`Apontamentos do guard no texto novo: ${conferirLinguagemDoLeitor(depois).length}`);
+  const restantes = conferirLinguagemDoLeitor(depois);
+  escrever(`Apontamentos do guard no texto novo: ${restantes.length}`);
+  for (const a of restantes) {
+    escrever(`- pauta ${a.indice + 1}, \`${a.motivo}\`: ${a.descricao.slice(0, 180)}`);
+  }
   escrever();
 
   escrever(`## Números`);
