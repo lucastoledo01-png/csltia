@@ -29,6 +29,7 @@ import { criarProvedorOpenAI } from "../editorial/embeddings";
 import { criarHistoricoStore, gerarStoryId } from "../editorial/history";
 import type { RegistroHistorico } from "../editorial/history";
 import { avaliarPautas, registroDaPauta } from "../editorial/guarda";
+import { formatarNumerosDaEdicao } from "./numeros-editoriais";
 import { rodarSocialDoDia, diagnosticoSocialAusente } from "../social/ciclo-do-dia";
 import type { DiagnosticoSocialDoDia } from "../social/ciclo-do-dia";
 import { modoDoPipelineSocial } from "../social/modo";
@@ -138,7 +139,7 @@ export function renderEditionToHtml(
   const SEM_BORDA = "border:0;border-collapse:collapse";
 
   const rotulo = (texto: string, cor: string) =>
-    `<div style="font-family:${fonte};font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:${cor};margin:0 0 10px 0;">${escapeHtml(texto)}</div>`;
+    `<div style="font-family:${fonte};font-size:12px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:${cor};margin:0 0 10px 0;">${escapeHtml(texto)}</div>`;
 
   // --- índice ---------------------------------------------------------------
   //
@@ -152,7 +153,7 @@ export function renderEditionToHtml(
         <td style="padding:0 0 12px 0;vertical-align:top;width:28px;">
           <span style="font-family:${fonte};font-size:15px;font-weight:800;color:${MARCA.cor};">${i + 1}</span>
         </td>
-        <td style="padding:0 0 12px 0;font-family:${fonte};font-size:15px;line-height:1.45;color:${TINTA};">
+        <td style="padding:0 0 12px 0;font-family:${fonte};font-size:16px;line-height:1.5;color:${TINTA};">
           ${escapeHtml(s.title)}
         </td>
       </tr>`,
@@ -181,7 +182,7 @@ export function renderEditionToHtml(
       const credito = legendas.get(identidadeDaPauta(s)) || "";
       const creditoHtml =
         imagem && credito
-          ? `<p style="font-family:${fonte};font-size:11px;line-height:1.4;color:#8A8A8F;margin:-8px 0 14px 0;">${escapeHtml(credito)}</p>`
+          ? `<p style="font-family:${fonte};font-size:12px;line-height:1.4;color:#8A8A8F;margin:-8px 0 14px 0;">${escapeHtml(credito)}</p>`
           : "";
       const fonteUrl = safeHttpUrl(s.source_url);
 
@@ -197,7 +198,7 @@ export function renderEditionToHtml(
         return `
       <tr><td style="padding:0 0 34px 0;border:0;">
         ${rotulo(s.category, MARCA.cor)}
-        <h2 style="font-family:${fonte};font-size:21px;line-height:1.3;font-weight:800;letter-spacing:-0.015em;color:${TINTA};margin:0 0 12px 0;">
+        <h2 class="titulo-n" style="font-family:${fonte};font-size:22px;line-height:1.32;font-weight:800;letter-spacing:-0.015em;color:${TINTA};margin:0 0 12px 0;">
           ${escapeHtml(s.title)}
         </h2>
         ${
@@ -205,7 +206,7 @@ export function renderEditionToHtml(
             ? `<img src="${escapeHtml(imagem)}" alt="" width="600" style="width:100%;max-width:600px;height:auto;display:block;border-radius:10px;margin:0 0 14px 0;" />${creditoHtml}`
             : ""
         }
-        <p style="font-family:${fonte};font-size:15px;line-height:1.7;color:${TINTA_SUAVE};margin:0 0 12px 0;">
+        <p style="font-family:${fonte};font-size:16px;line-height:1.62;color:${TINTA_SUAVE};margin:0 0 12px 0;">
           ${escapeHtml(s.summary)}${
             s.practical_impact ? ` <strong style="color:${TINTA};">${escapeHtml(s.practical_impact)}</strong>` : ""
           }
@@ -218,7 +219,7 @@ export function renderEditionToHtml(
       <tr><td style="padding:0 0 40px 0;border:0;">
         ${rotulo(s.category, MARCA.cor)}
 
-        <h2 style="font-family:${fonte};font-size:27px;line-height:1.22;font-weight:800;letter-spacing:-0.02em;color:${TINTA};margin:0 0 16px 0;">
+        <h2 class="titulo-1" style="font-family:${fonte};font-size:25px;line-height:1.26;font-weight:800;letter-spacing:-0.02em;color:${TINTA};margin:0 0 16px 0;">
           ${escapeHtml(s.title)}
         </h2>
 
@@ -228,7 +229,7 @@ export function renderEditionToHtml(
             : ""
         }
 
-        <p style="font-family:${fonte};font-size:16px;line-height:1.72;color:${TINTA_SUAVE};margin:0 0 14px 0;">
+        <p style="font-family:${fonte};font-size:17px;line-height:1.6;color:${TINTA_SUAVE};margin:0 0 14px 0;">
           ${escapeHtml(s.summary)}
         </p>
 
@@ -239,7 +240,7 @@ export function renderEditionToHtml(
         */ ""}
         ${
           s.context || s.why_it_matters
-            ? `<p style="font-family:${fonte};font-size:16px;line-height:1.72;color:${TINTA_SUAVE};margin:0 0 18px 0;">${[
+            ? `<p style="font-family:${fonte};font-size:17px;line-height:1.6;color:${TINTA_SUAVE};margin:0 0 18px 0;">${[
                 escapeHtml(s.context ?? ""),
                 escapeHtml(s.why_it_matters ?? ""),
               ]
@@ -254,7 +255,7 @@ export function renderEditionToHtml(
           <tr>
             <td style="background:${MARCA.fundoRealce};border:0;border-left:3px solid ${MARCA.tintaEscura};border-radius:0 8px 8px 0;padding:16px 18px;">
               ${rotulo("O que muda na prática", MARCA.tintaEscura)}
-              <p style="font-family:${fonte};font-size:15px;line-height:1.65;color:${TINTA};margin:0;">
+              <p style="font-family:${fonte};font-size:16px;line-height:1.6;color:${TINTA};margin:0;">
                 ${escapeHtml(s.practical_impact)}
               </p>
             </td>
@@ -278,7 +279,7 @@ export function renderEditionToHtml(
             ${rotulo("Giro rápido", TINTA_SUAVE)}
             ${edition.quick_bits
               .map(
-                (q) => `<p style="font-family:${fonte};font-size:15px;line-height:1.6;color:${TINTA_SUAVE};margin:0 0 10px 0;">
+                (q) => `<p style="font-family:${fonte};font-size:16px;line-height:1.6;color:${TINTA_SUAVE};margin:0 0 10px 0;">
                   <strong style="color:${TINTA};">${escapeHtml(q.title)}</strong> ${escapeHtml(q.text ?? "")}
                 </p>`,
               )
@@ -288,20 +289,52 @@ export function renderEditionToHtml(
       </td></tr>`
       : "";
 
+  /*
+   * Mobile-first, e aqui isso é literal: os valores inline são os do celular.
+   *
+   * O que existia era um desktop estreitado. A soma horizontal era 12px do
+   * container externo mais 32px do quadro, dos dois lados: 88px de padding num
+   * aparelho de 390px, sobrando 302px para o texto. Quem lê no ônibus recebia
+   * três quartos da tela.
+   *
+   * Agora o padrão é 20px de cada lado, sem padding externo lateral: 350px de
+   * texto no mesmo aparelho. O `@media (min-width:600px)` devolve o respiro do
+   * desktop, e é acréscimo, não requisito — cliente de e-mail que ignora o
+   * bloco de estilo continua exibindo a versão do celular, que é a que quase
+   * toda a audiência vê.
+   *
+   * `!important` porque estilo inline vence folha de estilo em CSS, e sem ele a
+   * media query não teria efeito nenhum sobre os atributos `style`.
+   */
+  const estiloResponsivo = `
+  <style>
+    @media (min-width: 600px) {
+      .quadro { padding: 36px 32px 40px 32px !important; }
+      .hero { font-size: 34px !important; }
+      .titulo-1 { font-size: 28px !important; }
+      .titulo-n { font-size: 23px !important; }
+    }
+    @media (max-width: 359px) {
+      .quadro { padding: 22px 16px 26px 16px !important; }
+      .hero { font-size: 27px !important; }
+      .titulo-1 { font-size: 23px !important; }
+    }
+  </style>`;
+
   // --- montagem -------------------------------------------------------------
-  return `
+  return `${paraWeb ? "" : estiloResponsivo}
   <div style="background:#F4F4F5;padding:0;margin:0;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA};background:#F4F4F5;">
-      <tr><td align="center" style="padding:24px 12px;">
+      <tr><td align="center" style="padding:16px 0;">
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA};width:100%;max-width:600px;background:#FFFFFF;border-radius:14px;">
-          <tr><td style="padding:36px 32px 40px 32px;">
+          <tr><td class="quadro" style="padding:26px 20px 30px 20px;">
 
             ${/* No portal a página já mostra título, data e resumo. */ ""}
             ${
               paraWeb
                 ? ""
                 : `<div style="text-align:center;padding:0 0 26px 0;">
-              <div style="font-family:${fonte};font-size:11px;font-weight:700;letter-spacing:0.12em;color:#A1A1AA;margin:0 0 14px 0;">
+              <div style="font-family:${fonte};font-size:12px;font-weight:700;letter-spacing:0.1em;color:#A1A1AA;margin:0 0 14px 0;">
                 ${escapeHtml(dataLonga)}
               </div>
               ${/*
@@ -311,7 +344,7 @@ export function renderEditionToHtml(
               */ ""}
               <img src="${MARCA.logoClaro}" alt="${MARCA.nome}" width="200"
                 style="width:200px;max-width:60%;height:auto;display:block;margin:0 auto 20px auto;border:0;" />
-              <h1 style="font-family:${fonte};font-size:30px;line-height:1.2;font-weight:800;letter-spacing:-0.03em;color:${TINTA};margin:0 0 12px 0;">
+              <h1 class="hero" style="font-family:${fonte};font-size:30px;line-height:1.22;font-weight:800;letter-spacing:-0.03em;color:${TINTA};margin:0 0 12px 0;">
                 ${escapeHtml(edition.headline)}
               </h1>
               <p style="font-family:${fonte};font-size:16px;line-height:1.6;color:${TINTA_SUAVE};margin:0;">
@@ -323,7 +356,7 @@ export function renderEditionToHtml(
             ${
               paraWeb
                 ? ""
-                : `<p style="font-family:${fonte};font-size:16px;line-height:1.72;color:${TINTA_SUAVE};border-left:3px solid ${MARCA.cor};padding:0 0 0 16px;margin:0 0 34px 0;">
+                : `<p style="font-family:${fonte};font-size:17px;line-height:1.6;color:${TINTA_SUAVE};border-left:3px solid ${MARCA.cor};padding:0 0 0 16px;margin:0 0 34px 0;">
               ${escapeHtml(edition.intro)}
             </p>`
             }
@@ -895,6 +928,21 @@ export async function runNewsroom(
     configEditorial.maximoDeReparos,
     configEditorial.notaMinimaDeQA,
   );
+
+  /*
+   * Números viram apresentação humana AQUI, e não antes.
+   *
+   * Depois da geração e de todo o reparo: a conferência de ancoragem compara o
+   * texto contra o pacote factual, e ela precisa ver o número como a fonte o
+   * escreveu. Arredondar antes faria "R$ 5,0857" virar "R$ 5,09" e a
+   * conferência acusar um valor que não está no pacote — a correção derrubaria
+   * a edição.
+   *
+   * Depois daqui o número é só apresentação. O pacote factual e o que fica
+   * gravado em `news_editions` continuam com o valor da fonte: se alguém
+   * contestar amanhã, o que se confere é o dado, não o texto do e-mail.
+   */
+  pipelineResult.edition = formatarNumerosDaEdicao(pipelineResult.edition);
 
   /*
    * Afirmação sem sustentação é bloqueio, não apontamento.
