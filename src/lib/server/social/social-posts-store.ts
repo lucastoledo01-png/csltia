@@ -3,6 +3,7 @@ import type { RegistroHistorico } from "../editorial/history";
 import type { PostGerado } from "./gerador";
 import type { Vaga } from "./agenda";
 import type { ResultadoVisual } from "../visual/tipos";
+import type { ArtefatoCongelado } from "./artefato";
 
 /**
  * Onde um post do social V2 vira linha.
@@ -66,6 +67,14 @@ export type PostParaGravar = {
   topicId: string | null;
   eventFingerprint: string | null;
   origem: OrigemDoPost;
+  /**
+   * O arquivo aprovado, já no Storage, com o hash dos bytes.
+   *
+   * Ele é obrigatório para gravar: uma linha `scheduled` sem artefato é um
+   * compromisso de publicar algo que ainda não existe, e obrigaria o worker a
+   * produzir a peça — que é exatamente o que o V2 existe para não fazer.
+   */
+  artefato: ArtefatoCongelado;
 };
 
 export type ResultadoDaGravacaoSocial = {
@@ -169,6 +178,24 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
           title: p.post.copy.headline.slice(0, 300),
           caption: p.post.veredicto.legendaFinal,
 
+          /*
+           * As mesmas colunas que o caminho legado usa para o manifesto.
+           *
+           * O painel de logs e qualquer inspeção manual já olham para elas.
+           * Gravar o artefato só dentro de `content_json` esconderia o arquivo
+           * de quem procura no lugar de sempre.
+           */
+          slides_manifest: [
+            {
+              index: 0,
+              url: p.artefato.url,
+              filename: p.artefato.filename,
+              sha256: p.artefato.sha256,
+              bytes: p.artefato.bytes,
+            },
+          ],
+          asset_paths: [p.artefato.url],
+
           scheduled_at: p.vaga.quandoIso,
           scheduled_slot: p.vaga.slot,
           generation_version: "social-v2",
@@ -216,6 +243,30 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
               versao: "v2",
               variante: asset ? "fullbleed_portrait" : "noticia_sem_foto",
               eixo: p.post.pauta.classificacao.eixo ?? "",
+              /*
+               * O artefato congelado, que é o que vai ao ar.
+               *
+               * Isto muda a natureza do que está gravado: antes a linha
+               * descrevia como a peça DEVERIA ser desenhada, e o worker a
+               * desenhava de novo na hora de publicar. Agora ela aponta para o
+               * arquivo que já existe, e o `sha256` é o que prova que o arquivo
+               * baixado é o arquivo aprovado.
+               *
+               * O eixo e a variante continuam aqui, e não como redundância: eles
+               * dizem COMO a peça foi desenhada, que é registro de auditoria, e
+               * a variante ainda serve para pegar linha contraditória.
+               */
+              artefato: {
+                url: p.artefato.url,
+                path: p.artefato.path,
+                filename: p.artefato.filename,
+                mime: p.artefato.mime,
+                sha256: p.artefato.sha256,
+                bytes: p.artefato.bytes,
+                largura: p.artefato.largura,
+                altura: p.artefato.altura,
+                otimizado: p.artefato.otimizado,
+              },
             },
             /*
              * O registro do direito é completo mesmo quando a arte não imprime

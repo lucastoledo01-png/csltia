@@ -14,6 +14,10 @@ import { modoDoPipelineSocial, permiteEnforce, diagnosticoSocialVazio } from "./
 import type { DiagnosticoSocial, ModoSocial } from "./modo";
 import { chaveDeIdempotencia, resolverOrigem } from "./social-posts-store";
 import type { PostParaGravar, SocialPostsStore } from "./social-posts-store";
+import { mesmaKeyword, resolverKeywordCanonica } from "./keyword-canonica";
+import type { ResolucaoDaKeyword } from "./keyword-canonica";
+import { congelarArtefato } from "./artefato";
+import type { EntradaDoCongelamento, ResultadoDoCongelamento } from "./artefato";
 import { impressaoDoAcontecimento } from "../editorial/fingerprint";
 import { entidadesDaClassificacao } from "../editorial/classificador";
 
@@ -53,7 +57,7 @@ export type PreviewDoPost = {
 export type DescartePorEtapa = {
   titulo: string;
   storyId: string;
-  etapa: "composicao" | "copy" | "visual";
+  etapa: "composicao" | "copy" | "visual" | "artefato";
   motivo: string;
 };
 
@@ -89,6 +93,24 @@ export type OpcoesDoCiclo = {
    */
   agoraMs?: number;
   config?: ConfigSocial;
+  /**
+   * Resolve a keyword canônica do CTA. Trocado só em teste.
+   *
+   * Ela entra aqui, e não em quem chama, porque o ciclo é o gargalo por onde
+   * TODA copy do V2 passa. Deixar a decisão em cada chamador é como o valor se
+   * espalhou por três lugares na primeira vez.
+   */
+  resolverKeyword?: (projectId: string) => Promise<ResolucaoDaKeyword>;
+  /**
+   * Congela a arte aprovada num arquivo, e devolve o hash dele.
+   *
+   * Só é chamado em `enforce`: em dry-run não existe post para publicar, e
+   * subir arquivo para o Storage a cada simulação encheria o bucket de peças
+   * que nunca vão ao ar.
+   */
+  congelarArte?: (entrada: EntradaDoCongelamento) => Promise<ResultadoDoCongelamento>;
+  /** Prefixo do caminho no bucket. Sem ele, o ciclo não congela e não grava. */
+  slugDoProjeto?: string;
   env?: Record<string, string | undefined>;
   fetcher?: typeof fetch;
 };
@@ -132,11 +154,38 @@ export async function rodarCicloSocial(
     return { modo, previews: [], descartados, composicao, diagnostico, gravacao: null, linhasDeLog: linhas };
   }
 
-  // 2. Copy, guarda e reparo.
+  /*
+   * 2. A keyword do CTA, resolvida de uma fonte só.
+   *
+   * O que vai impresso no post tem que ser exatamente o que o listener escuta.
+   * Quem escuta é a automação do OpenReply, criada com a keyword da campanha
+   * evergreen; a `settings.instagram_keyword` do projeto não é consumida por
+   * ninguém do lado do listener.
+   *
+   * Sem palavra escutando, a copy sai sem CTA. É perda pequena perto de
+   * publicar "Comente X" e deixar quem comentou sem resposta.
+   */
+  const resolver = opcoes.resolverKeyword ?? resolverKeywordCanonica;
+  const canonica = await resolver(opcoes.projectId);
+  const marca: MarcaSocial = {
+    ...opcoes.marca,
+    keyword: canonica.ok ? canonica.keyword : "",
+  };
+
+  if (!canonica.ok) {
+    linhas.push(`[SOCIAL V2] sem CTA: ${canonica.motivo}`);
+  } else if (!mesmaKeyword(canonica.keyword, opcoes.marca.keyword)) {
+    linhas.push(
+      `[SOCIAL V2] keyword do CTA vem do funil permanente ("${canonica.keyword}"), ` +
+        `e não da configuração do projeto ("${opcoes.marca.keyword}"). Quem escuta é a automação ${canonica.automacao}.`,
+    );
+  }
+
+  // 3. Copy, guarda e reparo.
   const geracao = await gerarPostsDoDia(
     composicao.escolhidas.map((e) => e.pauta),
     config.maximoPorDia,
-    { marca: opcoes.marca, pacotes: opcoes.pacotes, candidatas: opcoes.candidatas, env, fetcher: opcoes.fetcher },
+    { marca, pacotes: opcoes.pacotes, candidatas: opcoes.candidatas, env, fetcher: opcoes.fetcher },
   );
   linhas.push(...geracao.linhasDeLog);
   diagnostico.reparos = geracao.diagnostico.reparosFeitos;
@@ -150,7 +199,7 @@ export async function rodarCicloSocial(
     });
   }
 
-  // 3. Imagem, e sem imagem válida o post continua existindo.
+  // 4. Imagem, e sem imagem válida o post continua existindo.
   const comVisual: Array<{ post: PostGerado; visual: ResultadoVisual | null }> = [];
   for (const post of geracao.posts) {
     let visual: ResultadoVisual | null = null;
@@ -165,7 +214,7 @@ export async function rodarCicloSocial(
     comVisual.push({ post, visual });
   }
 
-  // 4. Agenda: recebe a quantidade, não a impõe.
+  // 5. Agenda: recebe a quantidade, não a impõe.
   const vagas = distribuirVagas(comVisual.length, opcoes.editionDate, carregarConfigDaAgenda(env), opcoes.agoraMs);
 
   const previews: PreviewDoPost[] = comVisual.map(({ post, visual }, i) => {
@@ -210,17 +259,69 @@ export async function rodarCicloSocial(
     return { modo, previews, descartados, composicao, diagnostico, gravacao: null, linhasDeLog: linhas };
   }
 
-  const paraGravar: PostParaGravar[] = previews.map((p) => ({
-    projectId: opcoes.projectId,
-    editionDate: opcoes.editionDate,
-    post: p.post,
-    vaga: p.vaga,
-    visual: p.visual,
-    candidateId: p.candidateId,
-    topicId: p.topicId,
-    eventFingerprint: p.eventFingerprint,
-    origem: p.origem,
-  }));
+  /*
+   * 6. Congelar a arte ANTES de gravar, e não gravar o que não congelou.
+   *
+   * Uma linha `scheduled` é um compromisso: o worker vai publicá-la. Gravar
+   * primeiro e descobrir na hora da publicação que a peça não fecha deixaria o
+   * post parado num estado que ninguém pediu.
+   *
+   * Por isso a ordem é esta, e por isso o post que falha aqui é DESCARTADO em
+   * vez de gravado com defeito. O motivo entra em `descartados` e aparece no
+   * relatório do dia.
+   */
+  const congelar = opcoes.congelarArte ?? congelarArtefato;
+  const paraGravar: PostParaGravar[] = [];
+
+  for (const p of previews) {
+    const artefato = await congelar({
+      capa: {
+        headline: p.post.copy.headline,
+        eixo: p.post.pauta.classificacao.eixo,
+        asset: p.visual?.asset ?? null,
+        motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
+      },
+      path: `${opcoes.slugDoProjeto ?? opcoes.projectId}/${opcoes.editionDate}/${p.chaveDeIdempotencia}`,
+      fetcher: opcoes.fetcher,
+    });
+
+    if (!artefato.ok) {
+      linhas.push(`[SOCIAL V2] ${p.post.pauta.storyId} não vira post: ${artefato.motivo}`);
+      descartados.push({
+        titulo: p.post.copy.headline,
+        storyId: p.post.pauta.storyId,
+        etapa: "artefato",
+        motivo: artefato.motivo,
+      });
+      continue;
+    }
+
+    linhas.push(
+      `[SOCIAL V2] arte congelada: ${artefato.artefato.filename}, ` +
+        `${(artefato.artefato.bytes / 1024).toFixed(0)} KB, sha ${artefato.artefato.sha256.slice(0, 12)}` +
+        (artefato.artefato.otimizado ? " (otimizado para caber no limite)" : ""),
+    );
+
+    paraGravar.push({
+      projectId: opcoes.projectId,
+      editionDate: opcoes.editionDate,
+      post: p.post,
+      vaga: p.vaga,
+      visual: p.visual,
+      candidateId: p.candidateId,
+      topicId: p.topicId,
+      eventFingerprint: p.eventFingerprint,
+      origem: p.origem,
+      artefato: artefato.artefato,
+    });
+  }
+
+  diagnostico.descartados = descartados.length;
+
+  if (paraGravar.length === 0) {
+    linhas.push("[SOCIAL V2] nenhuma arte congelou: nada gravado");
+    return { modo, previews, descartados, composicao, diagnostico, gravacao: null, linhasDeLog: linhas };
+  }
 
   const r = await opcoes.store.gravar(paraGravar);
   linhas.push(`[SOCIAL V2] ${r.gravados} post(s) gravado(s), ${r.bloqueadosPorIdempotencia.length} bloqueado(s)`);

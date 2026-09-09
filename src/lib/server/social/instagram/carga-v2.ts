@@ -51,6 +51,24 @@ export type CargaV2 = {
   eventFingerprint: string | null;
   visualAssetId: string | null;
   originChannel: string;
+  /** O arquivo aprovado no Storage, com o hash que prova que é ele. */
+  artefato: ArtefatoDaLinha;
+};
+
+/**
+ * O artefato como a linha o registra.
+ *
+ * `sha256` é o campo que muda a natureza do contrato: sem ele, `url` seria só
+ * mais um recurso remoto que pode ter mudado desde a aprovação — o mesmo
+ * problema da foto do Commons, um nível acima.
+ */
+export type ArtefatoDaLinha = {
+  url: string;
+  path: string;
+  filename: string;
+  mime: string;
+  sha256: string;
+  bytes: number;
 };
 
 /** A linha, como o worker a lê do banco. */
@@ -191,6 +209,28 @@ export function lerCargaV2(linha: LinhaDePost): LeituraDaCarga {
   const arte = objeto(conteudo?.arte);
   if (!arte) faltando.push("content_json.arte");
 
+  /*
+   * O artefato é obrigatório, e é o coração do contrato.
+   *
+   * Uma linha `scheduled` sem arquivo aprovado obrigaria o worker a produzir a
+   * peça, que é exatamente o que o V2 existe para não fazer. E sem `sha256` o
+   * arquivo seria mais um recurso remoto que pode ter mudado.
+   */
+  const artefatoBruto = objeto(arte?.artefato);
+  const url = texto(artefatoBruto?.url);
+  const sha = texto(artefatoBruto?.sha256).toLowerCase();
+
+  if (!artefatoBruto) faltando.push("content_json.arte.artefato");
+  else {
+    if (!url) faltando.push("content_json.arte.artefato.url");
+    if (!/^[0-9a-f]{64}$/.test(sha)) {
+      faltando.push(`content_json.arte.artefato.sha256 inválido: "${texto(artefatoBruto.sha256)}"`);
+    }
+    if (!Number.isFinite(Number(artefatoBruto.bytes)) || Number(artefatoBruto.bytes) <= 0) {
+      faltando.push(`content_json.arte.artefato.bytes inválido: "${String(artefatoBruto.bytes)}"`);
+    }
+  }
+
   const visual = objeto(conteudo?.visual);
   if (!visual) faltando.push("content_json.visual");
 
@@ -269,6 +309,14 @@ export function lerCargaV2(linha: LinhaDePost): LeituraDaCarga {
       eventFingerprint: texto(linha.event_fingerprint) || null,
       visualAssetId: texto(linha.visual_asset_id) || null,
       originChannel: texto(linha.origin_channel) || "social",
+      artefato: {
+        url,
+        path: texto(artefatoBruto!.path),
+        filename: texto(artefatoBruto!.filename) || "social-v2.png",
+        mime: texto(artefatoBruto!.mime) || "image/png",
+        sha256: sha,
+        bytes: Number(artefatoBruto!.bytes),
+      },
     },
   };
 }

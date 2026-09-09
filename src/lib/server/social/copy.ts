@@ -120,9 +120,22 @@ export function levaCta(posicao: number, proporcao = 0.75): boolean {
   return posicao % aCada !== 0;
 }
 
+/**
+ * Sem keyword, sem CTA. Nunca uma frase com o buraco no meio.
+ *
+ * Toda forma de CTA é construída em torno de "comente {K}". Com `keyword`
+ * vazia, `replace` devolveria "Comente  para receber..." — uma frase que pede
+ * uma ação impossível de executar. E uma palavra qualquer no lugar seria pior:
+ * o listener escuta uma só, e "Comente VISA" com o listener em outra palavra
+ * ensina o leitor que comentar não adianta.
+ *
+ * Quem decide qual é a palavra é `resolverKeywordCanonica`, e ela devolve vazio
+ * quando não há automação escutando.
+ */
 export function ctaDaPosicao(posicao: number, keyword: string): string {
+  if (!keyword.trim()) return "";
   const forma = FORMAS_DE_CTA[posicao % FORMAS_DE_CTA.length];
-  return forma.replace(/\{K\}/g, keyword);
+  return forma.replace(/\{K\}/g, keyword.trim());
 }
 
 export function montarSystemDaCopy(marca: MarcaSocial): string {

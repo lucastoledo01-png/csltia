@@ -15,6 +15,7 @@ import {
 import { resolveInstagramToken } from "./meta-token";
 import { markPostFailed } from "./scheduler";
 import {
+  GERACAO_V2,
   ehEnsaio,
   ehLegado,
   ehSocialV2,
@@ -24,7 +25,7 @@ import {
   MOTIVO_VERSAO_DESCONHECIDA,
   type LinhaDePost,
 } from "./carga-v2";
-import { prepararArteV2 } from "./worker-v2";
+import { verificarArtefato } from "./worker-v2";
 import { getArticleBySlug } from "../../articles-service";
 import { montarCarrosselDeCampanha } from "../../prompt-system/carrossel-de-campanha";
 import { concluirCampanhaPublicada } from "../../prompt-system/pos-publicacao";
@@ -408,23 +409,20 @@ async function prepararV2(
   const { carga } = leitura;
 
   /*
-   * Reivindica a vaga ANTES de renderizar, e de forma atômica.
+   * Reivindica a vaga ANTES de falar com a Meta, e de forma atômica.
    *
-   * `findDuePosts` seleciona por `status = scheduled`. Renderizar primeiro e
-   * gravar depois deixava a linha elegível durante o Chromium inteiro, e dois
-   * giros concorrentes desenhariam e publicariam o mesmo post duas vezes.
+   * `findDuePosts` seleciona por `status = scheduled`. Sem a reivindicação, a
+   * linha seguia elegível durante todo o trabalho e dois giros concorrentes
+   * publicariam o mesmo post.
    *
    * Gravar o status sem condição não resolveria: `UPDATE ... WHERE id = X` dá
-   * certo nos dois giros, e os dois seguem. `reivindicarVaga` põe o estado
-   * anterior no WHERE, então quem chega depois não afeta linha nenhuma e para
-   * aqui. Quem decide é o Postgres, não a ordem em que dois processos
-   * acordaram.
+   * certo nos dois giros. `reivindicarVaga` põe o estado anterior no WHERE,
+   * então quem chega depois não afeta linha nenhuma e para aqui. Quem decide é
+   * o Postgres, não a ordem em que dois processos acordaram.
    *
    * O estado novo é `generated` e não um `processing`: o CHECK da tabela aceita
    * ('draft','generated','approved','scheduled','published','failed'), e
-   * inventar valor fora disso exigiria migration. No legado `generated`
-   * significa "o worker pegou e produziu o artefato", que é o que acontece nas
-   * linhas seguintes.
+   * inventar valor fora disso exigiria migration.
    */
   const posse = await reivindicarVaga(supabase, socialPostId, "scheduled", "generated");
   if (!posse.ganhou) throw new Error(`${MOTIVO_VAGA_DISPUTADA}: ${posse.motivo}`);
@@ -434,33 +432,163 @@ async function prepararV2(
       `(${carga.foto ? "com foto" : `capa de texto, ${carga.motivoSemFoto}`}, origem ${carga.originChannel})`,
   );
 
-  const arte = await prepararArteV2(carga, {
-    projectSlug: project.slug,
-    editionDate,
-    socialPostId,
-    fetcher,
-  });
-
-  const slides: SlideSubido[] = arte.urls.map((url, i) => ({
-    index: i,
-    url,
-    filename: `social-v2-${i + 1}.png`,
-  }));
-
   /*
-   * A única gravação deste ramo antes da publicação, e ela não toca em nada
-   * aprovado: só registra onde o PNG foi parar e que a arte já existe. O
-   * status NÃO muda aqui — `generated` é do vocabulário do legado, onde ele
-   * significa "o roteiro acabou de ser escrito". Aqui não se escreveu nada.
+   * A arte não é desenhada aqui: ela foi congelada quando o post foi aprovado.
+   *
+   * O que resta é conferir que o arquivo no Storage continua sendo aquele. É
+   * isso que tira o tema do banco, o desenho do painel, as fontes da rede e a
+   * foto do Commons do caminho da publicação — quatro coisas que podiam ter
+   * mudado entre a aprovação e agora.
    */
-  await gravarOuFalhar(
-    supabase,
-    socialPostId,
-    { slides_manifest: slides, asset_paths: slides.map((s) => s.url) },
-    "o manifesto da arte V2",
+  const artefato = await verificarArtefato(carga, { socialPostId, fetcher });
+
+  const slides: SlideSubido[] = [{ index: 0, url: artefato.url, filename: artefato.filename }];
+
+  console.log(
+    `[INSTAGRAM WORKER V2] artefato conferido: ${artefato.filename}, ` +
+      `${(artefato.bytes / 1024).toFixed(0)} KB, sha ${artefato.sha256.slice(0, 12)}`,
   );
 
   return { legenda: carga.legenda, slides };
+}
+
+/** Quanto tempo uma vaga pode ficar em `generated` antes de ser considerada órfã. */
+const MINUTOS_PARA_ORFA = 30;
+
+export type ResultadoDaRecuperacao = {
+  examinadas: number;
+  devolvidasParaFila: number;
+  publicadasNaReconciliacao: number;
+  mandadasParaRevisao: number;
+  linhas: string[];
+};
+
+/**
+ * Vagas do V2 que ficaram presas em `generated`, e como cada caso volta.
+ *
+ * O worker reivindica a vaga trocando `scheduled` por `generated` antes de
+ * falar com a Meta. Isso é o que impede dois giros de publicarem o mesmo post,
+ * e cria um estado do qual não se sai sozinho: `findDuePosts` só devolve
+ * `scheduled`, então um processo que morra no meio deixa a linha parada para
+ * sempre. Antes disto, a saída era SQL na mão.
+ *
+ * Os dois casos são diferentes e não podem receber o mesmo tratamento:
+ *
+ *   - SEM `provider_creation_id`: nenhum container foi criado, então nada foi
+ *     publicado nem pode ter sido. Devolver para a fila é seguro.
+ *
+ *   - COM `provider_creation_id`: existe um container na Meta e o desfecho é
+ *     desconhecido. Devolver para a fila sem perguntar seria autorizar uma
+ *     segunda publicação do mesmo post. Aqui a reconciliação vem PRIMEIRO, com
+ *     o token efetivo, e ela é que decide: publicado, para revisão, ou livre
+ *     para refazer.
+ *
+ * Só linhas explicitamente `social-v2` entram. O caminho legado tem a mesma
+ * propriedade e não é tocado: mexer nele aumentaria risco de republicação em
+ * troca de nada, já que o V2 é o que vai entrar em produção.
+ */
+export async function recuperarOrfaosV2(
+  opcoes: {
+    projectId?: string;
+    minutos?: number;
+    limite?: number;
+    env?: Record<string, string | undefined>;
+    fetcher?: typeof fetch;
+  } = {},
+): Promise<ResultadoDaRecuperacao> {
+  const env = opcoes.env ?? process.env;
+  const fetcher = opcoes.fetcher ?? fetch;
+  const supabase = getSupabaseAdminClient();
+  const r: ResultadoDaRecuperacao = {
+    examinadas: 0,
+    devolvidasParaFila: 0,
+    publicadasNaReconciliacao: 0,
+    mandadasParaRevisao: 0,
+    linhas: [],
+  };
+
+  const corte = new Date(Date.now() - (opcoes.minutos ?? MINUTOS_PARA_ORFA) * 60_000).toISOString();
+
+  const { data, error } = await supabase
+    .from("social_posts")
+    .select("id, project_id, provider_creation_id, provider_post_id, publish_attempted_at, caption")
+    .eq("platform", "instagram")
+    .eq("generation_version", GERACAO_V2)
+    .eq("status", "generated")
+    .lt("updated_at", corte)
+    .limit(opcoes.limite ?? 5);
+
+  if (error) {
+    r.linhas.push(`[RECUPERAÇÃO V2] não consegui listar as órfãs: ${error.message}`);
+    return r;
+  }
+
+  for (const linha of data ?? []) {
+    const id = linha.id as string;
+    r.examinadas += 1;
+
+    /*
+     * Reivindica ANTES de qualquer coisa, e de forma atômica.
+     *
+     * Dois workers rodando a recuperação ao mesmo tempo disputam esta linha, e
+     * quem perde não afeta registro nenhum e sai. Sem isso, os dois
+     * reconciliariam o mesmo container em paralelo.
+     */
+    const posse = await reivindicarVaga(supabase, id, "generated", "scheduled");
+    if (!posse.ganhou) {
+      r.linhas.push(`[RECUPERAÇÃO V2] ${id}: ${posse.motivo}`);
+      continue;
+    }
+
+    const creationId = (linha.provider_creation_id as string | null) ?? null;
+
+    if (!creationId) {
+      // Nenhum container: nada foi publicado, e a fila resolve.
+      r.devolvidasParaFila += 1;
+      r.linhas.push(`[RECUPERAÇÃO V2] ${id} voltou para a fila: nenhum container foi criado.`);
+      continue;
+    }
+
+    /*
+     * Com container, a Meta é quem sabe. E a pergunta vai com o token efetivo:
+     * a semente da env está vencida em regime, e perguntar com ela devolveria
+     * "não consegui consultar" para todo container saudável.
+     */
+    const projectId = (linha.project_id as string) ?? opcoes.projectId ?? "";
+    const igEnv = { ...env, INSTAGRAM_ACCESS_TOKEN: await resolveInstagramToken(projectId, env) };
+
+    const desfecho = await reconciliarTentativaAnterior(
+      supabase,
+      id,
+      {
+        providerPostId: (linha.provider_post_id as string | null) ?? null,
+        providerCreationId: creationId,
+        publishAttemptedAt: (linha.publish_attempted_at as string | null) ?? null,
+        caption: (linha.caption as string | null) ?? "",
+      },
+      igEnv,
+      fetcher,
+    );
+
+    if (desfecho?.desfecho === "publicado") {
+      r.publicadasNaReconciliacao += 1;
+      r.linhas.push(`[RECUPERAÇÃO V2] ${id} já estava publicado (${desfecho.mediaId}); registro acertado.`);
+      continue;
+    }
+
+    if (desfecho?.desfecho === "revisar") {
+      await registrarRevisao(id, desfecho.motivo, creationId);
+      r.mandadasParaRevisao += 1;
+      continue;
+    }
+
+    // Container expirado ou nada a reconciliar: refazer do zero é seguro.
+    r.devolvidasParaFila += 1;
+    r.linhas.push(`[RECUPERAÇÃO V2] ${id} voltou para a fila: o container anterior não publicou.`);
+  }
+
+  for (const l of r.linhas) console.log(l);
+  return r;
 }
 
 /** Processa uma vaga agendada de ponta a ponta. */

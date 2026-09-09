@@ -13,12 +13,25 @@
  *   WORKER_INTERVAL_SECONDS=900 npx tsx ...        modo contínuo (contêiner)
  */
 
-import { processScheduledPost } from "../lib/server/social/instagram/worker-service";
+import { processScheduledPost, recuperarOrfaosV2 } from "../lib/server/social/instagram/worker-service";
 import { findDuePosts } from "../lib/server/social/instagram/scheduler";
 
 const LOTE_MAXIMO = 5;
 
 async function girar(): Promise<number> {
+  /*
+   * Antes de pegar a fila, devolver a ela o que ficou preso.
+   *
+   * Uma vaga do V2 fica em `generated` enquanto o worker trabalha nela. Se o
+   * processo morrer no meio, `findDuePosts` — que só devolve `scheduled` —
+   * nunca mais a enxerga. A recuperação distingue os dois casos: sem container
+   * na Meta, volta para a fila; com container, pergunta à Meta antes, porque
+   * devolver às cegas autorizaria uma segunda publicação do mesmo post.
+   */
+  await recuperarOrfaosV2().catch((err) => {
+    console.error("[WORKER] Recuperação de órfãs V2 falhou:", err);
+  });
+
   const pendentes = await findDuePosts(LOTE_MAXIMO);
 
   if (pendentes.length === 0) {

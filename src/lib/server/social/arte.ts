@@ -208,6 +208,11 @@ export type ArteRenderizada = {
    * abre não é preview.
    */
   jpeg: Buffer;
+  /** A mesma peça em 2x, JPEG de qualidade fixa. Alternativa quando o PNG estoura. */
+  jpegPublicavel: Buffer;
+  /** Dimensão real da peça, em pixels do arquivo. */
+  largura: number;
+  altura: number;
   /**
    * As fontes que o navegador NÃO tinha na hora de medir e desenhar.
    *
@@ -419,11 +424,24 @@ export async function renderizarCapas(
 
       const png = await page.screenshot({ type: "png", fullPage: false });
       const jpeg = await page.screenshot({ type: "jpeg", quality: 70, fullPage: false, scale: "css" });
+      /*
+       * O mesmo desenho em 2x, em JPEG de qualidade fixa.
+       *
+       * É a alternativa determinística quando o PNG passa do limite: mesma
+       * resolução, mesma peça, e um arquivo várias vezes menor. Qualidade
+       * fixada em 92 justamente para ser determinística — deixar o compressor
+       * escolher tornaria o hash do artefato imprevisível, e o hash é o que
+       * amarra o que foi aprovado ao que vai ao ar.
+       */
+      const jpegPublicavel = await page.screenshot({ type: "jpeg", quality: 92, fullPage: false });
       feitas.push({
         capa,
         html,
         png,
         jpeg,
+        jpegPublicavel,
+        largura: tokens.canvas.width * 2,
+        altura: tokens.canvas.height * 2,
         fontesQueFaltaram,
         temaDegradado: tema.degradado ? tema.motivo : "",
         usouLayoutDesenhado: usaDesenho,

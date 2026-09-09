@@ -58,6 +58,18 @@ function paraGravar(over: Record<string, unknown> = {}): PostParaGravar {
       },
       reparosAplicados: [],
     },
+    /* O artefato congelado é obrigatório: sem ele não existe o que publicar. */
+    artefato: {
+      url: "https://storage.exemplo/imigra-us/2026-09-06/social-v2.png",
+      path: "imigra-us/2026-09-06/social-v2-2026-09-06-s1/social-v2.png",
+      filename: "social-v2.png",
+      mime: "image/png",
+      sha256: "a".repeat(64),
+      bytes: 172_647,
+      largura: 2160,
+      altura: 2880,
+      otimizado: false,
+    },
     ...over,
   } as unknown as PostParaGravar;
 }
@@ -139,6 +151,24 @@ describe("persistência", () => {
     expect(linha.social_guard_status).toBe("passed");
     expect(linha.generation_version).toBe("social-v2");
     expect(linha.scheduled_slot).toBe("2026-09-06-01");
+  });
+
+  it("o artefato congelado fica na linha, com hash e tamanho", async () => {
+    const { client, gravadas } = bancoFalso();
+    await criarSocialPostsStore(client).gravar([paraGravar()]);
+
+    const artefato = (
+      (gravadas[0].content_json as Record<string, unknown>).arte as Record<string, unknown>
+    ).artefato as Record<string, unknown>;
+
+    expect(artefato.sha256).toBe("a".repeat(64));
+    expect(artefato.bytes).toBe(172_647);
+    expect(artefato.mime).toBe("image/png");
+
+    // E nas colunas onde o painel e o caminho legado já procuram.
+    const manifesto = gravadas[0].slides_manifest as Array<Record<string, unknown>>;
+    expect(manifesto[0].sha256).toBe("a".repeat(64));
+    expect(gravadas[0].asset_paths).toEqual([artefato.url]);
   });
 
   it("o resultado inteiro da guarda cabe em social_guard_reasons", async () => {

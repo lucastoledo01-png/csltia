@@ -68,6 +68,18 @@ function post(visual: unknown): PostParaGravar {
       custoUsd: 0,
       reparosAplicados: [],
     },
+    /* O artefato congelado: é ele que o worker publica. */
+    artefato: {
+      url: "https://storage.exemplo/imigra-us/2026-09-06/social-v2.png",
+      path: "imigra-us/2026-09-06/social-v2-2026-09-06-s-1/social-v2.png",
+      filename: "social-v2.png",
+      mime: "image/png",
+      sha256: "b".repeat(64),
+      bytes: 172_647,
+      largura: 2160,
+      altura: 2880,
+      otimizado: false,
+    },
   } as unknown as PostParaGravar;
 }
 
@@ -116,6 +128,36 @@ describe("a linha que o pipeline grava é aceita pelo worker", () => {
     expect(leitura.carga.eixo).toBe("processo");
     expect(leitura.carga.foto).toBeNull();
     expect(leitura.carga.motivoSemFoto).toBe("NO_VALID_IMAGE");
+    expect(leitura.carga.artefato.sha256).toBe("b".repeat(64));
+    expect(leitura.carga.artefato.url).toContain("social-v2.png");
+  });
+
+  it("linha sem artefato falha fechada: não há o que publicar", async () => {
+    /*
+     * Uma linha `scheduled` sem arquivo aprovado obrigaria o worker a produzir
+     * a peça, que é o que o V2 existe para não fazer.
+     */
+    const linha = await linhaGravada(SEM_FOTO);
+    const conteudo = linha.content_json as Record<string, unknown>;
+    const arte = { ...(conteudo.arte as Record<string, unknown>) };
+    delete arte.artefato;
+
+    const leitura = lerCargaV2({ ...linha, content_json: { ...conteudo, arte } });
+    expect(leitura.ok).toBe(false);
+    if (!leitura.ok) expect(leitura.faltando).toContain("content_json.arte.artefato");
+  });
+
+  it("sha256 malformado é tratado como ausente", async () => {
+    const linha = await linhaGravada(SEM_FOTO);
+    const conteudo = linha.content_json as Record<string, unknown>;
+    for (const sha of ["", "abc", "z".repeat(64), null]) {
+      const arte = {
+        ...(conteudo.arte as Record<string, unknown>),
+        artefato: { ...((conteudo.arte as Record<string, unknown>).artefato as object), sha256: sha },
+      };
+      const leitura = lerCargaV2({ ...linha, content_json: { ...conteudo, arte } });
+      expect(leitura.ok, String(sha)).toBe(false);
+    }
   });
 
   it("post com foto: a URL e o crédito chegam ao worker", async () => {
@@ -293,11 +335,16 @@ describe("entradas adversárias na leitura da carga", () => {
     // A distinção é a mesma do eixo: registro incompleto de um campo opcional
     // não é registro contraditório.
     const linha = await base();
+    const conteudo = linha.content_json as Record<string, unknown>;
     const leitura = lerCargaV2({
       ...linha,
-      content_json: { ...(linha.content_json as object), arte: { versao: "v2", eixo: "" } },
+      content_json: {
+        ...conteudo,
+        // Sem `variante`, mas COM artefato: o arquivo continua obrigatório.
+        arte: { versao: "v2", eixo: "", artefato: (conteudo.arte as Record<string, unknown>).artefato },
+      },
     });
-    expect(leitura.ok).toBe(true);
+    expect(leitura.ok, leitura.ok ? "" : leitura.motivo).toBe(true);
     if (leitura.ok) expect(leitura.carga.eixo).toBe("");
   });
 

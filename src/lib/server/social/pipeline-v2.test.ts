@@ -101,6 +101,30 @@ function opcoes(env: Record<string, string | undefined>, over: Record<string, un
     candidatas: new Map([["s-1", CONFIRMADA], ["s-2", CONFIRMADA]]),
     env: { OPENAI_API_KEY: "chave", ...env },
     fetcher: modelo(),
+    /*
+     * A keyword vem injetada, e isso não é conveniência: sem injetar, o ciclo
+     * chamaria `resolverKeywordCanonica`, que lê `prompt_campaigns` no banco de
+     * produção. Teste unitário não fala com banco.
+     */
+    resolverKeyword: async () => ({ ok: true as const, keyword: "VISA", automacao: "auto-1" }),
+    /*
+     * O congelamento também vem injetado, e pela mesma razão: sem isso o ciclo
+     * subiria um navegador e escreveria no Storage a cada teste de enforce.
+     */
+    congelarArte: async () => ({
+      ok: true as const,
+      artefato: {
+        url: "https://storage.exemplo/peca.png",
+        path: "proj/2026-09-06/peca.png",
+        filename: "social-v2.png",
+        mime: "image/png",
+        sha256: "c".repeat(64),
+        bytes: 120_000,
+        largura: 2160,
+        altura: 2880,
+        otimizado: false,
+      },
+    }),
     ...over,
   };
 }
@@ -270,5 +294,47 @@ describe("fail-closed sem persistência", () => {
     expect(r.diagnostico.bloqueio).toBe("SOCIAL_PERSISTENCE_UNAVAILABLE");
     expect(r.previews).toHaveLength(0);
     expect(tentativas).toHaveLength(0);
+  });
+});
+
+describe("a keyword do CTA no ciclo", () => {
+  it("sem palavra escutando, o ciclo roda e a copy sai sem CTA", async () => {
+    const r = await rodarCicloSocial(
+      [pauta("1", "USCIS amplia prazo")],
+      opcoes(
+        { SOCIAL_PIPELINE_V2: "dry_run" },
+        { resolverKeyword: async () => ({ ok: false as const, motivo: "campanha sem automação" }) },
+      ),
+    );
+
+    expect(r.previews).toHaveLength(1);
+    expect(r.linhasDeLog.join(" ")).toContain("sem CTA");
+  });
+
+  it("a palavra vem da campanha, não da configuração passada pelo chamador", async () => {
+    const r = await rodarCicloSocial(
+      [pauta("1", "USCIS amplia prazo")],
+      opcoes(
+        { SOCIAL_PIPELINE_V2: "dry_run" },
+        {
+          marca: { nome: "imigra.us", nicho: "imigração", extra: "", keyword: "NEWS" },
+          resolverKeyword: async () => ({ ok: true as const, keyword: "VISA", automacao: "auto-1" }),
+        },
+      ),
+    );
+
+    // O log diz de onde veio, para a divergência não passar despercebida.
+    const log = r.linhasDeLog.join(" ");
+    expect(log).toContain("funil permanente");
+    expect(log).toContain("VISA");
+    expect(log).toContain("NEWS");
+  });
+
+  it("keyword igual à configuração não vira ruído no log", async () => {
+    const r = await rodarCicloSocial(
+      [pauta("1", "USCIS amplia prazo")],
+      opcoes({ SOCIAL_PIPELINE_V2: "dry_run" }),
+    );
+    expect(r.linhasDeLog.join(" ")).not.toContain("e não da configuração");
   });
 });

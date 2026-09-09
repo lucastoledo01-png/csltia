@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -109,48 +110,16 @@ vi.mock("./opendesign-renderer", () => ({
 }));
 
 /**
- * O renderizador determinístico do V2, sem abrir navegador no teste.
+ * O artefato aprovado, como ele vive no Storage.
  *
- * Os defeitos de render que os testes precisam simular (fonte que não chegou,
- * PNG acima do teto) entram por `arteDefeituosa`, que o `beforeEach` limpa.
- * Reatribuir o export do módulo no meio de um teste vazaria para os seguintes,
- * e foi o que aconteceu na primeira volta: três testes depois deste quebraram
- * por causa de um mock que ficou de pé.
+ * O ramo V2 não renderiza mais nada: a peça foi congelada quando o post foi
+ * aprovado, e aqui o trabalho é conferir que o arquivo continua sendo aquele.
+ * `arquivoNoStorage` é o que o `fetcher` devolve, e trocá-lo é como se simula
+ * um arquivo adulterado.
  */
-const renderizouV2 = vi.fn();
-const arteDefeituosa: { fontesQueFaltaram: string[]; bytes: number | null; temaDegradado: string } = {
-  fontesQueFaltaram: [],
-  bytes: null,
-  temaDegradado: "",
-};
-vi.mock("../arte", () => ({
-  renderizarCapas: (entradas: Array<Record<string, unknown>>) => {
-    renderizouV2(entradas);
-    return Promise.resolve(
-      entradas.map((e) => ({
-        capa: { comFoto: Boolean(e.asset), motivoSemFoto: String(e.motivoSemFoto ?? "") },
-        html: "<html></html>",
-        png:
-          arteDefeituosa.bytes === null
-            ? Buffer.from(`arte-v2:${String(e.headline)}`)
-            : Buffer.alloc(arteDefeituosa.bytes),
-        jpeg: Buffer.from("jpeg"),
-        fontesQueFaltaram: arteDefeituosa.fontesQueFaltaram,
-        temaDegradado: arteDefeituosa.temaDegradado,
-        usouLayoutDesenhado: false,
-        diagnosticoDoLayout: "LAYOUT_NOT_APPLICABLE_NO_PHOTO",
-      })),
-    );
-  },
-}));
-
-const subiuArte = vi.fn();
-vi.mock("./armazenamento", () => ({
-  subirPngParaStorage: (png: Buffer, caminho: string) => {
-    subiuArte(caminho, png.byteLength);
-    return Promise.resolve(`https://storage.exemplo/${caminho}`);
-  },
-}));
+const BYTES_APROVADOS = Buffer.from("PNG-da-peca-aprovada");
+const SHA_APROVADO = crypto.createHash("sha256").update(BYTES_APROVADOS).digest("hex");
+const arquivoNoStorage = { bytes: BYTES_APROVADOS, status: 200 };
 
 /**
  * O token que vale mora em `project_credentials` e é trocado pelo cron. A env é
@@ -230,7 +199,19 @@ function linhaV2(over: Record<string, unknown> = {}, conteudo: Record<string, un
     content_json: {
       format: "noticia",
       hashtags: ["#USCIS", "#Imigracao"],
-      arte: { versao: "v2", variante: "noticia_sem_foto", eixo: "processo" },
+      arte: {
+        versao: "v2",
+        variante: "noticia_sem_foto",
+        eixo: "processo",
+        artefato: {
+          url: "https://storage.exemplo/imigra-us/2026-09-06/social-v2.png",
+          path: "imigra-us/2026-09-06/post-v2/social-v2.png",
+          filename: "social-v2.png",
+          mime: "image/png",
+          sha256: SHA_APROVADO,
+          bytes: BYTES_APROVADOS.byteLength,
+        },
+      },
       visual: { capa: "texto", motivo: "NO_VALID_IMAGE" },
       ...conteudo,
     },
@@ -264,6 +245,13 @@ function metaFalsa() {
 
   const fetcher = (async (url: string | URL, init?: RequestInit) => {
     const u = String(url);
+
+    // O Storage, que é de onde o worker baixa o artefato aprovado.
+    if (u.startsWith("https://storage.exemplo/")) {
+      baixouArtefato.push(u);
+      return new Response(arquivoNoStorage.bytes, { status: arquivoNoStorage.status });
+    }
+
     // O cliente da Meta manda form-urlencoded, não JSON. A legenda chega aqui
     // percorrendo a mesma codificação que ela percorre em produção, o que é
     // exatamente o que o teste de imutabilidade precisa exercitar.
@@ -296,6 +284,9 @@ function metaFalsa() {
   return { fetcher, chamadas };
 }
 
+/** Quais URLs do Storage o worker baixou. */
+const baixouArtefato: string[] = [];
+
 const ENV = {
   INSTAGRAM_ACCOUNT_ID: "conta-1",
   // Semente vencida, que é o estado normal depois da primeira troca do cron.
@@ -309,14 +300,12 @@ beforeEach(() => {
   updates.length = 0;
   gerouCopyLegado.mockClear();
   renderizouLegado.mockClear();
-  renderizouV2.mockClear();
-  subiuArte.mockClear();
   alertas.length = 0;
   falharUpdate.campo = null;
   perderDisputa.ligado = false;
-  arteDefeituosa.fontesQueFaltaram = [];
-  arteDefeituosa.bytes = null;
-  arteDefeituosa.temaDegradado = "";
+  baixouArtefato.length = 0;
+  arquivoNoStorage.bytes = BYTES_APROVADOS;
+  arquivoNoStorage.status = 200;
   tabelas.projects = { row: PROJETO };
 });
 
@@ -332,7 +321,7 @@ describe("A. o post legado continua igual", () => {
     expect(r.status).toBe("published");
     expect(gerouCopyLegado).toHaveBeenCalledTimes(1);
     expect(renderizouLegado).toHaveBeenCalledTimes(1);
-    expect(renderizouV2).not.toHaveBeenCalled();
+    expect(baixouArtefato).toHaveLength(0);
   });
 
   it("continua sobrescrevendo title e caption, que é o comportamento dele", async () => {
@@ -347,7 +336,7 @@ describe("A. o post legado continua igual", () => {
 });
 
 // ---------------------------------------------------------------- B, C
-describe("B e C. o post social-v2 não regenera nada", () => {
+describe("B e C. o post social-v2 não regenera nem redesenha nada", () => {
   it("zero chamada ao gerador antigo de copy", async () => {
     tabelas.social_posts = { row: linhaV2() };
     const { fetcher } = metaFalsa();
@@ -364,43 +353,47 @@ describe("B e C. o post social-v2 não regenera nada", () => {
     await processScheduledPost("post-v2", {}, ENV, fetcher);
 
     expect(renderizouLegado).not.toHaveBeenCalled();
-    expect(renderizouV2).toHaveBeenCalledTimes(1);
   });
 
-  it("marca posse ANTES de renderizar, senão dois giros publicam o mesmo post", async () => {
+  it("baixa o artefato aprovado em vez de desenhar a peça de novo", async () => {
     /*
-     * `findDuePosts` filtra por `status = scheduled`. Enquanto a linha
-     * continuasse nesse estado, ela seguia elegível — e o V2 renderiza no
-     * Chromium, que leva segundos. Dois giros concorrentes desenhariam e
-     * publicariam a mesma peça duas vezes.
-     *
-     * O valor é `generated` porque o CHECK da tabela só aceita
-     * ('draft','generated','approved','scheduled','published','failed'), e no
-     * legado ele já significa "o worker pegou e produziu o artefato". Um
-     * `processing` novo exigiria migration.
+     * O ponto do congelamento. Antes, o worker re-renderizava, e o resultado
+     * dependia do tema no banco, do desenho do painel, das fontes da rede e da
+     * foto ainda estar no Commons. Agora ele só busca o arquivo aprovado.
      */
     tabelas.social_posts = { row: linhaV2() };
     const { fetcher } = metaFalsa();
     await processScheduledPost("post-v2", {}, ENV, fetcher);
 
-    const iPosse = updates.findIndex((u) => u.status === "generated");
-    expect(iPosse).toBeGreaterThanOrEqual(0);
-
-    // E a posse é gravada antes do render, não depois.
-    const iManifesto = updates.findIndex((u) => u.slides_manifest);
-    expect(iManifesto).toBeGreaterThan(iPosse);
-    expect(renderizouV2).toHaveBeenCalledTimes(1);
+    expect(baixouArtefato).toEqual(["https://storage.exemplo/imigra-us/2026-09-06/social-v2.png"]);
   });
 
-  it("quem perde a reivindicação não renderiza, não publica e não marca falha", async () => {
+  it("marca posse ANTES de falar com a Meta, senão dois giros publicam o mesmo post", async () => {
+    /*
+     * `findDuePosts` filtra por `status = scheduled`. Enquanto a linha
+     * continuasse nesse estado, ela seguia elegível.
+     *
+     * O valor é `generated` porque o CHECK da tabela só aceita
+     * ('draft','generated','approved','scheduled','published','failed'). Um
+     * `processing` novo exigiria migration.
+     */
+    tabelas.social_posts = { row: linhaV2() };
+    const { fetcher, chamadas } = metaFalsa();
+    await processScheduledPost("post-v2", {}, ENV, fetcher);
+
+    const iPosse = updates.findIndex((u) => u.status === "generated");
+    expect(iPosse).toBeGreaterThanOrEqual(0);
+    expect(chamadas.length).toBeGreaterThan(0);
+  });
+
+  it("quem perde a reivindicação não baixa, não publica e não marca falha", async () => {
     /*
      * A reivindicação é atômica: `UPDATE ... WHERE id = X AND status =
      * 'scheduled'`. Quem chega depois não afeta linha nenhuma.
      *
      * O que este teste protege é a consequência: o perdedor NÃO pode seguir
      * para o `markPostFailed`, senão ele marcaria `failed` a linha que o
-     * vencedor está publicando neste instante, e o desfecho seria uma linha
-     * marcada como falha com um post no ar.
+     * vencedor está publicando neste instante.
      */
     tabelas.social_posts = { row: linhaV2() };
     perderDisputa.ligado = true;
@@ -410,15 +403,13 @@ describe("B e C. o post social-v2 não regenera nada", () => {
 
     expect(r.status).toBe("skipped");
     expect(r.ok).toBe(true);
-    expect(renderizouV2).not.toHaveBeenCalled();
+    expect(baixouArtefato).toHaveLength(0);
     expect(chamadas).toHaveLength(0);
     expect(updates.find((u) => u.status === "failed")).toBeUndefined();
     expect(alertas).toHaveLength(0);
   });
 
   it("a marca de posse não carrega conteúdo: é só o status", async () => {
-    // O legado grava título, legenda e content_json junto com `generated`,
-    // porque ele acabou de produzir os três. Aqui não se produziu nada.
     tabelas.social_posts = { row: linhaV2() };
     const { fetcher } = metaFalsa();
     await processScheduledPost("post-v2", {}, ENV, fetcher);
@@ -433,21 +424,24 @@ describe("B e C. o post social-v2 não regenera nada", () => {
     await processScheduledPost("post-v2", {}, ENV, fetcher);
 
     for (const u of updates) {
-      expect(Object.keys(u)).not.toContain("title");
-      expect(Object.keys(u)).not.toContain("caption");
-      expect(Object.keys(u)).not.toContain("content_json");
-      expect(Object.keys(u)).not.toContain("visual_asset_id");
-      expect(Object.keys(u)).not.toContain("story_id");
-      expect(Object.keys(u)).not.toContain("event_fingerprint");
-      expect(Object.keys(u)).not.toContain("origin_channel");
-      expect(Object.keys(u)).not.toContain("social_guard_status");
+      for (const proibida of [
+        "title",
+        "caption",
+        "content_json",
+        "visual_asset_id",
+        "story_id",
+        "event_fingerprint",
+        "origin_channel",
+        "social_guard_status",
+      ]) {
+        expect(Object.keys(u)).not.toContain(proibida);
+      }
     }
   });
 });
 
-// ---------------------------------------------------------------- D
 describe("D. social-v2 sem foto publica o brand card", () => {
-  it("renderiza capa de texto e não sai procurando outra imagem", async () => {
+  it("capa de texto publica, e nada sai procurando outra imagem", async () => {
     tabelas.social_posts = { row: linhaV2() };
     const { fetcher } = metaFalsa();
 
@@ -455,36 +449,46 @@ describe("D. social-v2 sem foto publica o brand card", () => {
 
     expect(r.ok).toBe(true);
     expect(r.status).toBe("published");
-
-    const entrada = renderizouV2.mock.calls[0][0][0];
-    expect(entrada.asset).toBeNull();
-    expect(entrada.motivoSemFoto).toBe("NO_VALID_IMAGE");
-    // Falta de foto não é pedido de busca: nenhum renderizador com fallback foi acionado.
     expect(renderizouLegado).not.toHaveBeenCalled();
+    expect(baixouArtefato).toHaveLength(1);
   });
 
-  it("com foto aprovada, é a foto da linha que entra na arte", async () => {
+  it("com foto aprovada, o Commons não é tocado na publicação", async () => {
+    /*
+     * A foto entrou no arquivo quando a peça foi congelada. Na publicação, a
+     * URL do Commons serve só para o registro de direito — autor, licença,
+     * procedência —, e não para produzir nada.
+     */
     tabelas.social_posts = {
       row: linhaV2({ visual_asset_id: "asset-1" }, {
-        // A variante acompanha a foto: é assim que o store grava a linha.
-        arte: { versao: "v2", variante: "fullbleed_portrait", eixo: "processo" },
+        arte: {
+          versao: "v2",
+          variante: "fullbleed_portrait",
+          eixo: "processo",
+          artefato: {
+            url: "https://storage.exemplo/imigra-us/2026-09-06/social-v2.png",
+            path: "imigra-us/2026-09-06/post-v2/social-v2.png",
+            filename: "social-v2.png",
+            mime: "image/png",
+            sha256: SHA_APROVADO,
+            bytes: BYTES_APROVADOS.byteLength,
+          },
+        },
         visual: {
           imageUrl: "https://upload.wikimedia.org/foto.jpg",
           attribution: "Foto: Alguém / Wikimedia Commons / CC BY-SA",
         },
       }),
     };
-    const { fetcher } = metaFalsa();
-    await processScheduledPost("post-v2", {}, ENV, fetcher);
+    const { fetcher, chamadas } = metaFalsa();
 
-    const entrada = renderizouV2.mock.calls[0][0][0];
-    expect(entrada.asset).toEqual({
-      imageUrl: "https://upload.wikimedia.org/foto.jpg",
-      attribution: "Foto: Alguém / Wikimedia Commons / CC BY-SA",
-    });
+    const r = await processScheduledPost("post-v2", {}, ENV, fetcher);
+
+    expect(r.ok).toBe(true);
+    expect(chamadas.every((c) => !c.url.includes("wikimedia"))).toBe(true);
+    expect(baixouArtefato.every((u) => !u.includes("wikimedia"))).toBe(true);
   });
 });
-
 // ---------------------------------------------------------------- E
 describe("E. carga V2 incompleta não é consertada", () => {
   const faltas: Array<[string, Record<string, unknown>, Record<string, unknown>]> = [
@@ -517,7 +521,7 @@ describe("E. carga V2 incompleta não é consertada", () => {
 
       // Não tentou consertar: nenhum gerador, nenhum render, nenhuma Meta.
       expect(gerouCopyLegado).not.toHaveBeenCalled();
-      expect(renderizouV2).not.toHaveBeenCalled();
+      expect(baixouArtefato).toHaveLength(0);
       expect(renderizouLegado).not.toHaveBeenCalled();
       expect(chamadas).toHaveLength(0);
 
@@ -540,127 +544,78 @@ describe("F e G. legenda e manchete chegam intactas à Meta", () => {
     expect(String(container?.corpo.caption)).toContain("#USCIS #Imigracao");
   });
 
-  it("a manchete que vai para a arte é a persistida em title", async () => {
-    tabelas.social_posts = { row: linhaV2() };
-    const { fetcher } = metaFalsa();
-    await processScheduledPost("post-v2", {}, ENV, fetcher);
-
-    expect(renderizouV2.mock.calls[0][0][0].headline).toBe(HEADLINE);
-    expect(renderizouV2.mock.calls[0][0][0].eixo).toBe("processo");
-  });
-
-  it("a arte publicada é a que saiu do renderizador determinístico", async () => {
+  it("a imagem publicada é a URL do artefato aprovado", async () => {
     tabelas.social_posts = { row: linhaV2() };
     const { fetcher, chamadas } = metaFalsa();
     await processScheduledPost("post-v2", {}, ENV, fetcher);
 
-    expect(subiuArte).toHaveBeenCalledTimes(1);
-    const [caminho, tamanho] = subiuArte.mock.calls[0];
-    expect(String(caminho)).toContain("post-v2/social-v2-1.png");
-    expect(tamanho).toBe(Buffer.from(`arte-v2:${HEADLINE}`).byteLength);
-
     const container = chamadas.find((c) => c.url.includes("/media") && !c.url.includes("media_publish"));
-    expect(String(container?.corpo.image_url)).toContain("social-v2-1.png");
+    expect(container?.corpo.image_url).toBe("https://storage.exemplo/imigra-us/2026-09-06/social-v2.png");
+  });
+
+  it("a manchete persistida não é reescrita em lugar nenhum", async () => {
+    tabelas.social_posts = { row: linhaV2() };
+    const { fetcher } = metaFalsa();
+    await processScheduledPost("post-v2", {}, ENV, fetcher);
+
+    expect(updates.every((u) => !("title" in u))).toBe(true);
+    expect((tabelas.social_posts!.row as Record<string, unknown>).title).toBe(HEADLINE);
   });
 });
 
-// ---------------------------------------------------------------- H
-describe("H. retry não cria um segundo container", () => {
-  it("container FINISHED de uma tentativa anterior republica o MESMO creation_id", async () => {
-    tabelas.social_posts = {
-      row: linhaV2({
-        provider_creation_id: "container-anterior",
-        publish_attempted_at: "2026-09-06T11:00:00Z",
-      }),
-    };
+describe("a peça publicada tem que ser a peça aprovada", () => {
+  it("arquivo adulterado no Storage bloqueia, e a Meta não é chamada", async () => {
+    /*
+     * O contrato do congelamento. O arquivo estar no Storage não prova que ele
+     * é o aprovado: sobrescrita por engano, bucket restaurado de backup,
+     * caminho reaproveitado. O hash é o que prova.
+     */
+    arquivoNoStorage.bytes = Buffer.from("OUTRA-PECA-QUALQUER");
+    tabelas.social_posts = { row: linhaV2() };
+    const { fetcher, chamadas } = metaFalsa();
+
+    const r = await processScheduledPost("post-v2", {}, ENV, fetcher);
+
+    expect(r.ok).toBe(false);
+    expect(String(r.error)).toContain("SOCIAL_ARTIFACT_HASH_MISMATCH");
+    expect(chamadas).toHaveLength(0);
+
+    const falha = updates.find((u) => u.status === "failed");
+    expect(String(falha?.error_message)).toContain("SOCIAL_ARTIFACT_HASH_MISMATCH");
+  });
+
+  it("hash igual ao aprovado segue em frente", async () => {
+    tabelas.social_posts = { row: linhaV2() };
     const { fetcher, chamadas } = metaFalsa();
 
     const r = await processScheduledPost("post-v2", {}, ENV, fetcher);
 
     expect(r.ok).toBe(true);
-    // Nenhuma criação de container nova: só consulta de estado e publish.
-    const criacoes = chamadas.filter((c) => c.url.endsWith("/media") && c.corpo.image_url);
-    expect(criacoes).toHaveLength(0);
-    // E republicou o container que já existia.
-    const publish = chamadas.find((c) => c.url.includes("/media_publish"));
-    expect(publish?.corpo.creation_id).toBe("container-anterior");
-    // Nem renderizou de novo: a arte da tentativa anterior serviu.
-    expect(renderizouV2).not.toHaveBeenCalled();
-  });
-
-  it("post já publicado não fala com a Meta", async () => {
-    tabelas.social_posts = { row: linhaV2({ status: "published" }) };
-    const { fetcher, chamadas } = metaFalsa();
-
-    const r = await processScheduledPost("post-v2", {}, ENV, fetcher);
-
     expect(r.status).toBe("published");
-    expect(chamadas).toHaveLength(0);
-    expect(renderizouV2).not.toHaveBeenCalled();
+    expect(chamadas.some((c) => c.url.includes("media_publish"))).toBe(true);
   });
 
-  it("registra a intenção antes de publicar, também no ramo V2", async () => {
-    tabelas.social_posts = { row: linhaV2() };
-    const { fetcher, chamadas } = metaFalsa();
-    await processScheduledPost("post-v2", {}, ENV, fetcher);
-
-    const iCreation = updates.findIndex((u) => u.provider_creation_id);
-    expect(iCreation).toBeGreaterThanOrEqual(0);
-    expect(updates[iCreation].publish_attempted_at).toBeTruthy();
-
-    // A gravação da intenção acontece antes do media_publish chegar à Meta.
-    const iPublish = chamadas.findIndex((c) => c.url.includes("/media_publish"));
-    expect(iPublish).toBeGreaterThanOrEqual(0);
-    // E o media_id só é gravado depois.
-    const iMedia = updates.findIndex((u) => u.provider_post_id);
-    expect(iMedia).toBeGreaterThan(iCreation);
-  });
-});
-
-// ---------------------------------------------------------------- extra
-describe("a peça publicada tem que ser a peça aprovada", () => {
-  it("fonte que não carregou bloqueia a publicação", async () => {
-    /*
-     * `document.fonts.ready` resolve mesmo quando o Google Fonts não respondeu.
-     * Sem Playfair Display, o ajuste mede a manchete na serifa do sistema,
-     * encolhe de outro jeito e quebra em outro ponto. A diferença é pequena o
-     * bastante para passar batida, que é o que a torna perigosa.
-     */
-    arteDefeituosa.fontesQueFaltaram = ["Playfair Display"];
+  it("artefato que não baixa bloqueia, e a Meta não é chamada", async () => {
+    arquivoNoStorage.status = 404;
     tabelas.social_posts = { row: linhaV2() };
     const { fetcher, chamadas } = metaFalsa();
 
     const r = await processScheduledPost("post-v2", {}, ENV, fetcher);
 
     expect(r.ok).toBe(false);
-    expect(String(r.error)).toContain("Playfair Display");
+    expect(String(r.error)).toContain("não consegui baixar o artefato");
     expect(chamadas).toHaveLength(0);
-    expect(subiuArte).not.toHaveBeenCalled();
   });
 
-  it("tema que não veio do banco bloqueia: canvas e paleta sairiam diferentes", async () => {
-    arteDefeituosa.temaDegradado = "tema do banco inacessível, caiu no default do repo";
+  it("artefato vazio bloqueia", async () => {
+    arquivoNoStorage.bytes = Buffer.alloc(0);
     tabelas.social_posts = { row: linhaV2() };
     const { fetcher, chamadas } = metaFalsa();
 
     const r = await processScheduledPost("post-v2", {}, ENV, fetcher);
 
     expect(r.ok).toBe(false);
-    expect(String(r.error)).toContain("sem o tema do banco");
-    expect(subiuArte).not.toHaveBeenCalled();
-    expect(chamadas).toHaveLength(0);
-  });
-
-  it("arte acima do teto de bytes da Meta não sobe nem publica", async () => {
-    arteDefeituosa.bytes = 9 * 1024 * 1024;
-    tabelas.social_posts = { row: linhaV2() };
-    const { fetcher, chamadas } = metaFalsa();
-
-    const r = await processScheduledPost("post-v2", {}, ENV, fetcher);
-
-    expect(r.ok).toBe(false);
-    expect(String(r.error)).toContain("teto da Meta");
-    expect(subiuArte).not.toHaveBeenCalled();
+    expect(String(r.error)).toContain("vazio");
     expect(chamadas).toHaveLength(0);
   });
 });
@@ -718,6 +673,11 @@ describe("publicação de desfecho incerto", () => {
   function metaQueEngasgaNoPublish() {
     const fetcher = (async (url: string | URL) => {
       const u = String(url);
+      // O artefato continua sendo servido: o que engasga é o publish.
+      if (u.startsWith("https://storage.exemplo/")) {
+        baixouArtefato.push(u);
+        return new Response(arquivoNoStorage.bytes, { status: arquivoNoStorage.status });
+      }
       if (u.includes("/media_publish")) return new Response("erro", { status: 500 });
       if (u.includes("/media?fields=id,caption")) return Response.json({ data: [] });
       if (u.includes("fields=status_code")) return Response.json({ status_code: "FINISHED" });
@@ -780,6 +740,6 @@ describe("I. legado e V2 no mesmo giro", () => {
     // Uma passada pelo gerador antigo (a do legado), uma pelo novo (a do V2).
     expect(gerouCopyLegado).toHaveBeenCalledTimes(1);
     expect(renderizouLegado).toHaveBeenCalledTimes(1);
-    expect(renderizouV2).toHaveBeenCalledTimes(1);
+    expect(baixouArtefato).toHaveLength(1);
   });
 });

@@ -4,7 +4,8 @@ import path from "node:path";
 import { criarSocialPostsStore } from "../lib/server/social/social-posts-store";
 import type { PostParaGravar } from "../lib/server/social/social-posts-store";
 import { ehSocialV2, lerCargaV2 } from "../lib/server/social/instagram/carga-v2";
-import { prepararArteV2 } from "../lib/server/social/instagram/worker-v2";
+import { verificarArtefato } from "../lib/server/social/instagram/worker-v2";
+import { congelarArtefato } from "../lib/server/social/artefato";
 import { escreverRelatorio } from "./relatorio";
 
 /**
@@ -212,9 +213,62 @@ async function main() {
     escrever(`## ${caso.nome}`);
     escrever();
 
-    // ---- 1. O pipeline persiste ------------------------------------
+    // ---- 1. Congelar a peça, que é o que o pipeline faz antes de gravar --
+    /*
+     * O arquivo em memória, e não no Storage de produção.
+     *
+     * `subir` devolve uma URL de mentira e guarda os bytes; o `fetcher` da
+     * verificação os devolve de volta. É o mesmo caminho de código do worker,
+     * sem escrever no bucket e sem falar com a Meta.
+     */
+    const bucket = new Map<string, Buffer>();
+
+    const congelado = await congelarArtefato({
+      /*
+       * Os insumos saem do POST, não de uma carga lida: neste ponto a linha
+       * ainda não existe. É a mesma ordem do pipeline real — congelar primeiro,
+       * gravar a linha apontando para o arquivo depois.
+       */
+      capa: {
+        headline: caso.post.post.copy.headline,
+        eixo: caso.post.post.pauta.classificacao.eixo,
+        asset: (caso.post.visual as { asset?: { imageUrl: string; attribution: string } } | null)?.asset ?? null,
+        motivoSemFoto:
+          (caso.post.visual as { motivo?: string } | null)?.motivo || "NO_VALID_VISUAL_ASSET",
+      },
+      path: `imigra-us/${DIA}/simulado`,
+      subir: async (bytes, caminho) => {
+        bucket.set(caminho, bytes);
+        return `memoria://${caminho}`;
+      },
+    });
+
+    if (!congelado.ok) {
+      escrever(`- congelamento: **FALHOU** — ${congelado.motivo}`);
+      problemas.push(`${caso.nome}: ${congelado.motivo}`);
+      escrever();
+      continue;
+    }
+
+    const a = congelado.artefato;
+    escrever(`- arquivo congelado: \`${a.filename}\` (${a.mime}), ${(a.bytes / 1024).toFixed(0)} KB, ${a.largura}x${a.altura}`);
+    escrever(`- otimizado para caber no limite: ${a.otimizado ? "sim" : "não"}`);
+    escrever(`- SHA-256 persistido: \`${a.sha256.slice(0, 32)}…\``);
+    const fotoDoCaso = (caso.post.visual as { asset?: { attribution: string } } | null)?.asset ?? null;
+    escrever(`- capa: ${fotoDoCaso ? "com foto" : "texto"}`);
+    if (fotoDoCaso) escrever(`- crédito impresso: \`${fotoDoCaso.attribution}\``);
+
+    const png = path.join(
+      path.dirname(saida),
+      `simulacao-${fotoDoCaso ? "com-foto" : "brand-card"}.${a.mime === "image/png" ? "png" : "jpg"}`,
+    );
+    fs.mkdirSync(path.dirname(png), { recursive: true });
+    fs.writeFileSync(png, bucket.get(a.path)!);
+    escrever(`- peça salva em \`${png}\``);
+
+    // ---- 2. O pipeline persiste a linha apontando para o arquivo -------
     const { client, linhas: gravadas } = bancoEmMemoria();
-    const r = await criarSocialPostsStore(client).gravar([caso.post]);
+    const r = await criarSocialPostsStore(client).gravar([{ ...caso.post, artefato: a }]);
     if (r.gravados !== 1) {
       problemas.push(`${caso.nome}: o store não gravou (${r.erros.join("; ") || "sem erro"})`);
       continue;
@@ -250,6 +304,37 @@ async function main() {
       continue;
     }
     escrever(`- carga: íntegra`);
+    escrever();
+
+    // ---- 4. O worker: ele não sabe desenhar, só conferir ---------------
+    const storage = (conteudo: Buffer): typeof fetch =>
+      (async () => new Response(new Uint8Array(conteudo), { status: 200 })) as unknown as typeof fetch;
+
+    const verificado = await verificarArtefato(leitura.carga, {
+      socialPostId: "simulado",
+      fetcher: storage(bucket.get(a.path)!),
+    });
+
+    const intacto = verificado.sha256 === a.sha256;
+    escrever(`- o worker baixou o artefato e conferiu: hash ${intacto ? "**igual**" : "**DIFERENTE**"}`);
+    if (!intacto) problemas.push(`${caso.nome}: o hash mudou entre congelar e verificar`);
+
+    /*
+     * E o caso que prova a guarda existir: arquivo trocado no Storage. Sem
+     * isto, "o hash bate" seria só uma tautologia com passos a mais.
+     */
+    let bloqueou = false;
+    try {
+      await verificarArtefato(leitura.carga, {
+        socialPostId: "simulado",
+        fetcher: storage(Buffer.from("ARQUIVO-TROCADO-POR-OUTRO")),
+      });
+    } catch (erro) {
+      bloqueou = String((erro as Error).message).includes("SOCIAL_ARTIFACT_HASH_MISMATCH");
+      escrever(`- arquivo adulterado no Storage: **bloqueado**`);
+      escrever(`  \`${(erro as Error).message.slice(0, 130)}\``);
+    }
+    if (!bloqueou) problemas.push(`${caso.nome}: arquivo adulterado NÃO foi bloqueado`);
     escrever();
 
     const { carga } = leitura;
@@ -305,59 +390,6 @@ async function main() {
       if (!igual) problemas.push(`${caso.nome}: ${k} mudou entre o pipeline e o worker`);
     }
     escrever();
-
-    // ---- 4. A arte, duas vezes -------------------------------------
-    const subidos: Array<{ caminho: string; hash: string }> = [];
-    const subirEmMemoria = async (png: Buffer, caminho: string) => {
-      subidos.push({ caminho, hash: sha(png) });
-      return `memoria://${caminho}`;
-    };
-
-    try {
-      const primeira = await prepararArteV2(carga, {
-        projectSlug: "imigra-us",
-        editionDate: DIA,
-        socialPostId: "simulado-1",
-        subir: subirEmMemoria,
-      });
-      await prepararArteV2(carga, {
-        projectSlug: "imigra-us",
-        editionDate: DIA,
-        socialPostId: "simulado-1",
-        subir: subirEmMemoria,
-      });
-
-      escrever(`- arte renderizada: ${primeira.urls.length} peça, ${primeira.bytes[0]} bytes`);
-      escrever(`- hash do PNG, volta 1: \`${subidos[0].hash}\``);
-      escrever(`- hash do PNG, volta 2: \`${subidos[1].hash}\``);
-      const determinista = subidos[0].hash === subidos[1].hash;
-      escrever(`- o mesmo insumo produz o mesmo PNG: **${determinista ? "sim" : "NÃO"}**`);
-      if (!determinista) {
-        problemas.push(
-          `${caso.nome}: o render não é determinístico, então re-renderizar na publicação não é seguro`,
-        );
-      }
-      escrever(`- caminho no Storage: \`${subidos[0].caminho}\``);
-      escrever(`- legenda que iria ao container: \`${sha(carga.legenda)}\` (a mesma da linha)`);
-      escrever(`- capa: ${carga.foto ? "com foto" : `texto, motivo ${carga.motivoSemFoto}`}`);
-      if (carga.foto) escrever(`- crédito impresso: \`${carga.foto.attribution}\``);
-
-      const png = path.join(path.dirname(saida), `simulacao-${carga.foto ? "com-foto" : "brand-card"}.png`);
-      fs.mkdirSync(path.dirname(png), { recursive: true });
-      const artes = await prepararArteV2(carga, {
-        projectSlug: "imigra-us",
-        editionDate: DIA,
-        socialPostId: "simulado-1",
-        subir: async (buffer) => {
-          fs.writeFileSync(png, buffer);
-          return `arquivo://${png}`;
-        },
-      });
-      escrever(`- PNG salvo em \`${png}\` (${artes.bytes[0]} bytes)`);
-    } catch (erro) {
-      escrever(`- arte: **FALHOU** — ${(erro as Error).message}`);
-      problemas.push(`${caso.nome}: ${(erro as Error).message}`);
-    }
 
     escrever();
   }
