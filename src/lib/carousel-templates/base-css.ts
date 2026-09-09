@@ -15,12 +15,31 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
   justify-content:space-between;position:relative;}
 .slide.full{padding:0;}
 
-/* ---- cabeçalho ---- */
-  border-bottom:2px solid var(--s-border);padding-bottom:24px;}
+/* ---- marca sobreposta ----
+ *
+ * O chrome de cabecalho e rodape virou sistema proprio (.c-head e .c-foot), e
+ * as regras antigas de .s-header e .s-footer sairam junto. So que a remocao
+ * levou os seletores e deixou as chaves: sobraram dois blocos de declaracoes
+ * orfas, que o parser de CSS descarta em silencio.
+ *
+ * O efeito nao era silencioso na arte. overlayBrand() continua emitindo
+ * .s-header.plain com .s-brand, .s-badge e .s-wordmark dentro, e a capa com
+ * foto e a peca que esta no ar: ela vinha renderizando a marca como texto sem
+ * estilo nenhum. O mesmo vale para .s-counter, que a galeria ainda usa.
+ *
+ * O que volta aqui e so o que ainda e emitido, e nada do chrome aposentado.
+ */
+.s-header{display:flex;align-items:center;justify-content:space-between;}
+.s-header.plain{border:none;padding:0;}
+.s-brand{display:flex;align-items:center;gap:14px;}
+.s-badge{background:var(--s-accent);color:#fff;font-weight:800;font-size:22px;
+  width:44px;height:44px;border-radius:12px;display:grid;place-items:center;
+  font-family:var(--s-font-accent);}
+.s-wordmark{font-family:var(--s-font-accent);font-size:30px;font-weight:700;color:var(--s-ink);}
+.s-counter{background:var(--s-border);color:var(--s-stone);font-size:18px;font-weight:700;
   padding:8px 20px;border-radius:22px;font-variant-numeric:tabular-nums;}
-
-/* ---- rodapé ---- */
-  border-top:2px solid var(--s-border);padding-top:22px;font-size:18px;}
+.on-dark .s-wordmark,.on-dark .s-counter{color:#fff;}
+.on-dark .s-counter{background:rgba(255,255,255,0.16);}
 
 /* ---- eyebrow ---- */
 .s-eyebrow{display:inline-flex;align-items:center;width:fit-content;
@@ -66,6 +85,7 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 
 /* ---- imagem de fundo ---- */
 .s-photo{position:absolute;inset:0;z-index:1;background-size:cover;background-position:center;}
+.s-credito{position:absolute;left:0;right:0;bottom:0;z-index:40;padding:14px 28px;font-family:var(--s-font-body);font-size:19px;line-height:1.25;letter-spacing:.01em;color:rgba(255,255,255,.92);background:linear-gradient(to top,rgba(0,0,0,.72),rgba(0,0,0,0));text-align:right;}
 .s-photo.ph{background:
   radial-gradient(circle at 50% 38%,rgba(255,120,60,0.28),transparent 45%),
   radial-gradient(circle at 50% 42%,rgba(90,20,10,0.45),transparent 60%),
@@ -154,6 +174,21 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 /* ---- primitivas do sistema impresso (design claro) ---- */
 .e-wrap{flex:1;display:flex;flex-direction:column;justify-content:center;gap:34px;position:relative;z-index:2;}
 .e-wrap.center{align-items:center;text-align:center;}
+
+/* ---- capa de texto da noticia: a manchete e a arte ----
+   O corpo do tipo nao esta declarado aqui nem calculado por estimativa: quem
+   mede e o navegador, pelo SCRIPT_DE_AJUSTE, depois que as fontes carregam.
+   A caixa da manchete tem altura fixa e o texto encolhe ate caber nela. */
+.e-wrap.n-capa{justify-content:flex-end;gap:0;padding-bottom:30px;}
+.n-topo{flex:none;margin-bottom:46px;}
+.n-editoria{display:block;font-family:var(--s-font-mono);font-size:19px;font-weight:700;
+  letter-spacing:4px;text-transform:uppercase;color:var(--s-accent);margin-bottom:18px;}
+.n-regua{display:block;height:3px;background:var(--s-ink);}
+.n-manchete{flex:0 0 60%;display:flex;flex-direction:column;justify-content:flex-end;
+  font-family:var(--s-font-accent);font-weight:800;letter-spacing:-0.015em;line-height:1.06;
+  color:var(--s-ink);}
+/* I-765 e H-1B sao o nome da coisa, nao hifenizacao: nao quebram no hifen. */
+.n-junto{white-space:nowrap;}
 
 .e-mark{width:74px;height:74px;color:var(--s-accent);}
 .e-mark svg{width:100%;height:100%;}

@@ -8,7 +8,9 @@ afterEach(() => {
 
 describe("sendAlert", () => {
   it("no-opa (sem fetch, sem throw) quando o Telegram não está configurado", async () => {
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<(url: string | URL, init?: RequestInit) => Promise<Response>>(
+      async () => new Response("{}", { status: 200 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     const sent = await sendAlert("critical", "teste", "detalhe", {});
@@ -18,7 +20,9 @@ describe("sendAlert", () => {
   });
 
   it("posta no endpoint do bot com chat_id e HTML quando configurado", async () => {
-    const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
+    const fetchMock = vi.fn<(url: string | URL, init?: RequestInit) => Promise<Response>>(
+      async () => new Response("{}", { status: 200 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     const sent = await sendAlert("warning", "Título <perigoso>", "corpo", {
@@ -29,7 +33,7 @@ describe("sendAlert", () => {
     expect(sent).toBe(true);
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.telegram.org/botBOT123/sendMessage");
-    const body = JSON.parse(String((init as RequestInit).body));
+    const body = JSON.parse(String(init?.body));
     expect(body.chat_id).toBe("42");
     expect(body.parse_mode).toBe("HTML");
     expect(body.text).toContain("Título &lt;perigoso&gt;"); // escapado
@@ -51,7 +55,9 @@ describe("sendAlert", () => {
 
 describe("pingHealthcheck", () => {
   it("no-opa quando a url é undefined", async () => {
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<(url: string | URL, init?: RequestInit) => Promise<Response>>(
+      async () => new Response("{}", { status: 200 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     await pingHealthcheck(undefined);
@@ -61,7 +67,7 @@ describe("pingHealthcheck", () => {
   });
 
   it("acrescenta /fail e /start ao endpoint", async () => {
-    const fetchMock = vi.fn(async () => new Response("ok"));
+    const fetchMock = vi.fn<(url: string | URL) => Promise<Response>>(async () => new Response("ok"));
     vi.stubGlobal("fetch", fetchMock);
 
     await pingHealthcheck("https://hc.example/abc");

@@ -7,6 +7,7 @@ import { deduplicateCandidates } from "../lib/server/newsroom/deduplicator";
 import { classificarPautas, decidirPauta } from "../lib/server/editorial/classificador";
 import type { Classificacao } from "../lib/server/editorial/classificador";
 import { carregarConfigEditorial } from "../lib/server/editorial/config";
+import { escreverRelatorio } from "./relatorio";
 
 /**
  * Quanto o classificador muda de ideia sobre a mesma matéria.
@@ -45,17 +46,6 @@ type Leitura = {
   aprovada: boolean;
   motivo: string;
 };
-
-function moda<T>(valores: T[]): { valor: T; vezes: number } {
-  const contagem = new Map<string, { valor: T; vezes: number }>();
-  for (const v of valores) {
-    const k = JSON.stringify(v);
-    const atual = contagem.get(k);
-    if (atual) atual.vezes += 1;
-    else contagem.set(k, { valor: v, vezes: 1 });
-  }
-  return [...contagem.values()].sort((a, b) => b.vezes - a.vezes)[0];
-}
 
 async function main() {
   carregarEnv();
@@ -225,7 +215,7 @@ async function main() {
   escrever();
   escrever(`${tokens.toLocaleString("pt-BR")} tokens nas ${rodadas} rodadas.`);
 
-  fs.writeFileSync(saida, linhas.join("\n"), "utf-8");
+  escreverRelatorio(saida, linhas.join("\n"));
   console.log(`\nRelatório em ${saida}`);
 }
 

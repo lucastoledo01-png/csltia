@@ -72,3 +72,15 @@ export function fontLinkTag(keys: FontKey[]): string {
     `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?${families}&display=swap">`
   );
 }
+
+/**
+ * O nome da família como o `document.fonts.check` pergunta por ela.
+ *
+ * `stack` traz a família mais os fallbacks, e `check` quer uma família só.
+ * Derivar daqui em vez de repetir o literal mantém a promessa do cabeçalho
+ * deste arquivo: nome e especificação no mesmo lugar.
+ */
+export function primeiraFamilia(chave: FontKey): string {
+  const primeira = FONTS[chave].stack.split(",")[0].trim();
+  return primeira.replace(/^"|"$/g, "");
+}

@@ -291,14 +291,20 @@ export async function classificarPautas(
     };
   }
 
-  const modelo = env.OPENAI_MODEL_TRIAGE || "gpt-4o-mini";
+  /*
+   * O mesmo default do verificador, de propósito.
+   *
+   * Aqui era "gpt-4o-mini" e no `ai-provider.ts` era "gpt-4o". Em produção as
+   * duas variáveis estão definidas e apontam para o mesmo modelo, então não
+   * havia sintoma; em qualquer ambiente sem elas (CI, contêiner novo, dry-run
+   * de máquina limpa) classificador e verificador rodavam em classes
+   * diferentes de modelo, e toda divergência entre os dois virava ruído.
+   */
+  const modelo = env.OPENAI_MODEL_TRIAGE || "gpt-4o";
   const lotes: PautaClassificavel[][] = [];
   let atual: PautaClassificavel[] = [];
   let caracteres = 0;
   for (const pauta of pautas) {
-    // Uma pauta sozinha maior que o orçamento ainda entra: o corte de
-    // `LIMITE_DO_RESUMO` já limita o pior caso, e deixá-la de fora seria
-    // recusá-la por tamanho.
     const custo = custoEmCaracteres(pauta);
     if (atual.length > 0 && (atual.length >= PAUTAS_POR_CHAMADA || caracteres + custo > CARACTERES_POR_CHAMADA)) {
       lotes.push(atual);
@@ -471,13 +477,15 @@ export function decidirPauta(c: Classificacao, config: ConfigEditorial): Decisao
 
   const piso = config.relevanciaMinima;
   if (relevanciaEfetiva < piso) {
+    const porDeclaracao = c.natureza === "political_statement" && c.relevancia >= piso;
     return {
       aprovada: false,
-      motivo: MOTIVOS.REJEITADO_RELEVANCIA,
-      explicacao:
-        c.natureza === "political_statement"
-          ? `declaração política, relevância ${c.relevancia} limitada a ${relevanciaEfetiva}, abaixo do piso ${piso}`
-          : `relevância ${c.relevancia} abaixo do piso ${piso}`,
+      // A declaração que só caiu por causa do teto tem código próprio: ela é
+      // recorte editorial, não nota baixa. Ver MOTIVOS em config.ts.
+      motivo: porDeclaracao ? MOTIVOS.REJEITADO_DECLARACAO : MOTIVOS.REJEITADO_RELEVANCIA,
+      explicacao: porDeclaracao
+        ? `declaração política, relevância ${c.relevancia} limitada a ${relevanciaEfetiva}, abaixo do piso ${piso}`
+        : `relevância ${c.relevancia} abaixo do piso ${piso}`,
     };
   }
 
@@ -489,7 +497,7 @@ export function decidirPauta(c: Classificacao, config: ConfigEditorial): Decisao
     if (!noEixo) {
       return {
         aprovada: false,
-        motivo: MOTIVOS.REJEITADO_RELEVANCIA,
+        motivo: MOTIVOS.REJEITADO_EIXO_BRASIL,
         explicacao: `Brasil fora do eixo editorial (eixo ${c.eixo})`,
       };
     }
@@ -569,7 +577,16 @@ export async function extrairEntidades(
 
   if (pautas.length === 0) return { entidades: saida, custoUsd, tokens, falhas };
 
-  const modelo = env.OPENAI_MODEL_TRIAGE || "gpt-4o-mini";
+  /*
+   * O mesmo default do verificador, de propósito.
+   *
+   * Aqui era "gpt-4o-mini" e no `ai-provider.ts` era "gpt-4o". Em produção as
+   * duas variáveis estão definidas e apontam para o mesmo modelo, então não
+   * havia sintoma; em qualquer ambiente sem elas (CI, contêiner novo, dry-run
+   * de máquina limpa) classificador e verificador rodavam em classes
+   * diferentes de modelo, e toda divergência entre os dois virava ruído.
+   */
+  const modelo = env.OPENAI_MODEL_TRIAGE || "gpt-4o";
 
   for (let i = 0; i < pautas.length; i += PAUTAS_POR_CHAMADA) {
     const lote = pautas.slice(i, i + PAUTAS_POR_CHAMADA);

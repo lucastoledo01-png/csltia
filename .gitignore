@@ -47,3 +47,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Previews gerados pelos dry-runs: arte renderizada, pesada e reprodutível.
+/preview-social/
+/preview-imagens/
+dry-run-social.md
+/preview-capa-texto/
+
+# Rascunho de agente. Ja entrou em commit uma vez por git add -A.
+src/scripts/tmp-*
+src/scripts/__*
+
+# Rascunho de subagente. Ja escapou para tres commits.
+.tmp-*/
+src/scripts/__*

@@ -213,7 +213,19 @@ export function candidatoParaAsset(
   env: Record<string, string | undefined> = process.env
 ): ConversaoDeCandidato {
   if (candidato.mime && !MIMES_ACEITOS.has(candidato.mime)) {
-    return { ok: false, motivo: `formato ${candidato.mime} não renderiza em e-mail` };
+    /*
+     * O motivo é neutro de canal de propósito.
+     *
+     * Ele dizia "não renderiza em e-mail", herdado de quando o resolvedor
+     * servia só a newsletter. O mesmo arquivo é recusado hoje pelo Instagram,
+     * e ler "e-mail" no diagnóstico de um post do feed manda quem investiga
+     * procurar o problema no lugar errado. O que a regra realmente diz é qual
+     * formato de imagem é publicável.
+     */
+    return {
+      ok: false,
+      motivo: `formato ${candidato.mime} não é publicável; aceitos: ${[...MIMES_ACEITOS].join(", ")}`,
+    };
   }
 
   const veredicto = avaliarLicenca(candidato.licenca, env);

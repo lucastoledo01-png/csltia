@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { LIMITE_DO_RESUMO, montarUserDoClassificador } from "./classificador";
+import { LIMITE_DO_RESUMO, montarUserDoClassificador, decidirPauta } from "./classificador";
+import { carregarConfigEditorial } from "./config";
 import {
   conteudoInsuficiente,
   desembrulharTextoDoGPO,
@@ -40,6 +41,59 @@ describe("classificador e verificador julgam o mesmo texto", () => {
     // O que importa é que não seja mais o corte antigo de 600.
     expect(user).toContain("a".repeat(LIMITE_DO_RESUMO));
     expect(user).not.toContain("a".repeat(LIMITE_DO_RESUMO + 1));
+  });
+});
+
+describe("REJECT_LOW_RELEVANCE eram três recusas com um nome só", () => {
+  const config = carregarConfigEditorial({});
+
+  function classificacao(over: Record<string, unknown> = {}) {
+    return {
+      id: "c1",
+      justificativa: "",
+      pais: "EUA",
+      leitura: "oportunidade",
+      eixo: "processo",
+      relevancia: 8,
+      natureza: "official_action",
+      imigracao: true,
+      atores: [],
+      lugares: [],
+      acontecimento: [],
+      ...over,
+    } as Parameters<typeof decidirPauta>[0];
+  }
+
+  it("nota abaixo do piso continua sendo relevância baixa", () => {
+    const r = decidirPauta(classificacao({ relevancia: 2 }), config);
+    expect(r.aprovada).toBe(false);
+    expect(r.motivo).toBe("REJECT_LOW_RELEVANCE");
+  });
+
+  it("declaração política com nota alta é recorte editorial, não nota baixa", () => {
+    /*
+     * O teto de declaração é 3 e o piso é 4: toda fala sobre ato é reprovada
+     * por construção, com a nota que for. Isso é uma decisão de linha
+     * editorial, e chamá-la de "pouca relevância" escondia dela no relatório.
+     */
+    const r = decidirPauta(classificacao({ relevancia: 9, natureza: "political_statement" }), config);
+    expect(r.aprovada).toBe(false);
+    expect(r.motivo).toBe("REJECT_POLITICAL_STATEMENT");
+    expect(r.explicacao).toContain("9");
+  });
+
+  it("pauta brasileira fora do eixo tem código próprio", () => {
+    const r = decidirPauta(
+      classificacao({ pais: "Brasil", relevancia: 9, eixo: "decisao_judicial", imigracao: false }),
+      config,
+    );
+    expect(r.aprovada).toBe(false);
+    expect(r.motivo).toBe("REJECT_BR_OFF_AXIS");
+  });
+
+  it("nenhum limiar mudou: o que mudou é o que o log diz", () => {
+    expect(config.relevanciaMinima).toBe(4);
+    expect(config.tetoDeDeclaracao).toBe(3);
   });
 });
 

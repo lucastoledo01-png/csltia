@@ -102,6 +102,20 @@ export const MOTIVOS = {
   REJEITADO_IMAGEM: "REJECT_IMAGE_MISMATCH",
   REJEITADO_FONTE: "REJECT_LOW_SOURCE_QUALITY",
   REJEITADO_RELEVANCIA: "REJECT_LOW_RELEVANCE",
+  /*
+   * Três recusas diferentes usavam o mesmo código.
+   *
+   * "REJECT_LOW_RELEVANCE" somava o piso de relevância, o teto de declaração
+   * política e o eixo do Brasil. Uma pauta brasileira com relevância 9 e eixo
+   * decisao_judicial saía marcada como pouco relevante, e no relatório de sete
+   * dias os três viraram um número só: 378. Sem separar, não dá para saber
+   * quanto do funil é régua e quanto é recorte editorial, e a próxima medição
+   * repete a mesma cegueira.
+   *
+   * Nenhum limiar mudou aqui. Mudou o que o log diz.
+   */
+  REJEITADO_DECLARACAO: "REJECT_POLITICAL_STATEMENT",
+  REJEITADO_EIXO_BRASIL: "REJECT_BR_OFF_AXIS",
   REJEITADO_SEM_CLASSIFICACAO: "REJECT_UNCLASSIFIED",
   /** Nem o feed nem a página da matéria deram o que aconteceu. */
   REJEITADO_SEM_FATOS: "REJECT_INSUFFICIENT_FACTS",

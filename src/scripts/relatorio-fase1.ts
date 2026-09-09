@@ -18,6 +18,7 @@ import type { PacoteFactual } from "../lib/server/editorial/pacote-factual";
 import { descreverSinais } from "../lib/server/editorial/repeticao";
 import { modoDaGuarda } from "../lib/server/editorial/modo";
 import type { RankedCandidate } from "../lib/server/newsroom/ranker";
+import { escreverRelatorio } from "./relatorio";
 
 /**
  * Relatório de validação da fase 1.
@@ -548,9 +549,7 @@ async function main() {
      * nada a ver com o texto.
      */
     const caminhoEdicao = (saida ?? "preview.md").replace(/\.md$/, "") + ".edicao.json";
-    fs.writeFileSync(
-      path.resolve(process.cwd(), caminhoEdicao),
-      JSON.stringify(
+    escreverRelatorio(caminhoEdicao, JSON.stringify(
         {
           edition: edicao.edition,
           selectedCandidates: edicao.selectedCandidates,
@@ -558,9 +557,7 @@ async function main() {
         },
         null,
         2
-      ),
-      "utf-8"
-    );
+      ));
     escrever(`Edição guardada em ${caminhoEdicao}, para repetir o passo de imagem sem reescrever.`);
     escrever();
 
@@ -595,7 +592,7 @@ async function main() {
   escrever("Nada foi publicado, enviado ou gravado por este relatório.");
 
   if (saida) {
-    fs.writeFileSync(path.resolve(process.cwd(), saida), out.join("\n"), "utf-8");
+    escreverRelatorio(saida, out.join("\n"));
     console.log(`\n[relatório salvo em ${saida}]`);
   }
 }

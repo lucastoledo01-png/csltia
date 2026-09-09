@@ -164,11 +164,28 @@ export async function findDuePosts(limit = 5): Promise<
   }));
 }
 
-/** Marca o post como falho preservando o motivo, para o painel de logs. */
-export async function markPostFailed(socialPostId: string, message: string): Promise<void> {
+/**
+ * Marca o post como falho preservando o motivo, para o painel de logs.
+ *
+ * Esta era a única escrita da cadeia de publicação que descartava o erro do
+ * Supabase. O efeito prático aparecia no pior momento: quando
+ * `publicarComRegistro` devolve "revisar" — publicação de desfecho incerto —
+ * é esta função que registra o caso, e se a gravação falhasse em silêncio o
+ * post ficaria eternamente em `scheduled`, elegível para o worker pegar de
+ * novo, sem nenhum rastro de que já houve uma tentativa ambígua.
+ *
+ * Ela não lança: quem chama já está tratando uma falha, e uma exceção aqui
+ * trocaria o motivo verdadeiro por "não consegui gravar o motivo". O erro vai
+ * para o log e para o valor de retorno, que o chamador pode usar para decidir
+ * se escala.
+ */
+export async function markPostFailed(
+  socialPostId: string,
+  message: string,
+): Promise<{ gravado: boolean; erro: string | null }> {
   const supabase = getSupabaseAdminClient();
 
-  await supabase
+  const { error } = await supabase
     .from("social_posts")
     .update({
       status: "failed",
@@ -176,4 +193,14 @@ export async function markPostFailed(socialPostId: string, message: string): Pro
       updated_at: new Date().toISOString(),
     })
     .eq("id", socialPostId);
+
+  if (error) {
+    console.error(
+      `[SCHEDULER] Não consegui marcar o post ${socialPostId} como falho: ${error.message}. ` +
+        `O motivo original era: ${message.slice(0, 200)}`,
+    );
+    return { gravado: false, erro: error.message };
+  }
+
+  return { gravado: true, erro: null };
 }

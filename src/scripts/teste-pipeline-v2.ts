@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { runNewsroom } from "../lib/server/newsroom/newsroom-service";
+import { escreverRelatorio } from "./relatorio";
 
 /**
  * O pipeline real do newsroom, do começo ao fim, sem publicar.
@@ -48,7 +49,7 @@ async function main() {
 
   const saida = valor("saida");
   if (saida) {
-    fs.writeFileSync(path.resolve(process.cwd(), saida), JSON.stringify(resultado, null, 2), "utf-8");
+    escreverRelatorio(saida, JSON.stringify(resultado, null, 2));
     console.log(`\n[resultado em ${saida}]`);
   }
 
