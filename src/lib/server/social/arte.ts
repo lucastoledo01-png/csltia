@@ -126,6 +126,18 @@ export type EntradaDaCapa = {
   eixo?: string;
   asset: FotoDaCapa | null;
   motivoSemFoto?: string;
+  /**
+   * Um slide que NÃO é a capa, já montado por quem conhece o formato.
+   *
+   * Existe para o carrossel: os slides de conteúdo não têm manchete, eixo nem
+   * foto, e montá-los aqui obrigaria este módulo a conhecer papéis, estruturas
+   * e variantes de conteúdo permanente. Quem sabe disso monta o slide e passa
+   * pronto; aqui ele só é desenhado.
+   */
+  slidePronto?: InstagramSlide;
+  /** Posição e total, para a paginação. Peça única é 1 de 1. */
+  posicao?: number;
+  total?: number;
 };
 
 /**
@@ -156,6 +168,23 @@ function sobrancelha(eixo: string | undefined): string {
 }
 
 export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
+  /*
+   * Slide pronto passa direto, sem foto e sem crédito.
+   *
+   * Só a capa carrega imagem nesta superfície, e por isso o slide de conteúdo
+   * não tem de onde puxar foto: `comFoto` falso aqui não é degradação, é o
+   * formato do slide.
+   */
+  if (entrada.slidePronto) {
+    return {
+      slide: entrada.slidePronto,
+      variante: entrada.slidePronto.variant || entrada.slidePronto.type,
+      comFoto: false,
+      credito: "",
+      motivoSemFoto: "",
+    };
+  }
+
   const asset = entrada.asset;
   const comFoto = Boolean(asset && asset.imageUrl);
 
@@ -362,14 +391,22 @@ export async function renderizarCapas(
       // Ver `layoutCarregaAFoto`: sem bloco de imagem, o desenho engole a foto
       // e deixa a manchete branca sobre fundo claro.
       const diagnosticoDoLayout = diagnosticarLayout(layout, capa.comFoto);
-      const usaDesenho = diagnosticoDoLayout === DIAGNOSTICOS_DE_LAYOUT.USADO;
+      /*
+       * O desenho do painel é da CAPA, e vale só para a capa.
+       *
+       * `resolveLayout` foi consultado para o par (noticia, cover). Aplicá-lo a
+       * um slide de conteúdo desenharia a manchete no lugar do corpo e o corpo
+       * em lugar nenhum: o desenho posiciona blocos por nome, e os nomes são os
+       * da capa.
+       */
+      const usaDesenho = diagnosticoDoLayout === DIAGNOSTICOS_DE_LAYOUT.USADO && !entrada.slidePronto;
 
       const html = assembleSlide(capa.slide, {
         format: "noticia",
         tokens,
         formatConfig,
-        slideIndex: 1,
-        total: 1,
+        slideIndex: entrada.posicao ?? 1,
+        total: entrada.total ?? 1,
         layout: usaDesenho ? layout : null,
         credito: capa.credito,
       });

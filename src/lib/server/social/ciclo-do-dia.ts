@@ -13,7 +13,7 @@ import { criarSocialPostsStore } from "./social-posts-store";
 import { modoDoPipelineSocial } from "./modo";
 import type { ModoSocial } from "./modo";
 import { rodarCicloSocial } from "./pipeline-v2";
-import { pacotesDoEvergreen, prepararEvergreen } from "./evergreen/ciclo";
+import { decisorDeFormato, pacotesDoEvergreen, prepararEvergreen } from "./evergreen/ciclo";
 import type { DiagnosticoDoEvergreen, OpcoesDoEvergreen, ResultadoDoEvergreen } from "./evergreen/ciclo";
 import type { MarcaSocial } from "./copy";
 import type { OpcoesDoCiclo, ResultadoDoCicloSocial } from "./pipeline-v2";
@@ -95,6 +95,8 @@ export type OpcoesDoSocialDoDia = {
    * dois ficam ausentes e o ciclo usa os de verdade.
    */
   congelarArte?: OpcoesDoCiclo["congelarArte"];
+  /** O congelamento de N slides, injetável nos testes e no preview. */
+  congelarCarrossel?: OpcoesDoCiclo["congelarCarrossel"];
   resolverKeyword?: OpcoesDoCiclo["resolverKeyword"];
   /**
    * Conteúdo permanente para as vagas que a notícia deixou.
@@ -270,7 +272,18 @@ export async function rodarSocialDoDia(
     fetcher,
     agoraMs: opcoes.agoraMs,
     ...(evergreen?.extras.length ? { extras: evergreen.extras } : {}),
+    /*
+     * O decisor de formato só existe quando há evergreen no dia.
+     *
+     * Sem ele, `gerarPostDaPauta` não pergunta nada e todo post é peça única,
+     * que é o comportamento da notícia. É por isso que o carrossel não precisa
+     * de nenhuma condição do lado do gerador: ele nasce desligado.
+     */
+    ...(evergreen?.extras.length
+      ? { decidirCarrossel: decisorDeFormato(evergreen.lastros) }
+      : {}),
     ...(opcoes.congelarArte ? { congelarArte: opcoes.congelarArte } : {}),
+    ...(opcoes.congelarCarrossel ? { congelarCarrossel: opcoes.congelarCarrossel } : {}),
     ...(opcoes.resolverKeyword ? { resolverKeyword: opcoes.resolverKeyword } : {}),
     resolverVisual: async (pauta) =>
       resolveVisualAsset(

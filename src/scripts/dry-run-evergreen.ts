@@ -8,6 +8,11 @@ import { identidadeDoItem, todosOsItens } from "../lib/server/social/evergreen/t
 import type { UsoAnterior } from "../lib/server/social/evergreen/tipos";
 import { carregarConfigSocial } from "../lib/server/social/selecao";
 import { escreverRelatorio } from "./relatorio";
+import { alternarFormatos, determinarFormatoEvergreen } from "../lib/server/social/carrossel/formato";
+import { levaCta } from "../lib/server/social/copy";
+
+/** A keyword do funil. Não é lida do banco aqui: o que importa é existir. */
+const MARCA_KEYWORD = "VISA";
 
 /**
  * Sete dias de feed, com e sem conteúdo permanente.
@@ -116,6 +121,7 @@ async function main() {
     total: number;
     familias: Record<string, number>;
     itens: string[];
+    formatos: Array<{ storyId: string; formato: string; slides: number; estrutura: string; fatos: number }>;
   }> = [];
 
   for (const { dia, noticias, programas } of NOTICIAS_MEDIDAS) {
@@ -166,6 +172,29 @@ async function main() {
       familias[f] = (familias[f] ?? 0) + 1;
     }
 
+    /*
+     * O formato de cada item, decidido com o MESMO código da produção.
+     *
+     * A posição importa: ela decide se o post leva CTA, e o CTA ocupa um slide.
+     * A notícia vem primeiro no dia, então o evergreen começa na posição
+     * seguinte à última notícia, igual ao que o gerador faz.
+     */
+    const formatos = r.lastros
+      .filter((l) => l.pacote)
+      .map((l, i) => {
+        const posicao = noticias + i;
+        const d = determinarFormatoEvergreen(l.item, l.pacote!, {
+          comCta: levaCta(posicao) && Boolean(MARCA_KEYWORD),
+        });
+        return {
+          storyId: l.storyId,
+          formato: d.formato,
+          slides: d.slides,
+          estrutura: d.estrutura ?? "-",
+          fatos: d.fatosUteis,
+        };
+      });
+
     porDia.push({
       dia,
       noticias,
@@ -175,6 +204,7 @@ async function main() {
       total: noticias + escolhidos.length,
       familias,
       itens: escolhidos,
+      formatos,
     });
   }
 
@@ -227,6 +257,85 @@ async function main() {
       `Nenhum par tópico+ângulo repetiu: ${new Set(historico.map((h) => h.storyId)).size === historico.length ? "confirmado" : "**FALHOU**"}.`,
   );
   escrever();
+
+  escrever(`## Formatos`);
+  escrever();
+
+  const todosOsFormatos = porDia.flatMap((d) => d.formatos);
+  const carrosseis = todosOsFormatos.filter((f) => f.formato === "carousel");
+  const estaticos = todosOsFormatos.filter((f) => f.formato === "static");
+  const noticiasNaSemana = soNews.reduce((a, b) => a + b, 0);
+
+  if (todosOsFormatos.length === 0) {
+    escrever(
+      `Sem lastro buscado, o formato não pode ser decidido: ele depende de quantos fatos ` +
+        `o pacote factual sustenta. Rode com \`--com-lastro\` para medir formato.`,
+    );
+    escrever();
+  } else {
+    const mediaDeSlides = carrosseis.length
+      ? carrosseis.reduce((a, f) => a + f.slides, 0) / carrosseis.length
+      : 0;
+
+    escrever(`| métrica | valor |`);
+    escrever(`| --- | ---: |`);
+    escrever(`| News static | ${noticiasNaSemana} |`);
+    escrever(`| Evergreen static | ${estaticos.length} |`);
+    escrever(`| Evergreen carousel | **${carrosseis.length}** |`);
+    escrever(`| média de slides por carrossel | ${mediaDeSlides.toFixed(1)} |`);
+    escrever(
+      `| % do Evergreen em carrossel | **${((carrosseis.length / todosOsFormatos.length) * 100).toFixed(0)}%** |`,
+    );
+    escrever(`| posts por dia na semana | ${media(comEvergreen).toFixed(1)} |`);
+    escrever();
+
+    escrever(`### Por estrutura`);
+    escrever();
+    const porEstrutura: Record<string, number> = {};
+    for (const f of carrosseis) porEstrutura[f.estrutura] = (porEstrutura[f.estrutura] ?? 0) + 1;
+    escrever(`| estrutura | carrosséis |`);
+    escrever(`| --- | ---: |`);
+    for (const [e, n] of Object.entries(porEstrutura).sort((a, b) => b[1] - a[1])) {
+      escrever(`| ${e} | ${n} |`);
+    }
+    escrever();
+
+    escrever(`### Sequência de formatos, dia a dia`);
+    escrever();
+    escrever(
+      `A notícia é sempre estática nesta fase e vem primeiro. A intercalação age só na cauda, ` +
+        `e o que se olha aqui é se o dia alterna em vez de empilhar quatro peças iguais.`,
+    );
+    escrever();
+    escrever(`| dia | sequência |`);
+    escrever(`| --- | --- |`);
+    for (const d of porDia) {
+      const cauda = alternarFormatos(d.formatos, (f) => (f.formato === "carousel" ? "carousel" : "static"));
+      const sequencia = [
+        ...Array.from({ length: d.noticias }, () => "S"),
+        ...cauda.map((f) => (f.formato === "carousel" ? `C${f.slides}` : "S")),
+      ];
+      escrever(`| ${d.dia} | ${sequencia.join(" ") || "(dia vazio)"} |`);
+    }
+    escrever();
+
+    const maiorSequencia = Math.max(
+      ...porDia.map((d) => {
+        const cauda = alternarFormatos(d.formatos, (f) => (f.formato === "carousel" ? "carousel" : "static"));
+        let maior = 0;
+        let corrente = 0;
+        let anterior = "";
+        for (const f of cauda) {
+          corrente = f.formato === anterior ? corrente + 1 : 1;
+          anterior = f.formato;
+          maior = Math.max(maior, corrente);
+        }
+        return maior;
+      }),
+    );
+    escrever(`Maior sequência do mesmo formato dentro da cauda de um dia: **${maiorSequencia}**.`);
+    escrever();
+  }
 
   escrever(`## O que sobra no catálogo`);
   escrever();

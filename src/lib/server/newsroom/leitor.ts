@@ -158,87 +158,120 @@ const TETO_DE_TERMOS_SEM_EXPLICACAO = 2;
  */
 const TETO_DO_TITULO = 95;
 
+export type AchadoSemIndice = Omit<AchadoDeLeitor, "indice">;
+
+/**
+ * A régua de leitor sobre um texto qualquer, em campos.
+ *
+ * Ela foi extraída de dentro do laço de matérias sem mudar uma linha do que
+ * decide, porque o carrossel do social precisa exatamente destas três verificações
+ * e duplicá-las seria manter duas definições de "termo explicado" que divergem
+ * na primeira calibração. Quem chama diz o que são os campos, qual é o título e
+ * onde mora a relevância; o resto é igual para newsletter e para slide.
+ */
+export function conferirLinguagemDeUmTexto(entrada: {
+  campos: string[];
+  titulo: string;
+  relevancia: string;
+  /**
+   * Onde o autor deve escrever a relevância, no vocabulário de quem chama.
+   *
+   * A newsletter tem campos com nome, e o reparo funciona muito melhor dizendo
+   * "escreva em why_it_matters" do que "escreva a relevância". O carrossel não
+   * tem esses campos, e por isso o texto genérico é o padrão.
+   */
+  ondeEscreverRelevancia?: string;
+}): AchadoSemIndice[] {
+  const achados: AchadoSemIndice[] = [];
+  const campos = entrada.campos.filter(Boolean);
+  const texto = campos.join("\n");
+
+  const semExplicar = new Set<string>();
+
+  for (const termo of TERMOS_TECNICOS) {
+    if (texto.toLowerCase().includes(termo) && !explicadoEmAlgumCampo(campos, termo)) {
+      semExplicar.add(termo);
+    }
+  }
+
+  for (const achado of texto.matchAll(CODIGO_TECNICO)) {
+    const codigo = achado[0];
+    if (!explicadoEmAlgumCampo(campos, codigo.toLowerCase())) semExplicar.add(codigo);
+  }
+
+  if (semExplicar.size > TETO_DE_TERMOS_SEM_EXPLICACAO) {
+    achados.push({
+      motivo: "LEGAL_JARGON_OVERLOAD",
+      descricao:
+        `${semExplicar.size} termos técnicos aparecem sem dizer o que são: ` +
+        `${[...semExplicar].join(", ")}. Explique cada um na primeira vez, em linguagem comum, ` +
+        `ou reescreva a frase sem o termo.`,
+    });
+  }
+
+  /*
+   * Relevância: o texto diz para QUEM aquilo importa?
+   *
+   * O que se confere é se ele fala do leitor — alguém que quer morar, trabalhar,
+   * estudar ou construir vida nos EUA — em vez de repetir o fato em outras
+   * palavras, que é o que acontece quando o modelo preenche o campo por
+   * obrigação.
+   */
+  const relevancia = entrada.relevancia.toLowerCase();
+  const falaDoLeitor = [
+    "quem",
+    "você",
+    "voce",
+    "brasileir",
+    "candidat",
+    "solicitant",
+    "estudant",
+    "trabalhador",
+    "profissional",
+    "famíli",
+    "famili",
+    "imigrant",
+    "empregador",
+    "aplicant",
+    "titular",
+    "beneficiári",
+    "beneficiari",
+  ].some((m) => relevancia.includes(m));
+
+  if (relevancia.trim().length < 40 || !falaDoLeitor) {
+    const onde = entrada.ondeEscreverRelevancia ? `Escreva em ${entrada.ondeEscreverRelevancia} ` : "Escreva ";
+    achados.push({
+      motivo: "LOW_READER_RELEVANCE",
+      descricao:
+        `o texto explica o acontecimento e não diz por que ele importa para quem quer morar, ` +
+        `trabalhar ou estudar nos EUA. ${onde}quem é afetado e o que essa pessoa deve fazer ou ` +
+        `observar agora.`,
+    });
+  }
+
+  if (entrada.titulo.length > TETO_DO_TITULO) {
+    achados.push({
+      motivo: "HEADLINE_TOO_LONG",
+      descricao:
+        `o título tem ${entrada.titulo.length} caracteres e ocuparia ${Math.ceil(entrada.titulo.length / 30)} ` +
+        `linhas num celular de 390px. Reescreva em até ${TETO_DO_TITULO} caracteres, sem perder o fato.`,
+    });
+  }
+
+  return achados;
+}
+
 export function conferirLinguagemDoLeitor(edition: EditionContent): AchadoDeLeitor[] {
   const achados: AchadoDeLeitor[] = [];
 
   edition.stories.forEach((story, i) => {
-    const campos = camposDaMateria(story);
-    const texto = campos.join("\n");
-
-    const semExplicar = new Set<string>();
-
-    for (const termo of TERMOS_TECNICOS) {
-      if (texto.toLowerCase().includes(termo) && !explicadoEmAlgumCampo(campos, termo)) {
-        semExplicar.add(termo);
-      }
-    }
-
-    for (const achado of texto.matchAll(CODIGO_TECNICO)) {
-      const codigo = achado[0];
-      if (!explicadoEmAlgumCampo(campos, codigo.toLowerCase())) semExplicar.add(codigo);
-    }
-
-    if (semExplicar.size > TETO_DE_TERMOS_SEM_EXPLICACAO) {
-      achados.push({
-        indice: i,
-        motivo: "LEGAL_JARGON_OVERLOAD",
-        descricao:
-          `${semExplicar.size} termos técnicos aparecem sem dizer o que são: ` +
-          `${[...semExplicar].join(", ")}. Explique cada um na primeira vez, em linguagem comum, ` +
-          `ou reescreva a frase sem o termo.`,
-      });
-    }
-
-    /*
-     * Relevância: a matéria diz para QUEM aquilo importa?
-     *
-     * O schema já reserva dois campos para isso, `why_it_matters` e
-     * `practical_impact`. O que se confere é se eles falam do leitor — alguém
-     * que quer morar, trabalhar, estudar ou construir vida nos EUA — em vez de
-     * repetirem o fato em outras palavras, que é o que acontece quando o
-     * modelo preenche o campo por obrigação.
-     */
-    const relevancia = `${story.why_it_matters} ${story.practical_impact}`.toLowerCase();
-    const falaDoLeitor = [
-      "quem",
-      "você",
-      "voce",
-      "brasileir",
-      "candidat",
-      "solicitant",
-      "estudant",
-      "trabalhador",
-      "profissional",
-      "famíli",
-      "famili",
-      "imigrant",
-      "empregador",
-      "aplicant",
-      "titular",
-      "beneficiári",
-      "beneficiari",
-    ].some((m) => relevancia.includes(m));
-
-    if (relevancia.trim().length < 40 || !falaDoLeitor) {
-      achados.push({
-        indice: i,
-        motivo: "LOW_READER_RELEVANCE",
-        descricao:
-          `a matéria explica o acontecimento e não diz por que ele importa para quem quer morar, ` +
-          `trabalhar ou estudar nos EUA. Escreva em "why_it_matters" e "practical_impact" quem é ` +
-          `afetado e o que essa pessoa deve fazer ou observar agora.`,
-      });
-    }
-
-    if (story.title.length > TETO_DO_TITULO) {
-      achados.push({
-        indice: i,
-        motivo: "HEADLINE_TOO_LONG",
-        descricao:
-          `o título tem ${story.title.length} caracteres e ocuparia ${Math.ceil(story.title.length / 30)} ` +
-          `linhas num celular de 390px. Reescreva em até ${TETO_DO_TITULO} caracteres, sem perder o fato.`,
-      });
-    }
+    const doTexto = conferirLinguagemDeUmTexto({
+      campos: camposDaMateria(story),
+      titulo: story.title,
+      relevancia: `${story.why_it_matters} ${story.practical_impact}`,
+      ondeEscreverRelevancia: '"why_it_matters" e "practical_impact"',
+    });
+    for (const a of doTexto) achados.push({ indice: i, ...a });
   });
 
   return achados;

@@ -505,6 +505,123 @@ const galleryTelaCheia: SlideVariant = {
   }),
 };
 
+// --------------------------------------------------------------------------
+// EVERGREEN: o carrossel de conteúdo permanente
+//
+// Três variantes, e as três na mesma família visual da capa de texto do Social
+// V2 (as classes `e-*`), porque um carrossel que muda de linguagem visual entre
+// o slide 1 e o slide 2 não parece o mesmo post. As variantes de conteúdo que já
+// existiam usam as classes `s-*`, do outro design aprovado, e misturar os dois
+// dentro de uma peça é exatamente o que o comentário de `chrome.ts` diz que não
+// se converte por troca de cor.
+//
+// Nenhuma delas declara CSS novo além da primitiva de duas colunas, que a folha
+// não tinha porque nenhuma variante anterior comparava nada.
+// --------------------------------------------------------------------------
+
+/**
+ * Conteúdo permanente: rótulo, título e o corpo.
+ *
+ * O corpo entra como lista quando o texto é naturalmente uma lista, e como
+ * parágrafo quando não é. Quem decide é o conteúdo que chegou, não o formato:
+ * uma lista de um item é um parágrafo com marcador, e um parágrafo partido em
+ * três bullets é uma lista inventada.
+ */
+const conteudoEvergreen: SlideVariant = {
+  key: "conteudo_editorial",
+  label: "Conteúdo permanente: título e corpo",
+  render: (slide, ctx): VariantOutput => {
+    const bullets = (slide.bullet_points ?? []).filter(Boolean);
+    const linhas = bullets
+      .map((b, i) => `<div class="row"><span class="n">${pad2(i + 1)}</span><span class="t">${esc(b)}</span></div>`)
+      .join("");
+
+    return {
+      body: `
+<div class="e-wrap">
+  ${eyebrow(ctx, slide)}
+  ${tituloHtml(slide, "sm")}
+  ${bullets.length > 1 ? `<div class="e-nums">${linhas}</div>` : ""}
+  ${slide.body ? `<div class="e-lede lay-texto" data-ajuste="encolher" data-min="26" data-max="42"><span>${manterCodigosJuntos(esc(slide.body))}</span></div>` : ""}
+  ${bullets.length === 1 ? `<div class="e-quote">${esc(bullets[0])}</div>` : ""}
+</div>`,
+    };
+  },
+};
+
+/**
+ * A ressalva, que é o slide que evita o post enganar.
+ *
+ * O texto vai na citação e não no corpo de propósito: uma ressalva em corpo de
+ * parágrafo se lê como continuação da explicação, e o que ela faz é interromper.
+ */
+const ressalvaEvergreen: SlideVariant = {
+  key: "ressalva_editorial",
+  label: "Ressalva: o que a fonte não diz",
+  render: (slide, ctx): VariantOutput => ({
+    body: `
+<div class="e-wrap">
+  ${eyebrow(ctx, slide)}
+  ${tituloHtml(slide, "sm")}
+  ${slide.body ? `<div class="e-quote">${esc(slide.body)}</div>` : ""}
+</div>`,
+  }),
+};
+
+/**
+ * A comparação, lado a lado.
+ *
+ * Os dois lados vêm em `bullet_points[0]` e `bullet_points[1]`, e os rótulos
+ * em `highlight_text` separados por " | ". É feio como contrato e é o que
+ * `InstagramSlide` oferece sem acrescentar campo ao schema que o caminho legado
+ * também valida — e acrescentar campo lá para uso exclusivo do evergreen faria
+ * o schema do legado carregar peso que ele nunca usa.
+ *
+ * Sem os dois lados, esta variante não desenha meia comparação: cai no corpo,
+ * porque um quadro comparativo com uma coluna vazia é pior que um parágrafo.
+ */
+const comparacaoDuasColunas: SlideVariant = {
+  key: "comparacao_duas_colunas",
+  label: "Comparação: duas colunas com régua",
+  render: (slide, ctx): VariantOutput => {
+    const lados = (slide.bullet_points ?? []).filter(Boolean);
+    const rotulos = String(slide.highlight_text ?? "")
+      .split("|")
+      .map((r) => r.trim())
+      .filter(Boolean);
+
+    if (lados.length < 2) {
+      return {
+        body: `
+<div class="e-wrap">
+  ${eyebrow(ctx, slide)}
+  ${tituloHtml(slide, "sm")}
+  ${slide.body ? `<div class="e-lede">${esc(slide.body)}</div>` : ""}
+</div>`,
+      };
+    }
+
+    return {
+      body: `
+<div class="e-wrap">
+  ${eyebrow(ctx, slide)}
+  ${tituloHtml(slide, "sm")}
+  <div class="e-duo">
+    <div class="col">
+      ${rotulos[0] ? `<span class="rot">${esc(rotulos[0])}</span>` : ""}
+      <span class="val">${esc(lados[0])}</span>
+    </div>
+    <span class="risco"></span>
+    <div class="col">
+      ${rotulos[1] ? `<span class="rot">${esc(rotulos[1])}</span>` : ""}
+      <span class="val">${esc(lados[1])}</span>
+    </div>
+  </div>
+</div>`,
+    };
+  },
+};
+
 export const SLIDE_VARIANTS: Record<InstagramSlideType, Record<string, SlideVariant>> = {
   cover: {
     fullbleed_portrait: coverFullbleedPortrait,
@@ -515,8 +632,13 @@ export const SLIDE_VARIANTS: Record<InstagramSlideType, Record<string, SlideVari
     editorial_claro: coverEditorialClaro,
   },
   intro: { big_statement: introBigStatement },
-  content: { bullets: contentBullets, highlight: contentHighlight },
-  quote_highlight: { pull_quote: quotePull },
+  content: {
+    bullets: contentBullets,
+    highlight: contentHighlight,
+    conteudo_editorial: conteudoEvergreen,
+    comparacao_duas_colunas: comparacaoDuasColunas,
+  },
+  quote_highlight: { pull_quote: quotePull, ressalva_editorial: ressalvaEvergreen },
   practical_impact: { gold_dark_card: practicalGoldDark },
   step: {
     terminal_claro: stepTerminalClaro,

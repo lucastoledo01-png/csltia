@@ -28,6 +28,15 @@ export type PostDePreview = {
    * mensagem ou a abre de outra pasta. Embutida, ela é um arquivo só.
    */
   arte: string;
+  /**
+   * Os slides seguintes, quando o post é carrossel, na ordem de leitura.
+   *
+   * A capa continua em `arte`, e não repetida aqui: é ela que aparece no feed e
+   * é ela que o cartão mostra grande. Um preview que só mostrasse a capa de um
+   * carrossel de cinco esconderia justamente o que mudou nesta fase, e o item
+   * 23 do pedido é explícito: mostrar TODOS os slides.
+   */
+  slides?: Array<{ arte: string; arquivo: string; papel: string }>;
   /** Nome do PNG escrito ao lado, para quem quiser o arquivo solto. */
   arquivo: string;
   comFoto: boolean;
@@ -89,9 +98,21 @@ function cartao(p: PostDePreview): string {
           )
           .join("")}</table></details>`;
 
+  const demais = (p.slides ?? [])
+    .map(
+      (s, i) => `<figure class="slide">
+  <div class="moldura">${s.arte ? `<img src="${esc(s.arte)}" alt="Slide ${i + 2}">` : `<div class="sem-arte">slide não renderizado</div>`}</div>
+  <figcaption>${i + 2}. ${esc(s.papel)}</figcaption>
+</figure>`,
+    )
+    .join("");
+
+  const tira = demais ? `<div class="tira">${demais}</div>` : "";
+
   return `<article class="post">
   <div class="coluna-arte">
     <div class="moldura">${arte}</div>
+    ${tira}
     <div class="conta"><span class="avatar">us</span><span class="handle">imigra.us</span><span class="hora">${esc(p.hora)}</span></div>
     <div class="legenda">${legendaHtml(p.legenda)}</div>
   </div>
@@ -134,6 +155,11 @@ export function paginaDePreview(dados: DadosDoPreview): string {
   .moldura{border:1px solid var(--linha);border-radius:10px;overflow:hidden;background:#0b0d10;display:flex;min-height:120px}
   .moldura img{width:100%;height:100%;object-fit:contain;display:block}
   .sem-arte{margin:auto;color:#888;font-size:13px}
+  /* A tira de slides: rolagem horizontal, do jeito que o leitor desliza. */
+  .tira{display:flex;gap:10px;overflow-x:auto;padding:10px 0 4px;scroll-snap-type:x mandatory}
+  .tira .slide{margin:0;flex:0 0 46%;scroll-snap-align:start}
+  .tira .moldura{min-height:0}
+  .tira figcaption{font-size:11px;color:var(--fg2);padding:5px 2px 0}
   .conta{display:flex;align-items:center;gap:9px;margin:12px 0 8px;font-size:13px}
   .avatar{width:26px;height:26px;border-radius:50%;background:#111;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700}
   .handle{font-weight:650}

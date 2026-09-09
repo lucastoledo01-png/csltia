@@ -69,17 +69,21 @@ function post(visual: unknown): PostParaGravar {
       reparosAplicados: [],
     },
     /* O artefato congelado: é ele que o worker publica. */
-    artefato: {
-      url: "https://storage.exemplo/imigra-us/2026-09-06/social-v2.png",
-      path: "imigra-us/2026-09-06/social-v2-2026-09-06-s-1/social-v2.png",
-      filename: "social-v2.png",
-      mime: "image/png",
-      sha256: "b".repeat(64),
-      bytes: 172_647,
-      largura: 2160,
-      altura: 2880,
-      otimizado: false,
-    },
+    formato: "static",
+    artefatos: [
+      {
+        index: 1,
+        url: "https://storage.exemplo/imigra-us/2026-09-06/social-v2.png",
+        path: "imigra-us/2026-09-06/social-v2-2026-09-06-s-1/social-v2.png",
+        filename: "social-v2.png",
+        mime: "image/png",
+        sha256: "b".repeat(64),
+        bytes: 172_647,
+        largura: 2160,
+        altura: 2880,
+        otimizado: false,
+      },
+    ],
   } as unknown as PostParaGravar;
 }
 

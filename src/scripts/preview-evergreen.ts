@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DEFAULT_PROJECT_ID, requireActiveProject } from "../lib/server/projects";
-import { prepararEvergreen, pacotesDoEvergreen } from "../lib/server/social/evergreen/ciclo";
+import { decisorDeFormato, prepararEvergreen, pacotesDoEvergreen } from "../lib/server/social/evergreen/ciclo";
+import { entradasDoCarrossel } from "../lib/server/social/carrossel/arte";
 import { rodarCicloSocial } from "../lib/server/social/pipeline-v2";
 import { carregarConfigSocial } from "../lib/server/social/selecao";
 import { renderizarCapas } from "../lib/server/social/arte";
@@ -118,6 +119,7 @@ async function main() {
       pacotes: pacotesDoEvergreen(evergreen.lastros),
       candidatas: evergreen.candidatas,
       extras: evergreen.extras,
+      decidirCarrossel: decisorDeFormato(evergreen.lastros),
       config: configSocial,
       env: { ...process.env, SOCIAL_PIPELINE_V2: "dry_run" },
       fetcher: fetch,
@@ -126,13 +128,16 @@ async function main() {
 
     for (const l of ciclo.linhasDeLog) console.log(l);
 
-    escrever(`| # | hora | tópico | ângulo | família | Guard | reparos | CTA |`);
-    escrever(`| --- | --- | --- | --- | --- | --- | ---: | --- |`);
+    escrever(`| # | hora | origem | formato | slides | tópico | ângulo | content_type | Guard | reparos | CTA |`);
+    escrever(`| --- | --- | --- | --- | ---: | --- | --- | --- | --- | ---: | --- |`);
     for (const p of ciclo.previews) {
       const [, topico, angulo] = p.post.pauta.storyId.split(":");
+      const c = p.post.carrossel;
       escrever(
-        `| ${p.posicao} | ${p.vaga?.horaLocal ?? "?"} | ${topico} | ${angulo} | ` +
-          `${p.post.pauta.grupo.primary.category} | ${p.post.veredicto.finalDecision} | ` +
+        `| ${p.posicao} | ${p.vaga?.horaLocal ?? "?"} | ${p.origem.originChannel} | ` +
+          `${c ? `**carousel** (${c.estrutura})` : "static"} | ${c ? c.papeis.length : 1} | ` +
+          `${topico} | ${angulo} | ${p.post.pauta.grupo.primary.category} | ` +
+          `${p.post.veredicto.finalDecision} | ` +
           `${p.post.reparosAplicados.length} | ${p.post.copy.cta ? "sim" : "**SEM_CTA**"} |`,
       );
     }
@@ -150,6 +155,44 @@ async function main() {
       escrever(`- origem: **${p.origem.originChannel}**`);
       escrever(`- hashtags: ${p.post.veredicto.hashtagsFinais.join(" ")}`);
       escrever(`- Social Guard: ${p.post.veredicto.finalDecision}, ${p.post.veredicto.issues.length} issue(s)`);
+
+      const c = p.post.carrossel;
+      if (!c) {
+        escrever(`- formato: **static**, 1 imagem`);
+        escrever();
+        continue;
+      }
+
+      escrever(`- formato: **carousel** (${c.estrutura}), ${c.papeis.length} slides`);
+      escrever();
+      escrever(`Os slides, na ordem de leitura:`);
+      escrever();
+      escrever(`| # | papel | título | conteúdo |`);
+      escrever(`| ---: | --- | --- | --- |`);
+
+      const doModelo = c.papeis.filter((x) => !x.escritoEmCodigo);
+      c.papeis.forEach((papel, i) => {
+        if (papel.tipo === "cover") {
+          escrever(`| ${i + 1} | capa (código) | ${p.post.copy.headline} | a manchete é a arte |`);
+          return;
+        }
+        if (papel.tipo === "cta") {
+          escrever(`| ${i + 1} | fechamento (código) | ${p.post.copy.destaque || "-"} | ${p.post.copy.cta} |`);
+          return;
+        }
+        const texto = c.slides[doModelo.indexOf(papel)];
+        if (!texto) return;
+        const conteudo = [
+          texto.corpo,
+          ...(texto.bullets ?? []),
+          texto.lado_a ? `A: ${texto.lado_a}` : "",
+          texto.lado_b ? `B: ${texto.lado_b}` : "",
+        ]
+          .filter(Boolean)
+          .join(" / ")
+          .replace(/\|/g, "\\|");
+        escrever(`| ${i + 1} | ${papel.papel} | ${texto.titulo.replace(/\|/g, "\\|")} | ${conteudo} |`);
+      });
       escrever();
     }
 
@@ -157,20 +200,66 @@ async function main() {
     const pasta = path.join(saida, dia);
     fs.mkdirSync(pasta, { recursive: true });
 
-    const artes = await renderizarCapas(
-      ciclo.previews.map((p) => ({
-        headline: p.post.copy.headline,
-        eixo: p.post.pauta.classificacao.eixo,
+    /*
+     * Uma chamada de render para o dia inteiro, capas e slides juntos.
+     *
+     * `renderizarCapas` sobe UM navegador e reusa UMA página para toda a lista.
+     * Chamá-la por post subiria um Chromium por post, e num dia de quatro
+     * carrosséis isso é quatro navegadores para desenhar vinte peças.
+     */
+    const porPost = ciclo.previews.map((p) => {
+      const c = p.post.carrossel;
+      if (!c) {
+        return {
+          papeis: [] as Array<{ papel: string }>,
+          entradas: [
+            {
+              headline: p.post.copy.headline,
+              eixo: p.post.pauta.classificacao.eixo,
+              asset: p.visual?.asset ?? null,
+              motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
+            },
+          ],
+        };
+      }
+
+      const montado = entradasDoCarrossel({ ...p.post.copy, slides: c.slides }, c.papeis, {
+        eixo: p.post.pauta.classificacao.eixo ?? "",
         asset: p.visual?.asset ?? null,
         motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
-      })),
+      });
+      return { papeis: c.papeis, entradas: montado.entradas };
+    });
+
+    const artes = await renderizarCapas(
+      porPost.flatMap((x) => x.entradas),
       { fetcher: fetch },
     );
 
+    /* De volta ao dono: a lista plana virou uma fatia por post. */
+    const fatias: Array<typeof artes> = [];
+    let cursor = 0;
+    for (const x of porPost) {
+      fatias.push(artes.slice(cursor, cursor + x.entradas.length));
+      cursor += x.entradas.length;
+    }
+
     const posts: PostDePreview[] = ciclo.previews.map((p, idx) => {
-      const arte = artes[idx];
+      const fatia = fatias[idx] ?? [];
+      const arte = fatia[0];
       const nome = `post-${String(p.posicao).padStart(2, "0")}.png`;
       if (arte) fs.writeFileSync(path.join(pasta, nome), arte.png);
+
+      const demais = fatia.slice(1).map((a, i) => {
+        const arquivo = `post-${String(p.posicao).padStart(2, "0")}-slide-${String(i + 2).padStart(2, "0")}.png`;
+        fs.writeFileSync(path.join(pasta, arquivo), a.png);
+        return {
+          arte: `data:image/jpeg;base64,${a.jpeg.toString("base64")}`,
+          arquivo,
+          papel: porPost[idx].papeis[i + 1]?.papel ?? `slide ${i + 2}`,
+        };
+      });
+
       const [, topico, angulo] = p.post.pauta.storyId.split(":");
 
       return {
@@ -181,11 +270,18 @@ async function main() {
         hashtags: p.post.veredicto.hashtagsFinais,
         /* Embutida: a página vale sozinha, mandada por mensagem ou aberta de outra pasta. */
         arte: arte ? `data:image/jpeg;base64,${arte.jpeg.toString("base64")}` : "",
+        slides: demais,
         arquivo: nome,
         comFoto: Boolean(p.visual?.asset),
         motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
         diagnostico: [
           { campo: "origem", valor: p.origem.originChannel },
+          {
+            campo: "formato",
+            valor: p.post.carrossel
+              ? `carousel (${p.post.carrossel.estrutura}), ${p.post.carrossel.papeis.length} slides`
+              : "static, 1 imagem",
+          },
           { campo: "tópico", valor: topico },
           { campo: "ângulo", valor: angulo },
           { campo: "família", valor: p.post.pauta.grupo.primary.category },

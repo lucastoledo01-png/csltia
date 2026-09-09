@@ -13,6 +13,7 @@ import type { CortadoDoEvergreen } from "./selecao";
 import { calcularVagas } from "./compositor";
 import { identidadeDoItem } from "./tipos";
 import type { TopicoEvergreen, UsoAnterior } from "./tipos";
+import { determinarFormatoEvergreen, type DecisaoDeFormato } from "../carrossel/formato";
 
 /**
  * O que o evergreen entrega ao ciclo social do dia.
@@ -198,4 +199,27 @@ export function pacotesDoEvergreen(lastros: LastroDoItem[]): Map<string, PacoteF
   const mapa = new Map<string, PacoteFactual>();
   for (const l of lastros) if (l.pacote) mapa.set(l.storyId, l.pacote);
   return mapa;
+}
+
+/**
+ * O decisor de formato do evergreen, amarrado aos itens deste dia.
+ *
+ * O gerador recebe pautas, não itens do catálogo, e a decisão de formato precisa
+ * da família e do ângulo. A ponte é o `storyId`, que é a identidade do item: o
+ * mesmo valor que vai para `story_id` na linha e que o cooldown persegue.
+ *
+ * Pauta que não é do evergreen devolve `null`, e `null` significa peça única.
+ * É assim que a notícia continua estática sem este módulo saber o que é notícia.
+ */
+export function decisorDeFormato(
+  lastros: LastroDoItem[],
+): (pauta: { storyId: string }, pacote: PacoteFactual | null, comCta: boolean) => DecisaoDeFormato | null {
+  const porStoryId = new Map(lastros.map((l) => [l.storyId, l.item]));
+
+  return (pauta, pacote, comCta) => {
+    const item = porStoryId.get(pauta.storyId);
+    if (!item || !pacote) return null;
+
+    return determinarFormatoEvergreen(item, pacote, { comCta });
+  };
 }

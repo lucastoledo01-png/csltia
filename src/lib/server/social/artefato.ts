@@ -183,3 +183,107 @@ export async function congelarArtefato(
     },
   };
 }
+
+/** Um slide congelado, com a posição que ele ocupa na peça. */
+export type ArtefatoDeSlide = ArtefatoCongelado & { index: number };
+
+export type EntradaDoCarrossel = {
+  /** Uma entrada por slide, na ORDEM em que o leitor vai vê-los. */
+  slides: EntradaDaCapa[];
+  path: string;
+  fetcher?: typeof fetch;
+  renderizar?: typeof renderizarCapas;
+  subir?: typeof subirPngParaStorage;
+};
+
+export type ResultadoDoCarrossel =
+  | { ok: true; artefatos: ArtefatoDeSlide[] }
+  | { ok: false; motivo: string };
+
+/**
+ * Congela um carrossel: N slides, N arquivos, N hashes, e a ordem preservada.
+ *
+ * Duas coisas aqui são o que separa isto de chamar `congelarArtefato` num laço.
+ *
+ * A primeira é o NOME DO ARQUIVO. O congelamento de peça única grava
+ * `social-v2.png` num caminho que já é único por post, e o upload é `upsert`.
+ * Num laço, os seis slides do mesmo post gravariam no MESMO objeto: o último a
+ * subir venceria, os seis registros do manifesto apontariam para ele, e cinco
+ * dos seis hashes divergiriam na publicação. O post não sairia errado, ele
+ * simplesmente nunca sairia, e o motivo apareceria como
+ * `SOCIAL_ARTIFACT_HASH_MISMATCH` sem nada explicando por quê. O índice no nome
+ * é o que impede isso.
+ *
+ * A segunda é TUDO OU NADA. Um carrossel com um slide reprovado não é um
+ * carrossel menor: a estrutura decidiu que aquele slide existe, e publicar sem
+ * ele é publicar outra coisa. Quem decide encurtar é a guarda, antes daqui.
+ *
+ * Os arquivos de um congelamento que falhou no meio ficam no bucket. Não é
+ * vazamento: o caminho é determinístico por post e por índice, então o retry
+ * sobrescreve exatamente os mesmos objetos, e nada os referencia enquanto a
+ * linha não for gravada.
+ */
+export async function congelarCarrossel(entrada: EntradaDoCarrossel): Promise<ResultadoDoCarrossel> {
+  const renderizar = entrada.renderizar ?? renderizarCapas;
+  const subir = entrada.subir ?? subirPngParaStorage;
+
+  if (entrada.slides.length === 0) return { ok: false, motivo: "nenhum slide para congelar" };
+
+  const artes = await renderizar(entrada.slides, { fetcher: entrada.fetcher ?? fetch });
+  if (artes.length !== entrada.slides.length) {
+    return {
+      ok: false,
+      motivo: `o renderizador devolveu ${artes.length} arte(s) para ${entrada.slides.length} slide(s)`,
+    };
+  }
+
+  const artefatos: ArtefatoDeSlide[] = [];
+
+  for (let i = 0; i < artes.length; i += 1) {
+    const arte = artes[i];
+    const posicao = i + 1;
+
+    const problema = conferirArte(arte, Boolean(entrada.slides[i].asset));
+    if (problema) return { ok: false, motivo: `slide ${posicao}: ${problema}` };
+
+    /*
+     * Slides de tamanhos diferentes não formam um carrossel.
+     *
+     * Todos saem do mesmo canvas de token, então divergir aqui significa que
+     * alguma variante mexeu na medida, e o Instagram recortaria os slides em
+     * proporções diferentes. É melhor não publicar do que publicar um carrossel
+     * em que o segundo slide corta o texto.
+     */
+    if (i > 0 && (arte.largura !== artes[0].largura || arte.altura !== artes[0].altura)) {
+      return {
+        ok: false,
+        motivo:
+          `slide ${posicao} mede ${arte.largura}x${arte.altura} e o slide 1 mede ` +
+          `${artes[0].largura}x${artes[0].altura}: um carrossel não mistura proporções`,
+      };
+    }
+
+    const escolha = escolherArquivo(arte);
+    if ("erro" in escolha) return { ok: false, motivo: `slide ${posicao}: ${escolha.erro}` };
+
+    const filename = `social-v2-${String(posicao).padStart(2, "0")}.${escolha.extensao}`;
+    const path = `${entrada.path}/${filename}`;
+    const url = await subir(escolha.buffer, path);
+    if (!url) return { ok: false, motivo: `slide ${posicao}: falha ao subir para ${path}` };
+
+    artefatos.push({
+      index: posicao,
+      url,
+      path,
+      filename,
+      mime: escolha.mime,
+      sha256: sha256De(escolha.buffer),
+      bytes: escolha.buffer.byteLength,
+      largura: arte.largura,
+      altura: arte.altura,
+      otimizado: escolha.otimizado,
+    });
+  }
+
+  return { ok: true, artefatos };
+}

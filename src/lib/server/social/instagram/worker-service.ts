@@ -2,6 +2,7 @@ import { type Project, requireActiveProject } from "../../projects";
 import { getSupabaseAdminClient } from "../../supabase-admin";
 import { loadEdition } from "./edition-loader";
 import {
+  TETO_DE_FILHOS_DO_CARROSSEL,
   createCarouselContainer,
   createCarouselItemContainer,
   createSingleImageContainer,
@@ -25,7 +26,7 @@ import {
   MOTIVO_VERSAO_DESCONHECIDA,
   type LinhaDePost,
 } from "./carga-v2";
-import { verificarArtefato } from "./worker-v2";
+import { verificarArtefatos } from "./worker-v2";
 import { getArticleBySlug } from "../../articles-service";
 import { montarCarrosselDeCampanha } from "../../prompt-system/carrossel-de-campanha";
 import { concluirCampanhaPublicada } from "../../prompt-system/pos-publicacao";
@@ -238,14 +239,33 @@ async function renderAndUploadSlides(
  * exige que case com o tipo de container, e derivar dela evita um formato
  * novo publicar pelo caminho errado sem ninguém lembrar de atualizar aqui.
  */
+/**
+ * O que já foi criado na Meta numa tentativa anterior, e como registrar o novo.
+ *
+ * Sem isso, um retry depois de criar três dos seis filhos criaria seis filhos
+ * novos: os três primeiros ficariam pendurados na conta e, mais importante, o
+ * trabalho seria refeito a cada tentativa. Container filho é inerte, então
+ * recriar não publica nada duas vezes; o que se evita aqui é o desperdício e a
+ * sujeira, não uma publicação dupla.
+ *
+ * `registrar` grava ANTES de o pai existir. É a mesma disciplina de
+ * `publicarComRegistro`: gravar o efeito externo assim que ele acontece, para
+ * que a próxima tentativa saiba o que já foi feito.
+ */
+export type EstadoDosFilhos = {
+  conhecidos: Map<number, string>;
+  registrar: (index: number, creationId: string) => Promise<void>;
+};
+
 async function montarContainer(
   imageUrls: string[],
   caption: string,
   env: Record<string, string | undefined>,
   fetcher: typeof fetch,
+  filhos?: EstadoDosFilhos,
 ): Promise<string> {
   if (imageUrls.length === 0) {
-    throw new Error("Nenhum slide foi renderizado — não há o que publicar.");
+    throw new Error("Nenhum slide foi renderizado, não há o que publicar.");
   }
 
   if (imageUrls.length === 1) {
@@ -256,20 +276,65 @@ async function montarContainer(
     return unico.creationId;
   }
 
+  /*
+   * O teto da Meta, conferido antes da primeira chamada.
+   *
+   * Estourar aqui custaria N containers criados para depois o pai ser recusado,
+   * e a recusa chegaria como erro genérico de API. Nosso gerador já limita
+   * bem abaixo disso; esta guarda existe para o caso de a peça chegar aqui por
+   * outro caminho.
+   */
+  if (imageUrls.length > TETO_DE_FILHOS_DO_CARROSSEL) {
+    throw new Error(
+      `Carrossel com ${imageUrls.length} slides: a Meta aceita no máximo ${TETO_DE_FILHOS_DO_CARROSSEL}.`,
+    );
+  }
+
   const containerIds: string[] = [];
 
   for (const [i, url] of imageUrls.entries()) {
+    const posicao = i + 1;
+    const reaproveitado = filhos?.conhecidos.get(posicao);
+
+    if (reaproveitado) {
+      console.log(`[INSTAGRAM WORKER] slide ${posicao}: reusando o container ${reaproveitado}`);
+      containerIds.push(reaproveitado);
+      continue;
+    }
+
     const item = await createCarouselItemContainer(url, env, fetcher);
     if (!item.ok || !item.creationId) {
-      throw new Error(`Falha ao criar o container do slide ${i + 1}: ${item.error}`);
+      throw new Error(`Falha ao criar o container do slide ${posicao}: ${item.error}`);
     }
     containerIds.push(item.creationId);
+    if (filhos) await filhos.registrar(posicao, item.creationId);
   }
 
   const pai = await createCarouselContainer(containerIds, caption, env, fetcher);
+
   if (!pai.ok || !pai.creationId) {
-    throw new Error(`Falha ao criar o container de carrossel: ${pai.error}`);
+    /*
+     * Filho reaproveitado pode ter vencido, e o pai é onde isso aparece.
+     *
+     * Container da Meta expira em 24h. Uma tentativa de ontem deixa ids
+     * gravados que a API já não conhece, e o erro chega na criação do PAI, não
+     * na do filho. Uma segunda passada com filhos novos é segura porque filho
+     * não publica nada, e sem ela o post ficaria preso para sempre num id
+     * vencido gravado por nós mesmos.
+     */
+    const houveReuso = imageUrls.some((_, i) => filhos?.conhecidos.has(i + 1));
+    if (!houveReuso) {
+      throw new Error(`Falha ao criar o container de carrossel: ${pai.error}`);
+    }
+
+    console.warn(
+      `[INSTAGRAM WORKER] o pai recusou os filhos reaproveitados (${pai.error}); ` +
+        `recriando todos os ${imageUrls.length} slides`,
+    );
+    filhos!.conhecidos.clear();
+    return montarContainer(imageUrls, caption, env, fetcher, filhos);
   }
+
   return pai.creationId;
 }
 
@@ -319,6 +384,8 @@ type PreparoDaPublicacao = {
   legenda: string;
   slides: SlideSubido[];
   carousel?: InstagramCarouselContent;
+  /** Só no carrossel: o que já foi criado na Meta e onde registrar o resto. */
+  filhos?: EstadoDosFilhos;
 };
 
 /**
@@ -440,16 +507,74 @@ async function prepararV2(
    * foto do Commons do caminho da publicação — quatro coisas que podiam ter
    * mudado entre a aprovação e agora.
    */
-  const artefato = await verificarArtefato(carga, { socialPostId, fetcher });
+  const artefatos = await verificarArtefatos(carga, { socialPostId, fetcher });
 
-  const slides: SlideSubido[] = [{ index: 0, url: artefato.url, filename: artefato.filename }];
+  const slides: SlideSubido[] = artefatos.map((a, i) => ({
+    index: i + 1,
+    url: a.url,
+    filename: a.filename,
+  }));
 
-  console.log(
-    `[INSTAGRAM WORKER V2] artefato conferido: ${artefato.filename}, ` +
-      `${(artefato.bytes / 1024).toFixed(0)} KB, sha ${artefato.sha256.slice(0, 12)}`,
+  for (const a of artefatos) {
+    console.log(
+      `[INSTAGRAM WORKER V2] artefato conferido: ${a.filename}, ` +
+        `${(a.bytes / 1024).toFixed(0)} KB, sha ${a.sha256.slice(0, 12)}`,
+    );
+  }
+
+  if (carga.formato === "carousel") {
+    console.log(`[INSTAGRAM WORKER V2] carrossel de ${slides.length} slides, todos conferidos`);
+  }
+
+  /*
+   * Os containers filhos já criados, lidos do manifesto da linha.
+   *
+   * O manifesto é gravado por quem aprovou o post e reescrito aqui a cada
+   * filho criado. Numa retentativa depois de o processo morrer no meio, é
+   * daqui que sai o que não precisa ser refeito.
+   */
+  const doManifesto = new Map<number, string>();
+  if (Array.isArray(linha.slides_manifest)) {
+    for (const bruto of linha.slides_manifest as unknown[]) {
+      if (!bruto || typeof bruto !== "object") continue;
+      const item = bruto as { index?: unknown; provider_child_id?: unknown };
+      const index = Number(item.index);
+      const child = typeof item.provider_child_id === "string" ? item.provider_child_id.trim() : "";
+      if (Number.isFinite(index) && child) doManifesto.set(index, child);
+    }
+  }
+
+  const manifesto = slides.map((s) => ({
+    index: s.index,
+    url: s.url,
+    filename: s.filename,
+    sha256: artefatos[s.index - 1].sha256,
+    bytes: artefatos[s.index - 1].bytes,
+    provider_child_id: doManifesto.get(s.index) ?? null,
+  }));
+
+  await gravarOuFalhar(
+    supabase,
+    socialPostId,
+    { slides_manifest: manifesto, asset_paths: manifesto.map((m) => m.url) },
+    "o manifesto dos artefatos conferidos",
   );
 
-  return { legenda: carga.legenda, slides };
+  const filhos: EstadoDosFilhos = {
+    conhecidos: doManifesto,
+    registrar: async (index, creationId) => {
+      const alvo = manifesto.find((m) => m.index === index);
+      if (alvo) alvo.provider_child_id = creationId;
+      await gravarOuFalhar(
+        supabase,
+        socialPostId,
+        { slides_manifest: manifesto },
+        `o container do slide ${index}`,
+      );
+    },
+  };
+
+  return { legenda: carga.legenda, slides, filhos: carga.formato === "carousel" ? filhos : undefined };
 }
 
 /** Quanto tempo uma vaga pode ficar em `generated` antes de ser considerada órfã. */
@@ -616,7 +741,7 @@ export async function processScheduledPost(
      */
     // Uma linha só, e literal: o cliente tipado do Supabase infere as colunas
     // lendo esta string em tempo de compilação, e concatená-la apaga os tipos.
-    .select("id, project_id, edition_date, status, content_json, title, caption, provider_post_id, provider_creation_id, publish_attempted_at, generation_version, dry_run, story_id, event_fingerprint, visual_asset_id, origin_channel, social_guard_status")
+    .select("id, project_id, edition_date, status, content_json, title, caption, provider_post_id, provider_creation_id, publish_attempted_at, generation_version, dry_run, story_id, event_fingerprint, visual_asset_id, origin_channel, social_guard_status, slides_manifest")
     .eq("id", socialPostId)
     .maybeSingle();
 
@@ -795,6 +920,7 @@ export async function processScheduledPost(
       preparo.legenda,
       igEnv,
       fetcher,
+      preparo.filhos,
     );
 
     const publicacao = await publicarComRegistro(supabase, socialPostId, creationId, igEnv, fetcher);
