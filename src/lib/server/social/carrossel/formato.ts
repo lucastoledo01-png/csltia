@@ -52,6 +52,20 @@ type PreferenciaDaFamilia = {
   forca: "estatico_por_padrao" | "prefere_carrossel" | "carrossel_forte";
   min: number;
   max: number;
+  /**
+   * Quantos fatos úteis uma família estática por padrão exige para virar
+   * carrossel, quando a pergunta não pede outra forma.
+   *
+   * Existe porque a primeira calibração era permissiva demais e a medição
+   * mostrou: 96% do evergreen saía em carrossel, e a régua "um fato além do
+   * essencial" era satisfeita por qualquer página oficial, que sempre menciona
+   * o termo mais de uma vez. O pedido diz "SOMENTE quando houver contexto
+   * adicional REALMENTE útil", e dois fatos não são isso.
+   *
+   * Ausente significa que a contagem de fatos não autoriza: só a pergunta
+   * autoriza, mudando a estrutura para processo ou comparação.
+   */
+  fatosParaVirarCarrossel?: number;
 };
 
 const PREFERENCIA: Record<FamiliaEvergreen, PreferenciaDaFamilia> = {
@@ -64,7 +78,19 @@ const PREFERENCIA: Record<FamiliaEvergreen, PreferenciaDaFamilia> = {
    * do pedido impossível de atingir. Um termo é uma pergunta com resposta e,
    * quando há material, um contexto.
    */
-  glossary: { estrutura: "faq", forca: "estatico_por_padrao", min: 2, max: 3 },
+  /*
+   * Quatro fatos: a definição mais três de contexto. É o que faz um termo de
+   * glossário merecer três telas em vez de uma.
+   */
+  glossary: { estrutura: "faq", forca: "estatico_por_padrao", min: 2, max: 3, fatosParaVirarCarrossel: 4 },
+  /*
+   * FAQ não vira carrossel por quantidade de fato, e sim por FORMA da pergunta.
+   *
+   * É o que o pedido diz: pergunta simples é estática, pergunta que exige
+   * explicação em etapas é carrossel. Uma resposta direta continua sendo uma
+   * resposta direta por mais material que a página tenha; o que muda a forma é
+   * a pergunta pedir uma sequência, e aí a estrutura já vira processo.
+   */
   faq: { estrutura: "faq", forca: "estatico_por_padrao", min: 3, max: 4 },
   visa_explainer: { estrutura: "explainer", forca: "prefere_carrossel", min: 4, max: 6 },
   comparison: { estrutura: "comparison", forca: "carrossel_forte", min: 5, max: 7 },
@@ -211,16 +237,43 @@ export function determinarFormatoEvergreen(
    * carrossel. O que o pedido chama de contexto adicional realmente útil é um
    * fato ALÉM dos que os slides obrigatórios já consomem.
    */
-  if (preferencia.forca === "estatico_por_padrao") {
-    const conteudoObrigatorio = minimoDaEstrutura(estrutura) - capa;
-    if (fatosUteis <= conteudoObrigatorio) {
+  /*
+   * A preferência fraca só cede a um sinal forte, e há dois.
+   *
+   * O primeiro é a PERGUNTA: se ela pede etapas ou compara dois caminhos, a
+   * forma segue a pergunta, e é por isso que a estrutura já mudou acima. Esse
+   * é o caso que o pedido abre explicitamente para o FAQ.
+   *
+   * O segundo é MATERIAL DE SOBRA, e ele só vale para o glossário, com um piso
+   * declarado. A primeira versão pedia "um fato além do essencial" e isso era
+   * satisfeito por qualquer página oficial: a medição de sete dias deu 96% do
+   * evergreen em carrossel, com famílias estáticas por padrão virando carrossel
+   * quase sempre.
+   */
+  const aPerguntaMudouAForma = estrutura !== preferencia.estrutura;
+
+  if (preferencia.forca === "estatico_por_padrao" && !aPerguntaMudouAForma) {
+    const piso = preferencia.fatosParaVirarCarrossel;
+
+    if (piso === undefined) {
+      return {
+        formato: "static",
+        slides: 1,
+        fatosUteis,
+        motivo:
+          `família ${item.topico.familia} é estática por padrão, e esta pergunta não pede ` +
+          `etapas nem compara caminhos: uma resposta direta é uma peça só`,
+      };
+    }
+
+    if (fatosUteis < piso) {
       return {
         formato: "static",
         slides: 1,
         fatosUteis,
         motivo:
           `família ${item.topico.familia} é estática por padrão e ${fatosUteis} fato(s) ` +
-          `não passam do essencial (${conteudoObrigatorio}): sem contexto adicional, uma peça só`,
+          `não chegam ao piso de ${piso} para justificar contexto adicional`,
       };
     }
   }

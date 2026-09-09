@@ -148,23 +148,35 @@ describe("glossário e FAQ são estáticos por padrão", () => {
     expect(d.motivo).toContain("estática por padrão");
   });
 
-  it("glossário com contexto adicional pode virar 2 ou 3 slides", () => {
+  it("glossário com três fatos ainda fica estático: o piso é quatro", () => {
     /*
-     * É o caso que o pedido abre: "pode virar 2-3 slides somente quando houver
-     * contexto adicional realmente útil". A folga é medida em FATO, não em
-     * slide: com o teto de três da família igual ao piso da estrutura, folga
-     * medida em slide seria impossível de atingir e o glossário nunca sairia
-     * do estático.
+     * A medição de sete dias com lastro real deu 96% do evergreen em carrossel,
+     * e a régua antiga ("um fato além do essencial") era satisfeita por
+     * qualquer página oficial. O pedido diz SOMENTE com contexto REALMENTE
+     * útil, e o piso declarado é o que dá sentido a essa palavra.
      */
     const d = determinarFormatoEvergreen(item("glossary"), pacote(fatosDeVerdade(3)), COM_CTA);
+    expect(d.formato).toBe("static");
+    expect(d.motivo).toContain("piso de 4");
+  });
+
+  it("glossário com quatro fatos vira carrossel de 2 ou 3 slides", () => {
+    const d = determinarFormatoEvergreen(item("glossary"), pacote(fatosDeVerdade(4)), COM_CTA);
     expect(d.formato).toBe("carousel");
     expect(d.slides).toBeGreaterThanOrEqual(2);
     expect(d.slides).toBeLessThanOrEqual(3);
   });
 
-  it("FAQ de pergunta simples fica estático", () => {
-    const d = determinarFormatoEvergreen(item("faq"), pacote(fatosDeVerdade(1)), COM_CTA);
-    expect(d.formato).toBe("static");
+  it("FAQ de pergunta simples fica estático, por rica que seja a fonte", () => {
+    /*
+     * FAQ não vira carrossel por quantidade de fato. Uma resposta direta
+     * continua sendo direta por mais material que a página tenha; o que muda a
+     * forma é a pergunta pedir uma sequência.
+     */
+    for (const fatos of [1, 4, 8]) {
+      const d = determinarFormatoEvergreen(item("faq"), pacote(fatosDeVerdade(fatos)), COM_CTA);
+      expect(d.formato, `${fatos} fatos`).toBe("static");
+    }
   });
 
   it("FAQ que exige explicação em etapas vira carrossel de processo", () => {

@@ -254,6 +254,84 @@ aplicação; `failed` significa que chegou e quebrou. Foi assim que os seis dias
 agosto foram diagnosticados. Conferir também o watchdog e o alerta do Telegram, que
 existem desde então justamente para este cenário.
 
+### Hashtag descrevia a página da fonte, não o post
+
+**Sintoma.** O primeiro preview do evergreen saiu com `#EB5 #H1B #VistoF1
+#GreenCard #USCIS #ICE #CBP` num post sobre ajuste de status, e os quatro posts
+do dia saíram com quase o mesmo conjunto.
+
+**Causa.** Nenhuma daquelas hashtags foi inventada: todas estavam no texto que a
+inferência recebe. O `resumo` que chega a `hashtagsDaPauta` é
+`enriquecimento.texto`, e no evergreen esse campo é a PÁGINA INTEIRA do policy
+manual da USCIS, que cita o sistema imigratório completo, inclusive ICE, CBP e a
+Suprema Corte. A régua do módulo ("o assunto precisa aparecer no título, no
+resumo, nas entidades ou na categoria") vale para uma matéria, que trata de um
+assunto, e não vale para um manual, que enumera tudo.
+
+**Corrigido.** `ResultadoDoEnriquecimento.assuntoParaHashtags`: quem tem um
+resumo curado declara, e a guarda o prefere. O texto de origem continua indo
+inteiro para o gerador, que é quem precisa dele. Quem não declara segue usando
+`texto`, então o caminho da notícia não mudou, e há teste dos dois lados.
+
+**No mesmo trabalho.** Duas lacunas de flexão na inferência compartilhada:
+"residente permanente" não era reconhecido como green card, e "migratório" não
+era reconhecido como imigração, o que deixava cinco tópicos do catálogo fora do
+sinal de imigração.
+
+**Lição.** Inferência calibrada para um tipo de fonte não se transfere para outro
+tipo de fonte só porque o campo tem o mesmo nome. Quando o significado do campo
+muda, quem sabe disso precisa declarar.
+
+### Nome de arquivo fixo mais upsert: o carrossel sobrescreveria a si mesmo
+
+**Sintoma.** Nenhum, e é por isso que está aqui. Foi encontrado antes de rodar.
+
+**Causa.** `congelarArtefato` grava `social-v2.png` num caminho que já é único
+por post, e `subirPngParaStorage` usa `upsert: true`. Congelar N slides num laço
+sobre essa função faria os seis slides do mesmo post gravarem no MESMO objeto: o
+último venceria, os seis registros do manifesto apontariam para ele, e cinco dos
+seis hashes divergiriam na publicação. O post não sairia errado, simplesmente
+nunca sairia, e o motivo apareceria como `SOCIAL_ARTIFACT_HASH_MISMATCH` sem nada
+explicando por quê.
+
+**Corrigido.** `congelarCarrossel` põe o índice no nome (`social-v2-01.png`), e o
+teste de artefato confere que N slides produzem N hashes distintos.
+
+**Lição.** Caminho determinístico com upsert é uma decisão que assume UM arquivo
+por chave. Quando a quantidade por chave deixa de ser um, a chave precisa mudar
+junto, e reaproveitar a função de um item num laço é exatamente onde isso passa.
+
+### PENDENTE: PROPORCAO_MINIMA e PROPORCAO_MAXIMA estão mortas e erradas
+
+**O que.** `artefato.ts` declara `PROPORCAO_MINIMA = 0.8` e
+`PROPORCAO_MAXIMA = 1.91` com o comentário "proporções que a Meta aceita no
+feed", e **nenhum código as usa**. `conferirArte` só confere se largura e altura
+são maiores que zero.
+
+**Por que não foram ligadas.** O canvas do projeto é 1080x1440, ou seja 0.75, que
+é MENOR que o mínimo declarado. Ligar a verificação recusaria todas as peças,
+inclusive as que já publicaram com sucesso. O número está desatualizado: o
+Instagram passou a aceitar 3:4 no feed.
+
+**O que fazer.** Ou corrigir o mínimo para 0.75 e então ligar a verificação, ou
+apagar as duas constantes. Deixá-las declaradas e não usadas é o mesmo padrão do
+incidente de `escolherUrlPublicavel`: dá a impressão de que o caso está coberto.
+
+### PENDENTE: comporFeedDoDia tem teste e não tem chamador
+
+**O que.** `evergreen/compositor.ts` exporta `comporFeedDoDia`, com quatro
+`it()` cobrindo prioridade da notícia e teto do dia. O único chamador é o próprio
+teste: em produção, a composição News + Evergreen acontece em
+`pipeline-v2.ts:205`, montando `[...noticia, ...extras]` direto.
+
+**Por que importa.** É o padrão registrado no incidente do Google News: função de
+guarda escrita e não chamada é pior que função ausente, porque o teste prova uma
+coisa que não acontece. Se um dia a prioridade da notícia quebrar no caminho
+real, esses quatro testes continuarão verdes.
+
+**O que fazer.** Ou `pipeline-v2` passa a chamar `comporFeedDoDia`, ou os testes
+migram para o caminho real e a função sai.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta
