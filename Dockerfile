@@ -1,8 +1,17 @@
 # Aplicação web: site, painel e a redação diária.
 #
-# Não inclui Chromium de propósito. A renderização dos slides roda no worker,
-# em imagem própria — manter os dois separados evita carregar ~400 MB de
-# navegador num contêiner que nunca vai usá-lo.
+# Inclui Chromium, e a razão mudou de lado. Antes a renderização dos slides
+# acontecia só no worker, e carregar ~400 MB de navegador aqui seria peso morto.
+#
+# Depois que o artefato do social passou a ser CONGELADO no momento da
+# aprovação — para o que vai ao ar ser exatamente o que passou pelo Social
+# Guard, e não uma nova renderização feita horas depois —, quem desenha a peça é
+# a redação, que roda neste contêiner. O worker deixou de desenhar: ele baixa o
+# arquivo aprovado e confere o SHA-256.
+#
+# O motivo original de não ter Chromium aqui ("a hospedagem compartilhada não
+# permite") também não vale mais: web e worker são dois serviços Docker na mesma
+# VPS.
 
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
@@ -29,12 +38,31 @@ ENV PORT=3000
 # Traefik incapaz de rotear pra ele por fora (502).
 ENV HOSTNAME=0.0.0.0
 
+# O navegador fica fora do HOME do usuário da aplicação, num caminho fixo e
+# legível por todos: a instalação acontece como root, e o processo roda como
+# `nextjs`. Sem isso o Chromium iria para /root/.cache e o app não o acharia.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+# A versão vem fixada e igual à do package-lock. Divergência entre a biblioteca
+# e o binário do navegador é o tipo de falha que só aparece em produção, no
+# primeiro render.
+# --with-deps traz as bibliotecas de sistema que o Chromium exige.
+RUN npx -y playwright@1.62.1 install --with-deps chromium \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs nextjs
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# `playwright-core` entra explicitamente, e não pela análise de dependências do
+# Next: ele é carregado por `await import("playwright-core")` dentro do módulo
+# de arte, e um import dinâmico que o tracer não enxergue vira MODULE_NOT_FOUND
+# na primeira peça a ser congelada — em produção, sem aviso no build. Depois do
+# standalone, para não haver dúvida sobre qual cópia sobrevive.
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/playwright-core ./node_modules/playwright-core
 
 USER nextjs
 EXPOSE 3000
