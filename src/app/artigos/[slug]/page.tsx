@@ -6,6 +6,19 @@ import { SubstackArticleRenderer } from "@/components/SubstackArticleRenderer";
 import { articles as staticArticles } from "@/lib/editorial";
 import { getArticleBySlug } from "@/lib/server/articles-service";
 
+/**
+ * A listagem sai do banco, e o banco muda depois do build.
+ *
+ * Sem isto a página é pré-renderizada uma vez e servida com
+ * `s-maxage=31536000`: um ano. A edição de 09/09 foi criada às 09:08, o build
+ * era das 03:01, e o artigo existia, abria pela URL direta e simplesmente não
+ * aparecia na lista — o que de fora é indistinguível de não ter sido escrito.
+ *
+ * Cinco minutos é folga suficiente para uma edição diária e ainda mantém a
+ * página em cache na quase totalidade dos acessos.
+ */
+export const revalidate = 300;
+
 export function generateStaticParams() {
   return staticArticles.map((article) => ({ slug: article.slug }));
 }
