@@ -1,7 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DEFAULT_PROJECT_ID, requireActiveProject } from "../lib/server/projects";
-import { decisorDeFormato, prepararEvergreen, pacotesDoEvergreen } from "../lib/server/social/evergreen/ciclo";
+import {
+  decisorDeFormato,
+  prepararEvergreen,
+  pacotesDoEvergreen,
+  verificadorDeClaims,
+} from "../lib/server/social/evergreen/ciclo";
 import { entradasDoCarrossel } from "../lib/server/social/carrossel/arte";
 import { rodarCicloSocial } from "../lib/server/social/pipeline-v2";
 import { carregarConfigSocial } from "../lib/server/social/selecao";
@@ -120,6 +125,14 @@ async function main() {
       candidatas: evergreen.candidatas,
       extras: evergreen.extras,
       decidirCarrossel: decisorDeFormato(evergreen.lastros),
+      /*
+       * O verificador semântico roda de verdade no preview.
+       *
+       * É o que faz o preview valer como preview: se a auditoria não rodasse
+       * aqui, o relatório mostraria posts aprovados por um caminho que a
+       * produção não usaria.
+       */
+      verificarClaims: verificadorDeClaims({ env: process.env, fetcher: fetch }),
       config: configSocial,
       env: { ...process.env, SOCIAL_PIPELINE_V2: "dry_run" },
       fetcher: fetch,
@@ -128,15 +141,20 @@ async function main() {
 
     for (const l of ciclo.linhasDeLog) console.log(l);
 
-    escrever(`| # | hora | origem | formato | slides | tópico | ângulo | content_type | Guard | reparos | CTA |`);
-    escrever(`| --- | --- | --- | --- | ---: | --- | --- | --- | --- | ---: | --- |`);
+    escrever(
+      `| # | hora | origem | formato | slides | tópico | ângulo | content_type | claims | grounding | Guard | reparos | CTA |`,
+    );
+    escrever(`| --- | --- | --- | --- | ---: | --- | --- | --- | ---: | --- | --- | ---: | --- |`);
     for (const p of ciclo.previews) {
       const [, topico, angulo] = p.post.pauta.storyId.split(":");
       const c = p.post.carrossel;
+      const claims = c?.claims ?? [];
+      const falhas = claims.filter((cl) => !cl.sustentada).length;
       escrever(
         `| ${p.posicao} | ${p.vaga?.horaLocal ?? "?"} | ${p.origem.originChannel} | ` +
           `${c ? `**carousel** (${c.estrutura})` : "static"} | ${c ? c.papeis.length : 1} | ` +
-          `${topico} | ${angulo} | ${p.post.pauta.grupo.primary.category} | ` +
+          `${topico} | ${angulo} | ${p.post.pauta.grupo.primary.category} | ${claims.length} | ` +
+          `${claims.length === 0 ? "sem claim" : falhas === 0 ? "**PASS**" : `**${falhas} FAIL**`} | ` +
           `${p.post.veredicto.finalDecision} | ` +
           `${p.post.reparosAplicados.length} | ${p.post.copy.cta ? "sim" : "**SEM_CTA**"} |`,
       );
@@ -164,20 +182,49 @@ async function main() {
       }
 
       escrever(`- formato: **carousel** (${c.estrutura}), ${c.papeis.length} slides`);
+      if (c.removidos.length > 0) {
+        escrever(`- slides removidos por claim sem lastro: ${c.removidos.join(", ")}`);
+      }
       escrever();
+
+      const pacote = pacotesDoEvergreen(evergreen.lastros).get(p.post.pauta.storyId);
+      if (pacote) {
+        escrever(
+          `Pacote factual: ${pacote.verified_facts.length} fato(s), ` +
+            `${pacote.numbers.length} número(s), ${pacote.gaps.length} lacuna(s).`,
+        );
+        escrever();
+      }
+
       escrever(`Os slides, na ordem de leitura:`);
       escrever();
-      escrever(`| # | papel | título | conteúdo |`);
-      escrever(`| ---: | --- | --- | --- |`);
+      escrever(`| # | papel | grounding | claims | título | conteúdo |`);
+      escrever(`| ---: | --- | --- | --- | --- | --- |`);
 
       const doModelo = c.papeis.filter((x) => !x.escritoEmCodigo);
+      const claimsDoSlide = (posicao: number) => c.claims.filter((cl) => cl.posicao === posicao);
+      const grounding = (posicao: number) => {
+        const claims = claimsDoSlide(posicao);
+        if (claims.length === 0) return "sem claim";
+        return claims.every((cl) => cl.sustentada) ? "**PASS**" : "**FAIL**";
+      };
+      const listarClaims = (posicao: number) =>
+        claimsDoSlide(posicao)
+          .map((cl) => `${cl.sustentada ? "ok" : "FALHOU"} [${cl.tipo}] "${cl.trecho.slice(0, 60)}"`)
+          .join(" / ")
+          .replace(/\|/g, "\\|") || "-";
+
       c.papeis.forEach((papel, i) => {
         if (papel.tipo === "cover") {
-          escrever(`| ${i + 1} | capa (código) | ${p.post.copy.headline} | a manchete é a arte |`);
+          escrever(
+            `| ${i + 1} | capa (código) | ancorada na manchete | - | ${p.post.copy.headline} | a manchete é a arte |`,
+          );
           return;
         }
         if (papel.tipo === "cta") {
-          escrever(`| ${i + 1} | fechamento (código) | ${p.post.copy.destaque || "-"} | ${p.post.copy.cta} |`);
+          escrever(
+            `| ${i + 1} | fechamento (código) | texto já ancorado | - | ${p.post.copy.destaque || "-"} | ${p.post.copy.cta} |`,
+          );
           return;
         }
         const texto = c.slides[doModelo.indexOf(papel)];
@@ -191,7 +238,10 @@ async function main() {
           .filter(Boolean)
           .join(" / ")
           .replace(/\|/g, "\\|");
-        escrever(`| ${i + 1} | ${papel.papel} | ${texto.titulo.replace(/\|/g, "\\|")} | ${conteudo} |`);
+        escrever(
+          `| ${i + 1} | ${papel.papel} | ${grounding(i + 1)} | ${listarClaims(i + 1)} | ` +
+            `${texto.titulo.replace(/\|/g, "\\|")} | ${conteudo} |`,
+        );
       });
       escrever();
     }

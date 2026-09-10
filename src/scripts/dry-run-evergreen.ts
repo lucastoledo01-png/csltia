@@ -2,7 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { DEFAULT_PROJECT_ID, requireActiveProject } from "../lib/server/projects";
 import { CATALOGO_EVERGREEN } from "../lib/server/social/evergreen/catalogo";
-import { prepararEvergreen } from "../lib/server/social/evergreen/ciclo";
+import {
+  decisorDeFormato,
+  pacotesDoEvergreen,
+  prepararEvergreen,
+  verificadorDeClaims,
+} from "../lib/server/social/evergreen/ciclo";
+import { rodarCicloSocial } from "../lib/server/social/pipeline-v2";
 import { calcularVagas } from "../lib/server/social/evergreen/compositor";
 import { identidadeDoItem, todosOsItens } from "../lib/server/social/evergreen/tipos";
 import type { UsoAnterior } from "../lib/server/social/evergreen/tipos";
@@ -82,6 +88,19 @@ async function main() {
   const argv = process.argv.slice(2);
   const saida = argv.find((a) => a.startsWith("--saida="))?.split("=")[1] ?? "/tmp/evergreen-7-dias.md";
   const comLastro = argv.includes("--com-lastro");
+  /*
+   * Gerar a copy de verdade é o que responde a pergunta do item 14: a segurança
+   * nova derrubou capacidade? Só quem gera sabe quantos posts o Guard e a
+   * auditoria semântica DERRUBAM, quantos reparos deram certo e quantos slides
+   * saíram por claim sem lastro.
+   *
+   * Sem arte: o congelamento só existe no ramo enforce, e desenhar 28 posts
+   * levaria muito mais tempo do que a medição pede.
+   */
+  const comGeracao = argv.includes("--com-geracao");
+  if (comGeracao && !comLastro) {
+    throw new Error("--com-geracao exige --com-lastro: sem pacote factual não há o que verificar.");
+  }
 
   const project = await requireActiveProject(DEFAULT_PROJECT_ID);
   const configSocial = carregarConfigSocial(process.env);
@@ -122,6 +141,20 @@ async function main() {
     familias: Record<string, number>;
     itens: string[];
     formatos: Array<{ storyId: string; formato: string; slides: number; estrutura: string; fatos: number }>;
+    /** Selecionados que a fonte oficial não sustentou. */
+    semLastro: number;
+    geracao: {
+      gerados: number;
+      carrossel: number;
+      estatico: number;
+      slides: number[];
+      descartados: Array<{ storyId: string; etapa: string; motivo: string }>;
+      reparos: number;
+      reparosQueSalvaram: number;
+      slidesRemovidos: string[];
+      claims: number;
+      claimsReprovadas: number;
+    } | null;
   }> = [];
 
   for (const { dia, noticias, programas } of NOTICIAS_MEDIDAS) {
@@ -195,6 +228,64 @@ async function main() {
         };
       });
 
+    /*
+     * A geração roda com as MESMAS opções da produção, menos a arte.
+     *
+     * O decisor de formato e o verificador de claims vêm dos mesmos
+     * construtores que `ciclo-do-dia` usa, e não de dublês: medir com dublê
+     * responderia sobre o dublê.
+     */
+    let geracao: (typeof porDia)[number]["geracao"] = null;
+
+    if (comGeracao && r.extras.length > 0) {
+      const ciclo = await rodarCicloSocial([], {
+        projectId: project.id,
+        slugDoProjeto: project.slug,
+        editionDate: dia,
+        marca: {
+          nome: project.brand.displayName || project.name,
+          nicho: project.niche,
+          extra: project.editorialPromptExtra ?? "",
+          keyword: "",
+        },
+        historico: [],
+        pacotes: pacotesDoEvergreen(r.lastros),
+        candidatas: r.candidatas,
+        extras: r.extras,
+        decidirCarrossel: decisorDeFormato(r.lastros),
+        verificarClaims: verificadorDeClaims({ env: process.env, fetcher: fetch }),
+        config: configSocial,
+        env: { ...process.env, SOCIAL_PIPELINE_V2: "dry_run" },
+        fetcher: fetch,
+        agoraMs: Date.parse(`${dia}T03:00:00Z`),
+      });
+
+      const carrosseis = ciclo.previews.filter((p) => p.post.carrossel);
+      const claims = carrosseis.flatMap((p) => p.post.carrossel!.claims);
+
+      geracao = {
+        gerados: ciclo.previews.length,
+        carrossel: carrosseis.length,
+        estatico: ciclo.previews.length - carrosseis.length,
+        slides: carrosseis.map((p) => p.post.carrossel!.papeis.length),
+        descartados: ciclo.descartados.map((d) => ({
+          storyId: d.storyId,
+          etapa: d.etapa,
+          motivo: d.motivo,
+        })),
+        reparos: ciclo.previews.reduce((a, p) => a + p.post.reparosAplicados.length, 0),
+        reparosQueSalvaram: ciclo.previews.filter((p) => p.post.reparosAplicados.length > 0).length,
+        slidesRemovidos: carrosseis.flatMap((p) => p.post.carrossel!.removidos),
+        claims: claims.length,
+        claimsReprovadas: claims.filter((c) => !c.sustentada).length,
+      };
+
+      console.log(
+        `[${dia}] gerados ${geracao.gerados}, descartados ${geracao.descartados.length}, ` +
+          `reparos ${geracao.reparos}, claims ${geracao.claims} (${geracao.claimsReprovadas} reprovadas)`,
+      );
+    }
+
     porDia.push({
       dia,
       noticias,
@@ -205,6 +296,8 @@ async function main() {
       familias,
       itens: escolhidos,
       formatos,
+      semLastro: r.diagnostico.semLastro.length,
+      geracao,
     });
   }
 
@@ -344,6 +437,115 @@ async function main() {
     );
     escrever(`Maior sequência do mesmo formato dentro da cauda de um dia: **${maiorSequencia}**.`);
     escrever();
+  }
+
+  /*
+   * O que a segurança nova custou em capacidade.
+   *
+   * É a pergunta do item 14, e ela só tem resposta com geração de verdade: sem
+   * gerar, não se sabe quantos posts o Guard e a auditoria semântica derrubam.
+   */
+  const comGer = porDia.filter((d) => d.geracao).map((d) => ({ dia: d.dia, g: d.geracao! }));
+
+  if (comGer.length > 0) {
+    escrever(`## Capacidade depois da verificação`);
+    escrever();
+
+    const soma = (f: (g: (typeof comGer)[number]["g"]) => number) => comGer.reduce((a, x) => a + f(x.g), 0);
+    const selecionadosNaSemana = porDia.reduce((a, d) => a + d.escolhidos, 0);
+    const gerados = soma((g) => g.gerados);
+    const noticiasNaSemana = porDia.reduce((a, d) => a + d.noticias, 0);
+    const slides = comGer.flatMap((x) => x.g.slides);
+
+    const porEtapa: Record<string, number> = {};
+    const porMotivo: Record<string, number> = {};
+    for (const x of comGer) {
+      for (const d of x.g.descartados) {
+        porEtapa[d.etapa] = (porEtapa[d.etapa] ?? 0) + 1;
+        const chave =
+          /CLAIM_UNSUPPORTED/.test(d.motivo)
+            ? "claim sem lastro"
+            : /CLAIM_NOT_AUDITED/.test(d.motivo)
+              ? "auditoria não rodou"
+              : /SLIDE_GROUNDING/.test(d.motivo)
+                ? "número sem lastro no slide"
+                : /SLIDE_SHAPE|SLIDE_DENSITY/.test(d.motivo)
+                  ? "forma do slide"
+                  : /LEGAL_JARGON|LOW_READER|HEADLINE_TOO_LONG/.test(d.motivo)
+                    ? "linguagem do leitor"
+                    : /HEADLINE|GROUNDING/.test(d.motivo)
+                      ? "ancoragem de manchete ou legenda"
+                      : "outro";
+        porMotivo[chave] = (porMotivo[chave] ?? 0) + 1;
+      }
+    }
+
+    const cortadosPorCooldown = porDia.reduce(
+      (a, d) => a + (d.cortados.COOLDOWN_DO_PAR ?? 0) + (d.cortados.TOPICO_NA_JANELA ?? 0),
+      0,
+    );
+    const semLastroNaSemana = porDia.reduce((a, d) => a + (d.semLastro ?? 0), 0);
+
+    escrever(`| métrica | valor |`);
+    escrever(`| --- | ---: |`);
+    escrever(`| News static | ${noticiasNaSemana} |`);
+    escrever(`| Evergreen static | ${soma((g) => g.estatico)} |`);
+    escrever(`| Evergreen carousel | **${soma((g) => g.carrossel)}** |`);
+    escrever(
+      `| % do Evergreen em carrossel | **${gerados > 0 ? ((soma((g) => g.carrossel) / gerados) * 100).toFixed(0) : 0}%** |`,
+    );
+    escrever(
+      `| média de slides por carrossel | ${slides.length > 0 ? (slides.reduce((a, b) => a + b, 0) / slides.length).toFixed(1) : "0"} |`,
+    );
+    escrever(`| posts por dia (média) | **${((gerados + noticiasNaSemana) / porDia.length).toFixed(1)}** |`);
+    escrever(`| mediana por dia | ${mediana(comGer.map((x) => x.g.gerados + 0))} |`);
+    escrever(`| dias em zero | ${comGer.filter((x) => x.g.gerados === 0).length} de ${porDia.length} |`);
+    escrever(`| total na semana | ${gerados + noticiasNaSemana} |`);
+    escrever();
+
+    escrever(`### O que a verificação custou`);
+    escrever();
+    escrever(`| etapa | posts |`);
+    escrever(`| --- | ---: |`);
+    escrever(`| selecionados pelas réguas de repetição | ${selecionadosNaSemana} |`);
+    escrever(`| descartados por falta de lastro na fonte | ${semLastroNaSemana} |`);
+    escrever(`| descartados na geração e na verificação | **${soma((g) => g.descartados.length)}** |`);
+    escrever(`| publicáveis | **${gerados}** |`);
+    escrever();
+
+    if (Object.keys(porMotivo).length > 0) {
+      escrever(`| motivo do descarte | posts |`);
+      escrever(`| --- | ---: |`);
+      for (const [m, n] of Object.entries(porMotivo).sort((a, b) => b[1] - a[1])) {
+        escrever(`| ${m} | ${n} |`);
+      }
+      escrever();
+    }
+
+    escrever(`| régua de repetição | itens cortados na semana |`);
+    escrever(`| --- | ---: |`);
+    escrever(`| cooldown do par e janela do tópico | ${cortadosPorCooldown} |`);
+    escrever(
+      `| teto do dia e falta de vaga | ${porDia.reduce((a, d) => a + (d.cortados.TETO_DO_DIA ?? 0) + (d.cortados.SEM_VAGA ?? 0), 0)} |`,
+    );
+    escrever();
+
+    escrever(`### Reparo e remoção de slide`);
+    escrever();
+    escrever(`| métrica | valor |`);
+    escrever(`| --- | ---: |`);
+    escrever(`| reparos aplicados | ${soma((g) => g.reparos)} |`);
+    escrever(`| posts que só passaram DEPOIS de reparo | **${soma((g) => g.reparosQueSalvaram)}** |`);
+    escrever(`| slides removidos por claim sem lastro | ${soma((g) => g.slidesRemovidos.length)} |`);
+    escrever(`| claims semânticas detectadas | ${soma((g) => g.claims)} |`);
+    escrever(`| claims reprovadas pela auditoria | **${soma((g) => g.claimsReprovadas)}** |`);
+    escrever();
+
+    const removidos = comGer.flatMap((x) => x.g.slidesRemovidos);
+    if (removidos.length > 0) {
+      escrever(`Papéis removidos: ${[...new Set(removidos)].join(", ")}.`);
+      escrever();
+    }
   }
 
   escrever(`## O que sobra no catálogo`);
