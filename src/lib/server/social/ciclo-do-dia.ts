@@ -21,6 +21,7 @@ import {
   verificadorDeClaims,
 } from "./evergreen/ciclo";
 import { modoDoEvergreen } from "./evergreen/modo";
+import type { UsoAnterior } from "./evergreen/tipos";
 import type { DiagnosticoDoEvergreen, OpcoesDoEvergreen, ResultadoDoEvergreen } from "./evergreen/ciclo";
 import type { MarcaSocial } from "./copy";
 import type { OpcoesDoCiclo, ResultadoDoCicloSocial } from "./pipeline-v2";
@@ -130,8 +131,19 @@ export type OpcoesDoSocialDoDia = {
    * Este campo só existe para o teste injetar lastro falso e para o preview
    * forçar o modo.
    */
-  evergreen?: Omit<OpcoesDoEvergreen, "noticiasNoDia" | "maximoPorDia" | "agoraMs" | "projectId"> & {
+  evergreen?: Omit<
+    OpcoesDoEvergreen,
+    "noticiasNoDia" | "maximoPorDia" | "agoraMs" | "projectId" | "historico"
+  > & {
     agoraMs?: number;
+    /**
+     * O histórico de uso, quando quem chama quiser ditá-lo.
+     *
+     * Opcional porque o ciclo o lê do banco: era obrigatório e ninguém passava,
+     * o que fazia o cooldown operar sobre lista vazia. Passar aqui é para teste
+     * e para simulação de sete dias.
+     */
+    historico?: UsoAnterior[];
   };
 };
 
