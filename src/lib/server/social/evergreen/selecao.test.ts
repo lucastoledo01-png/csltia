@@ -192,15 +192,39 @@ describe("diversidade do dia", () => {
     }
   });
 
-  it("o programa que a NOTÍCIA já trouxe conta no teto do dia", () => {
-    // O leitor não sabe qual post nasceu de notícia. O feed é um só.
+  it("o assunto que a NOTÍCIA trouxe hoje é cedido pelo evergreen", () => {
+    /*
+     * Este teste afirmava algo mais fraco: que o programa da notícia CONTAVA no
+     * teto. Com teto 2, a notícia sobre EB-2 e um explicador de EB-2 caberiam no
+     * mesmo dia, e para quem rola o feed isso é "USCIS atualiza regra do EB-2"
+     * seguido de "Entenda o EB-2".
+     *
+     * A régua agora exclui: a notícia tem prazo, o explicador estará igual na
+     * semana que vem, e o evergreen cede a vaga para OUTRO tópico, o que é
+     * diferente de perder a vaga.
+     */
     const r = selecionarEvergreen(CATALOGO, semHistorico, 10, {
       agoraMs: HOJE,
-      ocupacaoDoDia: { programas: ["EB-2", "EB-2"] },
+      ocupacaoDoDia: { programas: ["EB-2"] },
     });
 
     expect(r.escolhidos.map((e) => e.topico.programa)).not.toContain("EB-2");
-    expect(r.cortados.some((c) => c.motivo === "PROGRAMA_JA_NO_DIA")).toBe(true);
+    expect(r.cortados.some((c) => c.motivo === "ASSUNTO_DA_NOTICIA_HOJE")).toBe(true);
+
+    /* E cedeu a vaga: outros tópicos entraram no lugar. */
+    expect(r.escolhidos.length).toBeGreaterThan(0);
+  });
+
+  it("uma notícia só já basta para o evergreen ceder aquele assunto", () => {
+    /*
+     * Antes eram necessárias duas notícias do mesmo programa para encher o
+     * teto. Uma basta, porque a régua não é de quantidade: é de repetição.
+     */
+    const r = selecionarEvergreen(CATALOGO, semHistorico, 10, {
+      agoraMs: HOJE,
+      ocupacaoDoDia: { programas: ["EB-2"] },
+    });
+    expect(r.cortados.some((c) => c.motivo === "ASSUNTO_DA_NOTICIA_HOJE")).toBe(true);
   });
 });
 

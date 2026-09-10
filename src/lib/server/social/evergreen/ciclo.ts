@@ -16,6 +16,7 @@ import type { TopicoEvergreen, UsoAnterior } from "./tipos";
 import { determinarFormatoEvergreen, type DecisaoDeFormato } from "../carrossel/formato";
 import { auditarCarrossel, auditarEstatico, type Auditor, type AuditoriaDoCarrossel } from "../carrossel/semantica";
 import type { EntradaDaVerificacao } from "../gerador";
+import { conferirCobertura } from "./cobertura";
 
 /**
  * O que o evergreen entrega ao ciclo social do dia.
@@ -42,6 +43,15 @@ export type DiagnosticoDoEvergreen = {
   cortadosPorMotivo: Record<string, number>;
   /** Selecionados que a fonte oficial não sustentou. */
   semLastro: Array<{ item: string; motivo: string }>;
+  /**
+   * Selecionados cuja fonte respondeu e NÃO fala do assunto do tópico.
+   *
+   * Separado de `semLastro` de propósito: são problemas diferentes e pedem
+   * ações diferentes. Sem lastro é fonte que não respondeu, e a ação é trocar a
+   * URL. Sem cobertura é fonte que respondeu sobre outra coisa, e a ação é
+   * revisar o tópico no catálogo.
+   */
+  semCobertura: Array<{ item: string; motivo: string }>;
   custoUsd: number;
 };
 
@@ -56,6 +66,7 @@ export function diagnosticoEvergreenAusente(mode: ModoEvergreen = "off"): Diagno
     cortados: 0,
     cortadosPorMotivo: {},
     semLastro: [],
+    semCobertura: [],
     custoUsd: 0,
   };
 }
@@ -181,6 +192,24 @@ export async function prepararEvergreen(opcoes: OpcoesDoEvergreen): Promise<Resu
         item: lastro.storyId,
         motivo: lastro.motivo ?? "sem pacote factual",
       });
+      continue;
+    }
+
+    /*
+     * A fonte respondeu, mas fala do assunto que o tópico prometeu?
+     *
+     * É a última pergunta antes de escrever qualquer coisa, e ela é diferente
+     * de "tem pacote". O tópico de B-1/B-2 tinha 37 fatos e nenhum sobre B-1 ou
+     * B-2: o post que saiu foi "A fonte não define B-1 e B-2", que é
+     * diagnóstico interno vestido de conteúdo.
+     *
+     * Descartar aqui é mais barato que descartar depois: não gasta copy, não
+     * gasta auditoria, não gasta arte.
+     */
+    const cobertura = conferirCobertura(lastro.item, lastro.pacote);
+
+    if (!cobertura.ok) {
+      diagnostico.semCobertura.push({ item: lastro.storyId, motivo: cobertura.motivo });
       continue;
     }
 

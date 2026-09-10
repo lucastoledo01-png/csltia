@@ -20,6 +20,7 @@ import { congelarArtefato, congelarCarrossel } from "./artefato";
 import type { EntradaDoCarrossel, ResultadoDoCarrossel } from "./artefato";
 import { entradasDoCarrossel } from "./carrossel/arte";
 import { alternarFormatos } from "./carrossel/formato";
+import { comporFeedDoDia } from "./evergreen/compositor";
 import type { DecisaoDeFormato } from "./carrossel/formato";
 import type { EntradaDoCongelamento, ResultadoDoCongelamento } from "./artefato";
 import { impressaoDoAcontecimento } from "../editorial/fingerprint";
@@ -223,11 +224,40 @@ export async function rodarCicloSocial(
    * agenda distribui os horários do dia numa passada só sobre esta lista, o que
    * é o único jeito de os dois canais não receberem o mesmo horário.
    */
-  const paraGerar = [...composicao.escolhidas.map((e) => e.pauta), ...(opcoes.extras ?? [])];
+  /*
+   * O COMPOSITOR ÚNICO. Aqui, e em nenhum outro lugar, os dois canais se juntam.
+   *
+   * Isto era uma concatenação solta, e `comporFeedDoDia` existia ao lado com
+   * teste próprio e nenhum chamador. Duas implementações da mesma aritmética,
+   * uma testada e outra em produção, é exatamente o padrão do incidente do
+   * `escolherUrlPublicavel`: os testes provavam uma coisa que não acontecia.
+   *
+   * O que o compositor garante, e a concatenação não garantia:
+   *
+   *   - a notícia entra primeiro e nunca perde vaga para conteúdo permanente;
+   *   - o evergreen ocupa SÓ o que sobrou do teto global;
+   *   - o total nunca passa do teto, mesmo que os dois lados cheguem cheios.
+   *
+   * O teto do evergreen já foi aplicado antes, em `prepararEvergreen`, e por um
+   * motivo diferente: lá ele evita BUSCAR fonte oficial para item que não teria
+   * vaga. Aqui ele decide o FEED. Os dois usam `calcularVagas`, então não têm
+   * como divergir na conta.
+   */
+  const feed = comporFeedDoDia(
+    composicao.escolhidas.map((e) => e.pauta),
+    opcoes.extras ?? [],
+    config.maximoPorDia,
+  );
+
+  const paraGerar = [...feed.noticias, ...feed.evergreen];
 
   if (opcoes.extras?.length) {
     linhas.push(
-      `[SOCIAL V2] ${composicao.escolhidas.length} de notícia + ${opcoes.extras.length} de conteúdo permanente`,
+      `[SOCIAL V2] compositor: ${feed.noticias.length} de notícia + ${feed.evergreen.length} de conteúdo ` +
+        `permanente = ${feed.total} de ${feed.vagas.maximo} vaga(s)` +
+        (feed.evergreen.length < opcoes.extras.length
+          ? `; ${opcoes.extras.length - feed.evergreen.length} permanente(s) cortado(s) pelo teto global`
+          : ""),
     );
   }
 

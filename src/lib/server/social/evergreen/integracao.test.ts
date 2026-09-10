@@ -20,9 +20,22 @@ import type { PacoteFactual } from "../../editorial/pacote-factual";
 const HOJE = Date.parse("2026-09-09T12:00:00Z");
 const diasAtras = (n: number) => new Date(HOJE - n * 24 * 60 * 60 * 1000).toISOString();
 
-function pacote(): PacoteFactual {
+/**
+ * Um pacote que COBRE o tópico que o recebeu.
+ *
+ * Ele era fixo, com um fato sobre EB-2 NIW usado para qualquer item. Com a régua
+ * de cobertura, isso passou a descartar tudo, e com razão: um pacote que não
+ * fala do assunto do tópico não deve virar post. Estes testes são sobre seleção,
+ * cooldown e diversidade, então o pacote precisa representar a fonte que
+ * FUNCIONOU, e para isso ele cita o assunto do próprio item.
+ */
+function pacote(topico?: TopicoEvergreen): PacoteFactual {
+  const assunto = topico?.nome ?? "EB-2 NIW";
   return {
-    verified_facts: ["O EB-2 NIW dispensa oferta de trabalho quando o interesse nacional é demonstrado."],
+    verified_facts: [
+      `${assunto} tem requisitos descritos no manual de políticas da USCIS.`,
+      `A análise de ${assunto} considera a documentação enviada com o pedido.`,
+    ],
     people: [],
     organizations: ["USCIS"],
     places: ["Estados Unidos"],
@@ -30,7 +43,7 @@ function pacote(): PacoteFactual {
     numbers: [],
     gaps: ["A página não informa prazo de análise."],
     source_urls: ["https://www.uscis.gov/x"],
-    texto_de_origem: "Texto da página oficial do USCIS sobre a segunda preferência baseada em emprego.",
+    texto_de_origem: `Texto da página oficial do USCIS sobre ${assunto}.`,
   } as PacoteFactual;
 }
 
@@ -43,7 +56,7 @@ function montarLastroFake(quaisFalham: string[] = []) {
       return {
         item: item as never,
         storyId: id,
-        pacote: falha ? null : pacote(),
+        pacote: falha ? null : pacote(item.topico),
         fontes: [{ url: item.topico.fontesCanonicas[0], ok: !falha, caracteres: falha ? 0 : 5000 }],
         ...(falha ? { motivo: "a página oficial não respondeu" } : {}),
       };
@@ -193,18 +206,22 @@ describe("diversidade", () => {
     }
   });
 
-  it("o programa que a notícia trouxe conta no teto", async () => {
+  it("o assunto da notícia de hoje é cedido pelo evergreen", async () => {
+    /*
+     * Pelo entrypoint do ciclo, e não pelo seletor: o que se confere é que a
+     * notícia do dia realmente chega até a régua. Uma notícia só basta.
+     */
     const comEb2 = CATALOGO_EVERGREEN.filter((t) => t.programa?.includes("EB-2"));
     const r = await prepararEvergreen({
       ...base,
       noticiasNoDia: 1,
       modoForcado: "dry_run",
       catalogo: comEb2,
-      programasDaNoticia: comEb2[0]?.programa ? [comEb2[0].programa, comEb2[0].programa] : [],
+      programasDaNoticia: comEb2[0]?.programa ? [comEb2[0].programa] : [],
     });
 
     expect(r.extras).toHaveLength(0);
-    expect(r.diagnostico.cortadosPorMotivo.PROGRAMA_JA_NO_DIA ?? 0).toBeGreaterThan(0);
+    expect(r.diagnostico.cortadosPorMotivo.ASSUNTO_DA_NOTICIA_HOJE ?? 0).toBeGreaterThan(0);
   });
 
   it("uma família não domina o feed do dia", async () => {

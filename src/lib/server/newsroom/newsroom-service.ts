@@ -32,7 +32,6 @@ import { avaliarPautas, registroDaPauta } from "../editorial/guarda";
 import { formatarNumerosDaEdicao } from "./numeros-editoriais";
 import { rodarSocialDoDia, diagnosticoSocialAusente } from "../social/ciclo-do-dia";
 import type { DiagnosticoSocialDoDia } from "../social/ciclo-do-dia";
-import { modoDoPipelineSocial } from "../social/modo";
 import { descreverModo, modoDaGuarda } from "../editorial/modo";
 import { paraRenderizacao, resolverImagens } from "../editorial/imagens";
 import { descreverModoVisual, diagnosticoVazio, modoDoResolvedorVisual } from "../visual/modo";
@@ -45,6 +44,7 @@ import { montarPacotesDasPautas } from "../editorial/pacote-factual";
 import type { PacoteFactual } from "../editorial/pacote-factual";
 import type { PautaAvaliada } from "../editorial/guarda";
 import type { RankedCandidate } from "./ranker";
+import { modoDoPipelineSocial } from "../social/modo";
 
 export type RunNewsroomOptions = {
   /** Projeto para o qual a edição é produzida. Sem valor, usa o projeto semente. */
@@ -1395,13 +1395,41 @@ export async function runNewsroom(
     }
   }
 
-  // Os posts do dia são agendados aqui, não gerados. A edição vira várias
-  // vagas (uma pauta por post, espalhadas ao longo do dia) e o worker de
-  // renderização processa cada uma no horário. A geração exige Chromium, que
-  // não roda na hospedagem que serve o site.
+  /*
+   * O agendador LEGADO, e por que ele agora tem um portão.
+   *
+   * Ele agenda uma vaga por pauta da NEWSLETTER e o worker gera o roteiro na
+   * hora de publicar. Isso funcionava quando era o único caminho. Com o Social
+   * V2 em `enforce`, os dois passam a criar linhas `scheduled` para o MESMO dia
+   * a partir do MESMO trabalho editorial, e o mesmo worker publica as duas.
+   *
+   * Foi o que aconteceu em 09/09: o V2 publicou "Regra permite residência para
+   * crianças nascidas nos EUA" às 11:00 e o legado publicou "Registro de
+   * residência para crianças nascidas nos EUA" às 12:30. Mesmo assunto, duas
+   * vezes, no mesmo perfil, no mesmo dia.
+   *
+   * O portão é a flag que JÁ existe, e é de propósito: `INSTAGRAM_AUTO_POST`
+   * governa a PUBLICAÇÃO dos dois ramos, lá no serviço que publica, então
+   * desligá-la mataria o V2 junto. `SOCIAL_PIPELINE_V2` governa a GERAÇÃO do
+   * V2, e é exatamente a pergunta certa: se o V2 está publicando o dia, o
+   * legado não tem o que agendar.
+   *
+   * Nada do legado é apagado: o código fica, o ramo do worker fica, e as linhas
+   * históricas ficam. O que para é a criação automática de vaga nova.
+   */
+  const modoSocialV2 = modoDoPipelineSocial(env);
+  const legadoCede = modoSocialV2 === "enforce";
+
   let scheduledPosts: ScheduledPostSlot[] = [];
 
-  if (!dryRun) {
+  if (legadoCede) {
+    console.log(
+      "[NEWSROOM INSTAGRAM] agendador legado NÃO rodou: SOCIAL_PIPELINE_V2=enforce, " +
+        "e o feed do dia é do Social V2. Nenhuma vaga legada foi criada.",
+    );
+  }
+
+  if (!dryRun && !legadoCede) {
     try {
       scheduledPosts = await scheduleEditionPosts({
         project,

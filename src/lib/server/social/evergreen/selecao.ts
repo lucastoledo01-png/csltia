@@ -91,6 +91,7 @@ export function carregarConfigDoEvergreen(
 export type MotivoDoCorte =
   | "TETO_DO_DIA"
   | "TOPICO_JA_NO_DIA"
+  | "ASSUNTO_DA_NOTICIA_HOJE"
   | "COOLDOWN_DO_PAR"
   | "TOPICO_NA_JANELA"
   | "PROGRAMA_JA_NO_DIA"
@@ -301,8 +302,26 @@ export function selecionarEvergreen(
    * não sabe qual dos dois nasceu de notícia.
    */
   const porPrograma: Record<string, number> = {};
+  /*
+   * Os programas da NOTÍCIA, contados e guardados à parte.
+   *
+   * Contados porque eles ocupam o teto de programa do dia, que já era o
+   * comportamento. Guardados à parte porque teto não é a régua certa para o
+   * caso que interessa: com teto 2, a notícia sobre EB-2 e um explicador de
+   * EB-2 caberiam no mesmo dia, e para quem rola o feed isso é
+   * "USCIS atualiza regra do EB-2" seguido de "Entenda o EB-2".
+   *
+   * A notícia vence sempre: ela tem prazo, e o explicador estará igual na
+   * semana que vem. O evergreen cede a vaga para outro tópico, que é diferente
+   * de perder a vaga.
+   */
+  const daNoticia = new Set<string>();
+
   for (const p of opcoes.ocupacaoDoDia?.programas ?? []) {
-    for (const base of programasDoTopico(p)) porPrograma[base] = (porPrograma[base] ?? 0) + 1;
+    for (const base of programasDoTopico(p)) {
+      porPrograma[base] = (porPrograma[base] ?? 0) + 1;
+      daNoticia.add(base);
+    }
   }
   const porFamilia: Record<string, number> = {};
   /*
@@ -367,6 +386,19 @@ export function selecionarEvergreen(
     }
 
     const programas = programasDoTopico(item.topico.programa);
+
+    const jaNaNoticia = programas.find((p) => daNoticia.has(p));
+    if (jaNaNoticia) {
+      cortados.push({
+        item,
+        motivo: "ASSUNTO_DA_NOTICIA_HOJE",
+        detalhe:
+          `${jaNaNoticia} é o assunto de uma notícia de hoje, e a notícia vence: ` +
+          `dois posts sobre o mesmo programa no mesmo dia é repetição para quem rola o feed`,
+      });
+      continue;
+    }
+
     const cheio = programas.find((p) => (porPrograma[p] ?? 0) >= config.maximoPorProgramaNoDia);
     if (cheio) {
       cortados.push({

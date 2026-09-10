@@ -15,10 +15,12 @@ import type { ModoSocial } from "./modo";
 import { rodarCicloSocial } from "./pipeline-v2";
 import {
   decisorDeFormato,
+  historicoDoEvergreen,
   pacotesDoEvergreen,
   prepararEvergreen,
   verificadorDeClaims,
 } from "./evergreen/ciclo";
+import { modoDoEvergreen } from "./evergreen/modo";
 import type { DiagnosticoDoEvergreen, OpcoesDoEvergreen, ResultadoDoEvergreen } from "./evergreen/ciclo";
 import type { MarcaSocial } from "./copy";
 import type { OpcoesDoCiclo, ResultadoDoCicloSocial } from "./pipeline-v2";
@@ -102,13 +104,31 @@ export type OpcoesDoSocialDoDia = {
   congelarArte?: OpcoesDoCiclo["congelarArte"];
   /** O congelamento de N slides, injetável nos testes e no preview. */
   congelarCarrossel?: OpcoesDoCiclo["congelarCarrossel"];
+  /**
+   * A verificação semântica das claims, injetável nos testes.
+   *
+   * Sem isto, o ciclo monta o verificador de verdade e ele chama o modelo: um
+   * teste de integração passaria a depender de rede, e o dublê de modelo
+   * responderia copy no lugar de claims, o que derruba o post por auditoria
+   * não realizada.
+   */
+  verificarClaims?: OpcoesDoCiclo["verificarClaims"];
   resolverKeyword?: OpcoesDoCiclo["resolverKeyword"];
   /**
    * Conteúdo permanente para as vagas que a notícia deixou.
    *
-   * Ausente, o dia é exatamente o que era: só notícia. Presente, ele é
-   * calculado DEPOIS da verificação dos finalistas, porque é o número de
-   * notícias confirmadas que define quantas vagas sobram.
+   * Estes são SUBSTITUIÇÕES para teste e para o preview, não o interruptor.
+   *
+   * Elas eram o interruptor, e foi assim que o canal inteiro ficou
+   * inalcançável: `prepararEvergreen` só rodava quando alguém se lembrava de
+   * passar este campo, e ninguém passava no caminho de produção. Com
+   * `SOCIAL_EVERGREEN_V2=enforce` o dia continuaria sem um único post
+   * permanente, sem erro nenhum para investigar.
+   *
+   * Agora quem decide é a flag, dentro de `prepararEvergreen`, e em `off` ela
+   * volta antes de qualquer trabalho: nenhuma chamada de rede, nenhum custo.
+   * Este campo só existe para o teste injetar lastro falso e para o preview
+   * forçar o modo.
    */
   evergreen?: Omit<OpcoesDoEvergreen, "noticiasNoDia" | "maximoPorDia" | "agoraMs" | "projectId"> & {
     agoraMs?: number;
@@ -227,23 +247,70 @@ export async function rodarSocialDoDia(
    * restantes. Calcular antes usaria o pool aprovado, que é maior que o que
    * vira post, e o dia estouraria o teto.
    */
-  const evergreen = opcoes.evergreen
-    ? await prepararEvergreen({
-        ...opcoes.evergreen,
-        projectId: opcoes.projectId,
-        noticiasNoDia: conferencia.confirmadas.length,
-        maximoPorDia: configSocial.maximoPorDia,
-        programasDaNoticia: conferencia.confirmadas.flatMap((p) => p.classificacao.atores ?? []),
-        agoraMs: opcoes.evergreen.agoraMs ?? opcoes.agoraMs ?? Date.now(),
-        env,
-        fetcher,
-      })
-    : null;
+  /*
+   * O histórico do evergreen vem do banco, e ninguém o lia.
+   *
+   * `prepararEvergreen` exige o histórico e o caminho de produção não passava
+   * nenhum, o que fazia o cooldown de 30 dias e a janela de 7 dias operarem
+   * sobre uma lista vazia: o mesmo par tópico e ângulo poderia voltar todo dia.
+   * A leitura é feita aqui porque é aqui que existe o cliente do banco.
+   *
+   * E é feita SÓ quando o modo não é `off`: em `off` o dia não paga nem esta
+   * consulta.
+   */
+  const modoEvergreen = opcoes.evergreen?.modoForcado ?? modoDoEvergreen(env);
+  const desde = new Date(
+    (opcoes.evergreen?.agoraMs ?? opcoes.agoraMs ?? Date.now()) - 45 * 24 * 60 * 60 * 1000,
+  ).toISOString();
 
-  if (evergreen) {
-    for (const [chave, candidata] of evergreen.candidatas) candidatas.set(chave, candidata);
-    for (const [chave, pacote] of pacotesDoEvergreen(evergreen.lastros)) pacotes.set(chave, pacote);
+  /*
+   * Histórico que não pôde ser lido DESLIGA o evergreen do dia.
+   *
+   * Rodar a régua de repetição sobre uma lista vazia é pior que não rodar o
+   * canal: o cooldown de 30 dias e a janela de 7 dias passariam a permitir
+   * exatamente o post de ontem. Um dia sem conteúdo permanente é uma perda
+   * pequena; repetir o post de ontem é o defeito que o catálogo inteiro existe
+   * para impedir.
+   */
+  let historicoEvergreen = opcoes.evergreen?.historico ?? null;
+  let evergreenBloqueado = "";
+
+  if (historicoEvergreen === null && modoEvergreen !== "off") {
+    try {
+      historicoEvergreen = await historicoDoEvergreen(opcoes.client, opcoes.projectId, desde);
+    } catch (erro) {
+      evergreenBloqueado = `histórico do evergreen ilegível: ${(erro as Error).message}`;
+      console.warn(`[SOCIAL V2] evergreen desligado hoje: ${evergreenBloqueado}`);
+    }
   }
+
+  const evergreen = await prepararEvergreen({
+    ...(opcoes.evergreen ?? {}),
+    ...(evergreenBloqueado ? { modoForcado: "off" as const } : {}),
+    historico: historicoEvergreen ?? [],
+    projectId: opcoes.projectId,
+    noticiasNoDia: conferencia.confirmadas.length,
+    maximoPorDia: configSocial.maximoPorDia,
+    programasDaNoticia: conferencia.confirmadas.flatMap((p) => p.classificacao.atores ?? []),
+    agoraMs: opcoes.evergreen?.agoraMs ?? opcoes.agoraMs ?? Date.now(),
+    env,
+    fetcher,
+  });
+
+  /*
+   * O diagnóstico do evergreen é anexado AQUI, e não no retorno final.
+   *
+   * No fim, ele não existia nos retornos antecipados: um dia sem notícia e sem
+   * evergreen voltava com `diagnostico.evergreen` ausente, e ausente é
+   * indistinguível de "o canal não rodou". É exatamente o tipo de silêncio que
+   * fez este canal ficar sem chamador sem ninguém notar.
+   */
+  diagnostico.evergreen = evergreenBloqueado
+    ? { ...evergreen.diagnostico, semLastro: [{ item: "-", motivo: evergreenBloqueado }] }
+    : evergreen.diagnostico;
+
+  for (const [chave, candidata] of evergreen.candidatas) candidatas.set(chave, candidata);
+  for (const [chave, pacote] of pacotesDoEvergreen(evergreen.lastros)) pacotes.set(chave, pacote);
 
   /*
    * Nada de notícia e nada de permanente: o dia não tem o que publicar.
@@ -253,7 +320,7 @@ export async function rodarSocialDoDia(
    * passou a estar errado: um dia sem notícia é exatamente o dia em que o
    * evergreen tem mais valor, e o retorno antigo o impedia de rodar.
    */
-  if (conferencia.confirmadas.length === 0 && (evergreen?.extras.length ?? 0) === 0) {
+  if (conferencia.confirmadas.length === 0 && evergreen.extras.length === 0) {
     return { diagnostico, ciclo: null, conferencia, evergreen };
   }
 
@@ -276,7 +343,7 @@ export async function rodarSocialDoDia(
     env: opcoes.modoForcado ? { ...env, SOCIAL_PIPELINE_V2: opcoes.modoForcado } : env,
     fetcher,
     agoraMs: opcoes.agoraMs,
-    ...(evergreen?.extras.length ? { extras: evergreen.extras } : {}),
+    ...(evergreen.extras.length ? { extras: evergreen.extras } : {}),
     /*
      * O decisor de formato só existe quando há evergreen no dia.
      *
@@ -284,7 +351,7 @@ export async function rodarSocialDoDia(
      * que é o comportamento da notícia. É por isso que o carrossel não precisa
      * de nenhuma condição do lado do gerador: ele nasce desligado.
      */
-    ...(evergreen?.extras.length
+    ...(evergreen.extras.length
       ? {
           decidirCarrossel: decisorDeFormato(evergreen.lastros),
           /*
@@ -294,7 +361,7 @@ export async function rodarSocialDoDia(
            * no dia, o gerador não pergunta nada e a notícia não paga nem chamada
            * nem mudança de comportamento.
            */
-          verificarClaims: verificadorDeClaims({ env, fetcher }),
+          verificarClaims: opcoes.verificarClaims ?? verificadorDeClaims({ env, fetcher }),
         }
       : {}),
     ...(opcoes.congelarArte ? { congelarArte: opcoes.congelarArte } : {}),
@@ -331,7 +398,6 @@ export async function rodarSocialDoDia(
     diagnostico.skippedReasons[chave] = (diagnostico.skippedReasons[chave] ?? 0) + 1;
   }
   diagnostico.errors = ciclo.gravacao?.erros ?? [];
-  if (evergreen) diagnostico.evergreen = evergreen.diagnostico;
 
   return { diagnostico, ciclo, conferencia, evergreen };
 }

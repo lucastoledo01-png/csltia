@@ -37,9 +37,9 @@ export function calcularVagas(quantidadeDeNoticias: number, maximoPorDia: number
 }
 
 /** O que o compositor devolve, na ordem em que o dia será agendado. */
-export type FeedDoDia<TNoticia> = {
+export type FeedDoDia<TNoticia, TEvergreen = ItemEvergreen> = {
   noticias: TNoticia[];
-  evergreen: ItemEvergreen[];
+  evergreen: TEvergreen[];
   vagas: VagasDoDia;
   /** Total de posts do dia. Nunca maior que o máximo. */
   total: number;
@@ -52,12 +52,17 @@ export type FeedDoDia<TNoticia> = {
  * viram linhas de `social_posts` com o mesmo `generation_version`. A distinção
  * é editorial e vive em `origin_channel`, para o relatório do dia poder dizer
  * de onde cada post veio.
+ *
+ * Genérico nos DOIS lados porque o chamador de produção junta duas listas de
+ * pauta, e não pauta com item de catálogo: a assinatura antiga só servia ao
+ * teste, e foi assim que esta função ficou com teste e sem chamador enquanto a
+ * composição de verdade acontecia por concatenação solta no pipeline.
  */
-export function comporFeedDoDia<TNoticia>(
+export function comporFeedDoDia<TNoticia, TEvergreen = ItemEvergreen>(
   noticias: TNoticia[],
-  evergreenElegiveis: ItemEvergreen[],
+  evergreenElegiveis: TEvergreen[],
   maximoPorDia: number,
-): FeedDoDia<TNoticia> {
+): FeedDoDia<TNoticia, TEvergreen> {
   const vagas = calcularVagas(noticias.length, maximoPorDia);
 
   /*
