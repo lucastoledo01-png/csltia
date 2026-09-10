@@ -357,7 +357,7 @@ ancorado. Quando não é, a peça sai com a manchete inteira, e a guarda aponta.
 se ele existe: é por qual conferência ele passa. Campo que ninguém imprimia não
 tinha por que ser validado, e passar a imprimi-lo é mudar o contrato dele.
 
-### A verificação de número era verificação de substring de dígito
+### A verificação de número era verificação de substring de dígito, e depois de sentido
 
 **Sintoma.** Nenhum visível. Medido na revisão adversarial do carrossel.
 
@@ -373,24 +373,41 @@ profusão, cada um servindo de âncora livre para um prazo que ninguém escreveu
 **Corrigido.** A busca exige fronteira de dígito. A comparação por dígitos puros
 continua existindo, então "1.440" segue sustentando "1,440" e "1440".
 
-**PENDENTE, travado em teste como limite conhecido.** Número de norma citado na
-fonte ancora prazo inventado: com "INA 245(a)" no material, "o processo leva 245
-dias" passa, porque ali o 245 é um número solto de verdade. Separar "número da
-norma" de "quantidade" exige entender o que a frase diz, e uma verificação
-determinística não faz isso. O teste existe e afirma o comportamento ATUAL, para
-que quem resolver isso tenha que mudar o teste de propósito.
+**FECHADO na rodada do release candidate.** Número de norma citado na fonte
+ancorava prazo inventado: com "INA 245(a)" no material, "o processo leva 245 dias"
+passava, porque ali o 245 é um número solto de verdade. Fronteira de dígito não
+resolve isso; o que resolve é ler o PAPEL do número.
 
-**Segundo limite, do mesmo tipo.** Slide de prosa puramente qualitativa volta com
-zero claims conferidas e zero bloqueios, ou seja aprovado sem que nada nele tenha
-sido verificado. A ancoragem determinística confere número, data e nome próprio;
-afirmação sem nenhum dos três não tem o que conferir. O carrossel multiplica a
-exposição, porque são de quatro a cinco blocos de texto novos por post em vez de
-dois.
+`numeros-com-sentido.ts` classifica cada número pela vizinhança dele em nove
+tipos, e a compatibilidade passou a exigir valor E tipo. A regra que fecha o
+furo: identificador jurídico, de formulário ou de seção nunca sustenta
+quantidade, duração, percentual ou moeda, nas duas direções. O teste que afirmava
+o limite mudou de propósito, que era o que o comentário dele previa.
+
+**Segundo limite, também FECHADO, e por reúso.** Slide de prosa puramente
+qualitativa voltava com zero claims conferidas e zero bloqueios, ou seja aprovado
+sem que nada nele tivesse sido verificado. A ancoragem determinística confere
+número, data e nome próprio; afirmação sem nenhum dos três não tem o que
+conferir.
+
+Não foi criado verificador novo. `auditarClaims`, em `claims-semanticas.ts`, já
+fazia exatamente isso para a newsletter: uma chamada para uma lista de pares
+(pacote, texto), com índice por item. O carrossel manda um slide por índice e
+recebe a rastreabilidade de graça. O enum de claim ganhou "escopo", e a instrução
+que o descreve entra no prompt só de quem pede, para o prompt da newsletter
+continuar byte a byte o que era.
+
+**A parte que quase virou um terceiro limite.** O benchmark detectou 40 claims e
+reprovou zero, e esse número podia significar duas coisas opostas: a copy está
+bem ancorada, ou o auditor nunca diz não. `provar-auditor.ts` manda nove pares
+deliberadamente errados numa chamada e confere os dois lados. Nove de nove: as
+sete amplificações reprovadas com motivo escrito, a paráfrase fiel e a ressalva
+aprovadas.
 
 **Lição.** Uma guarda que confere três classes de coisa não é uma guarda de
-veracidade, e o prompt não pode prometer o que ela não entrega. Antes de apontar
-uma verificação existente para um texto de origem muito maior, vale medir do que
-ela é feita.
+veracidade, e o prompt não pode prometer o que ela não entrega. E métrica de
+guarda que dá zero precisa de um teste que produza um não, senão "zero" e
+"desligado" são indistinguíveis.
 
 ## Legal & marca
 
