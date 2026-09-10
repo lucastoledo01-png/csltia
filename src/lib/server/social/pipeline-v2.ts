@@ -7,7 +7,7 @@ import { comporFeedSocial, carregarConfigSocial, topicoDaPauta } from "./selecao
 import type { ComposicaoSocial, ConfigSocial } from "./selecao";
 import { carregarConfigDaAgenda, distribuirVagas } from "./agenda";
 import type { Vaga } from "./agenda";
-import { gerarPostsDoDia } from "./gerador";
+import { gerarPostsDoDia , type OpcoesDoGerador } from "./gerador";
 import type { MarcaSocial } from "./copy";
 import type { PostGerado } from "./gerador";
 import { modoDoPipelineSocial, permiteEnforce, diagnosticoSocialVazio } from "./modo";
@@ -122,6 +122,8 @@ export type OpcoesDoCiclo = {
    * nenhum ganho.
    */
   congelarCarrossel?: (entrada: EntradaDoCarrossel) => Promise<ResultadoDoCarrossel>;
+  /** Verificação semântica das claims. Ausente significa não rodar. */
+  verificarClaims?: OpcoesDoGerador["verificarClaims"];
   /** Decide static ou carousel por pauta. Ausente significa tudo static. */
   decidirCarrossel?: (
     pauta: PautaAvaliada,
@@ -240,6 +242,7 @@ export async function rodarCicloSocial(
       env,
       fetcher: opcoes.fetcher,
       decidirCarrossel: opcoes.decidirCarrossel,
+      verificarClaims: opcoes.verificarClaims,
     },
   );
   linhas.push(...geracao.linhasDeLog);

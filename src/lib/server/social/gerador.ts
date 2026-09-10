@@ -6,6 +6,7 @@ import type { CopyDoPost, MarcaSocial } from "./copy";
 import { avaliarPostSocial } from "./social-guard";
 import type { ContextoDoPost, ProblemaDoPost, VeredictoDoPost } from "./social-guard";
 import { gerarCopyDoCarrossel, repararCopyDoCarrossel, type SlideDeTexto } from "./carrossel/copy";
+import type { AuditoriaDoCarrossel, ClaimDeSlide } from "./carrossel/semantica";
 import { papeisPara, type EstruturaDoCarrossel, type PapelDeSlide } from "./carrossel/estrutura";
 import type { DecisaoDeFormato } from "./carrossel/formato";
 import {
@@ -43,6 +44,16 @@ export type CarrosselGerado = {
   /** Os papéis desenhados, na ordem, incluindo a capa e o fechamento. */
   papeis: PapelDeSlide[];
   slides: SlideDeTexto[];
+  /**
+   * O que a auditoria semântica encontrou, por slide.
+   *
+   * Fica no post para o preview e o relatório poderem dizer QUAIS claims cada
+   * slide contém e quais fatos as sustentam, que é o que o item 10 do pedido
+   * quer ver. Vazio quando a auditoria não foi pedida.
+   */
+  claims: ClaimDeSlide[];
+  /** Slides removidos por não terem lastro, com o papel de cada um. */
+  removidos: string[];
 };
 
 export type PostGerado = {
@@ -99,6 +110,27 @@ export type OpcoesDoGerador = {
     pacote: PacoteFactual | null,
     comCta: boolean,
   ) => DecisaoDeFormato | null;
+  /**
+   * Verificação semântica das claims, no verificador que a newsletter já usa.
+   *
+   * Gancho, e não regra deste módulo, pela mesma razão do outro: a notícia não
+   * roda isso hoje, e ligá-la de carona numa mudança do conteúdo permanente
+   * mudaria o custo e o comportamento de um canal que está publicando. Ausente
+   * significa não rodar, que é o caminho da notícia.
+   *
+   * O que ele pega é a afirmação sem número, sem data e sem nome próprio, que a
+   * conferência determinística não tem como conferir e que pode ser enorme.
+   */
+  verificarClaims?: (entrada: EntradaDaVerificacao) => Promise<AuditoriaDoCarrossel>;
+};
+
+export type EntradaDaVerificacao = {
+  headline: string;
+  legenda: string;
+  pacote: PacoteFactual;
+  /** Presentes no carrossel, ausentes na peça única. */
+  slides: SlideDeTexto[] | null;
+  papeis: PapelDeSlide[] | null;
 };
 
 /**
@@ -155,7 +187,31 @@ export async function gerarPostDaPauta(
     custoUsd += primeira.custoUsd;
 
     let copy = primeira.copy;
-    let veredicto = avaliarPostSocial(copy, contexto, 0);
+
+    /*
+     * A peça única do conteúdo permanente também passa pela auditoria.
+     *
+     * Menos superfície que um carrossel não é menos exposição: uma afirmação
+     * sem número num post que alguém lê inteiro vale o mesmo. O gancho é o
+     * mesmo, e ausente significa não rodar, que é o caminho da notícia.
+     */
+    const auditar = async () =>
+      pacote && opcoes.verificarClaims
+        ? await opcoes.verificarClaims({
+            headline: copy.headline,
+            legenda: montarLegenda(copy),
+            pacote,
+            slides: null,
+            papeis: null,
+          })
+        : null;
+
+    let auditoria = await auditar();
+    let veredicto = avaliarPostSocial(
+      copy,
+      { ...contexto, problemasDoFormato: auditoria?.problemas ?? [] },
+      0,
+    );
 
     for (let tentativa = 1; tentativa <= teto; tentativa += 1) {
       /*
@@ -178,7 +234,12 @@ export async function gerarPostDaPauta(
       custoUsd += reparo.custoUsd;
 
       copy = reparo.copy;
-      veredicto = avaliarPostSocial(copy, contexto, tentativa);
+      auditoria = await auditar();
+      veredicto = avaliarPostSocial(
+        copy,
+        { ...contexto, problemasDoFormato: auditoria?.problemas ?? [] },
+        tentativa,
+      );
     }
 
     if (veredicto.passed) {
@@ -240,6 +301,7 @@ async function gerarCarrosselDaPauta(
 
   let tokens = 0;
   let custoUsd = 0;
+  let removidos: string[] = [];
   const reparosAplicados: ProblemaDoPost[][] = [];
 
   try {
@@ -252,20 +314,41 @@ async function gerarCarrosselDaPauta(
     let copy = primeira.copy;
     let papeis = papeisPara(estrutura, decisao.slides, Boolean(copy.cta.trim()));
 
-    const conferir = () => {
+    /*
+     * A ordem do pedido: checks determinísticos, depois verificação semântica.
+     *
+     * As duas rodam na MESMA volta, e não uma como portão da outra, porque o
+     * reparo tem duas tentativas e gastar uma delas com metade da lista de
+     * problemas é desperdiçar a outra. O modelo recebe tudo junto e conserta
+     * tudo junto.
+     */
+    const conferir = async () => {
       const semLastro = slidesSemLastro(copy.slides, papeis, pacote);
+      const determinísticos = [
+        ...problemasDeAncoragem(semLastro),
+        ...conferirFormaDosSlides(copy.slides, papeis),
+        ...conferirLinguagemDoCarrossel(copy.headline, copy.slides, montarLegenda(copy)),
+        ...conferirDestaque(copy.destaque, copy.headline),
+      ];
+
+      const auditoria = opcoes.verificarClaims
+        ? await opcoes.verificarClaims({
+            headline: copy.headline,
+            legenda: montarLegenda(copy),
+            pacote,
+            slides: copy.slides,
+            papeis,
+          })
+        : null;
+
       return {
         semLastro,
-        problemas: [
-          ...problemasDeAncoragem(semLastro),
-          ...conferirFormaDosSlides(copy.slides, papeis),
-          ...conferirLinguagemDoCarrossel(copy.headline, copy.slides, montarLegenda(copy)),
-          ...conferirDestaque(copy.destaque, copy.headline),
-        ],
+        auditoria,
+        problemas: [...determinísticos, ...(auditoria?.problemas ?? [])],
       };
     };
 
-    let checagem = conferir();
+    let checagem = await conferir();
     let veredicto = avaliarPostSocial(copy, { ...contexto, problemasDoFormato: checagem.problemas }, 0);
 
     for (let tentativa = 1; tentativa <= teto; tentativa += 1) {
@@ -286,24 +369,41 @@ async function gerarCarrosselDaPauta(
 
       copy = reparo.copy;
       papeis = papeisPara(estrutura, decisao.slides, Boolean(copy.cta.trim()));
-      checagem = conferir();
+      checagem = await conferir();
       veredicto = avaliarPostSocial(copy, { ...contexto, problemasDoFormato: checagem.problemas }, tentativa);
     }
 
     /*
      * Última tentativa: remover o slide que não fecha, em vez de perder o post.
      *
-     * Só vale quando o que sobrou de problema é ancoragem de slide. Se a
-     * manchete não tem lastro, ou a pauta é desfavorável, remover slide não
-     * resolve nada e o post cai como qualquer outro.
+     * As DUAS fontes de problema de slide entram aqui, a numérica e a
+     * qualitativa. Se só a numérica entrasse, um slide reprovado por afirmar um
+     * benefício que a fonte não dá derrubaria o post inteiro mesmo sendo
+     * opcional, e cinco slides bons iriam com ele.
+     *
+     * Só vale quando o que sobrou é problema DE SLIDE. Se a manchete não tem
+     * lastro, se a pauta é desfavorável, ou se a auditoria semântica não rodou,
+     * remover slide não resolve nada e o post cai como qualquer outro: por isso
+     * a condição exige zero problema fatal.
      */
-    if (!veredicto.passed && checagem.semLastro.length > 0 && veredicto.fatalIssues.length === 0) {
-      const enxuto = removerSlidesSemLastro(copy.slides, papeis, checagem.semLastro);
+    const culpados = [
+      ...checagem.semLastro,
+      ...(checagem.auditoria?.naoSustentadas ?? []).map((c) => ({
+        posicao: c.posicao,
+        papel: c.papel,
+        claims: [`${c.tipo}: "${c.trecho}"`],
+        removivel: c.removivel,
+      })),
+    ];
+
+    if (!veredicto.passed && culpados.length > 0 && veredicto.fatalIssues.length === 0) {
+      const enxuto = removerSlidesSemLastro(copy.slides, papeis, culpados);
 
       if (enxuto.salvavel) {
+        removidos = enxuto.removidos;
         copy = { ...copy, slides: enxuto.slides };
         papeis = enxuto.papeis;
-        checagem = conferir();
+        checagem = await conferir();
         veredicto = avaliarPostSocial(
           copy,
           { ...contexto, problemasDoFormato: checagem.problemas },
@@ -317,7 +417,13 @@ async function gerarCarrosselDaPauta(
         post: {
           pauta,
           copy,
-          carrossel: { estrutura, papeis, slides: copy.slides },
+          carrossel: {
+            estrutura,
+            papeis,
+            slides: copy.slides,
+            claims: checagem.auditoria?.claims ?? [],
+            removidos,
+          },
           veredicto,
           tentativas: veredicto.attempts,
           tokens,

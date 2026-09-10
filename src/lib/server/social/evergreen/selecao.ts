@@ -48,6 +48,17 @@ export type ConfigDoEvergreen = {
    * meta. Dia com duas notícias sai com seis posts, não com dez.
    */
   maximoNoDia: number;
+  /**
+   * Varia o formato entre itens de mérito igual. É desempate, não quota.
+   *
+   * Ligada por padrão porque a medição de sete dias fechou dias inteiros com
+   * quatro carrosséis seguidos, e nenhuma reordenação posterior resolve isso:
+   * se os quatro escolhidos são carrossel, não há estático para intercalar.
+   *
+   * Existe como chave para poder ser DESLIGADA numa medição, e é assim que se
+   * responde "quanto disto é a régua e quanto é o catálogo" sem discutir.
+   */
+  alternarFormato: boolean;
 };
 
 export const CONFIG_PADRAO: ConfigDoEvergreen = {
@@ -56,6 +67,7 @@ export const CONFIG_PADRAO: ConfigDoEvergreen = {
   maximoPorProgramaNoDia: 2,
   maximoPorFamiliaNoDia: 2,
   maximoNoDia: 4,
+  alternarFormato: true,
 };
 
 export function carregarConfigDoEvergreen(
@@ -71,6 +83,8 @@ export function carregarConfigDoEvergreen(
     maximoPorProgramaNoDia: n("EVERGREEN_MAX_POR_PROGRAMA", CONFIG_PADRAO.maximoPorProgramaNoDia),
     maximoPorFamiliaNoDia: n("EVERGREEN_MAX_POR_FAMILIA", CONFIG_PADRAO.maximoPorFamiliaNoDia),
     maximoNoDia: n("EVERGREEN_MAX_POR_DIA", CONFIG_PADRAO.maximoNoDia),
+    /* Só um "false" explícito desliga: valor ausente ou irreconhecível mantém. */
+    alternarFormato: String(env.EVERGREEN_ALTERNAR_FORMATO ?? "").trim().toLowerCase() !== "false",
   };
 }
 
@@ -150,6 +164,67 @@ export function programasDoTopico(programa: string | undefined): string[] {
 
   /* Programa sem forma de sigla, como "PERM" ou "OPT": vale o primeiro token. */
   return [bruto.split(/\s+/)[0]];
+}
+
+/**
+ * O formato que a família deste item provavelmente vai pedir.
+ *
+ * Só a família, porque é o que se sabe antes do lastro. Glossário e FAQ são
+ * estáticos por padrão; as outras cinco preferem carrossel. Quem decide de
+ * verdade é `determinarFormatoEvergreen`, depois, com o pacote factual na mão.
+ */
+export function formatoPrevisto(item: ItemEvergreen): "static" | "carousel" {
+  return item.topico.familia === "glossary" || item.topico.familia === "faq" ? "static" : "carousel";
+}
+
+/**
+ * Reordena a fila para variar o formato, sem tirar ninguém do lugar na régua.
+ *
+ * A ordem original é a de mérito, por distância do último uso. Esta função só
+ * troca a ordem DENTRO de cada bloco de itens com a mesma distância, e por isso
+ * nunca promove um item de mérito menor sobre um de mérito maior.
+ *
+ * Dentro do bloco, alterna os dois formatos previstos. É determinística: mesma
+ * entrada, mesma saída, o que o dry-run exige.
+ */
+export function intercalarPorFormato(
+  fila: ItemEvergreen[],
+  ultimoUsoDoPar: Map<string, number>,
+): ItemEvergreen[] {
+  const blocos = new Map<number, ItemEvergreen[]>();
+  const ordemDosBlocos: number[] = [];
+
+  for (const item of fila) {
+    const distancia = ultimoUsoDoPar.get(identidadeDoItem(item)) ?? 0;
+    if (!blocos.has(distancia)) {
+      blocos.set(distancia, []);
+      ordemDosBlocos.push(distancia);
+    }
+    blocos.get(distancia)!.push(item);
+  }
+
+  const saida: ItemEvergreen[] = [];
+
+  for (const distancia of ordemDosBlocos) {
+    const bloco = blocos.get(distancia)!;
+    const estaticos = bloco.filter((i) => formatoPrevisto(i) === "static");
+    const carrosseis = bloco.filter((i) => formatoPrevisto(i) === "carousel");
+
+    /*
+     * Um por vez, começando pelo formato mais numeroso do bloco.
+     *
+     * Começar pelo majoritário é o que faz a minoria ficar espalhada em vez de
+     * empilhada no fim, que é o mesmo raciocínio de `alternarFormatos`.
+     */
+    const [maior, menor] = carrosseis.length >= estaticos.length ? [carrosseis, estaticos] : [estaticos, carrosseis];
+
+    for (let i = 0; i < Math.max(maior.length, menor.length); i += 1) {
+      if (maior[i]) saida.push(maior[i]);
+      if (menor[i]) saida.push(menor[i]);
+    }
+  }
+
+  return saida;
 }
 
 export function selecionarEvergreen(
@@ -247,7 +322,29 @@ export function selecionarEvergreen(
 
   const escolhidos: ItemEvergreen[] = [];
 
-  for (const item of porDistanciaDoUltimoUso(elegiveis, ultimoUsoDoPar)) {
+  /*
+   * Desempate de formato, e só desempate.
+   *
+   * O benchmark deu dias fechando com quatro carrosséis seguidos, e nenhuma
+   * reordenação depois da geração resolve isso: se os quatro escolhidos são
+   * carrossel, não há estático para intercalar. Quem pode quebrar a sequência é
+   * a SELEÇÃO, e só ela.
+   *
+   * A régua age exclusivamente entre itens IGUALMENTE BONS, que aqui tem
+   * definição exata: mesmo tempo desde o último uso do par. A maioria dos
+   * elegíveis nunca saiu, então empata em zero, e o desempate atual é
+   * alfabético. Trocar "alfabético" por "o que varia o formato" não sacrifica
+   * conteúdo nenhum: sacrificaria se olhasse itens de distâncias diferentes, e
+   * é justamente isso que `mesmaDistancia` impede.
+   *
+   * O formato aqui é PREVISTO pela família, porque o formato real depende de
+   * quantos fatos o lastro trouxe e o lastro ainda não foi buscado. Previsão
+   * errada custa uma sequência não quebrada, não um post pior.
+   */
+  const naOrdem = porDistanciaDoUltimoUso(elegiveis, ultimoUsoDoPar);
+  const fila = config.alternarFormato ? intercalarPorFormato(naOrdem, ultimoUsoDoPar) : naOrdem;
+
+  for (const item of fila) {
     if (escolhidos.length >= limite) {
       const porTeto = limite < vagas;
       cortados.push({

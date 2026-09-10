@@ -308,3 +308,105 @@ describe("o compositor do dia", () => {
     expect(feed.total).toBe(10);
   });
 });
+
+describe("desempate de formato: só entre itens de mérito igual", () => {
+  const cheio = (over: Partial<TopicoEvergreen> = {}) => topico(over);
+
+  /** Catálogo com estáticos e carrosséis previstos, todos nunca usados. */
+  const MISTO: TopicoEvergreen[] = [
+    cheio({ id: "a-visa", familia: "visa_explainer", programa: "EB-1", angulos: [{ id: "x", pergunta: "1?" }] }),
+    cheio({ id: "b-visa", familia: "comparison", programa: "EB-3", angulos: [{ id: "x", pergunta: "2?" }] }),
+    cheio({ id: "c-glos", familia: "glossary", programa: undefined, angulos: [{ id: "x", pergunta: "3?" }] }),
+    cheio({ id: "d-proc", familia: "process_explainer", programa: "L-1", angulos: [{ id: "x", pergunta: "4?" }] }),
+    cheio({ id: "e-faq", familia: "faq", programa: "O-1", angulos: [{ id: "x", pergunta: "5?" }] }),
+  ];
+
+  const previsto = (t: TopicoEvergreen) =>
+    t.familia === "glossary" || t.familia === "faq" ? "S" : "C";
+
+  it("a sequência de formatos previstos alterna em vez de empilhar", () => {
+    /*
+     * O benchmark deu dias inteiros com quatro carrosséis seguidos, e nenhuma
+     * reordenação posterior resolve: se os quatro escolhidos são carrossel, não
+     * há estático para intercalar. Quem quebra a sequência é a seleção.
+     */
+    const r = selecionarEvergreen(MISTO, semHistorico, 10, { agoraMs: HOJE });
+    const desenho = r.escolhidos.map((e) => previsto(e.topico)).join("");
+
+    expect(desenho).not.toContain("CCC");
+    expect(desenho).toContain("S");
+  });
+
+  it("desligada, a ordem volta a ser a alfabética de antes", () => {
+    const desligada = selecionarEvergreen(MISTO, semHistorico, 10, {
+      agoraMs: HOJE,
+      config: { ...CONFIG_PADRAO, alternarFormato: false },
+    });
+
+    expect(desligada.escolhidos.map((e) => e.topico.id)).toEqual(
+      [...desligada.escolhidos].map((e) => e.topico.id).sort(),
+    );
+  });
+
+  it("o desempate pode mudar QUEM entra, e é isso que o pedido pede", () => {
+    /*
+     * A primeira versão deste teste exigia o mesmo conjunto, e estava errada: o
+     * teto de família interage com a ORDEM, então adiantar um glossário faz uma
+     * família diferente ocupar vaga e um item diferente ser cortado depois.
+     *
+     * O pedido diz "preferir a COMBINAÇÃO que melhora a diversidade de
+     * formato", ou seja o conjunto pode mudar. A fronteira que não pode ser
+     * cruzada é outra, e é a do teste seguinte: nenhum item de mérito menor
+     * passa na frente de um de mérito maior. Aqui todos empatam, porque nenhum
+     * saiu ainda.
+     */
+    const ligada = selecionarEvergreen(MISTO, semHistorico, 10, { agoraMs: HOJE });
+    const desligada = selecionarEvergreen(MISTO, semHistorico, 10, {
+      agoraMs: HOJE,
+      config: { ...CONFIG_PADRAO, alternarFormato: false },
+    });
+
+    expect(ligada.escolhidos).toHaveLength(desligada.escolhidos.length);
+
+    /* Todos os escolhidos, nos dois casos, são itens que nunca saíram. */
+    const usados = new Set(semHistorico.map((h) => h.storyId));
+    for (const e of [...ligada.escolhidos, ...desligada.escolhidos]) {
+      expect(usados.has(identidadeDoItem(e))).toBe(false);
+    }
+  });
+
+  it("não promove item de mérito menor sobre item de mérito maior", () => {
+    /*
+     * É a fronteira entre desempate e quota. O item usado há 40 dias é
+     * elegível e é PIOR que os que nunca saíram: nenhuma preferência de formato
+     * pode fazê-lo passar na frente.
+     */
+    const usadoHa40 = cheio({
+      id: "z-glos",
+      familia: "glossary",
+      programa: undefined,
+      angulos: [{ id: "x", pergunta: "9?" }],
+    });
+    const historico: UsoAnterior[] = [
+      { storyId: "evg:z-glos:x", topicId: "evg:z-glos", quandoIso: diasAtras(40) },
+    ];
+
+    const r = selecionarEvergreen([...MISTO, usadoHa40], historico, 1, { agoraMs: HOJE });
+
+    expect(r.escolhidos).toHaveLength(1);
+    expect(r.escolhidos[0].topico.id).not.toBe("z-glos");
+  });
+
+  it("é determinística: duas chamadas idênticas devolvem a mesma ordem", () => {
+    const a = selecionarEvergreen(MISTO, semHistorico, 10, { agoraMs: HOJE });
+    const b = selecionarEvergreen(MISTO, semHistorico, 10, { agoraMs: HOJE });
+    expect(a.escolhidos.map(identidadeDoItem)).toEqual(b.escolhidos.map(identidadeDoItem));
+  });
+
+  it("catálogo de um formato só não é afetado", () => {
+    const soCarrossel = MISTO.filter((t) => previsto(t) === "C");
+    const r = selecionarEvergreen(soCarrossel, semHistorico, 10, { agoraMs: HOJE });
+    expect(r.escolhidos.length).toBeGreaterThan(0);
+    expect(r.escolhidos.every((e) => previsto(e.topico) === "C")).toBe(true);
+  });
+});

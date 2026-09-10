@@ -14,6 +14,8 @@ import { calcularVagas } from "./compositor";
 import { identidadeDoItem } from "./tipos";
 import type { TopicoEvergreen, UsoAnterior } from "./tipos";
 import { determinarFormatoEvergreen, type DecisaoDeFormato } from "../carrossel/formato";
+import { auditarCarrossel, auditarEstatico, type Auditor, type AuditoriaDoCarrossel } from "../carrossel/semantica";
+import type { EntradaDaVerificacao } from "../gerador";
 
 /**
  * O que o evergreen entrega ao ciclo social do dia.
@@ -221,5 +223,41 @@ export function decisorDeFormato(
     if (!item || !pacote) return null;
 
     return determinarFormatoEvergreen(item, pacote, { comCta });
+  };
+}
+
+/**
+ * O verificador de claims do conteúdo permanente.
+ *
+ * Despacha para o auditor de carrossel ou para o de peça única, e os dois
+ * chamam `auditarClaims`, que é o verificador que a newsletter já usa. Nada
+ * novo: só a tradução de slide em item auditável.
+ *
+ * Fica aqui, e não no gerador, porque é o lado do evergreen que decide rodar
+ * isso. Sem este gancho, o gerador não pergunta nada, e é assim que a notícia
+ * segue sem custo e sem mudança de comportamento.
+ */
+export function verificadorDeClaims(opcoes: {
+  env?: Record<string, string | undefined>;
+  fetcher?: typeof fetch;
+  auditor?: Auditor;
+} = {}): (entrada: EntradaDaVerificacao) => Promise<AuditoriaDoCarrossel> {
+  return async (entrada) => {
+    if (entrada.slides && entrada.papeis) {
+      return auditarCarrossel(
+        {
+          headline: entrada.headline,
+          slides: entrada.slides,
+          papeis: entrada.papeis,
+          pacote: entrada.pacote,
+        },
+        opcoes,
+      );
+    }
+
+    return auditarEstatico(
+      { titulo: entrada.headline, texto: entrada.legenda, pacote: entrada.pacote },
+      opcoes,
+    );
   };
 }

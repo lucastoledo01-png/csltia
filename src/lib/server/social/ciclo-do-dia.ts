@@ -13,7 +13,12 @@ import { criarSocialPostsStore } from "./social-posts-store";
 import { modoDoPipelineSocial } from "./modo";
 import type { ModoSocial } from "./modo";
 import { rodarCicloSocial } from "./pipeline-v2";
-import { decisorDeFormato, pacotesDoEvergreen, prepararEvergreen } from "./evergreen/ciclo";
+import {
+  decisorDeFormato,
+  pacotesDoEvergreen,
+  prepararEvergreen,
+  verificadorDeClaims,
+} from "./evergreen/ciclo";
 import type { DiagnosticoDoEvergreen, OpcoesDoEvergreen, ResultadoDoEvergreen } from "./evergreen/ciclo";
 import type { MarcaSocial } from "./copy";
 import type { OpcoesDoCiclo, ResultadoDoCicloSocial } from "./pipeline-v2";
@@ -280,7 +285,17 @@ export async function rodarSocialDoDia(
      * de nenhuma condição do lado do gerador: ele nasce desligado.
      */
     ...(evergreen?.extras.length
-      ? { decidirCarrossel: decisorDeFormato(evergreen.lastros) }
+      ? {
+          decidirCarrossel: decisorDeFormato(evergreen.lastros),
+          /*
+           * A verificação semântica entra junto com o evergreen, e sai junto.
+           *
+           * É o mesmo princípio do decisor de formato: sem conteúdo permanente
+           * no dia, o gerador não pergunta nada e a notícia não paga nem chamada
+           * nem mudança de comportamento.
+           */
+          verificarClaims: verificadorDeClaims({ env, fetcher }),
+        }
       : {}),
     ...(opcoes.congelarArte ? { congelarArte: opcoes.congelarArte } : {}),
     ...(opcoes.congelarCarrossel ? { congelarCarrossel: opcoes.congelarCarrossel } : {}),

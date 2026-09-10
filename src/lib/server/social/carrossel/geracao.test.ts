@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { gerarPostDaPauta } from "../gerador";
 import { determinarFormatoEvergreen } from "./formato";
+import { entradasDoCarrossel } from "./arte";
 import type { PautaAvaliada } from "../../editorial/guarda";
 import type { PacoteFactual } from "../../editorial/pacote-factual";
 import type { CandidataPersistida } from "../../editorial/candidatos-store";
@@ -418,5 +419,271 @@ describe("a notícia não muda", () => {
 
     expect(r.post!.carrossel).toBeUndefined();
     expect(JSON.stringify(chamadas[0])).toContain("POST DE IMAGEM ÚNICA");
+  });
+});
+
+describe("claim qualitativa: o que o sistema faz com a reprovação", () => {
+  /**
+   * Estes testes NÃO exercitam o julgamento do auditor, que é de modelo.
+   * Exercitam o que o gerador faz quando a reprovação chega: reparar, remover o
+   * slide opcional, ou derrubar o post quando o slide é obrigatório.
+   */
+  const CLAIM = "permite trabalhar para qualquer empresa nos EUA";
+
+  /** Um verificador que reprova o slide daquele papel, sempre. */
+  function reprovando(papelAlvo: string) {
+    const chamadas: number[] = [];
+    return {
+      chamadas,
+      verificarClaims: async (entrada: {
+        slides: Array<{ papel: string }> | null;
+        papeis: Array<{ papel: string; obrigatorio: boolean; escritoEmCodigo?: boolean }> | null;
+      }) => {
+        chamadas.push(1);
+        const doModelo = (entrada.papeis ?? []).filter((p) => !p.escritoEmCodigo);
+        const i = doModelo.findIndex((p) => p.papel === papelAlvo);
+
+        if (i < 0 || !entrada.slides?.[i]) {
+          return { claims: [], naoSustentadas: [], problemas: [], custoUsd: 0, tokens: 0, erro: null };
+        }
+
+        const papel = doModelo[i];
+        const claim = {
+          trecho: CLAIM,
+          tipo: "impacto" as const,
+          sustentada: false,
+          motivo: "o pacote não diz nada sobre isso",
+          pauta: i,
+          posicao: (entrada.papeis ?? []).indexOf(papel) + 1,
+          papel: papel.papel,
+          removivel: !papel.obrigatorio,
+        };
+
+        return {
+          claims: [claim],
+          naoSustentadas: [claim],
+          problemas: [
+            {
+              motivo: "SOCIAL_REJECT_CLAIM_UNSUPPORTED" as never,
+              detalhe: `o slide ${claim.posicao} ("${papel.papel}") afirma o que o pacote não sustenta: "${CLAIM}"`,
+              reparavel: true,
+            },
+          ],
+          custoUsd: 0,
+          tokens: 0,
+          erro: null,
+        };
+      },
+    };
+  }
+
+  it("slide OPCIONAL com claim não sustentada é removido, e o post sobrevive", async () => {
+    /*
+     * É a saída do item 4: reparar o necessário e, se continuar falhando,
+     * remover o slide opcional em vez de perder a peça. A comparação tem
+     * "diferença 2" e "resumo" como opcionais.
+     */
+    const { fetcher } = modelo([carrosselBom()]);
+    const { verificarClaims } = reprovando("resumo");
+
+    const r = await gerarPostDaPauta(PAUTA, 0, {
+      ...opcoes(fetcher, true),
+      maximoDeReparos: 0,
+      verificarClaims: verificarClaims as never,
+    });
+
+    expect(r.post).toBeTruthy();
+    expect(r.post!.carrossel!.slides.map((s) => s.papel)).not.toContain("resumo");
+    expect(r.post!.carrossel!.removidos).toContain("resumo");
+  });
+
+  it("slide OBRIGATÓRIO com claim não sustentada derruba o post inteiro", async () => {
+    /*
+     * Sem "lado A" não há comparação, e o que sobra não é um carrossel mais
+     * curto: é um post incompleto. Nunca inventar outro fato para substituir.
+     */
+    const { fetcher } = modelo([carrosselBom()]);
+    const { verificarClaims } = reprovando("lado A");
+
+    const r = await gerarPostDaPauta(PAUTA, 0, {
+      ...opcoes(fetcher, true),
+      maximoDeReparos: 0,
+      verificarClaims: verificarClaims as never,
+    });
+
+    expect(r.post).toBeNull();
+    expect(r.descarte?.problemas.map((p) => p.motivo)).toContain("SOCIAL_REJECT_CLAIM_UNSUPPORTED");
+  });
+
+  it("o reparo recebe a claim nomeada e a segunda resposta passa", async () => {
+    const { fetcher, chamadas } = modelo([carrosselBom(), carrosselBom()]);
+    let volta = 0;
+    const verificarClaims = async (entrada: {
+      papeis: Array<{ papel: string; obrigatorio: boolean; escritoEmCodigo?: boolean }> | null;
+    }) => {
+      volta += 1;
+      if (volta > 1) {
+        return { claims: [], naoSustentadas: [], problemas: [], custoUsd: 0, tokens: 0, erro: null };
+      }
+      const doModelo = (entrada.papeis ?? []).filter((p) => !p.escritoEmCodigo);
+      const papel = doModelo[0];
+      const claim = {
+        trecho: CLAIM,
+        tipo: "impacto" as const,
+        sustentada: false,
+        motivo: "",
+        pauta: 0,
+        posicao: 2,
+        papel: papel.papel,
+        removivel: !papel.obrigatorio,
+      };
+      return {
+        claims: [claim],
+        naoSustentadas: [claim],
+        problemas: [
+          {
+            motivo: "SOCIAL_REJECT_CLAIM_UNSUPPORTED" as never,
+            detalhe: `o slide 2 afirma o que o pacote não sustenta: "${CLAIM}"`,
+            reparavel: true,
+          },
+        ],
+        custoUsd: 0,
+        tokens: 0,
+        erro: null,
+      };
+    };
+
+    const r = await gerarPostDaPauta(PAUTA, 0, {
+      ...opcoes(fetcher, true),
+      verificarClaims: verificarClaims as never,
+    });
+
+    expect(r.post).toBeTruthy();
+    expect(r.post!.tentativas).toBeGreaterThan(0);
+    expect(JSON.stringify(chamadas[1])).toContain("SOCIAL_REJECT_CLAIM_UNSUPPORTED");
+    expect(JSON.stringify(chamadas[1])).toContain("qualquer empresa");
+  });
+
+  it("auditoria que não rodou derruba o post, e nem tenta reparar", async () => {
+    /*
+     * Problema fatal encerra antes do reparo, e é o certo: reescrever não
+     * resolve rede fora do ar, e publicar sem verificação semântica é publicar
+     * um post que parece verificado e não foi.
+     */
+    const { fetcher, chamadas } = modelo([carrosselBom()]);
+    const verificarClaims = async () => ({
+      claims: [],
+      naoSustentadas: [],
+      problemas: [
+        {
+          motivo: "SOCIAL_REJECT_CLAIM_NOT_AUDITED" as never,
+          detalhe: "a verificação semântica dos slides não rodou: timeout",
+          reparavel: false,
+        },
+      ],
+      custoUsd: 0,
+      tokens: 0,
+      erro: "timeout",
+    });
+
+    const r = await gerarPostDaPauta(PAUTA, 0, {
+      ...opcoes(fetcher, true),
+      verificarClaims: verificarClaims as never,
+    });
+
+    expect(r.post).toBeNull();
+    expect(r.descarte?.motivo).toContain("sem reparo");
+    // Uma chamada de geração e nenhuma de reparo.
+    expect(chamadas).toHaveLength(1);
+  });
+
+  it("a peça única também é auditada, com a legenda inteira", async () => {
+    const recebidos: Array<{ slides: unknown; legenda: string }> = [];
+    const verificarClaims = async (entrada: { slides: unknown; legenda: string }) => {
+      recebidos.push({ slides: entrada.slides, legenda: entrada.legenda });
+      return { claims: [], naoSustentadas: [], problemas: [], custoUsd: 0, tokens: 0, erro: null };
+    };
+
+    const { fetcher } = modelo([COPY_ESTATICA]);
+    const r = await gerarPostDaPauta(PAUTA, 0, {
+      ...opcoes(fetcher, false),
+      verificarClaims: verificarClaims as never,
+    });
+
+    expect(r.post).toBeTruthy();
+    expect(recebidos).toHaveLength(1);
+    expect(recebidos[0].slides).toBeNull();
+    expect(recebidos[0].legenda).toContain("A USCIS descreve dois caminhos");
+  });
+
+  it("a NOTÍCIA não paga chamada nenhuma: sem gancho, nada roda", async () => {
+    const { fetcher } = modelo([COPY_ESTATICA]);
+    const r = await gerarPostDaPauta(PAUTA, 0, opcoes(fetcher, false));
+
+    expect(r.post).toBeTruthy();
+    expect(r.post!.carrossel).toBeUndefined();
+  });
+});
+
+describe("capa e fechamento não carregam claim nova", () => {
+  it("o fechamento só tem texto já ancorado, CTA de código e a palavra da keyword", async () => {
+    /*
+     * Item 5 do pedido. O último slide é o que quem desliza até o fim lê, e ele
+     * é montado em código: o título é a manchete (ou um trecho literal dela, o
+     * que já foi ancorado), o texto é o CTA de `ctaDaPosicao`, e o destaque é a
+     * palavra que o listener escuta. Nenhuma frase nova entra ali.
+     */
+    const { fetcher } = modelo([carrosselBom()]);
+    const r = await gerarPostDaPauta(PAUTA, 1, opcoes(fetcher, true));
+
+    expect(r.post).toBeTruthy();
+    const c = r.post!.carrossel!;
+    const fechamento = c.papeis[c.papeis.length - 1];
+    expect(fechamento.tipo).toBe("cta");
+    expect(fechamento.escritoEmCodigo).toBe(true);
+
+    const montado = entradasDoCarrossel({ ...r.post!.copy, slides: c.slides }, c.papeis, {
+      eixo: "processo",
+      asset: null,
+      motivoSemFoto: "NO_VALID_IMAGE",
+    });
+    const ultimo = montado.entradas[montado.entradas.length - 1].slidePronto!;
+
+    // O título sai da manchete, que a guarda ancorou.
+    expect(r.post!.copy.headline).toContain(ultimo.title);
+    // O texto é o CTA determinístico, com a keyword canônica.
+    expect(ultimo.cta_text).toBe(r.post!.copy.cta);
+    expect(ultimo.cta_text).toContain("VISA");
+    // E nada mais: sem corpo, sem bullets.
+    expect(ultimo.body).toBe("");
+    expect(ultimo.bullet_points).toEqual([]);
+  });
+
+  it("a capa é a manchete, e a manchete é o que a guarda ancora", async () => {
+    const { fetcher } = modelo([carrosselBom()]);
+    const r = await gerarPostDaPauta(PAUTA, 0, opcoes(fetcher, true));
+
+    const c = r.post!.carrossel!;
+    expect(c.papeis[0].tipo).toBe("cover");
+    expect(c.papeis[0].escritoEmCodigo).toBe(true);
+
+    const montado = entradasDoCarrossel({ ...r.post!.copy, slides: c.slides }, c.papeis, {
+      eixo: "processo",
+      asset: null,
+      motivoSemFoto: "NO_VALID_IMAGE",
+    });
+    // A capa entra pelo caminho normal da arte, sem slide pronto: é a manchete.
+    expect(montado.entradas[0].slidePronto).toBeUndefined();
+    expect(montado.entradas[0].headline).toBe(r.post!.copy.headline);
+  });
+
+  it("destaque que não é trecho da manchete não vai para a arte", async () => {
+    const inventado = carrosselBom({ destaque: "Operacao Compliance Zero de 540 dias" });
+    const { fetcher } = modelo([inventado]);
+    const r = await gerarPostDaPauta(PAUTA, 1, { ...opcoes(fetcher, true), maximoDeReparos: 0 });
+
+    const problemas = r.descarte?.problemas ?? r.post?.veredicto.issues ?? [];
+    expect(problemas.map((p) => p.motivo)).toContain("SOCIAL_REJECT_SLIDE_SHAPE");
+    expect(problemas.find((p) => p.detalhe.includes("não é um trecho da manchete"))).toBeTruthy();
   });
 });

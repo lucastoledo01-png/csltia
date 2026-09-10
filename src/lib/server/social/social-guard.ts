@@ -49,6 +49,20 @@ export const MOTIVOS_DO_SOCIAL_GUARD = {
   JARGAO_JURIDICO: "LEGAL_JARGON_OVERLOAD",
   RELEVANCIA_BAIXA: "LOW_READER_RELEVANCE",
   MANCHETE_LONGA: "HEADLINE_TOO_LONG",
+  /*
+   * Claim qualitativa: a afirmação que não tem número, data nem nome próprio.
+   *
+   * A conferência determinística não tem o que conferir nela, e ela pode ser
+   * enorme: "essa categoria permite trabalhar para qualquer empresa nos EUA"
+   * passava com zero claims conferidas. Quem confere é o auditor semântico que
+   * a newsletter já usa.
+   *
+   * `CLAIM_NAO_AUDITADA` é a falha da auditoria, e é FATAL, não reparável:
+   * reparar não resolve rede fora do ar, e tratar auditoria ausente como
+   * aprovação publicaria um post cuja verificação nunca aconteceu.
+   */
+  CLAIM_SEM_LASTRO: "SOCIAL_REJECT_CLAIM_UNSUPPORTED",
+  CLAIM_NAO_AUDITADA: "SOCIAL_REJECT_CLAIM_NOT_AUDITED",
 } as const;
 
 export type MotivoDoSocialGuard =

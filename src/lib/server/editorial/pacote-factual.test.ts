@@ -227,17 +227,25 @@ describe("número sustentado precisa de fronteira de dígito", () => {
     expect(passa("O prazo e de 540 dias.", "A espera chega a 540 dias.")).toBe(true);
   });
 
-  it("LIMITE CONHECIDO: número de norma citado na fonte ancora qualquer prazo", () => {
+  it("LIMITE FECHADO: número de norma não ancora mais prazo nenhum", () => {
     /*
-     * Isto NÃO é fronteira de dígito: em "INA 245(a)" o 245 é um número solto
-     * de verdade, com parêntese depois. Separar "número da norma" de
-     * "quantidade" exige entender o que a frase diz, o que uma verificação
-     * determinística não faz.
+     * Este teste afirmava o contrário até a rodada do release candidate, e o
+     * comentário dele dizia que mudá-lo seria de propósito. Foi: `numeroCompativel`
+     * passou a exigir valor E tipo, e identificador de norma, de formulário ou
+     * de seção não sustenta quantidade.
      *
-     * Fica travado aqui como comportamento conhecido, e não como acerto: se
-     * alguém resolver isso, é este teste que muda, de propósito, para o valor
-     * novo aparecer em revisão em vez de passar em silêncio.
+     * Em "INA 245(a)" o 245 é um número solto de verdade, com parêntese depois.
+     * O que resolve não é fronteira de dígito, é ler a vizinhança e saber que
+     * ali o número identifica uma norma.
      */
-    expect(passa("See 8 CFR 245.1(c)(8) and INA 245(a).", "O processo leva 245 dias.")).toBe(true);
+    expect(passa("See 8 CFR 245.1(c)(8) and INA 245(a).", "O processo leva 245 dias.")).toBe(false);
+  });
+
+  it("e o mesmo vale para formulário virando taxa", () => {
+    expect(passa("Submit Form I-864, Affidavit of Support.", "A taxa e de US$ 864.")).toBe(false);
+  });
+
+  it("unidade diferente também não sustenta", () => {
+    expect(passa("O prazo de resposta e de 60 dias.", "A aprovacao fica em 60%.")).toBe(false);
   });
 });
