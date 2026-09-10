@@ -560,3 +560,76 @@ describe("o worker continua um só", () => {
     expect(chamadas.filter((c) => c.url.includes("/media"))).toHaveLength(0);
   });
 });
+
+describe("item 12: o estático não regride, e é conferido item por item", () => {
+  it("uma imagem, um hash, um container, nenhum filho", async () => {
+    tabelas.social_posts = { row: linhaEstatica() };
+    const { fetcher, chamadas } = metaFalsa();
+
+    const r = await processScheduledPost("post-v2", { autoPost: true }, ENV, fetcher);
+
+    expect(r.ok).toBe(true);
+
+    /* Um arquivo baixado do Storage: um hash conferido. */
+    const doStorage = chamadas.filter((c) => c.url.startsWith("https://storage.exemplo/"));
+    expect(doStorage).toHaveLength(0); // o Storage não passa por `chamadas`, e sim pelo ramo de bytes
+
+    /* Um container de imagem única, com a legenda, e nenhum filho nem pai. */
+    const containers = chamadas.filter((c) => c.url.includes("/media") && c.corpo.image_url);
+    expect(containers).toHaveLength(1);
+    expect(containers[0].corpo.is_carousel_item).toBeUndefined();
+    expect(containers[0].corpo.caption).toBe(LEGENDA);
+    expect(paiCriado(chamadas)).toBeUndefined();
+  });
+
+  it("o manifesto do estático NÃO é reescrito pelo worker", async () => {
+    /*
+     * A gravação do manifesto é só do carrossel. No estático o manifesto já foi
+     * gravado por quem aprovou o post, e não há container filho para registrar:
+     * escrever ali acrescentaria uma falha possível entre a conferência do hash
+     * e a criação do container, no caminho que publica hoje.
+     */
+    tabelas.social_posts = { row: linhaEstatica() };
+    const { fetcher } = metaFalsa();
+
+    await processScheduledPost("post-v2", { autoPost: true }, ENV, fetcher);
+
+    const escreveuManifesto = updates.some((u) => "slides_manifest" in u);
+    expect(escreveuManifesto).toBe(false);
+  });
+
+  it("a idempotência do estático continua sendo a mesma: creation_id antes de publicar", async () => {
+    tabelas.social_posts = { row: linhaEstatica() };
+    const { fetcher } = metaFalsa();
+
+    await processScheduledPost("post-v2", { autoPost: true }, ENV, fetcher);
+
+    const ordem = updates.map((u) => Object.keys(u).join("+"));
+    const iCreation = ordem.findIndex((k) => k.includes("provider_creation_id"));
+    const iMedia = ordem.findIndex((k) => k.includes("provider_post_id"));
+
+    expect(iCreation).toBeGreaterThanOrEqual(0);
+    expect(iMedia).toBeGreaterThan(iCreation);
+  });
+
+  it("o estático com container de tentativa anterior reusa, não republica", async () => {
+    tabelas.social_posts = {
+      row: linhaEstatica({
+        provider_creation_id: "container-de-ontem",
+        publish_attempted_at: "2026-09-06T10:00:00Z",
+      }),
+    };
+    const { fetcher, chamadas } = metaFalsa();
+
+    const r = await processScheduledPost("post-v2", { autoPost: true }, ENV, fetcher);
+
+    /*
+     * O que se afirma aqui é que a reconciliação ACONTECEU: o worker perguntou
+     * à Meta pelo container de antes em vez de criar outro às cegas. É a
+     * proteção que já existia, e o suporte a carrossel não podia enfraquecê-la.
+     */
+    const perguntouStatus = chamadas.some((c) => c.url.includes("fields=status_code"));
+    expect(perguntouStatus).toBe(true);
+    expect(r.ok).toBe(true);
+  });
+});

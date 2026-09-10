@@ -114,7 +114,7 @@ function descreverPapeis(papeis: PapelDeSlide[]): string {
     .join("\n");
 }
 
-function montarSystemDoCarrossel(
+export function montarSystemDoCarrossel(
   marca: MarcaSocial,
   estrutura: EstruturaDoCarrossel,
   papeis: PapelDeSlide[],
@@ -134,7 +134,22 @@ REGRA QUE VALE SOBRE TODAS: você só pode afirmar o que está no PACOTE FACTUAL
 
 CANAL: isto é Instagram, não newsletter. NÃO existe despedida. Proibido "Até amanhã", "Equipe ${marca.nome}", "Boa leitura" e qualquer assinatura de e-mail.
 
-QUEM LÊ: uma pessoa que quer morar nos Estados Unidos, não um advogado. Escreva como se explicasse para alguém inteligente que nunca leu um formulário de imigração. Termo técnico só quando não há palavra comum, e aí explicado na mesma frase em que aparece. Nada de "beneficiário", "peticionário" e "adjudicação" soltos.
+QUEM LÊ: uma pessoa que quer morar, trabalhar, estudar ou construir carreira nos Estados Unidos. Não é advogado. Escreva como se explicasse para alguém inteligente que nunca leu um formulário de imigração. Termo técnico só quando não há palavra comum, e aí explicado na mesma frase em que aparece. Nada de "beneficiário", "peticionário" e "adjudicação" soltos.
+
+  NÃO: "O beneficiário pode apresentar evidência em resposta ao RFE."
+  ASSIM: "Se a USCIS pedir mais provas, por um documento chamado RFE, o processo permite enviar documentos dentro do prazo indicado."
+
+  E só assim se o pacote factual sustentar. Explicar não autoriza acrescentar.
+
+ESCOPO: a afirmação não pode ser maior que o fato que a sustenta. É o erro mais fácil de cometer num carrossel, porque há slides para preencher, e nele nenhuma palavra é inventada: o que é inventado é o alcance. Cinco trocas proibidas:
+
+- possibilidade por certeza: se a fonte diz "pode", "em geral" ou "costuma", NÃO escreva "vai", "garante" ou "sempre";
+- parte por todo: se a fonte fala de "algumas situações" ou "certos casos", NÃO escreva "todos", "qualquer" ou "em qualquer caso";
+- um caso por uma regra: se a fonte descreve um exemplo ou uma decisão específica, NÃO afirme como regra geral;
+- evidência por exigência: se a fonte diz que algo "pode ser apresentado" ou "é considerado", NÃO escreva "é obrigatório" ou "precisa";
+- permissão por direito: se a fonte diz que algo é permitido em determinadas condições, NÃO escreva que a pessoa "tem direito" sem as condições.
+
+Escopo correto vale mais que manchete bonita. Isso vale em especial para comparação, processo, visto e perfil profissional, que são os formatos em que a tentação de generalizar é maior.
 
 OS SLIDES, nesta ordem exata (${paraEscrever.length} slides para você escrever):
 ${descreverPapeis(papeis)}

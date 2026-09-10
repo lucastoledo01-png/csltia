@@ -4,7 +4,7 @@ import { montarSystemDeClaims } from "../../editorial/claims-semanticas";
 import { papeisPara } from "./estrutura";
 import type { PacoteFactual } from "../../editorial/pacote-factual";
 import type { ClaimSemantica, ResultadoDeClaims } from "../../editorial/claims-semanticas";
-import type { SlideDeTexto } from "./copy";
+import { montarSystemDoCarrossel, type SlideDeTexto } from "./copy";
 
 /**
  * A claim que não tem número, data nem nome próprio.
@@ -304,5 +304,34 @@ describe("o prompt do escopo só existe para quem pede", () => {
     const p = montarSystemDeClaims();
     expect(p).not.toContain('"escopo"');
     expect(p).not.toContain("possibilidade por certeza");
+  });
+});
+
+describe("o prompt da copy previne, além de o auditor detectar", () => {
+  const MARCA = { nome: "imigra.us", nicho: "imigração", extra: "", keyword: "VISA" };
+  const prompt = () => montarSystemDoCarrossel(MARCA, "comparison", PAPEIS);
+
+  it("as cinco trocas proibidas estão no prompt de quem escreve", () => {
+    /*
+     * Detectar depois é o segundo melhor resultado. O melhor é o modelo não
+     * cometer, e para isso a instrução tem que estar onde ele escreve, não só
+     * onde alguém confere.
+     */
+    const p = prompt();
+    expect(p).toContain("possibilidade por certeza");
+    expect(p).toContain("parte por todo");
+    expect(p).toContain("um caso por uma regra");
+    expect(p).toContain("evidência por exigência");
+    expect(p).toContain("permissão por direito");
+    expect(p).toContain("Escopo correto vale mais que manchete bonita");
+  });
+
+  it("o exemplo de linguagem para pessoa comum está no prompt, com o par certo", () => {
+    const p = prompt();
+    expect(p).toContain("morar, trabalhar, estudar ou construir carreira");
+    expect(p).toContain("O beneficiário pode apresentar evidência em resposta ao RFE");
+    expect(p).toContain("um documento chamado RFE");
+    /* E a ressalva que impede a explicação de virar acréscimo. */
+    expect(p).toContain("Explicar não autoriza acrescentar");
   });
 });
