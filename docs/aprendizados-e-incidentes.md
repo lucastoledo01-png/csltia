@@ -356,20 +356,23 @@ outros portões do mesmo trecho. Enquanto a linha do run nascer só no fim do
 sucesso, todo caminho de erro é invisível por construção, e cada gate novo
 reintroduz o mesmo buraco.
 
-### PENDENTE: comporFeedDoDia tem teste e não tem chamador
+### comporFeedDoDia tinha teste e não tinha chamador
 
-**O que.** `evergreen/compositor.ts` exporta `comporFeedDoDia`, com quatro
-`it()` cobrindo prioridade da notícia e teto do dia. O único chamador é o próprio
-teste: em produção, a composição News + Evergreen acontece em
-`pipeline-v2.ts:205`, montando `[...noticia, ...extras]` direto.
+**O que era.** `evergreen/compositor.ts` exportava `comporFeedDoDia`, com quatro
+`it()` cobrindo prioridade da notícia e teto do dia, e o único chamador era o
+próprio teste: em produção a composição News + Evergreen acontecia em
+`pipeline-v2.ts`, montando `[...noticia, ...extras]` direto.
 
-**Por que importa.** É o padrão registrado no incidente do Google News: função de
-guarda escrita e não chamada é pior que função ausente, porque o teste prova uma
-coisa que não acontece. Se um dia a prioridade da notícia quebrar no caminho
-real, esses quatro testes continuarão verdes.
+**Por que importava.** É o padrão registrado no incidente do Google News: função
+de guarda escrita e não chamada é pior que função ausente, porque o teste prova
+uma coisa que não acontece.
 
-**O que fazer.** Ou `pipeline-v2` passa a chamar `comporFeedDoDia`, ou os testes
-migram para o caminho real e a função sai.
+**FECHADO.** `pipeline-v2.ts` chama `comporFeedDoDia`, a concatenação solta saiu,
+e o log do dia imprime a decisão do compositor. A auditoria que fechou isto
+encontrou algo maior no mesmo lugar: o canal Evergreen era inalcançável a partir
+do cron, porque ninguém passava a opção `evergreen` para `rodarSocialDoDia`.
+`SOCIAL_EVERGREEN_V2=enforce` não teria produzido nada. Agora quem decide é a
+flag, dentro da função, e há teste que roda o entrypoint sem passar a opção.
 
 ### Campo validado e campo impresso não eram o mesmo campo
 
