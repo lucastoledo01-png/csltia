@@ -317,6 +317,45 @@ Instagram passou a aceitar 3:4 no feed.
 apagar as duas constantes. Deixá-las declaradas e não usadas é o mesmo padrão do
 incidente de `escolherUrlPublicavel`: dá a impressão de que o caso está coberto.
 
+### 10/09 sem edição: o cron disparou, e a falha apagou a própria evidência
+
+**Sintoma.** Nenhuma linha em `newsroom_runs` no dia 10/09/2026, nenhuma edição,
+nenhum artigo, nenhum post. A leitura imediata, de novo, era cron morto.
+
+**Não era, e desta vez o cron foi cercado inteiro.** Crontab instalado no usuário
+`deploy`, daemon `active` e `enabled`, fuso do servidor em UTC, linha
+`3 9 * * *` (09:03 UTC = 06:03 America/Sao_Paulo), endpoint certo, método POST,
+segredo no header. O log do cron tem a chamada de 10/09 às 09:03:01 com resposta
+`{"ok":true,"accepted":true}`. Sem DNS, sem rede, sem 401, sem 404, sem 5xx.
+
+**E a redação rodou.** 109 candidatas classificadas e persistidas em
+`news_candidates` naquele dia, 5 aprovadas pela linha editorial, portanto acima
+do mínimo de 2. Depois disso, silêncio.
+
+**Causa.** `newsroom_runs` é gravado UMA vez, no fim do caminho de sucesso
+(`created_at` igual a `finished_at` em todas as 21 linhas da tabela). Qualquer
+exceção entre a aprovação editorial e a escrita de `news_editions` apaga a
+própria evidência. No trecho existe um portão que decide não publicar e sinaliza
+por `throw`: o bloqueio do QA quando a guarda está em `enforce`.
+
+É a lição de 06, 07 e 08 de setembro com outro rosto. Naquela vez a correção foi
+gravar antes de sinalizar, e ela alcançou só o mínimo de pautas
+(`registrarDiaSemEdicao`). O resto do caminho continuou saindo por exceção.
+
+**Corrigido.** `registrarFalhaDaRedacao`: `runNewsroom` virou um invólucro que
+grava um run `failed`, com o motivo, e repassa o erro. Não muda decisão nenhuma
+e não engole erro nenhum. `failed` já está no CHECK da migration original, e a
+chave leva a hora da falha porque `idempotency_key` é UNIQUE global.
+
+**O que continua não sendo possível.** Ler o log do contêiner: o usuário `deploy`
+não está no grupo `docker` e não tem sudo, e a base do EasyPanel não é acessível.
+Por isso a evidência precisa estar no banco, e não no log.
+
+**Lição.** A correção de um portão que sinaliza por exceção não vale para os
+outros portões do mesmo trecho. Enquanto a linha do run nascer só no fim do
+sucesso, todo caminho de erro é invisível por construção, e cada gate novo
+reintroduz o mesmo buraco.
+
 ### PENDENTE: comporFeedDoDia tem teste e não tem chamador
 
 **O que.** `evergreen/compositor.ts` exporta `comporFeedDoDia`, com quatro

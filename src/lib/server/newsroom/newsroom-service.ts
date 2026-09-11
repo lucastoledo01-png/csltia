@@ -574,7 +574,91 @@ export async function registrarDiaSemEdicao(dados: {
   }
 }
 
+/**
+ * Falha técnica da redação também vira linha no banco.
+ *
+ * Em 10/09/2026 o cron disparou às 09:03:01 UTC, o endpoint respondeu 202, a
+ * redação classificou 109 candidatas e aprovou 5, e depois disso não sobrou
+ * nada: nem `news_editions`, nem `newsroom_runs`, nem artigo, nem post. A linha
+ * do run é gravada UMA vez, no fim do caminho de sucesso, então qualquer
+ * exceção entre a aprovação editorial e a edição apaga a própria evidência, e
+ * o dia fica indistinguível de cron morto.
+ *
+ * É a lição de 06, 07 e 08 de setembro com outro rosto. Naquela vez o portão
+ * que decidia não publicar sinalizava por `throw`, e a correção foi gravar
+ * antes de sinalizar. A correção alcançou o mínimo de pautas e parou ali: o
+ * bloqueio do QA em `enforce` continua saindo por exceção, e qualquer erro
+ * técnico no mesmo trecho some do mesmo jeito.
+ *
+ * Esta função não muda decisão nenhuma e não engole erro nenhum: grava e
+ * repassa. Ela só garante que, quando o dia quebrar, o motivo esteja onde dá
+ * para ler sem docker e sem sudo.
+ *
+ * A chave leva a hora da falha porque `idempotency_key` é UNIQUE global. Sem
+ * isso, a segunda falha do dia não gravaria, e a recuperação bem-sucedida mais
+ * tarde disputaria a chave canônica do dia com o registro do erro.
+ */
+export async function registrarFalhaDaRedacao(
+  erro: unknown,
+  contexto: {
+    startTime: number;
+    options: RunNewsroomOptions;
+    env: Record<string, string | undefined>;
+  },
+  cliente?: ReturnType<typeof getSupabaseAdminClient>,
+): Promise<void> {
+  try {
+    const { options, env } = contexto;
+    const dryRun =
+      options.dryRun ?? (env.DRY_RUN === "true" || env.DRY_RUN === undefined ? true : false);
+    if (dryRun) return;
+
+    const project = await requireActiveProject(options.projectId ?? DEFAULT_PROJECT_ID);
+    const todayStr = projectToday(project);
+    const chaveDoDia = options.idempotencyKey || `daily-edition-${todayStr}`;
+    const quando = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+
+    const motivo =
+      erro instanceof Error
+        ? `RUN_FAILED: ${erro.message}${erro.stack ? ` | ${erro.stack.split("\n")[1]?.trim() ?? ""}` : ""}`
+        : `RUN_FAILED: ${String(erro)}`;
+
+    const supabase = cliente ?? getSupabaseAdminClient();
+    await supabase.from("newsroom_runs").insert({
+      project_id: project.id,
+      started_at: new Date(contexto.startTime).toISOString(),
+      finished_at: new Date().toISOString(),
+      status: "failed",
+      dry_run: false,
+      edition_id: null,
+      error_message: motivo.slice(0, 2000),
+      idempotency_key: `${chaveDoDia}#falha-${quando}`,
+    });
+
+    console.error(`[NEWSROOM DB] Falha da redação registrada em newsroom_runs: ${motivo.slice(0, 300)}`);
+  } catch (dbErr) {
+    // Best effort de verdade: não registrar a falha não pode virar uma segunda
+    // falha que esconda a primeira.
+    console.error("[NEWSROOM DB] Não consegui registrar a falha da redação:", dbErr);
+  }
+}
+
 export async function runNewsroom(
+  options: RunNewsroomOptions = {},
+  env: Record<string, string | undefined> = process.env,
+  fetcher: typeof fetch = fetch,
+) {
+  const startTime = Date.now();
+
+  try {
+    return await executarRedacaoDoDia(options, env, fetcher);
+  } catch (erro) {
+    await registrarFalhaDaRedacao(erro, { startTime, options, env });
+    throw erro;
+  }
+}
+
+async function executarRedacaoDoDia(
   options: RunNewsroomOptions = {},
   env: Record<string, string | undefined> = process.env,
   fetcher: typeof fetch = fetch
