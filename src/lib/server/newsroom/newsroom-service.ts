@@ -666,25 +666,87 @@ export function modoSocialParaOEnsaio(
   return modoDoPipelineSocial(env) === "off" ? "off" : "dry_run";
 }
 
+/**
+ * O que a execução já produziu quando ela falha depois.
+ *
+ * O diagnóstico do Instagram vivia num `let` local, e só aparecia nos dois
+ * `return` do caminho feliz. O portão do QA sai por `throw`, então ele pulava
+ * os dois: numa edição bloqueada, o canal social rodava inteiro, gravava post e
+ * o resultado dizia apenas `{ok:false, error}`. Quem operava não tinha como
+ * saber se o Instagram do dia tinha acontecido.
+ *
+ * O rastro é criado FORA da execução e preenchido por dentro, então ele
+ * sobrevive à exceção. Não há cópia paralela: o diagnóstico mora aqui e só
+ * aqui, porque duas variáveis que podem discordar é o defeito seguinte.
+ */
+export type RastroDaExecucao = {
+  social: DiagnosticoSocialDoDia;
+};
+
+/** Motivo estruturado da falha, para quem lê a resposta decidir o que fazer. */
+export const MOTIVO_QA_BLOQUEOU = "EDITORIAL_QA";
+export const MOTIVO_FALHA_GENERICA = "RUN_FAILED";
+
+/*
+ * O anexo é uma propriedade não enumerável no próprio erro, e não um erro novo
+ * que embrulha o antigo. A mensagem, a `stack` e a identidade continuam sendo
+ * as mesmas: o alerta do Telegram e a linha `failed` de `newsroom_runs` leem
+ * exatamente o que liam antes desta mudança.
+ */
+const CHAVE_DIAGNOSTICO = "__diagnosticoSocial";
+const CHAVE_MOTIVO = "__motivoDaRedacao";
+
+function anexar(erro: unknown, chave: string, valor: unknown): unknown {
+  if (typeof erro !== "object" || erro === null) return erro;
+  try {
+    Object.defineProperty(erro, chave, { value: valor, enumerable: false, configurable: true });
+  } catch {
+    // Erro congelado. Repassa sem o anexo: perder o diagnóstico é melhor que
+    // perder o erro.
+  }
+  return erro;
+}
+
+/** Marca um erro com o motivo estruturado, sem mudar a mensagem dele. */
+export function comMotivo<T>(erro: T, motivo: string): T {
+  return anexar(erro, CHAVE_MOTIVO, motivo) as T;
+}
+
+export function motivoDoErro(erro: unknown): string {
+  const m = (erro as Record<string, unknown> | null)?.[CHAVE_MOTIVO];
+  return typeof m === "string" ? m : MOTIVO_FALHA_GENERICA;
+}
+
+export function diagnosticoSocialDoErro(erro: unknown): DiagnosticoSocialDoDia | null {
+  const d = (erro as Record<string, unknown> | null)?.[CHAVE_DIAGNOSTICO];
+  return d && typeof d === "object" ? (d as DiagnosticoSocialDoDia) : null;
+}
+
 export async function runNewsroom(
   options: RunNewsroomOptions = {},
   env: Record<string, string | undefined> = process.env,
   fetcher: typeof fetch = fetch,
 ) {
   const startTime = Date.now();
+  const rastro: RastroDaExecucao = {
+    social: diagnosticoSocialAusente(modoDoPipelineSocial(env)),
+  };
 
   try {
-    return await executarRedacaoDoDia(options, env, fetcher);
+    return await executarRedacaoDoDia(options, env, fetcher, rastro);
   } catch (erro) {
     await registrarFalhaDaRedacao(erro, { startTime, options, env });
-    throw erro;
+    // O erro segue sendo erro. Ele só passa a carregar o que já tinha sido
+    // produzido antes dele.
+    throw anexar(erro, CHAVE_DIAGNOSTICO, rastro.social);
   }
 }
 
 async function executarRedacaoDoDia(
   options: RunNewsroomOptions = {},
   env: Record<string, string | undefined> = process.env,
-  fetcher: typeof fetch = fetch
+  fetcher: typeof fetch = fetch,
+  rastro: RastroDaExecucao = { social: diagnosticoSocialAusente(modoDoPipelineSocial(env)) },
 ) {
   const dryRun = options.dryRun ?? (env.DRY_RUN === "true" || env.DRY_RUN === undefined ? true : false);
   const publishToPortal = options.publishToPortal ?? !dryRun;
@@ -767,7 +829,8 @@ async function executarRedacaoDoDia(
    * seria indistinguível de ter rodado e não produzido nada, que é a diferença
    * que este campo existe para dizer.
    */
-  let diagnosticoSocial: DiagnosticoSocialDoDia = diagnosticoSocialAusente(modoDoPipelineSocial(env));
+  // O diagnóstico mora no rastro, que sobrevive à exceção do portão do QA.
+  rastro.social = diagnosticoSocialAusente(modoDoPipelineSocial(env));
 
   if (modo !== "off") {
     const store = criarHistoricoStore(getSupabaseAdminClient());
@@ -865,7 +928,7 @@ async function executarRedacaoDoDia(
         fetcher,
       });
 
-      diagnosticoSocial = social.diagnostico;
+      rastro.social = social.diagnostico;
       for (const l of social.ciclo?.linhasDeLog ?? []) console.log(l);
 
       if (social.diagnostico.mode !== "off") {
@@ -878,7 +941,7 @@ async function executarRedacaoDoDia(
       }
     } catch (erro) {
       const motivo = erro instanceof Error ? erro.message : String(erro);
-      diagnosticoSocial = { ...diagnosticoSocialAusente(modoDoPipelineSocial(env)), errors: [motivo] };
+      rastro.social = { ...diagnosticoSocialAusente(modoDoPipelineSocial(env)), errors: [motivo] };
       console.error(`[NEWSROOM] socialV2 falhou, e a newsletter segue: ${motivo}`);
       await sendAlert(
         "warning",
@@ -971,7 +1034,7 @@ async function executarRedacaoDoDia(
            * Instagram só aparecesse no caminho de sucesso, o dia em que ele
            * mais tem valor seria o dia em que ninguém saberia se ele rodou.
            */
-          socialV2: diagnosticoSocial,
+          socialV2: rastro.social,
           idempotencyKey,
         };
       }
@@ -1117,9 +1180,18 @@ async function executarRedacaoDoDia(
   }
 
   if (!pipelineResult.aprovado && modo === "enforce") {
-    throw new Error(
-      `Edição bloqueada depois de ${pipelineResult.tentativasDeReparo} tentativa(s) de correção ` +
-        `(QA ${pipelineResult.qaResult.score}): ${pipelineResult.bloqueios.join(" | ")}`,
+    /*
+     * A decisão é a mesma, e a mensagem é byte a byte a de antes: o alerta e a
+     * linha `failed` de `newsroom_runs` continuam lendo o que liam. O que muda
+     * é que o erro passa a dizer POR QUE ele é, para quem lê a resposta não
+     * precisar interpretar texto livre.
+     */
+    throw comMotivo(
+      new Error(
+        `Edição bloqueada depois de ${pipelineResult.tentativasDeReparo} tentativa(s) de correção ` +
+          `(QA ${pipelineResult.qaResult.score}): ${pipelineResult.bloqueios.join(" | ")}`,
+      ),
+      MOTIVO_QA_BLOQUEOU,
     );
   }
 
@@ -1613,7 +1685,7 @@ async function executarRedacaoDoDia(
      * flag está ligada e o ciclo NÃO foi alcançado — que é a diferença que este
      * campo existe para tornar visível.
      */
-    socialV2: diagnosticoSocial,
+    socialV2: rastro.social,
     minEditorialQaScore: configEditorial.notaMinimaDeQA,
     maxEditorialRepairAttempts: configEditorial.maximoDeReparos,
     publishedToPortal: Boolean(createdArticleSlug),

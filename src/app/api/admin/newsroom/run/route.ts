@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { requireAdminOrCron } from "@/lib/server/api-auth";
-import { runNewsroom } from "@/lib/server/newsroom/newsroom-service";
+import {
+  MOTIVO_QA_BLOQUEOU,
+  diagnosticoSocialDoErro,
+  motivoDoErro,
+  runNewsroom,
+} from "@/lib/server/newsroom/newsroom-service";
 
 async function handleRun(req: NextRequest) {
   const denied = await requireAdminOrCron(req);
@@ -34,10 +39,36 @@ async function handleRun(req: NextRequest) {
     return NextResponse.json(result);
   } catch (err) {
     console.error("[NEWSROOM API ERROR]", err);
+
+    /*
+     * A newsletter falhou, e o Instagram do dia não falhou junto.
+     *
+     * Os dois são consumidores independentes do mesmo trabalho editorial, e o
+     * social roda ANTES do portão do QA, de propósito. Quando a edição é
+     * bloqueada, o canal social já rodou inteiro: devolver só `{ok:false,
+     * error}` apagava esse resultado e deixava quem opera sem saber se o feed
+     * do dia aconteceu.
+     *
+     * A resposta continua sendo erro, com o mesmo 500 e a mesma mensagem. Ela
+     * só passa a dizer também o que o social produziu antes.
+     */
+    const motivo = motivoDoErro(err);
+    const social = diagnosticoSocialDoErro(err);
+    const mensagem =
+      err instanceof Error ? err.message : "Erro interno ao executar a redação automatizada.";
+
     return NextResponse.json(
       {
         ok: false,
-        error: err instanceof Error ? err.message : "Erro interno ao executar a redação automatizada.",
+        newsletter: {
+          status: motivo === MOTIVO_QA_BLOQUEOU ? "blocked" : "failed",
+          reason: motivo,
+          error: mensagem,
+        },
+        ...(social ? { social } : {}),
+        // Mantido para quem já lia este campo. A resposta ganhou estrutura, e
+        // não trocou de contrato.
+        error: mensagem,
       },
       { status: 500 },
     );

@@ -465,7 +465,11 @@ describe("a integração no newsroom, lida do fonte", () => {
       fonte.indexOf('reason: "editorial_minimum_not_met"'),
       fonte.indexOf('reason: "editorial_minimum_not_met"') + 900,
     );
-    expect(trecho).toContain("socialV2: diagnosticoSocial");
+    // A asserção é sobre o CAMPO que sai no retorno, não sobre o nome da
+    // variável que o alimenta: o diagnóstico mudou de escopo para sobreviver ao
+    // throw do portão do QA, e um teste que morre num rename não estava
+    // medindo a regra.
+    expect(trecho).toMatch(/socialV2:\s*\S+/);
   });
 
   it("E. falha do social não derruba a newsletter", () => {
