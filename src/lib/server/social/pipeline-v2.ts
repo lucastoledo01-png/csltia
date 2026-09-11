@@ -7,7 +7,7 @@ import { comporFeedSocial, carregarConfigSocial, topicoDaPauta } from "./selecao
 import type { ComposicaoSocial, ConfigSocial } from "./selecao";
 import { carregarConfigDaAgenda, distribuirVagas } from "./agenda";
 import type { Vaga } from "./agenda";
-import { gerarPostsDoDia } from "./gerador";
+import { gerarPostsDoDia , type OpcoesDoGerador } from "./gerador";
 import type { MarcaSocial } from "./copy";
 import type { PostGerado } from "./gerador";
 import { modoDoPipelineSocial, permiteEnforce, diagnosticoSocialVazio } from "./modo";
@@ -16,7 +16,12 @@ import { chaveDeIdempotencia, resolverOrigem } from "./social-posts-store";
 import type { PostParaGravar, SocialPostsStore } from "./social-posts-store";
 import { mesmaKeyword, resolverKeywordCanonica } from "./keyword-canonica";
 import type { ResolucaoDaKeyword } from "./keyword-canonica";
-import { congelarArtefato } from "./artefato";
+import { congelarArtefato, congelarCarrossel } from "./artefato";
+import type { EntradaDoCarrossel, ResultadoDoCarrossel } from "./artefato";
+import { entradasDoCarrossel } from "./carrossel/arte";
+import { alternarFormatos } from "./carrossel/formato";
+import { comporFeedDoDia } from "./evergreen/compositor";
+import type { DecisaoDeFormato } from "./carrossel/formato";
 import type { EntradaDoCongelamento, ResultadoDoCongelamento } from "./artefato";
 import { impressaoDoAcontecimento } from "../editorial/fingerprint";
 import { entidadesDaClassificacao } from "../editorial/classificador";
@@ -109,8 +114,39 @@ export type OpcoesDoCiclo = {
    * que nunca vão ao ar.
    */
   congelarArte?: (entrada: EntradaDoCongelamento) => Promise<ResultadoDoCongelamento>;
+  /**
+   * O congelamento de N slides, injetável pela mesma razão que o de um.
+   *
+   * Separado do de peça única de propósito: o nome do arquivo é diferente
+   * (`social-v2-01.png` contra `social-v2.png`), e passar o caminho da peça
+   * única por uma função que indexa mudaria o nome dos artefatos da notícia sem
+   * nenhum ganho.
+   */
+  congelarCarrossel?: (entrada: EntradaDoCarrossel) => Promise<ResultadoDoCarrossel>;
+  /** Verificação semântica das claims. Ausente significa não rodar. */
+  verificarClaims?: OpcoesDoGerador["verificarClaims"];
+  /** Decide static ou carousel por pauta. Ausente significa tudo static. */
+  decidirCarrossel?: (
+    pauta: PautaAvaliada,
+    pacote: PacoteFactual | null,
+    comCta: boolean,
+  ) => DecisaoDeFormato | null;
   /** Prefixo do caminho no bucket. Sem ele, o ciclo não congela e não grava. */
   slugDoProjeto?: string;
+  /**
+   * Pautas que entram DEPOIS da composição da notícia, sem passar por ela.
+   *
+   * É por aqui que o evergreen entra, e a escolha de não jogá-lo no `pool` tem
+   * uma razão só: `comporFeedSocial` aplica as réguas de diversidade do
+   * noticiário sobre tudo o que recebe, e um evergreen com nota menor poderia
+   * fazer uma notícia válida perder vaga por teto de eixo. Notícia nunca perde
+   * vaga para conteúdo permanente.
+   *
+   * Quem decide quantos cabem é quem chama: o compositor do dia calcula as
+   * vagas restantes e só manda o que couber. Ausente, o ciclo é exatamente o
+   * que era.
+   */
+  extras?: PautaAvaliada[];
   env?: Record<string, string | undefined>;
   fetcher?: typeof fetch;
 };
@@ -181,11 +217,63 @@ export async function rodarCicloSocial(
     );
   }
 
+  /*
+   * A notícia composta, mais o que veio por fora.
+   *
+   * A ordem importa e é a da prioridade: a notícia primeiro, o extra depois. A
+   * agenda distribui os horários do dia numa passada só sobre esta lista, o que
+   * é o único jeito de os dois canais não receberem o mesmo horário.
+   */
+  /*
+   * O COMPOSITOR ÚNICO. Aqui, e em nenhum outro lugar, os dois canais se juntam.
+   *
+   * Isto era uma concatenação solta, e `comporFeedDoDia` existia ao lado com
+   * teste próprio e nenhum chamador. Duas implementações da mesma aritmética,
+   * uma testada e outra em produção, é exatamente o padrão do incidente do
+   * `escolherUrlPublicavel`: os testes provavam uma coisa que não acontecia.
+   *
+   * O que o compositor garante, e a concatenação não garantia:
+   *
+   *   - a notícia entra primeiro e nunca perde vaga para conteúdo permanente;
+   *   - o evergreen ocupa SÓ o que sobrou do teto global;
+   *   - o total nunca passa do teto, mesmo que os dois lados cheguem cheios.
+   *
+   * O teto do evergreen já foi aplicado antes, em `prepararEvergreen`, e por um
+   * motivo diferente: lá ele evita BUSCAR fonte oficial para item que não teria
+   * vaga. Aqui ele decide o FEED. Os dois usam `calcularVagas`, então não têm
+   * como divergir na conta.
+   */
+  const feed = comporFeedDoDia(
+    composicao.escolhidas.map((e) => e.pauta),
+    opcoes.extras ?? [],
+    config.maximoPorDia,
+  );
+
+  const paraGerar = [...feed.noticias, ...feed.evergreen];
+
+  if (opcoes.extras?.length) {
+    linhas.push(
+      `[SOCIAL V2] compositor: ${feed.noticias.length} de notícia + ${feed.evergreen.length} de conteúdo ` +
+        `permanente = ${feed.total} de ${feed.vagas.maximo} vaga(s)` +
+        (feed.evergreen.length < opcoes.extras.length
+          ? `; ${opcoes.extras.length - feed.evergreen.length} permanente(s) cortado(s) pelo teto global`
+          : ""),
+    );
+  }
+
   // 3. Copy, guarda e reparo.
   const geracao = await gerarPostsDoDia(
-    composicao.escolhidas.map((e) => e.pauta),
+    paraGerar,
     config.maximoPorDia,
-    { marca, pacotes: opcoes.pacotes, candidatas: opcoes.candidatas, env, fetcher: opcoes.fetcher },
+    {
+      marca,
+      pacotes: opcoes.pacotes,
+      candidatas: opcoes.candidatas,
+      env,
+      fetcher: opcoes.fetcher,
+      decidirCarrossel: opcoes.decidirCarrossel,
+      verificarClaims: opcoes.verificarClaims,
+    },
   );
   linhas.push(...geracao.linhasDeLog);
   diagnostico.reparos = geracao.diagnostico.reparosFeitos;
@@ -214,10 +302,38 @@ export async function rodarCicloSocial(
     comVisual.push({ post, visual });
   }
 
-  // 5. Agenda: recebe a quantidade, não a impõe.
-  const vagas = distribuirVagas(comVisual.length, opcoes.editionDate, carregarConfigDaAgenda(env), opcoes.agoraMs);
+  /*
+   * 5. Diversidade de formato, e só entre o que veio DEPOIS da notícia.
+   *
+   * A notícia é sempre estática nesta fase e sempre vem primeiro, e é por isso
+   * que a intercalação só pode agir na cauda: reordenar a lista inteira daria à
+   * cauda a chance de ocupar um horário da notícia, e a prioridade da notícia
+   * não é desempate, é regra.
+   *
+   * Aqui já se sabe o formato de cada post, o que antes da geração era
+   * impossível: o formato depende de quantos fatos o pacote sustentou.
+   */
+  const idsDaCauda = new Set((opcoes.extras ?? []).map((p) => p.storyId));
+  const daNoticia = comVisual.filter((c) => !idsDaCauda.has(c.post.pauta.storyId));
+  const daCauda = comVisual.filter((c) => idsDaCauda.has(c.post.pauta.storyId));
+  const ordenados = [
+    ...daNoticia,
+    ...alternarFormatos(daCauda, (c) => (c.post.carrossel ? "carousel" : "static")),
+  ];
 
-  const previews: PreviewDoPost[] = comVisual.map(({ post, visual }, i) => {
+  if (daCauda.length > 1) {
+    linhas.push(
+      `[SOCIAL V2] formatos na cauda: ${ordenados
+        .slice(daNoticia.length)
+        .map((c) => (c.post.carrossel ? `C${c.post.carrossel.papeis.length}` : "S"))
+        .join(" ")}`,
+    );
+  }
+
+  // 6. Agenda: recebe a quantidade, não a impõe.
+  const vagas = distribuirVagas(ordenados.length, opcoes.editionDate, carregarConfigDaAgenda(env), opcoes.agoraMs);
+
+  const previews: PreviewDoPost[] = ordenados.map(({ post, visual }, i) => {
     const fingerprint =
       impressaoDoAcontecimento(entidadesDaClassificacao(post.pauta.classificacao)) || post.pauta.storyId;
 
@@ -260,7 +376,7 @@ export async function rodarCicloSocial(
   }
 
   /*
-   * 6. Congelar a arte ANTES de gravar, e não gravar o que não congelou.
+   * 7. Congelar a arte ANTES de gravar, e não gravar o que não congelou.
    *
    * Uma linha `scheduled` é um compromisso: o worker vai publicá-la. Gravar
    * primeiro e descobrir na hora da publicação que a peça não fecha deixaria o
@@ -271,35 +387,64 @@ export async function rodarCicloSocial(
    * relatório do dia.
    */
   const congelar = opcoes.congelarArte ?? congelarArtefato;
+  const congelarSlides = opcoes.congelarCarrossel ?? congelarCarrossel;
   const paraGravar: PostParaGravar[] = [];
 
   for (const p of previews) {
-    const artefato = await congelar({
-      capa: {
-        headline: p.post.copy.headline,
-        eixo: p.post.pauta.classificacao.eixo,
-        asset: p.visual?.asset ?? null,
-        motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
-      },
-      path: `${opcoes.slugDoProjeto ?? opcoes.projectId}/${opcoes.editionDate}/${p.chaveDeIdempotencia}`,
-      fetcher: opcoes.fetcher,
-    });
+    const path = `${opcoes.slugDoProjeto ?? opcoes.projectId}/${opcoes.editionDate}/${p.chaveDeIdempotencia}`;
+    const carrossel = p.post.carrossel;
 
-    if (!artefato.ok) {
-      linhas.push(`[SOCIAL V2] ${p.post.pauta.storyId} não vira post: ${artefato.motivo}`);
+    /*
+     * Um caminho por formato, e o mesmo tratamento de falha nos dois.
+     *
+     * O que muda é quantos arquivos são congelados. O que NÃO muda é a regra:
+     * artefato que não fecha vira descarte, não vira linha `scheduled` com
+     * defeito, porque linha `scheduled` é compromisso de publicar.
+     */
+    const resultado = carrossel
+      ? await congelarSlides({
+          slides: entradasDoCarrossel(
+            { ...p.post.copy, slides: carrossel.slides },
+            carrossel.papeis,
+            {
+              eixo: p.post.pauta.classificacao.eixo ?? "",
+              asset: p.visual?.asset ?? null,
+              motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
+            },
+          ).entradas,
+          path,
+          fetcher: opcoes.fetcher,
+        })
+      : await congelar({
+          capa: {
+            headline: p.post.copy.headline,
+            eixo: p.post.pauta.classificacao.eixo,
+            asset: p.visual?.asset ?? null,
+            motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
+          },
+          path,
+          fetcher: opcoes.fetcher,
+        });
+
+    if (!resultado.ok) {
+      linhas.push(`[SOCIAL V2] ${p.post.pauta.storyId} não vira post: ${resultado.motivo}`);
       descartados.push({
         titulo: p.post.copy.headline,
         storyId: p.post.pauta.storyId,
         etapa: "artefato",
-        motivo: artefato.motivo,
+        motivo: resultado.motivo,
       });
       continue;
     }
 
+    const artefatos = "artefatos" in resultado ? resultado.artefatos : [{ ...resultado.artefato, index: 1 }];
+
     linhas.push(
-      `[SOCIAL V2] arte congelada: ${artefato.artefato.filename}, ` +
-        `${(artefato.artefato.bytes / 1024).toFixed(0)} KB, sha ${artefato.artefato.sha256.slice(0, 12)}` +
-        (artefato.artefato.otimizado ? " (otimizado para caber no limite)" : ""),
+      `[SOCIAL V2] ${carrossel ? `carrossel de ${artefatos.length} slides congelado` : "arte congelada"}: ` +
+        artefatos
+          .map((a) => `${a.filename} ${(a.bytes / 1024).toFixed(0)}KB sha ${a.sha256.slice(0, 8)}`)
+          .join(" | ") +
+        (artefatos.some((a) => a.otimizado) ? " (otimizado para caber no limite)" : ""),
     );
 
     paraGravar.push({
@@ -312,7 +457,8 @@ export async function rodarCicloSocial(
       topicId: p.topicId,
       eventFingerprint: p.eventFingerprint,
       origem: p.origem,
-      artefato: artefato.artefato,
+      formato: carrossel ? "carousel" : "static",
+      artefatos,
     });
   }
 

@@ -1,5 +1,6 @@
 import type { CarouselFormat, InstagramSlide } from "@/lib/carousel-templates/types";
 import type { Layout } from "@/lib/carousel-templates/layout";
+import type { Affordance } from "@/lib/carousel-templates/chrome";
 import type { AssetVisual } from "../visual/tipos";
 
 /**
@@ -44,8 +45,15 @@ export function publicavelSemFoto(formato: CarouselFormat): boolean {
 
 export type CapaDoPost = {
   slide: InstagramSlide;
-  /** Variante do template. Muda com a presença da foto, e só com ela. */
-  variante: "fullbleed_portrait" | "noticia_sem_foto";
+  /**
+   * Variante do template.
+   *
+   * Na CAPA ela muda com a presença da foto, e só com ela. Num slide de
+   * conteúdo do carrossel, ela é a variante que o papel declarou, e por isso o
+   * tipo é aberto: fechá-lo nas duas capas obrigaria a listar aqui todas as
+   * variantes de conteúdo, que são decisão de quem monta o carrossel.
+   */
+  variante: string;
   comFoto: boolean;
   /** Crédito a ser impresso na arte. Vazio quando a licença não exige. */
   credito: string;
@@ -126,6 +134,27 @@ export type EntradaDaCapa = {
   eixo?: string;
   asset: FotoDaCapa | null;
   motivoSemFoto?: string;
+  /**
+   * Um slide que NÃO é a capa, já montado por quem conhece o formato.
+   *
+   * Existe para o carrossel: os slides de conteúdo não têm manchete, eixo nem
+   * foto, e montá-los aqui obrigaria este módulo a conhecer papéis, estruturas
+   * e variantes de conteúdo permanente. Quem sabe disso monta o slide e passa
+   * pronto; aqui ele só é desenhado.
+   */
+  slidePronto?: InstagramSlide;
+  /** Posição e total, para a paginação. Peça única é 1 de 1. */
+  posicao?: number;
+  total?: number;
+  /**
+   * Quanto o rodapé promete.
+   *
+   * O chrome de `noticia` é o editorial, e o rodapé dele escreve "SWIPE" com
+   * seta quando há mais de um slide. Na peça única isso nunca aparecia, porque
+   * `total` é 1; no carrossel apareceu em todos os slides, e o pedido é
+   * explícito em não usar. `discreta` mantém a paginação e tira o convite.
+   */
+  affordance?: Affordance;
 };
 
 /**
@@ -156,6 +185,23 @@ function sobrancelha(eixo: string | undefined): string {
 }
 
 export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
+  /*
+   * Slide pronto passa direto, sem foto e sem crédito.
+   *
+   * Só a capa carrega imagem nesta superfície, e por isso o slide de conteúdo
+   * não tem de onde puxar foto: `comFoto` falso aqui não é degradação, é o
+   * formato do slide.
+   */
+  if (entrada.slidePronto) {
+    return {
+      slide: entrada.slidePronto,
+      variante: entrada.slidePronto.variant || entrada.slidePronto.type,
+      comFoto: false,
+      credito: "",
+      motivoSemFoto: "",
+    };
+  }
+
   const asset = entrada.asset;
   const comFoto = Boolean(asset && asset.imageUrl);
 
@@ -362,16 +408,25 @@ export async function renderizarCapas(
       // Ver `layoutCarregaAFoto`: sem bloco de imagem, o desenho engole a foto
       // e deixa a manchete branca sobre fundo claro.
       const diagnosticoDoLayout = diagnosticarLayout(layout, capa.comFoto);
-      const usaDesenho = diagnosticoDoLayout === DIAGNOSTICOS_DE_LAYOUT.USADO;
+      /*
+       * O desenho do painel é da CAPA, e vale só para a capa.
+       *
+       * `resolveLayout` foi consultado para o par (noticia, cover). Aplicá-lo a
+       * um slide de conteúdo desenharia a manchete no lugar do corpo e o corpo
+       * em lugar nenhum: o desenho posiciona blocos por nome, e os nomes são os
+       * da capa.
+       */
+      const usaDesenho = diagnosticoDoLayout === DIAGNOSTICOS_DE_LAYOUT.USADO && !entrada.slidePronto;
 
       const html = assembleSlide(capa.slide, {
         format: "noticia",
         tokens,
         formatConfig,
-        slideIndex: 1,
-        total: 1,
+        slideIndex: entrada.posicao ?? 1,
+        total: entrada.total ?? 1,
         layout: usaDesenho ? layout : null,
         credito: capa.credito,
+        affordance: entrada.affordance,
       });
 
       await page.setContent(html, { waitUntil: "networkidle" });

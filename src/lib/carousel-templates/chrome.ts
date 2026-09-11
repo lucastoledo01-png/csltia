@@ -75,20 +75,39 @@ ${paginacao ? `<span class="count">${pad2(slideIndex)} / ${pad2(total)}</span>` 
 </div>`;
 }
 
-export function chromeFooter(kind: ChromeKind, slideIndex: number, total: number): string {
+/**
+ * Quanto o rodapé promete: a affordance cheia ou só a continuidade.
+ *
+ * `completa` é o design impresso original, com "SWIPE" escrito e a seta. É o
+ * que o `tutorial` e o `prompt` usam desde sempre, e mexer nisso mudaria duas
+ * superfícies que já estão no ar.
+ *
+ * `discreta` mantém a paginação e tira o convite escrito. É o que o conteúdo
+ * permanente pede: o indicador de posição basta para o leitor saber que há
+ * mais, e "SWIPE →" numa peça editorial de 2026 lê como banner.
+ */
+export type Affordance = "completa" | "discreta";
+
+export function chromeFooter(
+  kind: ChromeKind,
+  slideIndex: number,
+  total: number,
+  affordance: Affordance = "completa",
+): string {
   const avanco = total > 1;
+  const convite = avanco && affordance === "completa";
 
   if (kind === "social") {
     return `<div class="c-foot social">
 ${avanco ? `<span class="prog"><b>PROGRESSO</b> ${pad2(slideIndex)} / ${pad2(total)}</span>` : `<span class="prog"><b>@imigra.us</b></span>`}
-${avanco ? `<span class="next">${ICONES.seta}</span>` : ""}
+${convite ? `<span class="next">${ICONES.seta}</span>` : ""}
 </div>`;
   }
 
   return `<div class="c-foot editorial">
 <span class="tag">${EDITORIAL_TAGLINE}</span>
 ${avanco ? pontos(slideIndex, total) : ""}
-${avanco ? `<span class="swipe">SWIPE ${ICONES.seta}</span>` : ""}
+${convite ? `<span class="swipe">SWIPE ${ICONES.seta}</span>` : ""}
 </div>`;
 }
 

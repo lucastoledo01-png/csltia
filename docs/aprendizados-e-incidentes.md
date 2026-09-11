@@ -254,6 +254,200 @@ aplicação; `failed` significa que chegou e quebrou. Foi assim que os seis dias
 agosto foram diagnosticados. Conferir também o watchdog e o alerta do Telegram, que
 existem desde então justamente para este cenário.
 
+### Hashtag descrevia a página da fonte, não o post
+
+**Sintoma.** O primeiro preview do evergreen saiu com `#EB5 #H1B #VistoF1
+#GreenCard #USCIS #ICE #CBP` num post sobre ajuste de status, e os quatro posts
+do dia saíram com quase o mesmo conjunto.
+
+**Causa.** Nenhuma daquelas hashtags foi inventada: todas estavam no texto que a
+inferência recebe. O `resumo` que chega a `hashtagsDaPauta` é
+`enriquecimento.texto`, e no evergreen esse campo é a PÁGINA INTEIRA do policy
+manual da USCIS, que cita o sistema imigratório completo, inclusive ICE, CBP e a
+Suprema Corte. A régua do módulo ("o assunto precisa aparecer no título, no
+resumo, nas entidades ou na categoria") vale para uma matéria, que trata de um
+assunto, e não vale para um manual, que enumera tudo.
+
+**Corrigido.** `ResultadoDoEnriquecimento.assuntoParaHashtags`: quem tem um
+resumo curado declara, e a guarda o prefere. O texto de origem continua indo
+inteiro para o gerador, que é quem precisa dele. Quem não declara segue usando
+`texto`, então o caminho da notícia não mudou, e há teste dos dois lados.
+
+**No mesmo trabalho.** Duas lacunas de flexão na inferência compartilhada:
+"residente permanente" não era reconhecido como green card, e "migratório" não
+era reconhecido como imigração, o que deixava cinco tópicos do catálogo fora do
+sinal de imigração.
+
+**Lição.** Inferência calibrada para um tipo de fonte não se transfere para outro
+tipo de fonte só porque o campo tem o mesmo nome. Quando o significado do campo
+muda, quem sabe disso precisa declarar.
+
+### Nome de arquivo fixo mais upsert: o carrossel sobrescreveria a si mesmo
+
+**Sintoma.** Nenhum, e é por isso que está aqui. Foi encontrado antes de rodar.
+
+**Causa.** `congelarArtefato` grava `social-v2.png` num caminho que já é único
+por post, e `subirPngParaStorage` usa `upsert: true`. Congelar N slides num laço
+sobre essa função faria os seis slides do mesmo post gravarem no MESMO objeto: o
+último venceria, os seis registros do manifesto apontariam para ele, e cinco dos
+seis hashes divergiriam na publicação. O post não sairia errado, simplesmente
+nunca sairia, e o motivo apareceria como `SOCIAL_ARTIFACT_HASH_MISMATCH` sem nada
+explicando por quê.
+
+**Corrigido.** `congelarCarrossel` põe o índice no nome (`social-v2-01.png`), e o
+teste de artefato confere que N slides produzem N hashes distintos.
+
+**Lição.** Caminho determinístico com upsert é uma decisão que assume UM arquivo
+por chave. Quando a quantidade por chave deixa de ser um, a chave precisa mudar
+junto, e reaproveitar a função de um item num laço é exatamente onde isso passa.
+
+### PENDENTE: PROPORCAO_MINIMA e PROPORCAO_MAXIMA estão mortas e erradas
+
+**O que.** `artefato.ts` declara `PROPORCAO_MINIMA = 0.8` e
+`PROPORCAO_MAXIMA = 1.91` com o comentário "proporções que a Meta aceita no
+feed", e **nenhum código as usa**. `conferirArte` só confere se largura e altura
+são maiores que zero.
+
+**Por que não foram ligadas.** O canvas do projeto é 1080x1440, ou seja 0.75, que
+é MENOR que o mínimo declarado. Ligar a verificação recusaria todas as peças,
+inclusive as que já publicaram com sucesso. O número está desatualizado: o
+Instagram passou a aceitar 3:4 no feed.
+
+**O que fazer.** Ou corrigir o mínimo para 0.75 e então ligar a verificação, ou
+apagar as duas constantes. Deixá-las declaradas e não usadas é o mesmo padrão do
+incidente de `escolherUrlPublicavel`: dá a impressão de que o caso está coberto.
+
+### 10/09 sem edição: o cron disparou, e a falha apagou a própria evidência
+
+**Sintoma.** Nenhuma linha em `newsroom_runs` no dia 10/09/2026, nenhuma edição,
+nenhum artigo, nenhum post. A leitura imediata, de novo, era cron morto.
+
+**Não era, e desta vez o cron foi cercado inteiro.** Crontab instalado no usuário
+`deploy`, daemon `active` e `enabled`, fuso do servidor em UTC, linha
+`3 9 * * *` (09:03 UTC = 06:03 America/Sao_Paulo), endpoint certo, método POST,
+segredo no header. O log do cron tem a chamada de 10/09 às 09:03:01 com resposta
+`{"ok":true,"accepted":true}`. Sem DNS, sem rede, sem 401, sem 404, sem 5xx.
+
+**E a redação rodou.** 109 candidatas classificadas e persistidas em
+`news_candidates` naquele dia, 5 aprovadas pela linha editorial, portanto acima
+do mínimo de 2. Depois disso, silêncio.
+
+**Causa.** `newsroom_runs` é gravado UMA vez, no fim do caminho de sucesso
+(`created_at` igual a `finished_at` em todas as 21 linhas da tabela). Qualquer
+exceção entre a aprovação editorial e a escrita de `news_editions` apaga a
+própria evidência. No trecho existe um portão que decide não publicar e sinaliza
+por `throw`: o bloqueio do QA quando a guarda está em `enforce`.
+
+É a lição de 06, 07 e 08 de setembro com outro rosto. Naquela vez a correção foi
+gravar antes de sinalizar, e ela alcançou só o mínimo de pautas
+(`registrarDiaSemEdicao`). O resto do caminho continuou saindo por exceção.
+
+**Corrigido.** `registrarFalhaDaRedacao`: `runNewsroom` virou um invólucro que
+grava um run `failed`, com o motivo, e repassa o erro. Não muda decisão nenhuma
+e não engole erro nenhum. `failed` já está no CHECK da migration original, e a
+chave leva a hora da falha porque `idempotency_key` é UNIQUE global.
+
+**O que continua não sendo possível.** Ler o log do contêiner: o usuário `deploy`
+não está no grupo `docker` e não tem sudo, e a base do EasyPanel não é acessível.
+Por isso a evidência precisa estar no banco, e não no log.
+
+**Lição.** A correção de um portão que sinaliza por exceção não vale para os
+outros portões do mesmo trecho. Enquanto a linha do run nascer só no fim do
+sucesso, todo caminho de erro é invisível por construção, e cada gate novo
+reintroduz o mesmo buraco.
+
+### PENDENTE: comporFeedDoDia tem teste e não tem chamador
+
+**O que.** `evergreen/compositor.ts` exporta `comporFeedDoDia`, com quatro
+`it()` cobrindo prioridade da notícia e teto do dia. O único chamador é o próprio
+teste: em produção, a composição News + Evergreen acontece em
+`pipeline-v2.ts:205`, montando `[...noticia, ...extras]` direto.
+
+**Por que importa.** É o padrão registrado no incidente do Google News: função de
+guarda escrita e não chamada é pior que função ausente, porque o teste prova uma
+coisa que não acontece. Se um dia a prioridade da notícia quebrar no caminho
+real, esses quatro testes continuarão verdes.
+
+**O que fazer.** Ou `pipeline-v2` passa a chamar `comporFeedDoDia`, ou os testes
+migram para o caminho real e a função sai.
+
+### Campo validado e campo impresso não eram o mesmo campo
+
+**Sintoma.** Nenhum, e foi encontrado por revisão adversarial antes de publicar.
+
+**Causa.** `copy.destaque` era campo morto no render: a capa estática o ignora e
+seta `highlight_text: ""`. O carrossel criou o primeiro consumidor de render dele,
+como título do slide de fechamento. Só que a guarda ancora `copy.headline` e
+`montarLegenda(copy)`, e `montarLegenda` não inclui `destaque`. Resultado: um
+destaque com número inventado ia congelado para a Meta sem nenhuma conferência,
+no último slide, em três de cada quatro posts (o slide de fechamento existe
+sempre que há CTA).
+
+**Pior que o defeito.** O comentário que eu mesmo escrevi afirmava o contrário do
+que o código fazia: "a manchete mais o destaque, que já existem na copy, já são
+ancorados pela guarda". Um comentário errado é pior que comentário ausente,
+porque ele encerra a investigação de quem for olhar depois.
+
+**Corrigido.** O destaque só vai para a arte se for trecho LITERAL da manchete, que
+é o que o prompt já pedia e ninguém conferia: trecho de texto ancorado está
+ancorado. Quando não é, a peça sai com a manchete inteira, e a guarda aponta.
+
+**Lição.** Ao dar a um campo o seu primeiro consumidor de RENDER, a pergunta não é
+se ele existe: é por qual conferência ele passa. Campo que ninguém imprimia não
+tinha por que ser validado, e passar a imprimi-lo é mudar o contrato dele.
+
+### A verificação de número era verificação de substring de dígito, e depois de sentido
+
+**Sintoma.** Nenhum visível. Medido na revisão adversarial do carrossel.
+
+**Causa.** As três buscas de `numeroSustentado` eram `palheiro.includes(...)` sem
+fronteira. Com a fonte dizendo "Foram 1540 pedidos", o texto "a espera chega a
+540 dias" passava, porque "540" está dentro de "1540". Com "$1,440", passava "a
+taxa é 440 dólares".
+
+É grave em qualquer pauta e pior no conteúdo permanente, onde o palheiro é a
+página inteira de um manual oficial: número de seção, de formulário e de taxa em
+profusão, cada um servindo de âncora livre para um prazo que ninguém escreveu.
+
+**Corrigido.** A busca exige fronteira de dígito. A comparação por dígitos puros
+continua existindo, então "1.440" segue sustentando "1,440" e "1440".
+
+**FECHADO na rodada do release candidate.** Número de norma citado na fonte
+ancorava prazo inventado: com "INA 245(a)" no material, "o processo leva 245 dias"
+passava, porque ali o 245 é um número solto de verdade. Fronteira de dígito não
+resolve isso; o que resolve é ler o PAPEL do número.
+
+`numeros-com-sentido.ts` classifica cada número pela vizinhança dele em nove
+tipos, e a compatibilidade passou a exigir valor E tipo. A regra que fecha o
+furo: identificador jurídico, de formulário ou de seção nunca sustenta
+quantidade, duração, percentual ou moeda, nas duas direções. O teste que afirmava
+o limite mudou de propósito, que era o que o comentário dele previa.
+
+**Segundo limite, também FECHADO, e por reúso.** Slide de prosa puramente
+qualitativa voltava com zero claims conferidas e zero bloqueios, ou seja aprovado
+sem que nada nele tivesse sido verificado. A ancoragem determinística confere
+número, data e nome próprio; afirmação sem nenhum dos três não tem o que
+conferir.
+
+Não foi criado verificador novo. `auditarClaims`, em `claims-semanticas.ts`, já
+fazia exatamente isso para a newsletter: uma chamada para uma lista de pares
+(pacote, texto), com índice por item. O carrossel manda um slide por índice e
+recebe a rastreabilidade de graça. O enum de claim ganhou "escopo", e a instrução
+que o descreve entra no prompt só de quem pede, para o prompt da newsletter
+continuar byte a byte o que era.
+
+**A parte que quase virou um terceiro limite.** O benchmark detectou 40 claims e
+reprovou zero, e esse número podia significar duas coisas opostas: a copy está
+bem ancorada, ou o auditor nunca diz não. `provar-auditor.ts` manda nove pares
+deliberadamente errados numa chamada e confere os dois lados. Nove de nove: as
+sete amplificações reprovadas com motivo escrito, a paráfrase fiel e a ressalva
+aprovadas.
+
+**Lição.** Uma guarda que confere três classes de coisa não é uma guarda de
+veracidade, e o prompt não pode prometer o que ela não entrega. E métrica de
+guarda que dá zero precisa de um teste que produza um não, senão "zero" e
+"desligado" são indistinguíveis.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

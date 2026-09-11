@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { callOpenAIJSON } from "../newsroom/ai-provider";
+import { extrairNumeros, numeroCompativel, numerosDoMaterial } from "./numeros-com-sentido";
 
 /**
  * O que o redator pode afirmar.
@@ -213,16 +214,39 @@ export function validarAncoragem(
   const naoSustentadas: ClaimNaoSustentada[] = [];
   let conferidos = 0;
 
-  // Números: dígitos com separador, incluindo o que vem colado a "mil" ou
-  // "milhão", que é como número grande aparece em português.
-  for (const m of textoGerado.matchAll(/\b\d[\d.,]*\b(\s*(?:mil|milh[õo]es|milh[ãa]o|bilh[õo]es|bilh[ãa]o))?/gi)) {
-    const bruto = m[0].trim();
+  /*
+   * Números: valor E sentido, não só os dígitos.
+   *
+   * A conferência era `palheiro.includes(digitos)`, e por isso "INA 245(a)" no
+   * material sustentava a frase inventada "o processo leva 245 dias". O 245
+   * está lá mesmo, e é o número de uma norma. Agora cada número é classificado
+   * pela vizinhança dele (duração, moeda, percentual, contagem, ano,
+   * identificador de norma, de formulário ou de seção) e a compatibilidade
+   * exige os dois lados.
+   *
+   * A extração roda sobre as peças CRUAS do material, e não sobre o palheiro
+   * normalizado: `normalizar` derruba o "US$" e o "%", que são justamente o que
+   * revela o tipo. E peça por peça para a vizinhança não vazar de uma para a
+   * seguinte.
+   */
+  const numerosDaFonte = numerosDoMaterial([
+    pacote.texto_de_origem,
+    ...pacote.verified_facts,
+    ...pacote.people,
+    ...pacote.organizations,
+    ...pacote.places,
+    ...pacote.dates,
+    ...pacote.numbers,
+  ]);
+
+  for (const numero of extrairNumeros(textoGerado)) {
     conferidos += 1;
-    if (!numeroSustentado(bruto, palheiro)) {
+    const r = numeroCompativel(numero, numerosDaFonte);
+    if (!r.ok) {
       naoSustentadas.push({
         tipo: "numero",
-        valor: bruto,
-        onde: trecho(textoGerado, m.index ?? 0),
+        valor: numero.bruto,
+        onde: `${r.motivo} (em: "${trecho(textoGerado, numero.posicao)}")`,
         severidade: "bloqueio",
       });
     }
@@ -270,19 +294,6 @@ export function validarAncoragem(
 
   const bloqueios = naoSustentadas.filter((c) => c.severidade === "bloqueio");
   return { ancorado: bloqueios.length === 0, naoSustentadas, conferidos };
-}
-
-function numeroSustentado(bruto: string, palheiro: string): boolean {
-  const so = normalizar(bruto);
-  if (palheiro.includes(so)) return true;
-
-  // "1,2 milhão" na fonte e "1.2 milhão" no texto são o mesmo número.
-  const digitos = so.replace(/[^\d]/g, "");
-  if (digitos && palheiro.replace(/[^\d ]/g, "").split(/\s+/).includes(digitos)) return true;
-
-  // Número solto dentro de outra grafia ("540" em "540 dias").
-  const soDigito = so.match(/^\d[\d.,]*/)?.[0]?.replace(/[.,]$/, "");
-  return Boolean(soDigito && palheiro.includes(soDigito));
 }
 
 function parteDaDataSustentada(valor: string, palheiro: string): boolean {

@@ -32,6 +32,37 @@ export const MOTIVOS_DO_SOCIAL_GUARD = {
   ASSINATURA_DE_NEWSLETTER: "REJECT_SOCIAL_CAPTION",
   NAO_VERIFICADA: "SOCIAL_REJECT_UNVERIFIED",
   HEADLINE_FORA_DA_FORMA: "SOCIAL_REJECT_HEADLINE_SHAPE",
+  /*
+   * Os motivos do carrossel moram aqui, e não num objeto próprio.
+   *
+   * O tipo `ProblemaDoPost` deriva deste objeto, e um segundo conjunto de
+   * motivos obrigaria todo problema de slide a entrar com cast. Cast num campo
+   * de motivo é como um motivo passa a não aparecer no relatório e a não ser
+   * contado pelo funil: o valor chega, e nada que agrupa por motivo o conhece.
+   *
+   * Os três últimos usam os nomes que a newsletter já usa, com a mesma
+   * implementação por trás, porque são a mesma régua.
+   */
+  SLIDE_SEM_ANCORAGEM: "SOCIAL_REJECT_SLIDE_GROUNDING",
+  SLIDE_FORA_DA_FORMA: "SOCIAL_REJECT_SLIDE_SHAPE",
+  SLIDE_DENSO: "SOCIAL_REJECT_SLIDE_DENSITY",
+  JARGAO_JURIDICO: "LEGAL_JARGON_OVERLOAD",
+  RELEVANCIA_BAIXA: "LOW_READER_RELEVANCE",
+  MANCHETE_LONGA: "HEADLINE_TOO_LONG",
+  /*
+   * Claim qualitativa: a afirmação que não tem número, data nem nome próprio.
+   *
+   * A conferência determinística não tem o que conferir nela, e ela pode ser
+   * enorme: "essa categoria permite trabalhar para qualquer empresa nos EUA"
+   * passava com zero claims conferidas. Quem confere é o auditor semântico que
+   * a newsletter já usa.
+   *
+   * `CLAIM_NAO_AUDITADA` é a falha da auditoria, e é FATAL, não reparável:
+   * reparar não resolve rede fora do ar, e tratar auditoria ausente como
+   * aprovação publicaria um post cuja verificação nunca aconteceu.
+   */
+  CLAIM_SEM_LASTRO: "SOCIAL_REJECT_CLAIM_UNSUPPORTED",
+  CLAIM_NAO_AUDITADA: "SOCIAL_REJECT_CLAIM_NOT_AUDITED",
 } as const;
 
 export type MotivoDoSocialGuard =
@@ -125,6 +156,17 @@ export type ContextoDoPost = {
   fechamentoDaNewsletter?: string;
   /** A candidata já passou pelo estágio de verificação nesta rodada? */
   verificacaoExigida?: boolean;
+  /**
+   * Problemas que só o FORMATO do post produz, conferidos por quem o conhece.
+   *
+   * Um carrossel tem slides, e slide sem lastro é problema de post. A guarda
+   * não conhece slides, e ensiná-la a conhecer significaria trazer estrutura,
+   * papéis e variantes para dentro dela. Então quem sabe confere e entrega os
+   * problemas prontos, e a DECISÃO continua acontecendo num lugar só: é ela
+   * que ordena fatal antes de reparável, e duplicá-la é como um post reprovado
+   * passaria por um caminho e não pelo outro.
+   */
+  problemasDoFormato?: ProblemaDoPost[];
 };
 
 export type VeredictoDoPost = {
@@ -221,6 +263,14 @@ export function avaliarPostSocial(
     }
   }
 
+  /*
+   * Os problemas do formato entram aqui, depois da ancoragem do texto comum.
+   *
+   * A posição na lista é a ordem do relatório, não a ordem da decisão: quem
+   * decide é a separação entre fatal e reparável, mais abaixo.
+   */
+  for (const p of contexto.problemasDoFormato ?? []) problemas.push(p);
+
   // CTA: a ação é livre, a promessa não.
   const textoTodo = normalizar(`${copy.headline} ${montarLegenda(copy)} ${copy.cta}`);
   const promessa = PROMESSAS_PROIBIDAS.find((p) => textoTodo.includes(p));
@@ -250,7 +300,7 @@ export function avaliarPostSocial(
    */
   const contextoDaLegenda: ContextoDaLegenda = {
     titulo: pauta.grupo.primary.title,
-    resumo: pauta.enriquecimento?.texto ?? "",
+    resumo: pauta.enriquecimento?.assuntoParaHashtags?.trim() || pauta.enriquecimento?.texto || "",
     categoria: pauta.classificacao.eixo,
     pais: pauta.classificacao.pais === "Brasil" ? "BR" : "US",
     entidades: [...pauta.classificacao.atores, ...pauta.classificacao.lugares],

@@ -51,9 +51,32 @@ export type CargaV2 = {
   eventFingerprint: string | null;
   visualAssetId: string | null;
   originChannel: string;
-  /** O arquivo aprovado no Storage, com o hash que prova que é ele. */
+  /**
+   * Imagem única ou carrossel, como a linha declara.
+   *
+   * O worker NÃO deduz isso da contagem de artefatos. Deduzir faria um payload
+   * de carrossel com um artefato perdido virar um post de imagem única
+   * publicado, em vez de uma recusa: o post sairia, com um slide, e nada
+   * indicaria que cinco slides aprovados ficaram de fora.
+   */
+  formato: FormatoDaLinha;
+  /** O arquivo da CAPA, que é o que aparece no feed. */
   artefato: ArtefatoDaLinha;
+  /**
+   * Todos os arquivos, na ordem de leitura. Um só quando é imagem única.
+   *
+   * A lista é sempre a fonte da publicação, inclusive no caso de um arquivo.
+   * Ter dois caminhos, um para peça única e outro para carrossel, é como a
+   * proteção de um deles envelhece sem ninguém notar.
+   */
+  artefatos: ArtefatoDaLinha[];
 };
+
+export type FormatoDaLinha = "static" | "carousel";
+
+/** Limites do carrossel, repetidos aqui porque o worker não importa o gerador. */
+const MINIMO_DE_SLIDES = 2;
+const MAXIMO_DE_SLIDES = 7;
 
 /**
  * O artefato como a linha o registra.
@@ -69,6 +92,8 @@ export type ArtefatoDaLinha = {
   mime: string;
   sha256: string;
   bytes: number;
+  /** Posição na peça, começando em 1. Sempre 1 na imagem única. */
+  index: number;
 };
 
 /** A linha, como o worker a lê do banco. */
@@ -83,6 +108,8 @@ export type LinhaDePost = {
   origin_channel?: unknown;
   social_guard_status?: unknown;
   content_json?: unknown;
+  /** O manifesto, que na retentativa carrega os containers já criados. */
+  slides_manifest?: unknown;
 };
 
 /**
@@ -123,6 +150,41 @@ function texto(v: unknown): string {
 
 function objeto(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+}
+
+/**
+ * As três conferências que fazem um artefato ser publicável.
+ *
+ * Uma função só, usada pela peça única e por cada slide, porque duas cópias
+ * desta regra é como o carrossel passaria a aceitar um hash que a peça única
+ * recusa.
+ */
+function conferirArtefato(bruto: Record<string, unknown>, onde: string, faltando: string[]): void {
+  if (!texto(bruto.url)) faltando.push(`${onde}.url`);
+
+  const sha = texto(bruto.sha256).toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(sha)) {
+    faltando.push(`${onde}.sha256 inválido: "${texto(bruto.sha256)}"`);
+  }
+
+  const bytes = Number(bruto.bytes);
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    faltando.push(`${onde}.bytes inválido: "${String(bruto.bytes)}"`);
+  }
+}
+
+function comoArtefato(bruto: Record<string, unknown>, index: number): ArtefatoDaLinha {
+  return {
+    url: texto(bruto.url),
+    path: texto(bruto.path),
+    /* Os padrões vinham da leitura de peça única e continuam valendo: nenhum
+       dos dois é conferido, e um nome vazio só apareceria em log. */
+    filename: texto(bruto.filename) || "social-v2.png",
+    mime: texto(bruto.mime) || "image/png",
+    sha256: texto(bruto.sha256).toLowerCase(),
+    bytes: Number(bruto.bytes),
+    index,
+  };
 }
 
 /**
@@ -218,17 +280,68 @@ export function lerCargaV2(linha: LinhaDePost): LeituraDaCarga {
    */
   const artefatoBruto = objeto(arte?.artefato);
   const url = texto(artefatoBruto?.url);
-  const sha = texto(artefatoBruto?.sha256).toLowerCase();
 
   if (!artefatoBruto) faltando.push("content_json.arte.artefato");
-  else {
-    if (!url) faltando.push("content_json.arte.artefato.url");
-    if (!/^[0-9a-f]{64}$/.test(sha)) {
-      faltando.push(`content_json.arte.artefato.sha256 inválido: "${texto(artefatoBruto.sha256)}"`);
+  else conferirArtefato(artefatoBruto, "content_json.arte.artefato", faltando);
+
+  /*
+   * O formato é lido, nunca deduzido.
+   *
+   * Valor desconhecido não cai em `static`: cair no conhecido seria publicar
+   * uma peça de um slide no lugar de um payload que esta versão do worker não
+   * entende. Fechar aqui é o mesmo princípio de `generation_version`.
+   */
+  const formatoBruto = texto(conteudo?.formato) || "static";
+  const formato: FormatoDaLinha | null =
+    formatoBruto === "static" || formatoBruto === "carousel" ? formatoBruto : null;
+  if (!formato) faltando.push(`content_json.formato desconhecido: "${formatoBruto}"`);
+
+  const artefatos: ArtefatoDaLinha[] = [];
+
+  if (formato === "carousel") {
+    const lista = Array.isArray(arte?.artefatos) ? (arte!.artefatos as unknown[]) : null;
+
+    if (!lista) faltando.push("content_json.arte.artefatos");
+    else if (lista.length < MINIMO_DE_SLIDES || lista.length > MAXIMO_DE_SLIDES) {
+      faltando.push(
+        `content_json.arte.artefatos tem ${lista.length} item(ns): o carrossel vai de ` +
+          `${MINIMO_DE_SLIDES} a ${MAXIMO_DE_SLIDES}`,
+      );
+    } else {
+      lista.forEach((bruto, i) => {
+        const item = objeto(bruto);
+        const onde = `content_json.arte.artefatos[${i}]`;
+        if (!item) {
+          faltando.push(onde);
+          return;
+        }
+        conferirArtefato(item, onde, faltando);
+
+        /*
+         * A ORDEM é dado, não é a ordem do array.
+         *
+         * Um carrossel publicado fora de ordem responde antes de perguntar, e o
+         * array pode ter sido reordenado por qualquer serialização no caminho.
+         * Exigir que o índice gravado seja exatamente a posição é o que faz a
+         * ordem ser verificável em vez de presumida.
+         */
+        if (Number(item.index) !== i + 1) {
+          faltando.push(`${onde}.index=${String(item.index)}: esperado ${i + 1}`);
+        }
+
+        artefatos.push(comoArtefato(item, i + 1));
+      });
+
+      const primeiro = objeto(lista[0]);
+      if (primeiro && url && texto(primeiro.url) !== url) {
+        faltando.push(
+          "content_json.arte.artefato não é o primeiro de content_json.arte.artefatos: " +
+            "a capa registrada e o slide 1 do carrossel têm que ser o mesmo arquivo",
+        );
+      }
     }
-    if (!Number.isFinite(Number(artefatoBruto.bytes)) || Number(artefatoBruto.bytes) <= 0) {
-      faltando.push(`content_json.arte.artefato.bytes inválido: "${String(artefatoBruto.bytes)}"`);
-    }
+  } else if (artefatoBruto) {
+    artefatos.push(comoArtefato(artefatoBruto, 1));
   }
 
   const visual = objeto(conteudo?.visual);
@@ -309,14 +422,9 @@ export function lerCargaV2(linha: LinhaDePost): LeituraDaCarga {
       eventFingerprint: texto(linha.event_fingerprint) || null,
       visualAssetId: texto(linha.visual_asset_id) || null,
       originChannel: texto(linha.origin_channel) || "social",
-      artefato: {
-        url,
-        path: texto(artefatoBruto!.path),
-        filename: texto(artefatoBruto!.filename) || "social-v2.png",
-        mime: texto(artefatoBruto!.mime) || "image/png",
-        sha256: sha,
-        bytes: Number(artefatoBruto!.bytes),
-      },
+      formato: formato!,
+      artefato: comoArtefato(artefatoBruto!, 1),
+      artefatos,
     },
   };
 }

@@ -58,43 +58,78 @@ export async function verificarArtefato(
   carga: CargaV2,
   opcoes: OpcoesDoArtefato,
 ): Promise<ArtefatoVerificado> {
+  const verificados = await verificarArtefatos(carga, opcoes);
+  return verificados[0];
+}
+
+/**
+ * Confere TODOS os arquivos aprovados, e recusa a peça inteira se um divergir.
+ *
+ * Nada de publicar carrossel pela metade. Um slide que não é o aprovado torna a
+ * peça outra peça: publicar os cinco que conferem seria publicar um carrossel
+ * que ninguém aprovou, com um buraco no meio da explicação. E parar no primeiro
+ * divergente é de propósito: o objetivo não é catalogar o estrago, é não
+ * publicar.
+ *
+ * A conferência acontece ANTES de qualquer chamada à Meta. Nenhum container é
+ * criado enquanto um hash estiver em dúvida, porque container criado é lixo que
+ * fica pendurado na conta e, pior, é candidato a ser publicado por uma
+ * reconciliação futura.
+ */
+export async function verificarArtefatos(
+  carga: CargaV2,
+  opcoes: OpcoesDoArtefato,
+): Promise<ArtefatoVerificado[]> {
   const fetcher = opcoes.fetcher ?? fetch;
+  const verificados: ArtefatoVerificado[] = [];
 
-  const resposta = await fetcher(carga.artefato.url, {
-    signal: AbortSignal.timeout(opcoes.tetoMs ?? 30_000),
-  });
+  for (const artefato of carga.artefatos) {
+    const onde = carga.artefatos.length > 1 ? `slide ${artefato.index}: ` : "";
 
-  if (!resposta.ok) {
+    const resposta = await fetcher(artefato.url, {
+      signal: AbortSignal.timeout(opcoes.tetoMs ?? 30_000),
+    });
+
+    if (!resposta.ok) {
+      throw new Error(
+        `${onde}não consegui baixar o artefato aprovado (${resposta.status}) de ${artefato.url.slice(0, 100)}`,
+      );
+    }
+
+    const bytes = Buffer.from(await resposta.arrayBuffer());
+
+    if (bytes.byteLength === 0) {
+      throw new Error(`${onde}o artefato aprovado voltou vazio de ${artefato.url.slice(0, 100)}`);
+    }
+
+    const hash = sha256De(bytes);
+
+    if (hash !== artefato.sha256) {
+      throw new Error(
+        `${MOTIVO_HASH_DIVERGENTE}: ${onde}o arquivo em ${artefato.path} não é o aprovado. ` +
+          `Esperado ${artefato.sha256.slice(0, 16)} (${artefato.bytes} bytes), ` +
+          `veio ${hash.slice(0, 16)} (${bytes.byteLength} bytes).`,
+      );
+    }
+
+    /*
+     * O tamanho é conferido junto, e não porque o hash já não bastasse: bytes
+     * iguais implicam tamanho igual. Serve para o log dizer O QUE mudou quando
+     * algo muda, em vez de só dizer que mudou.
+     */
+    verificados.push({
+      url: artefato.url,
+      filename: artefato.filename,
+      sha256: hash,
+      bytes: bytes.byteLength,
+    });
+  }
+
+  if (verificados.length !== carga.artefatos.length) {
     throw new Error(
-      `não consegui baixar o artefato aprovado (${resposta.status}) de ${carga.artefato.url.slice(0, 100)}`,
+      `${MOTIVO_HASH_DIVERGENTE}: ${verificados.length} de ${carga.artefatos.length} arquivos conferidos`,
     );
   }
 
-  const bytes = Buffer.from(await resposta.arrayBuffer());
-
-  if (bytes.byteLength === 0) {
-    throw new Error(`o artefato aprovado voltou vazio de ${carga.artefato.url.slice(0, 100)}`);
-  }
-
-  const hash = sha256De(bytes);
-
-  if (hash !== carga.artefato.sha256) {
-    throw new Error(
-      `${MOTIVO_HASH_DIVERGENTE}: o arquivo em ${carga.artefato.path} não é o aprovado. ` +
-        `Esperado ${carga.artefato.sha256.slice(0, 16)} (${carga.artefato.bytes} bytes), ` +
-        `veio ${hash.slice(0, 16)} (${bytes.byteLength} bytes).`,
-    );
-  }
-
-  /*
-   * O tamanho é conferido junto, e não porque o hash já não bastasse: bytes
-   * iguais implicam tamanho igual. Serve para o log dizer O QUE mudou quando
-   * algo muda, em vez de só dizer que mudou.
-   */
-  return {
-    url: carga.artefato.url,
-    filename: carga.artefato.filename,
-    sha256: hash,
-    bytes: bytes.byteLength,
-  };
+  return verificados;
 }

@@ -169,6 +169,15 @@ export async function createSingleImageContainer(
   }
 }
 
+/**
+ * Quantos filhos um carrossel aceita na Graph API.
+ *
+ * Mora aqui porque é fato da API da Meta, e não decisão editorial. Quantos
+ * slides um post NOSSO tem é outra pergunta, respondida pelo gerador com um
+ * teto menor.
+ */
+export const TETO_DE_FILHOS_DO_CARROSSEL = 10;
+
 export async function createCarouselContainer(
   childrenIds: string[],
   caption: string,

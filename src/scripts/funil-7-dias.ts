@@ -145,7 +145,7 @@ async function main() {
    * mas a origem continua verdadeira, porque ela se apoia em publicação e não
    * em seleção hipotética.
    */
-  const origemPorDia = new Map<string, { newsletter: number; social: number }>();
+  const origemPorDia = new Map<string, Record<string, number>>();
 
   /**
    * O funil por fonte nomeada.
@@ -194,7 +194,7 @@ async function main() {
       dominiosQueSobreviveram.set(d, (dominiosQueSobreviveram.get(d) ?? 0) + 1);
     }
 
-    const origem = { newsletter: 0, social: 0 };
+    const origem: Record<string, number> = { newsletter: 0, social: 0, evergreen: 0 };
     for (const p of ciclo.previews) origem[p.origem.originChannel] += 1;
     origemPorDia.set(dia, origem);
 

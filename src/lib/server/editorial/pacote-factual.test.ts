@@ -182,3 +182,70 @@ describe("início de frase", () => {
     expect(r.ancorado).toBe(false);
   });
 });
+
+describe("número sustentado precisa de fronteira de dígito", () => {
+  /**
+   * A verificação de número era uma verificação de SUBSTRING de dígito.
+   *
+   * Encontrado na revisão adversarial do carrossel, e vale para qualquer pauta:
+   * "a espera chega a 540 dias" passava quando a fonte dizia "1540 pedidos",
+   * porque "540" está dentro de "1540". No conteúdo permanente é pior, porque o
+   * palheiro é a página inteira de um manual oficial, cheia de número de seção,
+   * de formulário e de taxa, e cada um autoriza um prazo que ninguém escreveu.
+   */
+  const comOrigem = (texto: string): PacoteFactual =>
+    ({
+      verified_facts: [],
+      people: [],
+      organizations: [],
+      places: [],
+      dates: [],
+      numbers: [],
+      gaps: [],
+      source_urls: [],
+      texto_de_origem: texto,
+    }) as unknown as PacoteFactual;
+
+  const passa = (origem: string, gerado: string) =>
+    validarAncoragem(gerado, comOrigem(origem)).naoSustentadas.filter((c) => c.severidade === "bloqueio")
+      .length === 0;
+
+  it("540 não é sustentado por 1540", () => {
+    expect(passa("Foram 1540 pedidos protocolados.", "A espera chega a 540 dias.")).toBe(false);
+  });
+
+  it("440 não é sustentado por 1.440", () => {
+    expect(passa("The filing fee is $1,440.", "A taxa e 440 dolares.")).toBe(false);
+  });
+
+  it("o mesmo número em outra grafia continua sustentado", () => {
+    expect(passa("The filing fee is $1,440.", "A taxa e 1.440 dolares.")).toBe(true);
+    expect(passa("Foram 1,2 milhao de pedidos.", "Foram 1.2 milhao de pedidos.")).toBe(true);
+  });
+
+  it("o número que está na fonte continua sustentado", () => {
+    expect(passa("O prazo e de 540 dias.", "A espera chega a 540 dias.")).toBe(true);
+  });
+
+  it("LIMITE FECHADO: número de norma não ancora mais prazo nenhum", () => {
+    /*
+     * Este teste afirmava o contrário até a rodada do release candidate, e o
+     * comentário dele dizia que mudá-lo seria de propósito. Foi: `numeroCompativel`
+     * passou a exigir valor E tipo, e identificador de norma, de formulário ou
+     * de seção não sustenta quantidade.
+     *
+     * Em "INA 245(a)" o 245 é um número solto de verdade, com parêntese depois.
+     * O que resolve não é fronteira de dígito, é ler a vizinhança e saber que
+     * ali o número identifica uma norma.
+     */
+    expect(passa("See 8 CFR 245.1(c)(8) and INA 245(a).", "O processo leva 245 dias.")).toBe(false);
+  });
+
+  it("e o mesmo vale para formulário virando taxa", () => {
+    expect(passa("Submit Form I-864, Affidavit of Support.", "A taxa e de US$ 864.")).toBe(false);
+  });
+
+  it("unidade diferente também não sustenta", () => {
+    expect(passa("O prazo de resposta e de 60 dias.", "A aprovacao fica em 60%.")).toBe(false);
+  });
+});

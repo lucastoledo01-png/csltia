@@ -23,6 +23,20 @@ export const TIPOS_DE_CLAIM = [
   "comparacao",
   "tendencia",
   "previsao",
+  /**
+   * Escopo: a afirmação é maior do que o fato que a sustenta.
+   *
+   * É o erro típico do carrossel, e ele não existe no post de imagem única com
+   * a mesma força: com seis slides para preencher, "pode" vira "vai", "algumas
+   * situações" vira "todos os casos", "evidência relevante" vira "requisito
+   * obrigatório", e um caso aprovado vira regra geral de aprovação. Nenhuma
+   * palavra é inventada; o que é inventado é o alcance.
+   *
+   * O tipo entra no enum para os dois canais, e a instrução que o descreve só
+   * entra no prompt de quem pede: a newsletter continua recebendo o prompt que
+   * ela sempre recebeu.
+   */
+  "escopo",
 ] as const;
 
 export const ClaimSchema = z.object({
@@ -42,7 +56,30 @@ export const RespostaDeClaimsSchema = z.object({
   claims: z.array(ClaimSchema),
 });
 
-export function montarSystemDeClaims(): string {
+export type OpcoesDoPrompt = {
+  /**
+   * Acrescenta a auditoria de ESCOPO ao prompt.
+   *
+   * Fora por padrão para o prompt da newsletter continuar byte a byte o que
+   * era: mudar o prompt de um canal que está publicando, de carona numa
+   * mudança de outro canal, é como uma regressão editorial aparece sem
+   * ninguém saber de onde veio.
+   */
+  comEscopo?: boolean;
+};
+
+export function montarSystemDeClaims(opcoes: OpcoesDoPrompt = {}): string {
+  const escopo = opcoes.comEscopo
+    ? `
+- "escopo": a afirmação é maior do que o fato que a sustenta. Nenhuma palavra é inventada; o alcance é. Marque como NÃO sustentada quando o texto:
+  - troca possibilidade por certeza: a fonte diz "pode", "em geral", "costuma", e o texto diz "vai", "garante", "sempre";
+  - troca parte por todo: a fonte fala de "algumas situações", "certos casos", "muitos pedidos", e o texto diz "todos", "qualquer", "em qualquer caso";
+  - troca um caso por uma regra: a fonte descreve um exemplo, uma decisão específica ou um caso aprovado, e o texto afirma como regra geral;
+  - troca evidência por exigência: a fonte diz que algo "pode ser apresentado", "é considerado" ou "conta como evidência", e o texto diz "é obrigatório", "é exigido", "precisa";
+  - troca permissão por direito: a fonte diz que algo "é permitido em determinadas condições", e o texto diz que a pessoa "tem direito" sem as condições.
+`
+    : "";
+
   return `
 Você audita afirmações editoriais contra um pacote factual.
 
@@ -56,7 +93,7 @@ Sua tarefa é listar as afirmações do texto que pertencem a estes tipos:
 - "comparacao": diz que algo está melhor, pior, maior ou menor que outra coisa.
 - "tendencia": diz que algo está crescendo, caindo, acelerando ou desacelerando.
 - "previsao": diz que algo deve acontecer, vai acontecer ou é esperado.
-
+${escopo}
 Para cada uma, responda se ela está SUSTENTADA pelo pacote factual daquela pauta.
 
 Está sustentada quando o pacote afirma aquilo, ou quando a afirmação é a leitura direta e inevitável de um fato do pacote. Exemplo de sustentada: o pacote diz que o prazo passou de 180 para 540 dias, e o texto diz que a espera ficou maior.
@@ -94,7 +131,8 @@ export type ResultadoDeClaims = {
 export async function auditarClaims(
   pautas: PautaAuditavel[],
   env: Record<string, string | undefined> = process.env,
-  fetcher: typeof fetch = fetch
+  fetcher: typeof fetch = fetch,
+  opcoes: OpcoesDoPrompt = {}
 ): Promise<ResultadoDeClaims> {
   if (pautas.length === 0) {
     return { claims: [], naoSustentadas: [], custoUsd: 0, tokens: 0, erro: null };
@@ -130,7 +168,7 @@ export async function auditarClaims(
   try {
     const { data, usage } = await callOpenAIJSON<unknown>(
       [
-        { role: "system", content: montarSystemDeClaims() },
+        { role: "system", content: montarSystemDeClaims(opcoes) },
         { role: "user", content: corpo },
       ],
       modelo,

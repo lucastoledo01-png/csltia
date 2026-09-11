@@ -3,7 +3,8 @@ import type { RegistroHistorico } from "../editorial/history";
 import type { PostGerado } from "./gerador";
 import type { Vaga } from "./agenda";
 import type { ResultadoVisual } from "../visual/tipos";
-import type { ArtefatoCongelado } from "./artefato";
+import type { ArtefatoDeSlide } from "./artefato";
+import type { FormatoDoPost } from "./carrossel/formato";
 
 /**
  * Onde um post do social V2 vira linha.
@@ -16,7 +17,15 @@ import type { ArtefatoCongelado } from "./artefato";
  */
 
 export type OrigemDoPost = {
-  originChannel: "newsletter" | "social";
+  /**
+   * De onde o post veio.
+   *
+   * `evergreen` é o terceiro valor, e a coluna é `text` sem CHECK: conferido no
+   * banco de produção antes de escolher isto, justamente para não exigir
+   * migration. O worker não lê este campo — para ele os três são a mesma linha
+   * com o mesmo `generation_version`.
+   */
+  originChannel: "newsletter" | "social" | "evergreen";
   originStoryId: string | null;
   motivo: string;
 };
@@ -35,6 +44,25 @@ export type OrigemDoPost = {
  * mesmo lugar.
  */
 export function resolverOrigem(storyId: string, historico: RegistroHistorico[]): OrigemDoPost {
+  /*
+   * Conteúdo permanente se declara pela própria identidade.
+   *
+   * `evg:{topico}:{angulo}` é a chave que o catálogo evergreen gera, e ela não
+   * existe no noticiário. Perguntar ao `editorial_history` se um explicador de
+   * EB-2 "saiu na newsletter" não faz sentido: ele nunca esteve numa edição, e
+   * a resposta seria "social-only" por ausência, não por decisão.
+   *
+   * A alternativa seria um parâmetro a mais em toda a cadeia. O prefixo diz a
+   * mesma coisa sem que ninguém precise carregá-lo.
+   */
+  if (storyId.startsWith("evg:")) {
+    return {
+      originChannel: "evergreen",
+      originStoryId: null,
+      motivo: "conteúdo permanente do catálogo, ancorado em fonte oficial",
+    };
+  }
+
   const naNewsletter = historico.find((h) => h.storyId === storyId && h.canal === "newsletter");
 
   if (naNewsletter) {
@@ -68,14 +96,36 @@ export type PostParaGravar = {
   eventFingerprint: string | null;
   origem: OrigemDoPost;
   /**
-   * O arquivo aprovado, já no Storage, com o hash dos bytes.
+   * Os arquivos aprovados, já no Storage, com o hash dos bytes e na ordem.
    *
-   * Ele é obrigatório para gravar: uma linha `scheduled` sem artefato é um
+   * São obrigatórios para gravar: uma linha `scheduled` sem artefato é um
    * compromisso de publicar algo que ainda não existe, e obrigaria o worker a
-   * produzir a peça — que é exatamente o que o V2 existe para não fazer.
+   * produzir a peça, que é exatamente o que o V2 existe para não fazer.
+   *
+   * A lista tem um item na peça única e um por slide no carrossel. Um só
+   * caminho para os dois casos, porque dois caminhos é como a proteção de um
+   * deles envelhece sem ninguém notar.
    */
-  artefato: ArtefatoCongelado;
+  artefatos: ArtefatoDeSlide[];
+  /** Imagem única ou carrossel. Gravado, nunca deduzido da contagem. */
+  formato: FormatoDoPost;
 };
+
+/** O artefato como a linha o registra. Um formato, usado pela capa e por slide. */
+function comoRegistro(a: ArtefatoDeSlide) {
+  return {
+    index: a.index,
+    url: a.url,
+    path: a.path,
+    filename: a.filename,
+    mime: a.mime,
+    sha256: a.sha256,
+    bytes: a.bytes,
+    largura: a.largura,
+    altura: a.altura,
+    otimizado: a.otimizado,
+  };
+}
 
 export type ResultadoDaGravacaoSocial = {
   gravados: number;
@@ -185,16 +235,25 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
            * Gravar o artefato só dentro de `content_json` esconderia o arquivo
            * de quem procura no lugar de sempre.
            */
-          slides_manifest: [
-            {
-              index: 0,
-              url: p.artefato.url,
-              filename: p.artefato.filename,
-              sha256: p.artefato.sha256,
-              bytes: p.artefato.bytes,
-            },
-          ],
-          asset_paths: [p.artefato.url],
+          slides_manifest: p.artefatos.map((a) => ({
+            /*
+             * O índice começa em 1, como no caminho legado.
+             *
+             * A peça única gravava 0 e o legado grava 1, e a divergência não
+             * incomodava ninguém enquanto houvesse um slide só. Com carrossel,
+             * o índice é a ORDEM de publicação e aparece no nome do arquivo
+             * (`social-v2-01.png`) e no container filho: duas convenções seria
+             * um jeito de publicar o slide 3 no lugar do 2.
+             */
+            index: a.index,
+            url: a.url,
+            filename: a.filename,
+            sha256: a.sha256,
+            bytes: a.bytes,
+            /** Preenchido pelo worker, quando o container filho é criado. */
+            provider_child_id: null,
+          })),
+          asset_paths: p.artefatos.map((a) => a.url),
 
           scheduled_at: p.vaga.quandoIso,
           scheduled_slot: p.vaga.slot,
@@ -219,6 +278,17 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
 
           content_json: {
             format: "noticia",
+            /*
+             * O formato da PEÇA, que é outra pergunta que `format`.
+             *
+             * `format: "noticia"` é o formato de DESENHO: quais tokens, qual
+             * chrome, quais variantes. `formato` é quantas imagens o post tem.
+             * Um carrossel evergreen é desenhado com os tokens de `noticia` e
+             * publicado como carrossel, e juntar as duas coisas num campo só
+             * obrigaria a inventar um formato de desenho para cada formato de
+             * publicação.
+             */
+            formato: p.formato,
             copy: p.post.copy,
             hashtags: p.post.veredicto.hashtagsFinais,
             origem: p.origem.motivo,
@@ -256,17 +326,18 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
                * dizem COMO a peça foi desenhada, que é registro de auditoria, e
                * a variante ainda serve para pegar linha contraditória.
                */
-              artefato: {
-                url: p.artefato.url,
-                path: p.artefato.path,
-                filename: p.artefato.filename,
-                mime: p.artefato.mime,
-                sha256: p.artefato.sha256,
-                bytes: p.artefato.bytes,
-                largura: p.artefato.largura,
-                altura: p.artefato.altura,
-                otimizado: p.artefato.otimizado,
-              },
+              artefato: comoRegistro(p.artefatos[0]),
+              /*
+               * A lista inteira, e a capa repetida nela.
+               *
+               * `artefato` continua sendo a capa porque é o que o worker lê
+               * para a peça única e é o que o painel mostra como thumbnail.
+               * `artefatos` é a fonte da publicação nos dois casos, e a carga
+               * confere que o primeiro item é o mesmo arquivo da capa: sem essa
+               * conferência, uma linha poderia ter capa de um post e slides de
+               * outro.
+               */
+              artefatos: p.artefatos.map(comoRegistro),
             },
             /*
              * O registro do direito é completo mesmo quando a arte não imprime

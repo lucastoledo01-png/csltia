@@ -229,6 +229,33 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 .e-nums .t{font-family:var(--s-font-display);font-size:40px;font-weight:700;
   letter-spacing:-0.02em;color:var(--s-ink);}
 
+/* Caixa de corpo com altura DEFINIDA, para o ajuste automático poder agir.
+
+   O script de ajuste mede a altura disponível ANTES de trocar a fonte, o que só
+   faz sentido num bloco de altura definida: ele foi escrito para os blocos
+   posicionados do painel, que têm caixa fixa. Num bloco de altura automática,
+   "altura disponível" é a altura do texto no tamanho atual, então o script nunca
+   deixa o texto crescer e o corpo fica preso no valor do token, medido em 26px.
+
+   A capa não sofre disso porque a caixa da manchete é fracionada em 60% do
+   campo. Esta caixa é o mesmo recurso para o slide de conteúdo. */
+.e-corpo{flex:0 0 46%;display:flex;flex-direction:column;justify-content:flex-start;}
+
+/* Duas colunas, para a comparação. É a única primitiva de LADO A LADO da folha:
+   nenhuma das variantes anteriores precisava de duas colunas, e uma comparação
+   empilhada em duas linhas deixa de ser comparação, porque quem lê perde o eixo
+   do que está sendo confrontado. A régua no meio é o que faz o olho ler em par.
+
+   A coluna é fracionária e não em pixel de propósito: a largura do canvas vem
+   de token, e coluna em pixel quebraria a peça se o token mudar. */
+.e-duo{display:grid;grid-template-columns:1fr 1px 1fr;gap:0 40px;width:100%;align-items:start;}
+.e-duo .col{display:flex;flex-direction:column;gap:18px;}
+.e-duo .risco{background:var(--s-border);width:1px;align-self:stretch;}
+.e-duo .rot{font-family:var(--s-font-body);font-weight:800;font-size:26px;letter-spacing:3px;
+  text-transform:uppercase;color:var(--s-accent);}
+.e-duo .val{font-family:var(--s-font-display);font-size:38px;font-weight:700;
+  letter-spacing:-0.02em;line-height:1.24;color:var(--s-ink);}
+
 .e-quote{border-left:4px solid var(--s-accent);padding-left:34px;
   font-family:var(--s-font-accent);font-style:italic;font-weight:400;
   font-size:38px;line-height:1.32;color:var(--s-ink);}
