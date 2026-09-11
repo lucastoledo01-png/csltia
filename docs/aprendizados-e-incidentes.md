@@ -356,6 +356,30 @@ outros portões do mesmo trecho. Enquanto a linha do run nascer só no fim do
 sucesso, todo caminho de erro é invisível por construção, e cada gate novo
 reintroduz o mesmo buraco.
 
+### A rota chamada dry-run criava publicação de verdade
+
+**Sintoma.** Nenhum, e foi encontrado ao preparar a validação do rollout.
+
+**Causa.** `dryRun` governava a newsletter, o portal e o Listmonk, e parava ali.
+No social quem decidia era só `SOCIAL_PIPELINE_V2`. Com a flag em `enforce`, um
+dry-run de `/api/admin/newsroom/run` percorria o pipeline inteiro: gerava copy,
+resolvia imagem, congelava artefato no Storage e gravava linha `scheduled` em
+`social_posts`. O worker publicaria aquilo no perfil.
+
+**Corrigido.** `modoSocialParaOEnsaio`: em ensaio o canal social é rebaixado
+para `dry_run`. O rebaixamento só desce, porque ensaiar não pode LIGAR um
+pipeline que o operador desligou, e fora do ensaio devolve `undefined`, para o
+caminho do cron continuar lendo a flag.
+
+**Por que não bastava mexer na variável de ambiente.** Era essa a intenção
+inicial: pôr o canal em `dry_run` no EasyPanel durante a validação e devolver
+depois. Garantia que depende de alguém lembrar de reverter uma flag não é
+garantia, e o teste da validação é exatamente o caminho onde o erro seria caro.
+
+**Lição.** Quando um parâmetro de segurança existe há tempo e um consumidor novo
+aparece, a pergunta não é se o parâmetro existe: é se o consumidor novo o lê. O
+social nasceu depois do `dryRun` e nunca o recebeu.
+
 ### comporFeedDoDia tinha teste e não tinha chamador
 
 **O que era.** `evergreen/compositor.ts` exportava `comporFeedDoDia`, com quatro

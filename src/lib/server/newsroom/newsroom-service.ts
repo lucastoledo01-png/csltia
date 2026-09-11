@@ -44,7 +44,7 @@ import { montarPacotesDasPautas } from "../editorial/pacote-factual";
 import type { PacoteFactual } from "../editorial/pacote-factual";
 import type { PautaAvaliada } from "../editorial/guarda";
 import type { RankedCandidate } from "./ranker";
-import { modoDoPipelineSocial } from "../social/modo";
+import { modoDoPipelineSocial, type ModoSocial } from "../social/modo";
 
 export type RunNewsroomOptions = {
   /** Projeto para o qual a edição é produzida. Sem valor, usa o projeto semente. */
@@ -643,6 +643,29 @@ export async function registrarFalhaDaRedacao(
   }
 }
 
+/**
+ * Redação em ensaio não grava post.
+ *
+ * `dryRun` sempre governou a newsletter, o portal e o Listmonk, e nunca chegou
+ * ao social: quem decidia lá era só `SOCIAL_PIPELINE_V2`. Com a flag em
+ * `enforce`, um dry-run da rota admin gerava arte, congelava artefato e gravava
+ * linha `scheduled` em `social_posts`, que o worker publicaria depois. Uma rota
+ * chamada dry-run criando publicação de verdade é a pior forma de surpresa.
+ *
+ * O rebaixamento só desce. Com o canal em `off`, ensaiar não pode LIGAR o
+ * pipeline e gastar tokens que o operador desligou de propósito.
+ *
+ * Fora do ensaio devolve `undefined`, e não um modo: o caminho do cron precisa
+ * continuar lendo a flag, e não receber um valor calculado aqui.
+ */
+export function modoSocialParaOEnsaio(
+  dryRun: boolean,
+  env: Record<string, string | undefined>,
+): ModoSocial | undefined {
+  if (!dryRun) return undefined;
+  return modoDoPipelineSocial(env) === "off" ? "off" : "dry_run";
+}
+
 export async function runNewsroom(
   options: RunNewsroomOptions = {},
   env: Record<string, string | undefined> = process.env,
@@ -820,8 +843,11 @@ async function executarRedacaoDoDia(
      * O `try` não é decoração: falha técnica do social não pode derrubar a
      * edição. O motivo vira diagnóstico e alerta, e o e-mail segue.
      */
+    const modoSocialDoEnsaio = modoSocialParaOEnsaio(dryRun, env);
+
     try {
       const social = await rodarSocialDoDia(resultado.approvedEditorialPool, {
+        ...(modoSocialDoEnsaio ? { modoForcado: modoSocialDoEnsaio } : {}),
         projectId: project.id,
         projectSlug: project.slug,
         editionDate: todayStr,
