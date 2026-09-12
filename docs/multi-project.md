@@ -91,17 +91,45 @@ um valor na tela e outro valendo.
 propósito: seis resolvedores repetindo a mesma condicional seriam seis lugares
 para ela divergir.
 
+## Credenciais por projeto
+
+Fase 1, feita logo em seguida. Também sem migration: `project_credentials` já
+existia com quatro provedores previstos, e só `instagram.access_token` era lido.
+
+`credenciais-do-projeto.ts` devolve o env do canal com a credencial do projeto
+sobreposta:
+
+```json
+// provider "instagram"
+{ "access_token": "...", "account_id": "1784..." }
+
+// provider "listmonk"
+{ "url": "https://...", "api_token": "...", "list_ids": [7] }
+```
+
+**A forma é sobrepor no env, não trocar a leitura.** `getMetaConfig` e
+`getListmonkConfig` não mudaram: os dez pontos que leem a configuração da Meta
+continuam lendo do env que recebem, e o que muda é o env que chega até eles. É o
+padrão que `resolveInstagramToken` já usava em produção, e mantê-lo evitou tocar
+em dez call sites do caminho que publica de verdade.
+
+Cada chave é independente e só entra quando o projeto a declara. Um projeto que
+declara apenas a lista continua usando url e token do ambiente, que é o caso real
+de vários projetos numa instalação só do Listmonk.
+
+Valor vazio ou de tipo errado é tratado como ausente: credencial pela metade não
+pode apagar a que funciona. Banco fora do ar cai no ambiente com log, porque
+trocar uma degradação por uma parada seria pior.
+
 ### O que ainda falta para a plataforma
 
-1. **Credenciais por projeto.** `INSTAGRAM_ACCOUNT_ID` e o Listmonk inteiro
-   continuam globais. `project_credentials` tem os slots e só `instagram` é lido.
-2. **O cron não itera.** Uma execução é um projeto, sempre o default, e a rota
+1. **O cron não itera.** Uma execução é um projeto, sempre o default, e a rota
    não aceita parâmetro de projeto. `listProjects()` continua sem chamador.
-3. **Design por projeto.** `carousel_theme` e `carousel_format_config` não têm
+2. **Design por projeto.** `carousel_theme` e `carousel_format_config` não têm
    `project_id`: o design do carrossel é compartilhado. Isso exige migration.
-4. **Sistema PROMPT com o UUID cravado** em `landing.ts`, `concepts.ts`,
+3. **Sistema PROMPT com o UUID cravado** em `landing.ts`, `concepts.ts`,
    `trends.ts`, `visual.ts` e `carrossel-de-campanha.ts`.
-5. **O `DEFAULT` do `project_id`** continua ativo nas 15 tabelas.
+4. **O `DEFAULT` do `project_id`** continua ativo nas 15 tabelas.
 
 ## Pendente
 

@@ -13,7 +13,7 @@ import {
   generateTutorialCarouselPipeline,
   type TutorialArticleInput,
 } from "./pipeline";
-import { resolveInstagramToken } from "./meta-token";
+import { envDoInstagram } from "../../credenciais-do-projeto";
 import { markPostFailed } from "./scheduler";
 import {
   GERACAO_V2,
@@ -695,7 +695,7 @@ export async function recuperarOrfaosV2(
      * "não consegui consultar" para todo container saudável.
      */
     const projectId = (linha.project_id as string) ?? opcoes.projectId ?? "";
-    const igEnv = { ...env, INSTAGRAM_ACCESS_TOKEN: await resolveInstagramToken(projectId, env) };
+    const igEnv = await envDoInstagram(projectId, env);
 
     const desfecho = await reconciliarTentativaAnterior(
       supabase,
@@ -836,7 +836,7 @@ export async function processScheduledPost(
      * automação de Direct, e a linha era marcada como falha. O container estava
      * saudável; só o token da pergunta é que não.
      */
-    const igEnv = { ...env, INSTAGRAM_ACCESS_TOKEN: await resolveInstagramToken(projectId, env) };
+    const igEnv = await envDoInstagram(projectId, env);
 
     /*
      * Antes de gastar um centavo, perguntar se já foi.

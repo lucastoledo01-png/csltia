@@ -46,6 +46,7 @@ import type { PautaAvaliada } from "../editorial/guarda";
 import type { RankedCandidate } from "./ranker";
 import { modoDoPipelineSocial, type ModoSocial } from "../social/modo";
 import type { ProjetoComCapacidades } from "../capacidades";
+import { envDoListmonk } from "../credenciais-do-projeto";
 
 export type RunNewsroomOptions = {
   /** Projeto para o qual a edição é produzida. Sem valor, usa o projeto semente. */
@@ -1540,7 +1541,13 @@ async function executarRedacaoDoDia(
 
   if (createNewsletterCampaign) {
     try {
-      const listmonk = createListmonkClient(env, fetcher);
+      /*
+       * A configuração do Listmonk vem do projeto quando ele tem uma.
+       *
+       * Sem isto, dois projetos disparariam na mesma lista: `LISTMONK_URL`,
+       * token e lista são variáveis de ambiente, globais ao deploy.
+       */
+      const listmonk = createListmonkClient(await envDoListmonk(project.id, env), fetcher);
       const campaignName = `${MARCA.nome}, edição ${todayStr}`;
       // O portão olha `hallucination_risk`, não `passed`.
       //
