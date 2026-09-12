@@ -4,6 +4,7 @@ import { requireAdminOrCron } from "@/lib/server/api-auth";
 import {
   MOTIVO_QA_BLOQUEOU,
   diagnosticoSocialDoErro,
+  detalheDoBloqueioDoErro,
   motivoDoErro,
   runNewsroom,
 } from "@/lib/server/newsroom/newsroom-service";
@@ -64,6 +65,8 @@ async function handleRun(req: NextRequest) {
           status: motivo === MOTIVO_QA_BLOQUEOU ? "blocked" : "failed",
           reason: motivo,
           error: mensagem,
+          // Quais conclusões foram apontadas, e não só quantas.
+          ...(detalheDoBloqueioDoErro(err) ? { detalhe: detalheDoBloqueioDoErro(err) } : {}),
         },
         ...(social ? { social } : {}),
         // Mantido para quem já lia este campo. A resposta ganhou estrutura, e

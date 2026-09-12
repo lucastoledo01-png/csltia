@@ -137,8 +137,17 @@ describe("o portão do QA continua sendo o portão do QA", () => {
 
   it("o bloqueio continua saindo por throw, agora nomeado", () => {
     const trecho = fonte.slice(fonte.indexOf('if (!pipelineResult.aprovado && modo === "enforce")'));
-    expect(trecho.slice(0, 900)).toContain("throw comMotivo(");
-    expect(trecho.slice(0, 900)).toContain("MOTIVO_QA_BLOQUEOU");
+    const bloco = trecho.slice(0, 2600);
+
+    /*
+     * A asserção é sobre a REGRA, não sobre a forma da chamada: o portão sai por
+     * `throw`, o erro carrega o motivo estruturado, e a mensagem não muda. O
+     * `throw` ganhou um invólucro quando o detalhe do bloqueio passou a viajar
+     * junto, e um teste que morre num invólucro estava medindo sintaxe.
+     */
+    expect(bloco).toMatch(/throw [a-zA-Z]+\(/);
+    expect(bloco).toContain("comMotivo(");
+    expect(bloco).toContain("MOTIVO_QA_BLOQUEOU");
     // A mensagem é a mesma de antes, palavra por palavra.
     expect(trecho).toContain("`Edição bloqueada depois de ${pipelineResult.tentativasDeReparo} tentativa(s) de correção `");
   });

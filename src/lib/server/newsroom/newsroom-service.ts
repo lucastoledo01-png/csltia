@@ -696,6 +696,39 @@ export const MOTIVO_FALHA_GENERICA = "RUN_FAILED";
  * as mesmas: o alerta do Telegram e a linha `failed` de `newsroom_runs` leem
  * exatamente o que liam antes desta mudança.
  */
+/**
+ * Por que a edição foi barrada, com nome e sobrenome.
+ *
+ * O motivo resumido já vinha na mensagem do erro: "UNGROUNDED_EDITORIAL_CLAIM
+ * em 3 conclusão(ões)". Ele diz QUANTAS e não diz QUAIS, e o detalhe ia para
+ * `console.error`, dentro de um contêiner que ninguém alcança sem docker.
+ *
+ * Em três dias seguidos a edição foi barrada por motivos diferentes, e sem o
+ * trecho apontado não dá para distinguir as duas hipóteses que exigem ações
+ * opostas: o pipeline está inventando, ou a guarda está apertada demais.
+ * Afrouxar a régua sem saber qual das duas é o caso publicaria alucinação.
+ */
+export type DetalheDoBloqueio = {
+  score: number;
+  riscoDeAlucinacao: boolean;
+  tentativasDeReparo: number;
+  /** O que o auditor genérico apontou. */
+  issues: string[];
+  /** Número, data ou nome que não aparece no pacote factual. */
+  semLastro: Array<{ materia: string; itens: Array<{ tipo: string; valor: string; onde: string }> }>;
+  /** Conclusão que o auditor semântico não sustentou, com o trecho exato. */
+  conclusoes: Array<{ tipo: string; trecho: string; motivo: string }>;
+  /** Imprecisão que sobrou depois do reparo. Não bloqueia. */
+  apontamentos: string[];
+};
+
+const CHAVE_DETALHE = "__detalheDoBloqueio";
+
+export function detalheDoBloqueioDoErro(erro: unknown): DetalheDoBloqueio | null {
+  const d = (erro as Record<string, unknown> | null)?.[CHAVE_DETALHE];
+  return d && typeof d === "object" ? (d as DetalheDoBloqueio) : null;
+}
+
 const CHAVE_DIAGNOSTICO = "__diagnosticoSocial";
 const CHAVE_MOTIVO = "__motivoDaRedacao";
 
@@ -1191,12 +1224,33 @@ async function executarRedacaoDoDia(
      * é que o erro passa a dizer POR QUE ele é, para quem lê a resposta não
      * precisar interpretar texto livre.
      */
-    throw comMotivo(
-      new Error(
-        `Edição bloqueada depois de ${pipelineResult.tentativasDeReparo} tentativa(s) de correção ` +
-          `(QA ${pipelineResult.qaResult.score}): ${pipelineResult.bloqueios.join(" | ")}`,
+    const detalhe: DetalheDoBloqueio = {
+      score: pipelineResult.qaResult.score,
+      riscoDeAlucinacao: Boolean(pipelineResult.qaResult.hallucination_risk),
+      tentativasDeReparo: pipelineResult.tentativasDeReparo,
+      issues: (pipelineResult.qaResult.issues ?? []).map((i) => String(i)).slice(0, 20),
+      semLastro: pipelineResult.ancoragem
+        .filter((a) => !a.ancorado)
+        .map((a) => ({
+          materia: a.titulo,
+          itens: a.naoSustentadas.map((c) => ({ tipo: c.tipo, valor: c.valor, onde: c.onde })).slice(0, 10),
+        })),
+      conclusoes: pipelineResult.claimsSemanticas.naoSustentadas
+        .map((c) => ({ tipo: c.tipo, trecho: c.trecho, motivo: c.motivo }))
+        .slice(0, 20),
+      apontamentos: pipelineResult.problemasRestantes.map((p) => p.descricao).slice(0, 20),
+    };
+
+    throw anexar(
+      comMotivo(
+        new Error(
+          `Edição bloqueada depois de ${pipelineResult.tentativasDeReparo} tentativa(s) de correção ` +
+            `(QA ${pipelineResult.qaResult.score}): ${pipelineResult.bloqueios.join(" | ")}`,
+        ),
+        MOTIVO_QA_BLOQUEOU,
       ),
-      MOTIVO_QA_BLOQUEOU,
+      CHAVE_DETALHE,
+      detalhe,
     );
   }
 
