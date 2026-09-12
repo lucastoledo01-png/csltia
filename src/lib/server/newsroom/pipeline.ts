@@ -514,6 +514,7 @@ O QUE NÃO É:
 - Ressalva. Dizer que a fonte não informou algo é o comportamento correto, não um defeito.
 - Assunto e opções de assunto. São chamadas curtas e podem ser perguntas. Avalie se afirmam algo FALSO, não se resumem demais. "A taxa das blusinhas está no fim?" é pergunta legítima quando o pacote diz que o texto foi aprovado e aguarda sanção; "A taxa das blusinhas acabou" seria falso.
 - IMPRECISÃO DE REDAÇÃO. Chamar de "decisões" um conjunto que inclui um relatório, ou atribuir ao país o que uma juíza decidiu, é imprecisão: a informação existe no pacote e foi mal resumida. Isso vai para "issues" e derruba "passed", mas NÃO é alucinação.
+- FECHAMENTO E CONVITE AO LEITOR. O "closing" convida a compartilhar a edição com quem se interessa pelo assunto da publicação. Descrever esse público NÃO é afirmar fato do dia: a audiência é definida pelo briefing editorial, não pelo pacote factual. Se a publicação é para quem quer morar nos Estados Unidos, escrever "compartilhe com quem planeja trabalhar ou estudar lá" não acrescenta nenhuma informação sobre a notícia, mesmo que o pacote daquele dia só trate de trabalho. Só é alucinação se o convite afirmar um FATO que o pacote não tem: um prazo, um preço, uma regra, um número.
 
 A pergunta que separa as duas coisas: a informação existe no pacote?
 - Não existe: alucinação, hallucination_risk = true.
