@@ -190,6 +190,79 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 /* I-765 e H-1B sao o nome da coisa, nao hifenizacao: nao quebram no hifen. */
 .n-junto{white-space:nowrap;}
 
+/* ---- capa de carrossel: a manchete marcada ----
+ *
+ * A capa da notícia é serifa preta sobre creme, e continua sendo. Esta é a do
+ * conteúdo permanente, e é DE PROPÓSITO diferente: no feed, notícia do dia e
+ * material de referência são dois produtos, e a capa é onde isso se anuncia.
+ *
+ * O marca-texto entra atrás de um trecho que a copy já declarou como destaque,
+ * e o destaque é, por guarda, trecho LITERAL da manchete. Ou seja: a cor não
+ * escolhe o que enfatizar, ela pinta o que a copy enfatizou, e nada aparece
+ * pintado que não esteja na manchete conferida.
+ *
+ * A faixa escura cobre a peça inteira quando não há foto, e vira degradê sobre
+ * a foto quando há. Nos dois casos a manchete assenta na base, sem cartão e sem
+ * moldura: vazio cercado lê como falta, vazio aberto lê como margem.
+ */
+.k-capa{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;
+  justify-content:flex-end;padding:104px 92px 116px;background:#101014;}
+.k-capa.com-foto{background:linear-gradient(to top,#101014 0%,#101014 44%,
+  rgba(16,16,20,0.78) 60%,rgba(16,16,20,0.28) 76%,rgba(16,16,20,0) 90%);}
+/* Tratamento coeso: toda foto entra igual.
+ *
+ * Fonte nenhuma entrega coerencia sozinha. Commons e acervo documental, com
+ * foto de epoca e enquadramento irregular; Unsplash e Pexels sao curados, e
+ * ainda assim variam em temperatura, contraste e estilo. Um feed em que cada
+ * capa tem a cara do banco de onde veio nao parece uma publicacao.
+ *
+ * Entao a imagem e normalizada aqui, e nao escolhida melhor la: dessatura,
+ * ganha contraste, escurece, e recebe o tom da marca por cima. Foto do
+ * Commons, do Unsplash e do Pexels saem parecendo a mesma peca, e a manchete
+ * continua legivel porque assenta sobre area escura de qualquer jeito. */
+.k-foto{position:absolute;inset:0;z-index:1;}
+.k-foto .s-photo{filter:grayscale(1) contrast(1.06) brightness(0.62);}
+/* z-index explicito: a propria .s-photo ja tem z-index 1, e sem isto o tom da marca
+   seria pintado DEBAIXO da foto e nao apareceria. */
+.k-foto::after{content:"";position:absolute;inset:0;z-index:2;
+  background:var(--s-accent);mix-blend-mode:color;opacity:0.34;}
+
+/* A sombra nao e decoracao: a arroba fica sobre a foto, e foto de documento
+   tem area quase branca no topo. Sem ela, some. */
+.k-handle{position:absolute;top:96px;left:92px;font-family:var(--s-font-mono);
+  font-size:27px;font-weight:500;letter-spacing:2px;color:rgba(255,255,255,0.88);
+  text-shadow:0 2px 14px rgba(0,0,0,0.8);}
+/* Com flex:none e o bloco da manchete crescendo, a editoria era empurrada ate o
+   topo do campo, exatamente onde a arroba e ancorada em absoluto: as duas
+   saiam impressas uma sobre a outra. Editoria e manchete sao um conjunto e
+   assentam juntas na base. */
+.k-topo{flex:0 0 auto;margin-bottom:40px;}
+.k-editoria{display:block;font-family:var(--s-font-mono);font-size:20px;font-weight:700;
+  letter-spacing:4px;text-transform:uppercase;color:var(--s-accent);margin-bottom:16px;}
+.k-regua{display:block;height:3px;background:rgba(255,255,255,0.22);}
+/* Grotesca pesada, e não a serifa da capa de notícia: serifa com marca-texto
+   vira cartaz de leilão.
+
+   Corpo FIXO e entrelinha FIXA, de propósito. A capa nasceu com ajuste
+   automático, o mesmo da capa de notícia, e o efeito no feed era que cada post
+   saía com um tamanho de manchete diferente conforme o comprimento do texto.
+   Numa peça que é quase só tipo, isso não lê como ajuste, lê como falta de
+   padrão. As manchetes medidas ficam entre 31 e 43 caracteres, e o prompt pede
+   de 3 a 10 palavras: 112px cabe folgado em duas ou três linhas. */
+.k-manchete{flex:0 0 auto;display:flex;flex-direction:column;justify-content:flex-end;
+  font-family:var(--s-font-display);font-weight:800;letter-spacing:-0.028em;
+  font-size:112px;line-height:1.3;color:#fff;}
+/* O marcador NÃO entra no cálculo da linha.
+
+   Com padding vertical, a caixa do marca-texto aumenta a altura da linha, e a
+   entrelinha passa a ser maior entre linhas marcadas do que entre as brancas:
+   o mesmo bloco de texto com dois ritmos. Padding só na horizontal, e a altura
+   da cor vem do box-shadow, que pinta sem ocupar espaco. */
+.k-manchete mark{background:var(--s-accent);color:#101014;
+  padding:0 0.14em;border-radius:4px;
+  box-shadow:0 0 0 0.085em var(--s-accent);
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;}
+
 .e-mark{width:74px;height:74px;color:var(--s-accent);}
 .e-mark svg{width:100%;height:100%;}
 

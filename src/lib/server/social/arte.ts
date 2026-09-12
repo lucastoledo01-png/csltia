@@ -132,6 +132,32 @@ export type EntradaDaCapa = {
   headline: string;
   /** Categoria editorial, usada como sobrancelha na capa sem foto. */
   eixo?: string;
+  /**
+   * Qual das duas capas desenhar.
+   *
+   * `noticia` é a serifa preta sobre creme, e é o padrão. `carrossel` é a faixa
+   * escura com a frase-chave marcada. A diferença é de produto, não de gosto:
+   * notícia do dia e material de referência são coisas distintas no feed, e a
+   * capa é onde o leitor percebe isso antes de ler.
+   */
+  estiloDaCapa?: "noticia" | "carrossel";
+  /**
+   * Moldura discreta: sem colchetes de corte e sem contador no cabeçalho.
+   *
+   * Vale para o carrossel inteiro, capa e miolo. A capa é sangrada e não tem
+   * moldura; quando o miolo vinha emoldurado, a peça mudava de regra na virada
+   * do slide 1 para o 2. A continuidade fica nos pontos do rodapé, que são o
+   * indicador discreto, e some a paginação repetida no topo.
+   */
+  molduraDiscreta?: boolean;
+  /**
+   * O trecho da manchete que sai marcado, na capa de carrossel.
+   *
+   * Só é usado por ela, e só é pintado se for encontrado na própria manchete.
+   * A guarda do carrossel já exige que o destaque seja trecho literal, então
+   * aqui não há nada a conferir de novo: há o que respeitar.
+   */
+  destaque?: string;
   asset: FotoDaCapa | null;
   motivoSemFoto?: string;
   /**
@@ -205,15 +231,30 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
   const asset = entrada.asset;
   const comFoto = Boolean(asset && asset.imageUrl);
 
+  /*
+   * A capa do carrossel é a mesma com e sem foto.
+   *
+   * Na capa da notícia, foto e ausência de foto são duas variantes diferentes,
+   * porque a peça sem foto precisa ser inteira de tipo. Aqui não: a faixa
+   * escura já é a peça, e a foto entra por cima dela quando existe. Uma
+   * variante só significa que o dia sem imagem não muda a cara do feed.
+   */
+  const doCarrossel = entrada.estiloDaCapa === "carrossel";
+  const variante = doCarrossel
+    ? "capa_destaque"
+    : comFoto
+      ? "fullbleed_portrait"
+      : "noticia_sem_foto";
+
   const slide: InstagramSlide = {
     index: 1,
     type: "cover",
-    eyebrow: comFoto ? "" : sobrancelha(entrada.eixo),
+    eyebrow: comFoto && !doCarrossel ? "" : sobrancelha(entrada.eixo),
     title: entrada.headline,
     body: "",
     bullet_points: [],
-    highlight_text: "",
-    variant: comFoto ? "fullbleed_portrait" : "noticia_sem_foto",
+    highlight_text: doCarrossel ? (entrada.destaque ?? "").trim() : "",
+    variant: variante,
     cover_variant: "dark_speaker",
     headline_style: "clean",
     // Vazio sempre, e de propósito: é este campo que o renderer antigo usa
@@ -226,7 +267,7 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
 
   return {
     slide,
-    variante: comFoto ? "fullbleed_portrait" : "noticia_sem_foto",
+    variante,
     comFoto,
     credito: comFoto ? (asset!.attribution || "").trim() : "",
     motivoSemFoto: comFoto ? "" : (entrada.motivoSemFoto || "NO_VALID_VISUAL_ASSET").trim(),
@@ -416,7 +457,23 @@ export async function renderizarCapas(
        * em lugar nenhum: o desenho posiciona blocos por nome, e os nomes são os
        * da capa.
        */
-      const usaDesenho = diagnosticoDoLayout === DIAGNOSTICOS_DE_LAYOUT.USADO && !entrada.slidePronto;
+      /*
+       * E o desenho é da capa de NOTÍCIA, que é a única que ele conhece.
+       *
+       * `resolveLayout` foi consultado para o par (noticia, cover), e o desenho
+       * salvo posiciona a manchete, a marca e a foto do jeito da notícia. A capa
+       * do carrossel é outra peça de propósito, com faixa escura e marca-texto
+       * na frase-chave, e deixar o desenho vencer faria ela sumir exatamente
+       * quando há foto, que é o caso em que ela deveria estar melhor.
+       *
+       * Isso não foi previsto e foi encontrado renderizando: sem foto o desenho
+       * é recusado por não ter bloco de imagem, então a capa nova aparecia; com
+       * foto o desenho passava a valer e a capa nova nunca era desenhada.
+       */
+      const usaDesenho =
+        diagnosticoDoLayout === DIAGNOSTICOS_DE_LAYOUT.USADO &&
+        !entrada.slidePronto &&
+        entrada.estiloDaCapa !== "carrossel";
 
       const html = assembleSlide(capa.slide, {
         format: "noticia",
@@ -427,6 +484,7 @@ export async function renderizarCapas(
         layout: usaDesenho ? layout : null,
         credito: capa.credito,
         affordance: entrada.affordance,
+        molduraDiscreta: entrada.molduraDiscreta,
       });
 
       await page.setContent(html, { waitUntil: "networkidle" });

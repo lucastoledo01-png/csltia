@@ -380,6 +380,50 @@ garantia, e o teste da validação é exatamente o caminho onde o erro seria car
 aparece, a pergunta não é se o parâmetro existe: é se o consumidor novo o lê. O
 social nasceu depois do `dryRun` e nunca o recebeu.
 
+### O desenho do painel vencia a capa nova, e só quando havia foto
+
+**Sintoma.** Nenhum, e por pouco. A capa de carrossel foi aprovada olhando as
+renderizações sem foto. Ao renderizar a primeira com foto, ela não apareceu: saiu
+a capa antiga.
+
+**Causa.** `assembleSlide` dá precedência total ao layout desenhado no painel, e
+`resolveLayout` foi consultado para o par (noticia, cover). `diagnosticarLayout`
+recusa o desenho quando não há bloco de imagem para a foto recebida, então **sem
+foto** o desenho caía e a variante de código assumia; **com foto** o desenho
+passava a valer e a capa de carrossel nunca era desenhada.
+
+O efeito seria uma capa aprovada que some exatamente no dia em que há imagem,
+que é o dia em que ela deveria estar melhor.
+
+**Corrigido.** `usaDesenho` passou a exigir também `estiloDaCapa !== "carrossel"`.
+O desenho salvo posiciona manchete, marca e foto do jeito da notícia, e a capa do
+carrossel é outra peça de propósito.
+
+**Lição.** Precedência condicional é pior que precedência fixa para quem revisa:
+o caminho em que o desenho vence só aparece quando a condição bate, e a revisão
+visual foi feita justamente no caminho em que ela não batia. Ao dar a uma peça
+uma variante nova, verificar os DOIS estados da condição, não só o que está à mão.
+
+### Crase dentro do CSS, cinco vezes, e a trava que faltava
+
+**Sintoma.** `TransformError` do esbuild apontando uma linha distante da causa, e
+numa das vezes o render simplesmente não aconteceu.
+
+**Causa.** `BASE_CSS` é template literal. Escrever o nome de uma classe entre
+crases num comentário do CSS encerra a string ali.
+
+**Por que merece entrada própria.** Isto já estava documentado duas vezes neste
+arquivo, e aconteceu mais três. Documentação não impediu a repetição porque
+depende de alguém lembrar no momento exato de escrever o comentário.
+
+**Corrigido.** `css-sem-crase.test.ts` varre os literais de estilo procurando
+crase solta, e inclui um caso que prova que a varredura acusaria o erro de
+verdade. Sem esse caso, um teste que nunca acusa nada é indistinguível de um
+teste que não confere nada, que é a lição do auditor semântico com zero recusas.
+
+**Lição.** Quando a mesma lição escrita falha três vezes, o problema não é a
+lição: é o formato dela. Conferência mecânica não depende de memória.
+
 ### comporFeedDoDia tinha teste e não tinha chamador
 
 **O que era.** `evergreen/compositor.ts` exportava `comporFeedDoDia`, com quatro

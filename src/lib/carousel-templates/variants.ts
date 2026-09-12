@@ -175,6 +175,106 @@ const coverNoticiaSemFoto: SlideVariant = {
   },
 };
 
+/**
+ * Capa do carrossel: manchete marcada, com foto quando existe.
+ *
+ * A diferença para a capa da notícia é intencional e é de produto. Notícia é o
+ * fato do dia e sai em serifa sobre creme; conteúdo permanente é material de
+ * referência e sai em faixa escura com a frase-chave marcada. Quem rola o feed
+ * distingue os dois antes de ler.
+ *
+ * O que é marcado vem de `highlight_text`, e a guarda do carrossel só deixa
+ * passar destaque que seja trecho literal da manchete. Se o trecho não for
+ * encontrado no título, nada é marcado: o texto sai inteiro, sem cor, em vez de
+ * sair com a cor no lugar errado.
+ *
+ * O corpo do tipo é medido pelo navegador, como na capa da notícia, e por isso
+ * o bloco da manchete tem altura definida: `SCRIPT_DE_AJUSTE` mede o espaço
+ * disponível ANTES de mexer na fonte, e num bloco sem altura não há o que medir.
+ */
+function marcarDestaque(titulo: string, destaque: string): string {
+  const limpo = titulo.trim().replace(/\s+/g, " ");
+  const alvo = (destaque ?? "").trim().replace(/\s+/g, " ");
+  if (!alvo) return manterCodigosJuntos(esc(limpo));
+
+  /* Índice do trecho no título, ignorando caixa e acento. O mapa devolve a
+     posição ORIGINAL de cada caractere normalizado, porque remover acento muda
+     o comprimento da string e cortar pelo índice normalizado erraria a fatia. */
+  const mapa: number[] = [];
+  let normal = "";
+  for (let i = 0; i < limpo.length; i += 1) {
+    const c = limpo[i]
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    for (let k = 0; k < c.length; k += 1) {
+      normal += c[k];
+      mapa.push(i);
+    }
+  }
+  const alvoNormal = alvo
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const at = normal.indexOf(alvoNormal);
+  if (at < 0 || !alvoNormal) return manterCodigosJuntos(esc(limpo));
+
+  /*
+   * Marcar quase tudo é não marcar nada.
+   *
+   * O destaque é escrito pela copy e às vezes ele é a manchete inteira menos
+   * duas palavras. Pintado, isso vira um retângulo laranja ocupando a peça, e o
+   * olho perde a referência do que era para ser enfatizado. Acima de 60% do
+   * título, a manchete sai limpa: ausência de marcador é melhor que marcador
+   * sem função.
+   */
+  if (alvoNormal.length > normal.length * 0.6) return manterCodigosJuntos(esc(limpo));
+
+  const inicio = mapa[at];
+  const fim = mapa[at + alvoNormal.length - 1] + 1;
+
+  return (
+    manterCodigosJuntos(esc(limpo.slice(0, inicio))) +
+    `<mark>${manterCodigosJuntos(esc(limpo.slice(inicio, fim)))}</mark>` +
+    manterCodigosJuntos(esc(limpo.slice(fim)))
+  );
+}
+
+const coverCarrosselDestaque: SlideVariant = {
+  key: "capa_destaque",
+  label: "Capa de carrossel: manchete marcada",
+  render: (slide): VariantOutput => {
+    const comFoto = Boolean((slide.bg_image_url ?? "").trim());
+    const titulo = String(slide.title ?? "");
+
+    /*
+     * A editoria só aparece na capa sem foto.
+     *
+     * Com foto, o topo já tem conteúdo e o rótulo vira ruído sobre a imagem.
+     * Sem foto, o mesmo topo é um campo escuro vazio, e vazio nesse tamanho não
+     * lê como respiro: lê como peça que não terminou de carregar.
+     */
+    const editoria = (slide.eyebrow ?? "").trim();
+    const topo =
+      !comFoto && editoria
+        ? `<div class="k-topo"><span class="k-editoria">${esc(editoria)}</span><span class="k-regua"></span></div>`
+        : "";
+
+    return {
+      full: true,
+      onDark: true,
+      body: `
+${comFoto ? `<div class="k-foto">${photo(slide.bg_image_url)}</div>` : ""}
+<div class="k-capa${comFoto ? " com-foto" : ""}">
+  <span class="k-handle">@imigra.us</span>
+  ${topo}
+  <div class="k-manchete"><span>${marcarDestaque(titulo, slide.highlight_text ?? "")}</span></div>
+</div>`,
+    };
+  },
+};
+
 const coverBrandCard: SlideVariant = {
   key: "brand_card",
   label: "Fundo claro + card da marca",
@@ -627,6 +727,7 @@ export const SLIDE_VARIANTS: Record<InstagramSlideType, Record<string, SlideVari
     fullbleed_portrait: coverFullbleedPortrait,
     brand_card: coverBrandCard,
     noticia_sem_foto: coverNoticiaSemFoto,
+    capa_destaque: coverCarrosselDestaque,
     result_showcase: coverResultShowcase,
     result_fullbleed: coverResultFullbleed,
     editorial_claro: coverEditorialClaro,

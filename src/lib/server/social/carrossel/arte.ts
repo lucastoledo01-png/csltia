@@ -150,10 +150,16 @@ export function entradasDoCarrossel(
       /*
        * A capa passa pelo caminho normal da arte, com foto e crédito.
        *
-       * É o mesmo `montarCapaDoPost` do post de imagem única: a mesma variante,
-       * a mesma sobrancelha, o mesmo tratamento de foto ausente. Um carrossel
-       * cuja capa fosse desenhada por outro caminho teria uma capa diferente da
-       * dos estáticos, e o feed mostraria dois tipos de post da mesma marca.
+       * É o mesmo `montarCapaDoPost` do post de imagem única, com o mesmo
+       * tratamento de foto e de crédito de licença. O que muda é a variante:
+       * `estiloDaCapa: "carrossel"` pede a faixa escura com a frase-chave
+       * marcada, em vez da serifa sobre creme da notícia.
+       *
+       * A diferença é deliberada, e substitui a regra anterior de capa única.
+       * Notícia do dia e material de referência são dois produtos no mesmo
+       * feed: quando as duas capas eram iguais, o leitor só descobria qual era
+       * qual depois de ler. O que continua igual é tudo o que identifica a
+       * marca: colchetes de corte, arroba, tipografia e paleta.
        */
       entradas.push({
         headline: copy.headline,
@@ -163,6 +169,9 @@ export function entradasDoCarrossel(
         posicao,
         total,
         affordance: "discreta",
+        estiloDaCapa: "carrossel",
+        destaque: copy.destaque ?? "",
+        molduraDiscreta: true,
       });
       return;
     }
@@ -197,6 +206,7 @@ export function entradasDoCarrossel(
         posicao,
         total,
         affordance: "discreta",
+        molduraDiscreta: true,
       });
       return;
     }
@@ -220,6 +230,7 @@ export function entradasDoCarrossel(
        * desenhado apareceu em todos os slides.
        */
       affordance: "discreta",
+      molduraDiscreta: true,
     });
   });
 

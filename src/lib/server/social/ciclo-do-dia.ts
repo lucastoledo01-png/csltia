@@ -11,7 +11,7 @@ import { resolveVisualAsset } from "../visual/resolver";
 import { carregarConfigSocial } from "./selecao";
 import { criarSocialPostsStore } from "./social-posts-store";
 import { modoDoPipelineSocial } from "./modo";
-import type { ModoSocial } from "./modo";
+import type { ModoSocial, ResumoVisualDoDia } from "./modo";
 import { rodarCicloSocial } from "./pipeline-v2";
 import {
   decisorDeFormato,
@@ -65,6 +65,8 @@ export type DiagnosticoSocialDoDia = {
   errors: string[];
   /** O que o conteúdo permanente fez hoje. Ausente quando a flag está off. */
   evergreen?: DiagnosticoDoEvergreen;
+  /** O que o resolvedor de imagem fez hoje, com motivo. */
+  visual?: ResumoVisualDoDia;
 };
 
 export function diagnosticoSocialAusente(mode: ModoSocial = "off"): DiagnosticoSocialDoDia {
@@ -410,6 +412,9 @@ export async function rodarSocialDoDia(
     diagnostico.skippedReasons[chave] = (diagnostico.skippedReasons[chave] ?? 0) + 1;
   }
   diagnostico.errors = ciclo.gravacao?.erros ?? [];
+  // O desfecho do resolvedor de imagem viaja junto: é o diagnóstico que
+  // sobrevive ao bloqueio da newsletter, e é nele que a causa fica legível.
+  if (ciclo.diagnostico.visual) diagnostico.visual = ciclo.diagnostico.visual;
 
   return { diagnostico, ciclo, conferencia, evergreen };
 }

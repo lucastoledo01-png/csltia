@@ -43,6 +43,8 @@ export function assembleSlide(
     credito?: string;
     /** Quanto o rodapé promete. Ver `Affordance` em `chrome.ts`. */
     affordance?: Affordance;
+    /** Sem colchetes e sem contador no cabeçalho. Ver `renderShell`. */
+    molduraDiscreta?: boolean;
   },
 ): string {
   const { format, tokens, formatConfig, slideIndex, total } = opts;
@@ -62,7 +64,7 @@ export function assembleSlide(
         }),
         full: true,
       },
-      { slideIndex, total, tokens, credito: opts.credito, affordance: opts.affordance },
+      { slideIndex, total, tokens, credito: opts.credito, affordance: opts.affordance, molduraDiscreta: opts.molduraDiscreta },
     );
   }
 
@@ -77,7 +79,7 @@ export function assembleSlide(
   if (!variant) {
     return renderShell(
       { body: `<div class="s-mid"><div class="s-title sm">${esc(slide.title)}</div></div>` },
-      { slideIndex, total, tokens, credito: opts.credito, affordance: opts.affordance },
+      { slideIndex, total, tokens, credito: opts.credito, affordance: opts.affordance, molduraDiscreta: opts.molduraDiscreta },
     );
   }
 
@@ -90,5 +92,5 @@ export function assembleSlide(
     total,
   };
 
-  return renderShell(variant.render(slide, ctx), { slideIndex, total, tokens, credito: opts.credito, affordance: opts.affordance });
+  return renderShell(variant.render(slide, ctx), { slideIndex, total, tokens, credito: opts.credito, affordance: opts.affordance, molduraDiscreta: opts.molduraDiscreta });
 }

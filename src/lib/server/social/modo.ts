@@ -77,6 +77,27 @@ export function permiteEnforce(env: Record<string, string | undefined> = process
   return { permitido: true, motivo: "" };
 }
 
+/**
+ * O que o resolvedor de imagem fez no dia.
+ *
+ * Existia só `semImagem`, um número. Número sozinho não diz se a foto faltou
+ * porque a fonte não tinha nada, porque a guarda recusou o que havia, ou porque
+ * a chave do banco conceitual não está configurada: são três problemas com três
+ * ações diferentes, e a diferença estava num log de contêiner inalcançável.
+ *
+ * `notaDaPrimeiraSemFoto` guarda as fontes consultadas da primeira peça que
+ * ficou sem imagem. É uma linha, e é ela que nomeia a causa.
+ */
+export type ResumoVisualDoDia = {
+  comFoto: number;
+  semFoto: number;
+  /** Motivo da recusa, agrupado. */
+  porMotivo: Record<string, number>;
+  /** De onde veio a foto que entrou. */
+  porFonte: Record<string, number>;
+  notaDaPrimeiraSemFoto: string;
+};
+
 /** Resumo não sensível, para a resposta da rota admin. */
 export type DiagnosticoSocial = {
   mode: ModoSocial;
@@ -87,6 +108,8 @@ export type DiagnosticoSocial = {
   descartados: number;
   reparos: number;
   semImagem: number;
+  /** Detalhe do resolvedor de imagem. Ausente quando o ciclo não rodou. */
+  visual?: ResumoVisualDoDia;
   bloqueio: string | null;
 };
 

@@ -16,7 +16,22 @@ import type { VariantOutput } from "./types";
  */
 export function renderShell(
   out: VariantOutput,
-  opts: { slideIndex: number; total: number; tokens: CarouselTokens; credito?: string; affordance?: Affordance },
+  opts: {
+    slideIndex: number;
+    total: number;
+    tokens: CarouselTokens;
+    credito?: string;
+    affordance?: Affordance;
+    /**
+     * Moldura discreta: sem colchetes de corte e sem contador no cabeçalho.
+     *
+     * A capa do carrossel é sangrada e não tem moldura nenhuma. Quando o miolo
+     * vinha com colchetes, contador em cima E pontos embaixo, a peça mudava de
+     * regra na virada do slide 1 para o 2, e a mesma paginação aparecia duas
+     * vezes. Aqui o miolo segue a capa: continuidade fica só nos pontos.
+     */
+    molduraDiscreta?: boolean;
+  },
 ): string {
   // O <link> sai das fontes que os tokens realmente escolheram: declarar uma
   // família sem requisitá-la é o bug silencioso que `fonts.ts` existe para
@@ -29,7 +44,7 @@ export function renderShell(
   const chrome = opts.tokens.chrome;
   // Os colchetes de corte são do sistema impresso e emolduram a arte inteira,
   // então valem também no slide sangrado — é neles que o design se reconhece.
-  const cantos = chrome === "editorial" ? cantosEditorial() : "";
+  const cantos = chrome === "editorial" && !opts.molduraDiscreta ? cantosEditorial() : "";
 
   /*
    * O crédito da licença é impresso na arte, não guardado num campo.
@@ -46,7 +61,7 @@ export function renderShell(
     ? `<div class="slide full">${cantos}${out.body}${tira}</div>`
     : `<div class="slide">
 ${cantos}
-${chromeHeader(chrome, opts.slideIndex, opts.total)}
+${chromeHeader(chrome, opts.slideIndex, opts.molduraDiscreta ? 1 : opts.total)}
 ${out.body}
 ${chromeFooter(chrome, opts.slideIndex, opts.total, opts.affordance)}
 ${tira}

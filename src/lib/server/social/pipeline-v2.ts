@@ -11,6 +11,7 @@ import { gerarPostsDoDia , type OpcoesDoGerador } from "./gerador";
 import type { MarcaSocial } from "./copy";
 import type { PostGerado } from "./gerador";
 import { modoDoPipelineSocial, permiteEnforce, diagnosticoSocialVazio } from "./modo";
+import type { ResumoVisualDoDia } from "./modo";
 import type { DiagnosticoSocial, ModoSocial } from "./modo";
 import { chaveDeIdempotencia, resolverOrigem } from "./social-posts-store";
 import type { PostParaGravar, SocialPostsStore } from "./social-posts-store";
@@ -289,18 +290,63 @@ export async function rodarCicloSocial(
 
   // 4. Imagem, e sem imagem válida o post continua existindo.
   const comVisual: Array<{ post: PostGerado; visual: ResultadoVisual | null }> = [];
+  /*
+   * O desfecho do resolvedor vira diagnóstico, e não só contagem.
+   *
+   * `semImagem` dizia quantas peças ficaram sem foto e nada mais. Faltar foto
+   * porque a fonte não tem imagem da entidade, porque a guarda recusou o que
+   * havia, ou porque a chave do banco conceitual não está configurada, são três
+   * problemas com três ações diferentes, e a diferença só existia num log de
+   * contêiner que ninguém alcança.
+   */
+  const resumoVisual: ResumoVisualDoDia = {
+    comFoto: 0,
+    semFoto: 0,
+    porMotivo: {},
+    porFonte: {},
+    notaDaPrimeiraSemFoto: "",
+  };
+
   for (const post of geracao.posts) {
     let visual: ResultadoVisual | null = null;
     if (opcoes.resolverVisual) {
       try {
         visual = await opcoes.resolverVisual(post.pauta);
       } catch (erro) {
-        linhas.push(`[SOCIAL V2] imagem falhou em ${post.pauta.storyId}: ${(erro as Error).message}`);
+        const motivo = (erro as Error).message;
+        linhas.push(`[SOCIAL V2] imagem falhou em ${post.pauta.storyId}: ${motivo}`);
+        resumoVisual.porMotivo.ERRO_NA_RESOLUCAO = (resumoVisual.porMotivo.ERRO_NA_RESOLUCAO ?? 0) + 1;
+        if (!resumoVisual.notaDaPrimeiraSemFoto) resumoVisual.notaDaPrimeiraSemFoto = motivo.slice(0, 400);
       }
     }
-    if (!visual?.asset) diagnostico.semImagem += 1;
+
+    if (visual?.asset) {
+      resumoVisual.comFoto += 1;
+      const fonte = visual.asset.source || "desconhecida";
+      resumoVisual.porFonte[fonte] = (resumoVisual.porFonte[fonte] ?? 0) + 1;
+    } else {
+      diagnostico.semImagem += 1;
+      resumoVisual.semFoto += 1;
+      const motivo = visual?.motivo ?? (opcoes.resolverVisual ? "SEM_RESULTADO" : "RESOLVEDOR_AUSENTE");
+      resumoVisual.porMotivo[motivo] = (resumoVisual.porMotivo[motivo] ?? 0) + 1;
+
+      // A nota das fontes consultadas é a linha que nomeia a causa.
+      if (!resumoVisual.notaDaPrimeiraSemFoto && visual?.fontesConsultadas?.length) {
+        resumoVisual.notaDaPrimeiraSemFoto = visual.fontesConsultadas
+          .map((f) => `${f.fonte}(${f.encontrados}): ${f.nota}`)
+          .join(" | ")
+          .slice(0, 600);
+      }
+    }
+
     comVisual.push({ post, visual });
   }
+
+  diagnostico.visual = resumoVisual;
+  linhas.push(
+    `[SOCIAL V2] imagem: ${resumoVisual.comFoto} com foto, ${resumoVisual.semFoto} sem` +
+      (resumoVisual.semFoto > 0 ? ` (${Object.keys(resumoVisual.porMotivo).join(", ")})` : ""),
+  );
 
   /*
    * 5. Diversidade de formato, e só entre o que veio DEPOIS da notícia.
