@@ -10,9 +10,19 @@
  *   enforce   grava em social_posts como o News grava, e o worker publica.
  */
 
+import { resolverCapacidade } from "../../capacidades";
+import type { ProjetoComCapacidades } from "../../capacidades";
+
 export type ModoEvergreen = "off" | "dry_run" | "enforce";
 
-export function modoDoEvergreen(env: Record<string, string | undefined> = process.env): ModoEvergreen {
+export function modoDoEvergreen(
+  env: Record<string, string | undefined> = process.env,
+  projeto?: ProjetoComCapacidades | null,
+): ModoEvergreen {
+  return resolverCapacidade("evergreen", () => doAmbiente(env), projeto);
+}
+
+function doAmbiente(env: Record<string, string | undefined>): ModoEvergreen {
   const bruto = (env.SOCIAL_EVERGREEN_V2 || "").trim().toLowerCase();
   if (bruto === "enforce") return "enforce";
   if (bruto === "dry_run") return "dry_run";

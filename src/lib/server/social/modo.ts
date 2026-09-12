@@ -17,15 +17,32 @@
  *   enforce   implementado e não ativado. Ver `permiteEnforce`.
  */
 
+import { resolverCapacidade } from "../capacidades";
+import type { ProjetoComCapacidades } from "../capacidades";
+
 export type ModoSocial = "off" | "dry_run" | "enforce";
 
 export function modoDoPipelineSocial(
-  env: Record<string, string | undefined> = process.env
+  env: Record<string, string | undefined> = process.env,
+  projeto?: ProjetoComCapacidades | null,
 ): ModoSocial {
-  const bruto = (env.SOCIAL_PIPELINE_V2 || "").trim().toLowerCase();
-  if (bruto === "enforce") return "enforce";
-  if (bruto === "dry_run") return "dry_run";
-  return "off";
+  /*
+   * O projeto manda, o ambiente é o padrão.
+   *
+   * Enquanto nenhum projeto declarar a capacidade, isto devolve exatamente o
+   * que devolvia antes. É o que permitiu subir a plataforma multi-projeto sem
+   * mexer no comportamento do ciclo que já roda.
+   */
+  return resolverCapacidade(
+    "social",
+    () => {
+      const bruto = (env.SOCIAL_PIPELINE_V2 || "").trim().toLowerCase();
+      if (bruto === "enforce") return "enforce";
+      if (bruto === "dry_run") return "dry_run";
+      return "off";
+    },
+    projeto,
+  );
 }
 
 export function descreverModoSocial(modo: ModoSocial): string {

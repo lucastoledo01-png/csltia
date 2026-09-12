@@ -54,7 +54,10 @@ describe("a redação em ensaio não grava post", () => {
       "utf-8",
     );
 
-    expect(fonte).toContain("const modoSocialDoEnsaio = modoSocialParaOEnsaio(dryRun, env);");
+    // Regex, e não literal: a chamada ganhou o projeto quando as capacidades
+    // saíram do ambiente, e um teste que morre num argumento novo estava
+    // medindo a assinatura, não a regra.
+    expect(fonte).toMatch(/const modoSocialDoEnsaio = modoSocialParaOEnsaio\(dryRun, env[^)]*\);/);
 
     const chamada = fonte.slice(fonte.indexOf("await rodarSocialDoDia("));
     const opcoes = chamada.slice(0, chamada.indexOf("});"));

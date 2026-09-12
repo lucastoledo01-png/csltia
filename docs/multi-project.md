@@ -58,6 +58,51 @@ Brasil era gravada com a data do dia seguinte.
 Os passos 1 a 3 ainda são SQL manual — a tela de gestão no painel entra junto
 com a fase Motor.
 
+## Capacidades por projeto
+
+Fase 0 da plataforma, feita em 2026-09-12.
+
+Até aqui todo interruptor era variável de ambiente, e variável de ambiente é
+global ao deploy: ligar o social no projeto A ligava no projeto B junto. Com um
+projeto só isso nunca doeu; com dois, era o bloqueio que impedia a plataforma de
+existir.
+
+A capacidade passou a morar em `projects.settings.capacidades`, que já é jsonb e
+já é lido em produção, então **esta fase não exigiu migration nenhuma**.
+
+```json
+{ "capacidades": { "social": "enforce", "evergreen": "dry_run" } }
+```
+
+Cardápio: `coleta`, `newsletter`, `social`, `evergreen`, `visual`, `keyword`,
+`landing`. Estados: `off`, `dry_run`, `enforce`.
+
+**Precedência:** o projeto vence o ambiente. Capacidade não declarada devolve
+`null`, e quem chama cai na variável de ambiente, então projeto que não declara
+nada se comporta exatamente como antes desta mudança. Foi isso que permitiu subir
+o alicerce sem alterar o ciclo que já rodava em produção.
+
+**Valor declarado e irreconhecível vira `off`**, nunca `enforce` e nunca
+fallback. É o mesmo contrato das flags de ambiente: erro de digitação no painel
+não pode ligar publicação, e cair no ambiente seria pior, porque o operador veria
+um valor na tela e outro valendo.
+
+`src/lib/server/capacidades.ts` concentra a precedência numa função só, de
+propósito: seis resolvedores repetindo a mesma condicional seriam seis lugares
+para ela divergir.
+
+### O que ainda falta para a plataforma
+
+1. **Credenciais por projeto.** `INSTAGRAM_ACCOUNT_ID` e o Listmonk inteiro
+   continuam globais. `project_credentials` tem os slots e só `instagram` é lido.
+2. **O cron não itera.** Uma execução é um projeto, sempre o default, e a rota
+   não aceita parâmetro de projeto. `listProjects()` continua sem chamador.
+3. **Design por projeto.** `carousel_theme` e `carousel_format_config` não têm
+   `project_id`: o design do carrossel é compartilhado. Isso exige migration.
+4. **Sistema PROMPT com o UUID cravado** em `landing.ts`, `concepts.ts`,
+   `trends.ts`, `visual.ts` e `carrossel-de-campanha.ts`.
+5. **O `DEFAULT` do `project_id`** continua ativo nas 15 tabelas.
+
 ## Pendente
 
 - **Segredos em texto no banco.** `project_credentials.config` guarda os valores

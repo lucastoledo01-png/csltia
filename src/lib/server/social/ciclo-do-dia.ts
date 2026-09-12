@@ -12,6 +12,7 @@ import { carregarConfigSocial } from "./selecao";
 import { criarSocialPostsStore } from "./social-posts-store";
 import { modoDoPipelineSocial } from "./modo";
 import type { ModoSocial, ResumoVisualDoDia } from "./modo";
+import type { ProjetoComCapacidades } from "../capacidades";
 import { rodarCicloSocial } from "./pipeline-v2";
 import {
   decisorDeFormato,
@@ -99,6 +100,13 @@ export type OpcoesDoSocialDoDia = {
   agoraMs?: number;
   /** Força o modo. Usado pelo dry-run de linha de comando, que nunca publica. */
   modoForcado?: ModoSocial;
+  /**
+   * O projeto, para as capacidades declaradas nele vencerem o ambiente.
+   *
+   * Opcional porque a mudança é aditiva: sem projeto, tudo lê o ambiente
+   * exatamente como lia antes da plataforma multi-projeto existir.
+   */
+  projeto?: ProjetoComCapacidades | null;
   /*
    * Injetados só em teste, pelas mesmas razões de sempre: um abre navegador e
    * escreve no Storage, o outro lê `prompt_campaigns` no banco. Em produção os
@@ -169,7 +177,7 @@ export async function rodarSocialDoDia(
 ): Promise<ResultadoDoSocialDoDia> {
   const env = opcoes.env ?? process.env;
   const fetcher = opcoes.fetcher ?? fetch;
-  const modo = opcoes.modoForcado ?? modoDoPipelineSocial(env);
+  const modo = opcoes.modoForcado ?? modoDoPipelineSocial(env, opcoes.projeto);
   const diagnostico = diagnosticoSocialAusente(modo);
   diagnostico.candidates = approvedEditorialPool.length;
 
@@ -272,7 +280,7 @@ export async function rodarSocialDoDia(
    * E é feita SÓ quando o modo não é `off`: em `off` o dia não paga nem esta
    * consulta.
    */
-  const modoEvergreen = opcoes.evergreen?.modoForcado ?? modoDoEvergreen(env);
+  const modoEvergreen = opcoes.evergreen?.modoForcado ?? modoDoEvergreen(env, opcoes.projeto);
   const desde = new Date(
     (opcoes.evergreen?.agoraMs ?? opcoes.agoraMs ?? Date.now()) - 45 * 24 * 60 * 60 * 1000,
   ).toISOString();

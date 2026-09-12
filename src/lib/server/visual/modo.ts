@@ -11,11 +11,19 @@
  *   enforce   o V2 decide a imagem, e sem imagem válida a pauta sai sem foto
  */
 
+import { resolverCapacidade } from "../capacidades";
+import type { ProjetoComCapacidades } from "../capacidades";
+
 export type ModoVisual = "off" | "dry_run" | "enforce";
 
 export function modoDoResolvedorVisual(
-  env: Record<string, string | undefined> = process.env
+  env: Record<string, string | undefined> = process.env,
+  projeto?: ProjetoComCapacidades | null,
 ): ModoVisual {
+  return resolverCapacidade("visual", () => doAmbiente(env), projeto);
+}
+
+function doAmbiente(env: Record<string, string | undefined>): ModoVisual {
   const bruto = (env.VISUAL_RESOLVER_V2 || "").trim().toLowerCase();
   if (bruto === "enforce") return "enforce";
   if (bruto === "dry_run") return "dry_run";

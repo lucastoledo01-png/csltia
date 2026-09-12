@@ -45,6 +45,7 @@ import type { PacoteFactual } from "../editorial/pacote-factual";
 import type { PautaAvaliada } from "../editorial/guarda";
 import type { RankedCandidate } from "./ranker";
 import { modoDoPipelineSocial, type ModoSocial } from "../social/modo";
+import type { ProjetoComCapacidades } from "../capacidades";
 
 export type RunNewsroomOptions = {
   /** Projeto para o qual a edição é produzida. Sem valor, usa o projeto semente. */
@@ -661,9 +662,10 @@ export async function registrarFalhaDaRedacao(
 export function modoSocialParaOEnsaio(
   dryRun: boolean,
   env: Record<string, string | undefined>,
+  projeto?: ProjetoComCapacidades | null,
 ): ModoSocial | undefined {
   if (!dryRun) return undefined;
-  return modoDoPipelineSocial(env) === "off" ? "off" : "dry_run";
+  return modoDoPipelineSocial(env, projeto) === "off" ? "off" : "dry_run";
 }
 
 /**
@@ -807,7 +809,7 @@ async function executarRedacaoDoDia(
    * validação, não para ser um modo de operação permanente.
    */
   const configEditorial = carregarConfigEditorial(env);
-  const modo = modoDaGuarda(env);
+  const modo = modoDaGuarda(env, project);
   console.log(`[NEWSROOM] Guarda editorial ${descreverModo(modo)} (EDITORIAL_GUARD=${modo}).`);
 
   let ranked: RankedCandidate[];
@@ -830,7 +832,7 @@ async function executarRedacaoDoDia(
    * que este campo existe para dizer.
    */
   // O diagnóstico mora no rastro, que sobrevive à exceção do portão do QA.
-  rastro.social = diagnosticoSocialAusente(modoDoPipelineSocial(env));
+  rastro.social = diagnosticoSocialAusente(modoDoPipelineSocial(env, project));
 
   if (modo !== "off") {
     const store = criarHistoricoStore(getSupabaseAdminClient());
@@ -906,11 +908,13 @@ async function executarRedacaoDoDia(
      * O `try` não é decoração: falha técnica do social não pode derrubar a
      * edição. O motivo vira diagnóstico e alerta, e o e-mail segue.
      */
-    const modoSocialDoEnsaio = modoSocialParaOEnsaio(dryRun, env);
+    const modoSocialDoEnsaio = modoSocialParaOEnsaio(dryRun, env, project);
 
     try {
       const social = await rodarSocialDoDia(resultado.approvedEditorialPool, {
         ...(modoSocialDoEnsaio ? { modoForcado: modoSocialDoEnsaio } : {}),
+        // As capacidades declaradas no projeto vencem o ambiente, daqui para baixo.
+        projeto: project,
         projectId: project.id,
         projectSlug: project.slug,
         editionDate: todayStr,
@@ -941,7 +945,7 @@ async function executarRedacaoDoDia(
       }
     } catch (erro) {
       const motivo = erro instanceof Error ? erro.message : String(erro);
-      rastro.social = { ...diagnosticoSocialAusente(modoDoPipelineSocial(env)), errors: [motivo] };
+      rastro.social = { ...diagnosticoSocialAusente(modoDoPipelineSocial(env, project)), errors: [motivo] };
       console.error(`[NEWSROOM] socialV2 falhou, e a newsletter segue: ${motivo}`);
       await sendAlert(
         "warning",
@@ -1203,7 +1207,7 @@ async function executarRedacaoDoDia(
    * pauta, com licença verificada. Quem manda é `VISUAL_RESOLVER_V2`, e em
    * `enforce` a decisão final vem só de `resolveVisualAsset`.
    */
-  const modoVisual = modoDoResolvedorVisual(env);
+  const modoVisual = modoDoResolvedorVisual(env, project);
   console.log(`[NEWSROOM] Resolvedor de imagem ${descreverModoVisual(modoVisual)} (VISUAL_RESOLVER_V2=${modoVisual}).`);
 
   const diagnosticoVisual: DiagnosticoVisual = diagnosticoVazio();
@@ -1599,7 +1603,7 @@ async function executarRedacaoDoDia(
    * Nada do legado é apagado: o código fica, o ramo do worker fica, e as linhas
    * históricas ficam. O que para é a criação automática de vaga nova.
    */
-  const modoSocialV2 = modoDoPipelineSocial(env);
+  const modoSocialV2 = modoDoPipelineSocial(env, project);
   const legadoCede = modoSocialV2 === "enforce";
 
   let scheduledPosts: ScheduledPostSlot[] = [];

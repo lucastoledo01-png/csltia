@@ -15,9 +15,19 @@
  * erro de digitação numa variável não pode ligar a publicação.
  */
 
+import { resolverCapacidade } from "../capacidades";
+import type { ProjetoComCapacidades } from "../capacidades";
+
 export type ModoDaGuarda = "off" | "dry_run" | "enforce";
 
-export function modoDaGuarda(env: Record<string, string | undefined> = process.env): ModoDaGuarda {
+export function modoDaGuarda(
+  env: Record<string, string | undefined> = process.env,
+  projeto?: ProjetoComCapacidades | null,
+): ModoDaGuarda {
+  return resolverCapacidade("coleta", () => doAmbiente(env), projeto);
+}
+
+function doAmbiente(env: Record<string, string | undefined>): ModoDaGuarda {
   const bruto = (env.EDITORIAL_GUARD || "").trim().toLowerCase();
   if (bruto === "off") return "off";
   if (bruto === "enforce") return "enforce";
