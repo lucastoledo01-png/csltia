@@ -317,6 +317,41 @@ Instagram passou a aceitar 3:4 no feed.
 apagar as duas constantes. Deixá-las declaradas e não usadas é o mesmo padrão do
 incidente de `escolherUrlPublicavel`: dá a impressão de que o caso está coberto.
 
+### 13/09: "projeto não encontrado" sobre um projeto que existe
+
+**Sintoma.** O ciclo diário morreu **sete segundos** depois de começar. Zero post,
+zero edição. A linha em `newsroom_runs` dizia:
+
+```
+RUN_FAILED: Projeto 00000000-0000-4000-8000-000000000001 não encontrado.
+```
+
+**O projeto existia e estava ativo.** Conferido no banco no mesmo dia.
+
+**Causa.** `getProjectById` fazia `if (error || !data) return null`. Erro de
+leitura do Supabase e linha ausente viravam a mesma resposta, e
+`requireActiveProject` anunciava "não encontrado". Naquela madrugada o Supabase
+vinha dando `Gateway Timeout` intermitente, visto também numa leitura da
+biblioteca visual e numa do histórico editorial.
+
+**Por que importa mais que o dia perdido.** A mensagem mandava procurar o defeito
+na configuração, que estava certa. Os dois casos pedem reações opostas: projeto
+ausente é configuração e ninguém deve tentar de novo; leitura falhou é
+infraestrutura e tentar de novo resolve.
+
+**Corrigido.** `LeituraDoProjetoFalhou` separa os dois, e `requireActiveProject`
+faz UMA segunda tentativa, só para falha de leitura. É a primeira coisa que o
+ciclo faz, e um soluço de rede ali custa o dia inteiro. Projeto ausente não é
+tentado de novo.
+
+**O que salvou o diagnóstico.** A linha `failed` em `newsroom_runs`, criada no dia
+anterior. Sem ela, 13/09 teria sido mais um dia em branco indistinguível de cron
+morto, e a investigação começaria do zero pela quarta vez.
+
+**Lição.** `if (error || !data)` é um colapso de dois estados num só, e o estado
+que some é sempre o que tem conserto. Toda leitura cujo `null` decide um fluxo
+precisa distinguir "não achei" de "não consegui olhar".
+
 ### 10/09 sem edição: o cron disparou, e a falha apagou a própria evidência
 
 **Sintoma.** Nenhuma linha em `newsroom_runs` no dia 10/09/2026, nenhuma edição,

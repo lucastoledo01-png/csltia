@@ -90,6 +90,22 @@ function toProject(row: ProjectRow): Project {
   };
 }
 
+/**
+ * Leitura do banco que falhou NÃO é projeto ausente.
+ *
+ * Em 13/09/2026 o ciclo do dia morreu sete segundos depois de começar, com
+ * "Projeto 00000000-...-000000000001 não encontrado". O projeto existia e
+ * estava ativo. O que aconteceu foi um erro de leitura do Supabase, que a noite
+ * inteira vinha dando `Gateway Timeout` intermitente, colapsado num `null` por
+ * um `if (error || !data)`.
+ *
+ * Os dois casos pedem reações opostas: projeto ausente é configuração errada e
+ * ninguém deve tentar de novo; leitura falhou é infraestrutura e tentar de novo
+ * resolve. Chamar o segundo de primeiro custou um dia inteiro de publicação e
+ * mandou procurar o defeito no lugar errado.
+ */
+export class LeituraDoProjetoFalhou extends Error {}
+
 export async function getProjectById(projectId: string): Promise<Project | null> {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
@@ -98,7 +114,8 @@ export async function getProjectById(projectId: string): Promise<Project | null>
     .eq("id", projectId)
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error) throw new LeituraDoProjetoFalhou(`Projeto ${projectId}, leitura falhou: ${error.message}`);
+  if (!data) return null;
   return toProject(data as unknown as ProjectRow);
 }
 
@@ -110,7 +127,8 @@ export async function getProjectBySlug(slug: string): Promise<Project | null> {
     .eq("slug", slug)
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error) throw new LeituraDoProjetoFalhou(`Projeto ${slug}, leitura falhou: ${error.message}`);
+  if (!data) return null;
   return toProject(data as unknown as ProjectRow);
 }
 
@@ -130,7 +148,26 @@ export async function listProjects(onlyActive = false): Promise<Project[]> {
  * pipeline sobre um projeto inexistente gravaria conteúdo órfão.
  */
 export async function requireActiveProject(projectId: string): Promise<Project> {
-  const project = await getProjectById(projectId);
+  /*
+   * Uma segunda tentativa, e só para falha de leitura.
+   *
+   * Esta é a PRIMEIRA coisa que o ciclo diário faz, e um soluço de rede aqui
+   * custa o dia inteiro: nem newsletter, nem artigo, nem post. Duas tentativas
+   * com uma pausa curta cobrem o timeout intermitente sem esconder indisponibi-
+   * lidade real, porque a segunda falha sobe como erro de leitura, com o motivo.
+   *
+   * Projeto ausente NÃO é tentado de novo: a resposta seria a mesma, e insistir
+   * só atrasaria o alerta de uma configuração errada.
+   */
+  let project: Project | null = null;
+  try {
+    project = await getProjectById(projectId);
+  } catch (erro) {
+    if (!(erro instanceof LeituraDoProjetoFalhou)) throw erro;
+    console.warn(`[PROJECT] ${(erro as Error).message}. Tentando uma segunda vez.`);
+    await new Promise((r) => setTimeout(r, 1500));
+    project = await getProjectById(projectId);
+  }
 
   if (!project) {
     throw new Error(`Projeto ${projectId} não encontrado.`);
