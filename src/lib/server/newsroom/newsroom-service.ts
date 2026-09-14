@@ -620,10 +620,23 @@ export async function registrarFalhaDaRedacao(
     const chaveDoDia = options.idempotencyKey || `daily-edition-${todayStr}`;
     const quando = new Date().toISOString().replace(/\.\d+Z$/, "Z");
 
-    const motivo =
-      erro instanceof Error
-        ? `RUN_FAILED: ${erro.message}${erro.stack ? ` | ${erro.stack.split("\n")[1]?.trim() ?? ""}` : ""}`
-        : `RUN_FAILED: ${String(erro)}`;
+    const cabeca =
+      erro instanceof Error ? `RUN_FAILED: ${erro.message}` : `RUN_FAILED: ${String(erro)}`;
+    const linhaDoStack =
+      erro instanceof Error && erro.stack ? ` | ${erro.stack.split("\n")[1]?.trim() ?? ""}` : "";
+
+    /*
+     * O detalhe entra antes da linha do stack de propósito.
+     *
+     * A coluna é cortada, e o que o corte pode comer tem que ser a parte que
+     * menos responde. Para bloqueio editorial o stack aponta para o `throw` do
+     * portão, que já se sabe qual é; o trecho reprovado é o que não está em
+     * lugar nenhum além do log do contêiner, que ninguém alcança.
+     */
+    const detalhe = detalheDoBloqueioDoErro(erro);
+    const motivo = detalhe
+      ? `${cabeca}\n${resumoDoBloqueio(detalhe)}${linhaDoStack}`
+      : `${cabeca}${linhaDoStack}`;
 
     const supabase = cliente ?? getSupabaseAdminClient();
     await supabase.from("newsroom_runs").insert({
@@ -722,7 +735,54 @@ export type DetalheDoBloqueio = {
   apontamentos: string[];
 };
 
+const LIMITE_DO_TRECHO = 240;
+
+function recortar(texto: string, limite = LIMITE_DO_TRECHO): string {
+  const limpo = texto.replace(/\s+/g, " ").trim();
+  return limpo.length <= limite ? limpo : `${limpo.slice(0, limite - 1)}…`;
+}
+
+/**
+ * O bloqueio em texto, curto o bastante para caber junto da falha gravada.
+ *
+ * A ordem não é estética. Primeiro o trecho reprovado, depois a contagem e o
+ * resto: quem lê isso está tentando decidir se o pipeline inventou ou se a
+ * guarda apertou demais, e essas duas hipóteses pedem ações opostas. Sem a
+ * frase, a linha gravada repete o que a mensagem já dizia.
+ */
+export function resumoDoBloqueio(detalhe: DetalheDoBloqueio): string {
+  const linhas: string[] = [
+    `QA ${detalhe.score} | alucinação: ${detalhe.riscoDeAlucinacao ? "sim" : "não"} | reparos: ${detalhe.tentativasDeReparo}`,
+  ];
+
+  for (const conclusao of detalhe.conclusoes) {
+    linhas.push(
+      `[conclusão ${conclusao.tipo}] "${recortar(conclusao.trecho)}" -> ${recortar(conclusao.motivo, 160)}`,
+    );
+  }
+
+  for (const materia of detalhe.semLastro) {
+    for (const item of materia.itens) {
+      linhas.push(
+        `[sem lastro ${item.tipo}] "${recortar(item.valor, 80)}" em ${recortar(materia.materia, 90)} (${item.onde})`,
+      );
+    }
+  }
+
+  for (const issue of detalhe.issues) linhas.push(`[auditor] ${recortar(issue, 160)}`);
+  for (const apontamento of detalhe.apontamentos) {
+    linhas.push(`[apontamento] ${recortar(apontamento, 160)}`);
+  }
+
+  return linhas.join("\n");
+}
+
 const CHAVE_DETALHE = "__detalheDoBloqueio";
+
+/** Marca um erro com o detalhe do bloqueio, sem mudar a mensagem dele. */
+export function comDetalheDoBloqueio<T>(erro: T, detalhe: DetalheDoBloqueio): T {
+  return anexar(erro, CHAVE_DETALHE, detalhe) as T;
+}
 
 export function detalheDoBloqueioDoErro(erro: unknown): DetalheDoBloqueio | null {
   const d = (erro as Record<string, unknown> | null)?.[CHAVE_DETALHE];
@@ -1241,7 +1301,7 @@ async function executarRedacaoDoDia(
       apontamentos: pipelineResult.problemasRestantes.map((p) => p.descricao).slice(0, 20),
     };
 
-    throw anexar(
+    throw comDetalheDoBloqueio(
       comMotivo(
         new Error(
           `Edição bloqueada depois de ${pipelineResult.tentativasDeReparo} tentativa(s) de correção ` +
@@ -1249,7 +1309,6 @@ async function executarRedacaoDoDia(
         ),
         MOTIVO_QA_BLOQUEOU,
       ),
-      CHAVE_DETALHE,
       detalhe,
     );
   }

@@ -317,6 +317,38 @@ Instagram passou a aceitar 3:4 no feed.
 apagar as duas constantes. Deixá-las declaradas e não usadas é o mesmo padrão do
 incidente de `escolherUrlPublicavel`: dá a impressão de que o caso está coberto.
 
+### 14/09, segundo ato: o bloqueio que diz quantas e não diz quais
+
+**O que.** Com a releitura em produção, o ciclo de recuperação viveu 9min19s em
+vez de 7 segundos, passou por coleta, seleção e redação inteira, e foi barrado
+no portão editorial:
+
+```
+Edição bloqueada depois de 2 tentativa(s) de correção (QA 86)
+UNGROUNDED_EDITORIAL_CLAIM em 2 conclusão(ões)
+```
+
+**O problema não era o portão, era a cegueira.** O trecho reprovado existia,
+montado em `DetalheDoBloqueio` e anexado ao erro, e ia inteiro para
+`console.error` dentro de um contêiner que ninguém alcança sem docker. No banco
+sobrava a contagem. Três dias discutindo a mesma guarda sem nunca ver a frase.
+
+Contagem não distingue as duas hipóteses, e elas pedem ações opostas: ou o texto
+inventou, ou a régua apertou. Afrouxar sem saber qual é publicaria alucinação.
+
+**Corrigido.** `resumoDoBloqueio` entra em `error_message` junto da falha, com o
+trecho e o motivo de cada conclusão reprovada, antes da linha do stack: a coluna
+é cortada em 2000 caracteres, e o que o corte pode comer tem que ser a parte que
+menos responde. O dry run local imprime o mesmo detalhe.
+
+**O dado que mudou o diagnóstico.** Um dry run local minutos depois, mesmas
+fontes, passou com QA 100/100. O bloqueio foi variação daquela redação, não
+defeito sistemático. Sem isso eu teria mexido na régua por causa de um sorteio.
+
+**Lição.** Portão que decide não publicar precisa gravar POR QUE, com o texto na
+mão. Diagnóstico que só existe em log de contêiner inalcançável é diagnóstico
+que não existe.
+
 ### 14/09: consertei o caso, e o problema andou uma casa
 
 **Sintoma.** O ciclo morreu de novo sete segundos depois de começar, um dia

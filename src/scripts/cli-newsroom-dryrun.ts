@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { runNewsroom } from "../lib/server/newsroom/newsroom-service";
+import { detalheDoBloqueioDoErro, runNewsroom } from "../lib/server/newsroom/newsroom-service";
 import { MARCA } from "@/lib/marca";
 
 // Carregar .env.local se disponível
@@ -85,7 +85,42 @@ async function main() {
     console.log("=======================================================\n");
   } catch (err: any) {
     console.error("❌ ERRO NA EXECUÇÃO DO DRY RUN:", err?.message || err);
+    relatarBloqueio(err);
     process.exit(1);
+  }
+}
+
+/**
+ * O motivo do bloqueio viaja anexado ao erro, fora do `message`, porque a
+ * mensagem precisa caber num alerta. Sem imprimir o anexo, o dry run diz que o
+ * QA barrou e não diz o que barrou, que é justamente o que se quer olhar.
+ */
+function relatarBloqueio(err: unknown): void {
+  const detalhe = detalheDoBloqueioDoErro(err);
+  if (!detalhe) return;
+
+  console.error("\n--- POR QUE O QA BLOQUEOU ---");
+  console.error(
+    `Score ${detalhe.score} | risco de alucinação: ${detalhe.riscoDeAlucinacao ? "sim" : "não"} | reparos tentados: ${detalhe.tentativasDeReparo}`,
+  );
+
+  for (const issue of detalhe.issues) console.error(`[auditor] ${issue}`);
+
+  for (const materia of detalhe.semLastro) {
+    console.error(`\n[sem lastro] ${materia.materia}`);
+    for (const item of materia.itens) {
+      console.error(`  ${item.tipo}: "${item.valor}" (em ${item.onde})`);
+    }
+  }
+
+  for (const conclusao of detalhe.conclusoes) {
+    console.error(`\n[conclusão reprovada: ${conclusao.tipo}]`);
+    console.error(`  trecho: "${conclusao.trecho}"`);
+    console.error(`  motivo: ${conclusao.motivo}`);
+  }
+
+  for (const apontamento of detalhe.apontamentos) {
+    console.error(`[apontamento, não bloqueia] ${apontamento}`);
   }
 }
 

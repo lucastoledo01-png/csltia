@@ -65,7 +65,9 @@ vi.mock("../supabase-admin", async (importOriginal) => {
 });
 
 const projetos = await import("../projects");
-const { registrarFalhaDaRedacao, runNewsroom } = await import("./newsroom-service");
+const { comDetalheDoBloqueio, registrarFalhaDaRedacao, runNewsroom } = await import(
+  "./newsroom-service"
+);
 
 function bancoFalso() {
   const gravadas: Array<Record<string, unknown>> = [];
@@ -203,5 +205,90 @@ describe("o gravador está ligado ao caminho que o cron chama", () => {
 
     await expect(runNewsroom({ dryRun: true })).rejects.toThrow("quebrou em ensaio");
     expect(gravadasPeloCaminhoReal).toHaveLength(0);
+  });
+});
+
+
+/**
+ * Bloqueio editorial tem que dizer QUAL frase, não só quantas.
+ *
+ * Em 14/09/2026 a edição foi barrada com "UNGROUNDED_EDITORIAL_CLAIM em 2
+ * conclusão(ões)". O trecho reprovado existia, montado e anexado ao erro, e foi
+ * inteiro para `console.error` dentro de um contêiner sem docker disponível.
+ * Restou no banco a contagem, que é justamente o que não permite decidir entre
+ * as duas hipóteses opostas: o texto inventou, ou a guarda está apertada.
+ *
+ * Três dias discutindo o mesmo portão sem nunca ver a frase é o custo de
+ * gravar só o resumo.
+ */
+describe("a falha gravada carrega o que o QA barrou", () => {
+  beforeEach(() => {
+    vi.mocked(projetos.requireActiveProject).mockReset().mockResolvedValue(PROJETO);
+    vi.mocked(projetos.projectToday).mockReset().mockReturnValue("2026-09-10");
+  });
+
+  const DETALHE = {
+    score: 86,
+    riscoDeAlucinacao: true,
+    tentativasDeReparo: 2,
+    issues: ["tom fora da linha editorial"],
+    semLastro: [
+      {
+        materia: "Nova taxa para o H-1B",
+        itens: [{ tipo: "numero", valor: "US$ 100 mil", onde: "practical_impact" }],
+      },
+    ],
+    conclusoes: [
+      {
+        tipo: "UNGROUNDED_EDITORIAL_CLAIM",
+        trecho: "Quem já tem processo aberto deve correr para protocolar antes da virada do mês",
+        motivo: "recomendação de ação não sustentada pelo pacote factual",
+      },
+    ],
+    apontamentos: ["data aproximada"],
+  };
+
+  it("grava o trecho reprovado, e não só a contagem", async () => {
+    const { client, gravadas } = bancoFalso();
+
+    await registrarFalhaDaRedacao(
+      comDetalheDoBloqueio(
+        new Error("Edição bloqueada depois de 2 tentativa(s) de correção (QA 86): hallucination_risk"),
+        DETALHE,
+      ),
+      CONTEXTO,
+      client,
+    );
+
+    const mensagem = String(gravadas[0].error_message);
+    expect(mensagem).toContain("Quem já tem processo aberto deve correr");
+    expect(mensagem).toContain("UNGROUNDED_EDITORIAL_CLAIM");
+    expect(mensagem).toContain("recomendação de ação não sustentada");
+    expect(mensagem).toContain("US$ 100 mil");
+  });
+
+  it("o trecho sobrevive ao corte da coluna", async () => {
+    const { client, gravadas } = bancoFalso();
+
+    const erro = new Error("Edição bloqueada depois de 2 tentativa(s) de correção (QA 86)");
+    // Stack longo é o concorrente real pelo espaço: ele vem do runtime e não
+    // cabe negociar o tamanho.
+    erro.stack = `Error: bloqueada\n${"    at umaFuncaoComNomeLongo (/app/.next/server/chunks/algum-chunk.js:1:1)\n".repeat(60)}`;
+
+    await registrarFalhaDaRedacao(comDetalheDoBloqueio(erro, DETALHE), CONTEXTO, client);
+
+    const mensagem = String(gravadas[0].error_message);
+    expect(mensagem.length).toBeLessThanOrEqual(2000);
+    expect(mensagem).toContain("Quem já tem processo aberto deve correr");
+  });
+
+  it("falha sem detalhe continua gravando a linha do stack", async () => {
+    const { client, gravadas } = bancoFalso();
+
+    await registrarFalhaDaRedacao(new Error("Gateway Timeout"), CONTEXTO, client);
+
+    const mensagem = String(gravadas[0].error_message);
+    expect(mensagem).toContain("RUN_FAILED: Gateway Timeout");
+    expect(mensagem).toContain(" | at ");
   });
 });
