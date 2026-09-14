@@ -1,4 +1,5 @@
 import { getSupabaseAdminClient } from "./supabase-admin";
+import { LeituraFalhou, comRetentativa } from "./leitura";
 import type { NewsSourceConfig, NewsSourceType } from "./newsroom/news-sources";
 
 /**
@@ -104,7 +105,7 @@ function toProject(row: ProjectRow): Project {
  * resolve. Chamar o segundo de primeiro custou um dia inteiro de publicação e
  * mandou procurar o defeito no lugar errado.
  */
-export class LeituraDoProjetoFalhou extends Error {}
+export class LeituraDoProjetoFalhou extends LeituraFalhou {}
 
 export async function getProjectById(projectId: string): Promise<Project | null> {
   const supabase = getSupabaseAdminClient();
@@ -159,15 +160,7 @@ export async function requireActiveProject(projectId: string): Promise<Project> 
    * Projeto ausente NÃO é tentado de novo: a resposta seria a mesma, e insistir
    * só atrasaria o alerta de uma configuração errada.
    */
-  let project: Project | null = null;
-  try {
-    project = await getProjectById(projectId);
-  } catch (erro) {
-    if (!(erro instanceof LeituraDoProjetoFalhou)) throw erro;
-    console.warn(`[PROJECT] ${(erro as Error).message}. Tentando uma segunda vez.`);
-    await new Promise((r) => setTimeout(r, 1500));
-    project = await getProjectById(projectId);
-  }
+  const project = await comRetentativa(`projeto ${projectId}`, () => getProjectById(projectId));
 
   if (!project) {
     throw new Error(`Projeto ${projectId} não encontrado.`);
@@ -181,17 +174,25 @@ export async function requireActiveProject(projectId: string): Promise<Project> 
 
 /** Fontes de conteúdo configuradas para o projeto, no formato do coletor. */
 export async function getProjectNewsSources(projectId: string): Promise<NewsSourceConfig[]> {
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("project_news_sources")
-    .select("source_key, name, company_name, type, url, enabled, priority, category, region, keywords")
-    .eq("project_id", projectId)
-    .eq("enabled", true)
-    .order("priority");
+  /*
+   * A segunda leitura do ciclo, e a que derrubou 14/09.
+   *
+   * Falha de leitura é relida; "nenhuma fonte habilitada" não, porque é
+   * configuração e a resposta seria a mesma. Foi exatamente essa distinção que
+   * faltava aqui.
+   */
+  const data = await comRetentativa(`fontes do projeto ${projectId}`, async () => {
+    const supabase = getSupabaseAdminClient();
+    const r = await supabase
+      .from("project_news_sources")
+      .select("source_key, name, company_name, type, url, enabled, priority, category, region, keywords")
+      .eq("project_id", projectId)
+      .eq("enabled", true)
+      .order("priority");
 
-  if (error) {
-    throw new Error(`Falha ao carregar fontes do projeto: ${error.message}`);
-  }
+    if (r.error) throw new LeituraFalhou(`Falha ao carregar fontes do projeto: ${r.error.message}`);
+    return r.data;
+  });
 
   if (!data || data.length === 0) {
     throw new Error(

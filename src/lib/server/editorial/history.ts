@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { LeituraFalhou, comRetentativa } from "../leitura";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Entidades } from "./fingerprint";
 import { impressaoDoAcontecimento } from "./fingerprint";
@@ -192,14 +193,23 @@ export function criarHistoricoStore(client: SupabaseClient): HistoricoStore {
   return {
     async janela(projectId: string, dias: number): Promise<RegistroHistorico[]> {
       const corte = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString();
-      const { data, error } = await client
-        .from("editorial_history")
-        .select(COLUNAS)
-        .eq("project_id", projectId)
-        .gte("published_at", corte)
-        .order("published_at", { ascending: false });
+      /*
+       * A terceira leitura que derruba o dia sozinha, e a que falhou num
+       * ensaio de 12/09. Mesma releitura das outras duas: são leituras puras,
+       * reler não grava nem cobra, e o único custo é latência.
+       */
+      const data = await comRetentativa(`histórico editorial de ${projectId}`, async () => {
+        const r = await client
+          .from("editorial_history")
+          .select(COLUNAS)
+          .eq("project_id", projectId)
+          .gte("published_at", corte)
+          .order("published_at", { ascending: false });
 
-      if (error) throw new Error(`Histórico editorial, leitura falhou: ${error.message}`);
+        if (r.error) throw new LeituraFalhou(`Histórico editorial, leitura falhou: ${r.error.message}`);
+        return r.data;
+      });
+
       return (data as unknown as LinhaDoBanco[]).map(doBanco);
     },
 

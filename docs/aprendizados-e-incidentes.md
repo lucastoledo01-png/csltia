@@ -317,6 +317,39 @@ Instagram passou a aceitar 3:4 no feed.
 apagar as duas constantes. Deixá-las declaradas e não usadas é o mesmo padrão do
 incidente de `escolherUrlPublicavel`: dá a impressão de que o caso está coberto.
 
+### 14/09: consertei o caso, e o problema andou uma casa
+
+**Sintoma.** O ciclo morreu de novo sete segundos depois de começar, um dia
+depois da correção:
+
+```
+RUN_FAILED: Falha ao carregar fontes do projeto: Gateway Timeout
+```
+
+**Causa.** Em 13/09 a falha foi em `getProjectById` e eu blindei **aquela**
+leitura com uma segunda tentativa. Em 14/09 a mesma classe de falha bateu na
+leitura seguinte, `getProjectNewsSources`, que não tinha proteção nenhuma.
+
+São três leituras no começo do ciclo, cada uma capaz de custar newsletter,
+artigo e post sozinha: projeto, fontes do projeto e histórico editorial. As três
+já falharam ao menos uma vez nesta semana.
+
+**Por que o gateway estoura sempre às 09:03.** Medido: a PRIMEIRA consulta do dia
+leva 2,2s e as seguintes 0,6s. O último tráfego é o cron do Sistema PROMPT às
+23:00, então às 09:03 o banco está há dez horas ocioso e a conexão está fria.
+
+**Corrigido.** `leitura.ts` com `LeituraFalhou` e `comRetentativa`, aplicado às
+três. Releitura é segura aqui porque são leituras puras: reler não grava, não
+cobra e não duplica; o único custo é latência. Indisponibilidade real continua
+derrubando o dia, porque as tentativas acabam e o erro sobe com o motivo.
+
+Só falha de leitura é relida. "O projeto não tem fonte habilitada" é
+configuração: a resposta seria a mesma e repetir só atrasaria o alerta.
+
+**Lição.** Corrigir o caso quando o defeito é da classe compra um dia. Quando a
+mesma falha aparece duas vezes em pontos diferentes, o conserto certo é no
+padrão, não no ponto.
+
 ### 13/09: "projeto não encontrado" sobre um projeto que existe
 
 **Sintoma.** O ciclo diário morreu **sete segundos** depois de começar. Zero post,

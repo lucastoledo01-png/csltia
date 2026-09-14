@@ -75,6 +75,7 @@ describe("a segunda tentativa, e só para leitura", () => {
     const p = await requireActiveProject("p1");
     expect(p.slug).toBe("imigra-us");
     expect(maybeSingle).toHaveBeenCalledTimes(2);
+    // Parou na primeira que deu certo: releitura não insiste à toa.
   });
 
   it("indisponibilidade real sobe como erro de leitura, e não como ausência", async () => {
@@ -82,7 +83,8 @@ describe("a segunda tentativa, e só para leitura", () => {
     // mandaria conferir a configuração, que está certa.
     maybeSingle.mockResolvedValue({ data: null, error: { message: "Gateway Timeout" } });
     await expect(requireActiveProject("p1")).rejects.toBeInstanceOf(LeituraDoProjetoFalhou);
-    expect(maybeSingle).toHaveBeenCalledTimes(2);
+    // Três tentativas, e aí o erro sobe com o motivo.
+    expect(maybeSingle).toHaveBeenCalledTimes(3);
   });
 
   it("projeto ausente NÃO é tentado de novo", async () => {
