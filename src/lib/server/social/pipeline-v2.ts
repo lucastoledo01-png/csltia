@@ -152,6 +152,30 @@ export type OpcoesDoCiclo = {
   fetcher?: typeof fetch;
 };
 
+/**
+ * O tópico que vai para `topic_id`, na chave que a régua de repetição lê.
+ *
+ * O evergreen guarda a própria identidade no `storyId`, no formato
+ * `evg:<tópico>:<ângulo>`, e a janela de tópico do evergreen procura por
+ * `evg:<tópico>`. Quem gravava era `topicoDaPauta`, que é a regra da NOTÍCIA:
+ * ela olha o texto e devolve `programa:eb5`, `org:uscis` ou `eixo:...`.
+ *
+ * As duas chaves nunca se encontravam. O efeito no feed foi exatamente o que a
+ * janela existe para impedir: entre 12 e 14/09/2026 saíram nove posts perenes
+ * sobre três assuntos, ajuste de status, processo consular e a comparação entre
+ * os dois, três dias seguidos, com ângulos diferentes e o mesmo tema. O cooldown
+ * do par funcionava, então nenhum ângulo repetiu; a janela do tópico estava
+ * morta, então o assunto repetiu todo dia.
+ *
+ * Gravar a chave que a régua lê é o conserto. Regra que consulta uma chave e
+ * grava outra não protege nada, e ainda parece protegida.
+ */
+function topicoDoPost(pauta: PautaAvaliada): string {
+  const partes = pauta.storyId.split(":");
+  if (partes[0] === "evg" && partes[1]) return `evg:${partes[1]}`;
+  return topicoDaPauta(pauta);
+}
+
 export async function rodarCicloSocial(
   poolVerificado: PautaAvaliada[],
   opcoes: OpcoesDoCiclo,
@@ -390,7 +414,7 @@ export async function rodarCicloSocial(
       visual,
       origem: resolverOrigem(post.pauta.storyId, opcoes.historico),
       candidateId: opcoes.candidatas?.get(post.pauta.storyId)?.id ?? null,
-      topicId: topicoDaPauta(post.pauta),
+      topicId: topicoDoPost(post.pauta),
       eventFingerprint: fingerprint,
       chaveDeIdempotencia: chaveDeIdempotencia(opcoes.editionDate, post.pauta.storyId),
     };
