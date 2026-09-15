@@ -35,6 +35,31 @@
  * continua sendo o caminho padrão.
  */
 
+/**
+ * A identidade da foto, estável entre chamadas.
+ *
+ * A URL que o provedor devolve carrega parâmetros de entrega
+ * (`?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940` no Pexels), e eles mudam com
+ * o tamanho pedido. Comparar URL inteira faria a mesma foto parecer duas.
+ *
+ * O caminho, sem query, contém o id do provedor nos dois casos:
+ * `/photos/3751006/pexels-photo-3751006.jpeg` e
+ * `/photo-1654163601053-ea0362be3429`.
+ */
+export function identidadeDaFoto(url: string): string {
+  const limpa = String(url).trim();
+  if (!limpa) return "";
+  try {
+    const u = new URL(limpa);
+    return `${u.host}${u.pathname}`.toLowerCase();
+  } catch {
+    return limpa.split("?")[0].toLowerCase();
+  }
+}
+
+/** Quantos resultados pedir ao provedor para ter de onde escolher. */
+const RESULTADOS_POR_BUSCA = 15;
+
 export type CreditoDaFoto = {
   provedor: "pexels" | "unsplash";
   fotografo: string;
@@ -57,6 +82,13 @@ export type FotoDeBanco = {
 };
 
 type Opts = {
+  /**
+   * Identidades de foto que NÃO podem sair de novo.
+   *
+   * Use `identidadeDaFoto` para montar. Vazio ou ausente devolve o
+   * comportamento antigo, que é pegar a primeira.
+   */
+  evitar?: Iterable<string>;
   env?: Record<string, string | undefined>;
   fetcher?: typeof fetch;
 };
@@ -115,14 +147,16 @@ export function consultaDeBusca(aplicacao: string, conceito = ""): string {
 
 async function buscarNoPexels(
   consulta: string,
-  { env = process.env, fetcher = fetch }: Opts,
+  { env = process.env, fetcher = fetch, evitar }: Opts,
 ): Promise<FotoDeBanco | null> {
   const chave = env.PEXELS_API_KEY?.trim();
   if (!chave) return null;
 
+  const jaSaiu = new Set([...(evitar ?? [])].map((x) => identidadeDaFoto(x)).filter(Boolean));
+
   try {
     const url =
-      `https://api.pexels.com/v1/search?per_page=1&orientation=portrait&query=` +
+      `https://api.pexels.com/v1/search?per_page=${RESULTADOS_POR_BUSCA}&orientation=portrait&query=` +
       encodeURIComponent(consulta);
 
     const res = await fetcher(url, {
@@ -135,7 +169,19 @@ async function buscarNoPexels(
     }
 
     const json = await res.json();
-    const foto = json?.photos?.[0];
+    /*
+     * A primeira que ainda não saiu, e não simplesmente a primeira.
+     *
+     * A busca é determinística: mesma consulta devolve a mesma lista na mesma
+     * ordem. Com `per_page=1` e sem memória, dois assuntos parecidos no mesmo
+     * mês recebiam literalmente a mesma foto, e foi o que aconteceu entre 13 e
+     * 15/09/2026, quatro posts com a mesma imagem.
+     */
+    const candidatas: unknown[] = Array.isArray(json?.photos) ? json.photos : [];
+    const foto = candidatas.find((c) => {
+      const src = (c as { src?: { large2x?: unknown } })?.src?.large2x;
+      return typeof src === "string" && src && !jaSaiu.has(identidadeDaFoto(src));
+    }) as { src?: { large2x?: string }; photographer?: string; photographer_url?: string; url?: string } | undefined;
     if (!foto?.src?.large2x) return null;
 
     return {
@@ -157,14 +203,16 @@ async function buscarNoPexels(
 
 async function buscarNoUnsplash(
   consulta: string,
-  { env = process.env, fetcher = fetch }: Opts,
+  { env = process.env, fetcher = fetch, evitar }: Opts,
 ): Promise<FotoDeBanco | null> {
   const chave = env.UNSPLASH_ACCESS_KEY?.trim();
   if (!chave) return null;
 
+  const jaSaiu = new Set([...(evitar ?? [])].map((x) => identidadeDaFoto(x)).filter(Boolean));
+
   try {
     const url =
-      `https://api.unsplash.com/search/photos?per_page=1&orientation=portrait&query=` +
+      `https://api.unsplash.com/search/photos?per_page=${RESULTADOS_POR_BUSCA}&orientation=portrait&query=` +
       encodeURIComponent(consulta);
 
     const res = await fetcher(url, {
@@ -177,7 +225,18 @@ async function buscarNoUnsplash(
     }
 
     const json = await res.json();
-    const foto = json?.results?.[0];
+    /* Mesma regra do Pexels: a primeira que ainda não saiu. */
+    const candidatas: unknown[] = Array.isArray(json?.results) ? json.results : [];
+    const foto = candidatas.find((c) => {
+      const src = (c as { urls?: { regular?: unknown } })?.urls?.regular;
+      return typeof src === "string" && src && !jaSaiu.has(identidadeDaFoto(src));
+    }) as
+      | {
+          urls?: { regular?: string };
+          links?: { download_location?: string; html?: string };
+          user?: { name?: string; links?: { html?: string } };
+        }
+      | undefined;
     if (!foto?.urls?.regular) return null;
 
     // Exigido pelas API Guidelines: avisar que a foto foi usada. Não bloqueia

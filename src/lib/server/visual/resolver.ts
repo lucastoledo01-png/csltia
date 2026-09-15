@@ -13,7 +13,7 @@ import { buscarNoCommons, candidatoParaAsset } from "./wikimedia";
 import { buscarEmFonteOficial } from "./fonte-oficial";
 import { carregarConfigDeImagem, pisoDeRelevancia, pontuarImagem } from "./relevancia";
 import { avaliarLicenca, montarAtribuicao } from "./licencas";
-import { bancoConfigurado, buscarFotoDeBanco } from "../prompt-system/stock";
+import { bancoConfigurado, buscarFotoDeBanco, identidadeDaFoto } from "../prompt-system/stock";
 import { consultaConceitual } from "./conceitual";
 import { analisarTemporalidade, figuraNaoCentralNaImagem, retratoNaoCentral } from "./temporalidade";
 
@@ -53,6 +53,14 @@ export type OpcoesDeResolucao = {
   fetcher?: typeof fetch;
   /** Assets já escolhidos nesta mesma edição, para não repetir dentro do dia. */
   jaUsadosNestaEdicao?: Set<string>;
+  /**
+   * Fotos que já saíram em dias anteriores, por identidade.
+   *
+   * `jaUsadosNestaEdicao` protege dentro do dia. Esta protege entre dias, e é
+   * o que faltava para o banco conceitual, que escolhe por conceito e por isso
+   * nunca disputa a chave de entidade da biblioteca.
+   */
+  jaUsadasRecentemente?: Iterable<string>;
   /** Não grava nada. O dry-run usa isto. */
   somenteLeitura?: boolean;
 };
@@ -65,6 +73,10 @@ export async function resolveVisualAsset(
   const config = carregarConfigDeImagem(env);
   const biblioteca = opcoes.biblioteca ?? (opcoes.client ? criarBiblioteca(opcoes.client) : null);
   const usadosAgora = opcoes.jaUsadosNestaEdicao ?? new Set<string>();
+  const usadasAntes = new Set(
+    [...(opcoes.jaUsadasRecentemente ?? [])].map((u) => identidadeDaFoto(u)).filter(Boolean),
+  );
+  const jaSaiu = (imageUrl: string) => usadasAntes.has(identidadeDaFoto(imageUrl));
 
   const fontesConsultadas: ResultadoVisual["fontesConsultadas"] = [];
   const recusados: CandidatoRecusado[] = [];
@@ -266,7 +278,11 @@ export async function resolveVisualAsset(
        * melhor, é não fazer.
        */
       const consulta = consultaConceitual(pauta.titulo, pauta.categoria, pauta.classificacao.pais);
-      const foto = await buscarFotoDeBanco(consulta, { env, fetcher: opcoes.fetcher });
+      const foto = await buscarFotoDeBanco(consulta, {
+        env,
+        fetcher: opcoes.fetcher,
+        evitar: usadasAntes,
+      });
       fontesConsultadas.push({
         fonte: "banco_conceitual",
         encontrados: foto ? 1 : 0,
@@ -318,7 +334,14 @@ export async function resolveVisualAsset(
   }
 
   // 6. Pontuar, filtrar e escolher.
-  const disponiveis = novos.filter((a) => !usadosAgora.has(a.imageUrl));
+  /*
+   * Duas memórias, e as duas cortam aqui.
+   *
+   * `usadosAgora` impede a mesma foto em duas pautas do mesmo dia. `jaSaiu`
+   * impede a mesma foto em dias diferentes, que é o caso que o banco
+   * conceitual produzia sozinho.
+   */
+  const disponiveis = novos.filter((a) => !usadosAgora.has(a.imageUrl) && !jaSaiu(a.imageUrl));
   const escolhido = melhorPontuado(disponiveis, entidade, piso, recusados, config.larguraMinima, {
     titulo: pauta.titulo,
     resumo: pauta.resumo,

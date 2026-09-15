@@ -22,6 +22,7 @@ import {
   verificadorDeClaims,
 } from "./evergreen/ciclo";
 import { modoDoEvergreen } from "./evergreen/modo";
+import { fotosUsadasRecentemente } from "../visual/memoria-de-fotos";
 import type { UsoAnterior } from "./evergreen/tipos";
 import type { DiagnosticoDoEvergreen, OpcoesDoEvergreen, ResultadoDoEvergreen } from "./evergreen/ciclo";
 import type { MarcaSocial } from "./copy";
@@ -346,6 +347,29 @@ export async function rodarSocialDoDia(
     return { diagnostico, ciclo: null, conferencia, evergreen };
   }
 
+  /*
+   * A memória de foto, carregada uma vez por ciclo.
+   *
+   * São duas janelas. `fotosDaEdicao` é compartilhada por todas as pautas de
+   * hoje, e sem ela cada chamada criava o próprio conjunto vazio, o que fazia
+   * o dedupe do dia não deduplicar nada: em 14/09/2026 dois posts do mesmo dia
+   * saíram com a mesma foto. `fotosAntigas` alcança os dias anteriores, que é
+   * o que o banco conceitual não tinha como saber sozinho.
+   *
+   * Falha de leitura não derruba o ciclo: sem memória o dia sai como saía
+   * antes, e o risco é repetir foto, não ficar sem post.
+   */
+  const fotosDaEdicao = new Set<string>();
+  let fotosAntigas: string[] = [];
+  try {
+    const desdeFoto = new Date(
+      (opcoes.agoraMs ?? Date.now()) - 60 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    fotosAntigas = await fotosUsadasRecentemente(opcoes.client, opcoes.projectId, desdeFoto);
+  } catch (erro) {
+    console.warn("[SOCIAL] Não consegui ler a memória de fotos:", erro);
+  }
+
   const ciclo = await rodarCicloSocial(conferencia.confirmadas, {
     projectId: opcoes.projectId,
     slugDoProjeto: opcoes.projectSlug,
@@ -403,7 +427,13 @@ export async function rodarSocialDoDia(
             pais: pauta.classificacao.pais,
           },
         },
-        { env, fetcher, somenteLeitura: true },
+        {
+          env,
+          fetcher,
+          somenteLeitura: true,
+          jaUsadosNestaEdicao: fotosDaEdicao,
+          jaUsadasRecentemente: fotosAntigas,
+        },
       ),
   });
 
