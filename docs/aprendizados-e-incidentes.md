@@ -5,6 +5,25 @@ aqui (curta, indo direto ao sintoma → causa → correção → lição). Não 
 changelog de feature, é memória de "por que isso quebrou" e "por que
 decidimos assim".
 
+## Quando escrever uma entrada
+
+O critério não é "quebrou em produção". Em 16/09/2026 seis correções ficaram só
+na mensagem de commit porque o conserto tinha sido "só código", e várias delas
+eram justamente as que se repetem: medida relativa contra pai sem altura,
+verificação filtrada pela expectativa, guarda que lê uma chave e grava outra.
+
+Escreva quando **a causa não é óbvia a partir do sintoma**, ou seja quando você
+mesmo levaria mais de cinco minutos para reencontrá-la daqui a um mês. Isso
+inclui:
+
+- defeito achado ANTES de ir para produção, se a causa era sutil
+- armadilha de framework ou de linguagem (precedência, cascata, tipo)
+- decisão que parece arbitrária e não é
+- erro de MÉTODO, como conferir de um jeito que não confere
+
+Commit conta o que mudou. Teste impede a volta do caso. Esta entrada é a única
+que explica o porquê para quem chegar depois.
+
 ## Infra & Deploy
 
 ### 502 em produção: Next.js standalone escutando no endereço errado
@@ -316,6 +335,143 @@ Instagram passou a aceitar 3:4 no feed.
 **O que fazer.** Ou corrigir o mínimo para 0.75 e então ligar a verificação, ou
 apagar as duas constantes. Deixá-las declaradas e não usadas é o mesmo padrão do
 incidente de `escolherUrlPublicavel`: dá a impressão de que o caso está coberto.
+
+### A régua lia uma chave e o banco gravava outra
+
+**Sintoma.** Nove posts perenes sobre três assuntos em quatro dias: ajuste de
+status, processo consular e a comparação entre os dois, todo dia, com ângulos
+diferentes. Nenhum título repetido, e o feed parecendo um disco riscado.
+
+**Causa.** O evergreen guarda a identidade em `story_id`, no formato
+`evg:<tópico>:<ângulo>`, e a janela de repetição procura por `evg:<tópico>`. Só
+que quem gravava `topic_id` era `topicoDaPauta`, a regra da NOTÍCIA, que olha o
+texto e devolve `programa:eb5`. Os nove posts tinham o mesmo `topic_id`.
+
+O cooldown do par funcionava, porque ele usa `story_id` e a chave casava. A
+janela do tópico nunca disparou porque as duas chaves nunca se encontravam.
+
+**Corrigido.** A gravação passou a usar a chave que a régua lê, e o teste liga
+as duas pontas que o código separava: o que o adaptador produz e o que a seleção
+consulta.
+
+**Lição.** Regra que consulta uma chave e grava outra não protege nada, e ainda
+parece protegida. Quando uma guarda existe e o defeito acontece assim mesmo,
+conferir se os dois lados falam da mesma chave vem antes de suspeitar da regra.
+
+### A mesma foto em quatro posts, e duas causas somadas
+
+**Sintoma.** `pexels-photo-3751006` ilustrou quatro posts em três dias, e
+`pexels-photo-6358834` ilustrou dois.
+
+**Causa 1: a busca pedia uma foto só.** `per_page=1` no Pexels e no Unsplash.
+Busca determinística com um único resultado devolve sempre a mesma foto para a
+mesma consulta.
+
+**Causa 2: ninguém guardava o que já tinha saído.** A biblioteca interna existe
+e tem janela de dias, mas indexa por ENTIDADE. A foto do banco conceitual é
+escolhida por CONCEITO, então nunca disputa a mesma chave, e o código ainda a
+excluía explicitamente do registro na biblioteca.
+
+**Causa 3, que apareceu ao consertar.** O conjunto de "já usadas nesta edição"
+era criado dentro de cada chamada do resolvedor, então cada pauta tinha o
+próprio conjunto vazio: o dedupe do dia não deduplicava nada, e dois posts do
+mesmo dia saíram com a mesma foto.
+
+**Corrigido.** A busca pede quinze e pula as que já saíram, por identidade sem
+os parâmetros de entrega, já que a mesma foto vem com URLs diferentes conforme o
+tamanho. A memória lê `content_json.visual` em `social_posts`, o mesmo lugar que
+registra o que foi ao ar. E o conjunto do dia passou a ser um só para o ciclo.
+
+**Lição.** Guarda que indexa por uma dimensão não alcança o que é escolhido por
+outra. E conjunto de deduplicação criado dentro do laço é o mesmo que não ter.
+
+### Medida relativa contra pai sem altura definida, duas vezes no mesmo dia
+
+**Sintoma 1.** A manchete do post crescia sem limite e subia por cima da bolha.
+`max-height: 22%` estava declarado e não fazia nada.
+
+**Sintoma 2.** A foto da manchete do portal virou 1061px de altura depois que eu
+troquei altura fixa por `h-full`.
+
+**Causa, a mesma nos dois.** Porcentagem e `h-full` só resolvem contra pai com
+altura DEFINIDA. Com pai de altura automática, `max-height:22%` computa como
+`none` e `h-full` vira a altura natural do conteúdo, que no caso era uma foto de
+3909x5863.
+
+**Por que importa mais que o pixel.** No primeiro caso havia um script que
+encolhe o texto enquanto ele não couber, e ele mede `clientHeight`. Com a caixa
+de altura automática, `clientHeight` é a altura do próprio conteúdo: a condição
+nunca é verdadeira e o script nunca encolhe nada. A ferramenta existia,
+executava e não fazia efeito.
+
+**Corrigido.** Faixa com topo e base fixos no primeiro caso, proporção fixa no
+segundo. A caixa passa a existir antes do conteúdo.
+
+**Lição.** Antes de usar percentual ou `full` em altura, perguntar de quem ela é
+percentual. E ferramenta de ajuste que mede caixa precisa de caixa medível.
+
+### Estilo fora de layer vencia toda utilidade de cor do site
+
+**Sintoma.** O menu do portal saía com texto preto sobre azul-marinho, e a
+classe `text-white/80` estava no componente.
+
+**Causa.** `globals.css` declara `a { color: inherit }` FORA de layer, depois do
+`@import "tailwindcss"`. Estilo sem layer vence estilo em layer independente de
+especificidade. O efeito não era só o menu: **nenhuma classe de cor do Tailwind
+funcionava em link nenhum do site**, e todo link herdava a cor do pai em
+silêncio.
+
+**Corrigido.** A regra entrou em `@layer base`. A intenção continua, e agora uma
+classe consegue dizer outra coisa.
+
+**Lição.** Em Tailwind 4, CSS escrito solto depois do import não é "um ajuste
+pequeno": é uma regra que ganha de todo o resto. Medir a cor computada no
+navegador custa dez segundos e teria apontado a causa direto.
+
+### O portal nascia vazio a cada deploy, e se curava sozinho
+
+**Sintoma.** O dono abriu o site depois de um deploy e não havia notícia
+nenhuma. Minutos depois, havia.
+
+**Causa.** A home era pré-renderizada no build com revalidação de cinco minutos,
+e **o build na VPS não tem as variáveis do banco**: o EasyPanel injeta o
+ambiente em execução, não na construção. A leitura falhava, o `catch` devolvia
+lista vazia, e a página nascia sem matéria.
+
+**Por que é pior que falhar.** Ela se curava na primeira visita depois dos cinco
+minutos. O defeito aparecia para quem chegasse primeiro e sumia antes de alguém
+conseguir olhar.
+
+**Corrigido.** A home renderiza por requisição. O sitemap nasceu já assim, pelo
+mesmo motivo.
+
+**Lição.** Página que depende de banco e é gerada no build assume que o build
+alcança o banco. Aqui ele não alcança, e o `catch` que protege a página de cair
+é o mesmo que transforma a falha em página vazia plausível.
+
+### Sitemap que responde 500 é pior que sitemap ausente
+
+**Sintoma.** `/sitemap.xml` com HTTP 500 e `RangeError: Invalid time value`.
+
+**Causa.** O campo `date` do artigo vem formatado para leitura, no estilo
+"16 de set. de 2026". `new Date()` disso devolve Invalid Date, e o Next chama
+`toISOString()` ao montar o XML.
+
+**Corrigido.** A data só entra quando é uma data, e falha de leitura devolve as
+páginas fixas em vez de derrubar a rota.
+
+**Lição.** O rastreador lê 500 no sitemap como problema do site, não do arquivo.
+Em rota de infraestrutura de busca, degradar vale mais que estar completo.
+
+### O domínio imigra.us nunca apontou para a aplicação
+
+**O que.** `imigra.us` devolve 114 bytes de página de estacionamento do
+registrador, com um redirecionamento para `/lander`. A aplicação está em
+`casaloti.ia.br`.
+
+**Por que está aqui.** Isso consumiu meia hora de diagnóstico de "o site está
+sem notícia": estávamos olhando endereços diferentes. Quando o relato não bate
+com a medição, conferir PRIMEIRO se os dois lados falam da mesma URL.
 
 ### 16/09: QA 98, sem alucinação, e a edição barrada mesmo assim
 
