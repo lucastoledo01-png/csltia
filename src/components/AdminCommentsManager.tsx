@@ -69,7 +69,7 @@ export function AdminCommentsManager() {
   const filteredComments = comments.filter((c) => (filter === "all" ? true : c.status === filter));
 
   if (loading) {
-    return <div className="py-12 text-center text-sm text-[#667085]">Carregando comentários para moderação...</div>;
+    return <div className="py-12 text-center text-sm text-[#71717a]">Carregando comentários para moderação...</div>;
   }
 
   return (
@@ -77,25 +77,25 @@ export function AdminCommentsManager() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h3 className="text-2xl font-black tracking-[-0.05em] text-black">Moderação de Comentários</h3>
-          <p className="mt-1 text-sm text-[#667085]">Gerencie mensagens enviadas pelos leitores nos artigos.</p>
+          <p className="mt-1 text-sm text-[#71717a]">Gerencie mensagens enviadas pelos leitores nos artigos.</p>
         </div>
 
-        <div className="flex rounded-full border border-[#d0d5dd] bg-[#fafafa] p-1 text-xs font-bold">
+        <div className="flex rounded-full border border-[#d4d4d8] bg-[#fafafa] p-1 text-xs font-bold">
           <button
             onClick={() => setFilter("all")}
-            className={`rounded-full px-4 py-1.5 ${filter === "all" ? "bg-[#6366f1] text-white" : "text-[#667085]"}`}
+            className={`rounded-full px-4 py-1.5 ${filter === "all" ? "bg-[#18181b] text-white" : "text-[#71717a]"}`}
           >
             Todos ({comments.length})
           </button>
           <button
             onClick={() => setFilter("approved")}
-            className={`rounded-full px-4 py-1.5 ${filter === "approved" ? "bg-[#6366f1] text-white" : "text-[#667085]"}`}
+            className={`rounded-full px-4 py-1.5 ${filter === "approved" ? "bg-[#18181b] text-white" : "text-[#71717a]"}`}
           >
             Aprovados ({comments.filter((c) => c.status === "approved").length})
           </button>
           <button
             onClick={() => setFilter("rejected")}
-            className={`rounded-full px-4 py-1.5 ${filter === "rejected" ? "bg-[#6366f1] text-white" : "text-[#667085]"}`}
+            className={`rounded-full px-4 py-1.5 ${filter === "rejected" ? "bg-[#18181b] text-white" : "text-[#71717a]"}`}
           >
             Recusados ({comments.filter((c) => c.status === "rejected").length})
           </button>
@@ -104,31 +104,31 @@ export function AdminCommentsManager() {
 
       <div className="mt-6 space-y-4">
         {filteredComments.length === 0 ? (
-          <p className="py-8 text-center text-sm text-[#667085]">Nenhum comentário encontrado neste filtro.</p>
+          <p className="py-8 text-center text-sm text-[#71717a]">Nenhum comentário encontrado neste filtro.</p>
         ) : (
           filteredComments.map((comment) => (
-            <div key={comment.id} className="rounded-2xl border border-[#eaecf0] p-5 hover:border-[#d0d5dd]">
+            <div key={comment.id} className="rounded-2xl border border-[#e4e4e7] p-5 hover:border-[#d4d4d8]">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <span className="font-bold text-black">{comment.user_name}</span>
-                  <span className="ml-2 text-xs text-[#667085]">({comment.user_email})</span>
-                  <span className="ml-3 rounded-md bg-[#f2f4f7] px-2 py-0.5 font-mono text-xs text-[#344054]">
+                  <span className="ml-2 text-xs text-[#71717a]">({comment.user_email})</span>
+                  <span className="ml-3 rounded-md bg-[#f4f4f5] px-2 py-0.5 font-mono text-xs text-[#3f3f46]">
                     artigo: /{comment.article_slug}
                   </span>
                 </div>
                 <span
                   className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                    comment.status === "approved" ? "bg-[#e6f4ea] text-[#137333]" : "bg-[#fce8e6] text-[#c5221f]"
+                    comment.status === "approved" ? "bg-[#f4f4f5] text-[#3f3f46]" : "bg-[#fbe3e3] text-[#a92b29]"
                   }`}
                 >
                   {comment.status}
                 </span>
               </div>
 
-              <p className="mt-3 text-sm text-[#344054]">{comment.content}</p>
+              <p className="mt-3 text-sm text-[#3f3f46]">{comment.content}</p>
 
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#f2f4f7] pt-3 text-xs">
-                <span className="text-[#98a2b3]">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#f4f4f5] pt-3 text-xs">
+                <span className="text-[#71717a]">
                   {new Date(comment.created_at).toLocaleString("pt-BR")}
                 </span>
 
@@ -136,7 +136,7 @@ export function AdminCommentsManager() {
                   {comment.status !== "approved" ? (
                     <button
                       onClick={() => updateStatus(comment.id, "approved")}
-                      className="rounded-lg bg-[#e6f4ea] px-3 py-1 font-bold text-[#137333] hover:bg-[#ceead6]"
+                      className="rounded-lg bg-[#f4f4f5] px-3 py-1 font-bold text-[#3f3f46] hover:bg-[#f4f4f5]"
                     >
                       Aprovar
                     </button>
@@ -145,7 +145,7 @@ export function AdminCommentsManager() {
                   {comment.status !== "rejected" ? (
                     <button
                       onClick={() => updateStatus(comment.id, "rejected")}
-                      className="rounded-lg bg-[#fce8e6] px-3 py-1 font-bold text-[#c5221f] hover:bg-[#fad2cf]"
+                      className="rounded-lg bg-[#fbe3e3] px-3 py-1 font-bold text-[#a92b29] hover:bg-[#fbe3e3]"
                     >
                       Rejeitar
                     </button>
@@ -153,7 +153,7 @@ export function AdminCommentsManager() {
 
                   <button
                     onClick={() => deleteComment(comment.id)}
-                    className="rounded-lg border border-[#d0d5dd] px-3 py-1 font-bold text-[#667085] hover:bg-[#f9fafb]"
+                    className="rounded-lg border border-[#d4d4d8] px-3 py-1 font-bold text-[#71717a] hover:bg-[#fafafa]"
                   >
                     Excluir
                   </button>

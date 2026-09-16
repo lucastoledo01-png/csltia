@@ -1,82 +1,197 @@
-/* Design system do painel de admin — sidebar + glassmorphism + gradiente animado. */
+/*
+ * Sistema visual do painel: preto, branco e o silêncio entre os dois.
+ *
+ * O painel anterior tinha fundo em gradiente animado de quatro cores pastel
+ * rodando em loop, vidro desfocado em trinta lugares, um botão flutuante fixo
+ * e emoji como sistema de ícones. O painel é mesa de controle, não peça de
+ * marca: a identidade fica onde ela vende, que é o post e a newsletter.
+ *
+ * ## Por que a retintagem vem por variável, e não classe por classe
+ *
+ * As doze telas do painel têm 136 usos de cor escritos direto no JSX
+ * (`bg-indigo-600`, `text-emerald-700`, `bg-rose-50`). Reescrever os 136 é
+ * caro, arriscado e, pior, não impede o 137º de nascer colorido amanhã.
+ *
+ * O Tailwind 4 compila `bg-indigo-600` para
+ * `background-color: var(--color-indigo-600)`. Então redefinir a variável
+ * dentro do painel retinge tudo de uma vez, inclusive o que ainda vai ser
+ * escrito. Uma regra num lugar, em vez de 136 espalhadas.
+ *
+ * ## A única cor que sobrou
+ *
+ * Índigo, âmbar, azul e verde viram cinza, porque eram decoração. O vermelho
+ * fica, e fica sozinho: quem opera este painel precisa achar a falha num
+ * relance, e cor só cumpre esse papel enquanto for rara. Sucesso não precisa
+ * de verde, precisa de não ter vermelho.
+ *
+ * Claro apenas, de propósito. As telas internas assumem fundo claro em dezenas
+ * de lugares, e um modo escuro pela metade é pior que nenhum.
+ */
 
 .admin-shell {
-  --admin-indigo: #6366f1;
-  --admin-indigo-dark: #4f46e5;
-  --admin-rose: #f43f5e;
-  --admin-emerald: #10b981;
-  --admin-amber: #f59e0b;
+  --pn-tinta: #0a0a0a;
+  --pn-tinta-2: #3d3d42;
+  --pn-tinta-3: #78787f;
+  --pn-linha: #e4e4e7;
+  --pn-fundo: #ffffff;
+  --pn-fundo-2: #fafafa;
+
+  /* Escala neutra única. Todo cinza do painel sai daqui. */
+  --n-50: #fafafa;
+  --n-100: #f4f4f5;
+  --n-200: #e4e4e7;
+  --n-300: #d4d4d8;
+  --n-400: #a1a1aa;
+  --n-500: #71717a;
+  --n-600: #52525b;
+  --n-700: #3f3f46;
+  --n-800: #27272a;
+  --n-900: #18181b;
+
+  /* Decoração vira cinza. */
+  --color-indigo-50: var(--n-50);
+  --color-indigo-100: var(--n-100);
+  --color-indigo-200: var(--n-200);
+  --color-indigo-300: var(--n-300);
+  --color-indigo-500: var(--n-800);
+  --color-indigo-600: var(--n-900);
+  --color-indigo-700: #000000;
+  --color-indigo-900: var(--n-900);
+
+  --color-amber-50: var(--n-50);
+  --color-amber-100: var(--n-100);
+  --color-amber-600: var(--n-600);
+  --color-amber-700: var(--n-700);
+  --color-amber-800: var(--n-800);
+
+  --color-blue-50: var(--n-50);
+  --color-blue-100: var(--n-100);
+  --color-blue-700: var(--n-700);
+
+  --color-emerald-50: var(--n-50);
+  --color-emerald-100: var(--n-100);
+  --color-emerald-600: var(--n-600);
+  --color-emerald-700: var(--n-700);
+  --color-emerald-800: var(--n-800);
+
+  --color-slate-50: var(--n-50);
+  --color-slate-100: var(--n-100);
+  --color-slate-200: var(--n-200);
+  --color-slate-300: var(--n-300);
+  --color-slate-400: var(--n-400);
+  --color-slate-500: var(--n-500);
+  --color-slate-600: var(--n-600);
+  --color-slate-700: var(--n-700);
+  --color-slate-800: var(--n-800);
+  --color-slate-900: var(--n-900);
+  --color-gray-100: var(--n-100);
+
+  /* O vermelho fica, mais contido que o padrão. */
+  --color-rose-50: #fdf3f3;
+  --color-rose-100: #fbe3e3;
+  --color-rose-200: #f5c9c9;
+  --color-rose-500: #c0322f;
+  --color-rose-600: #a92b29;
+  --color-rose-700: #8d2422;
+  --color-rose-800: #711d1c;
+
   min-height: 100vh;
-  font-family: var(--font-jakarta), system-ui, -apple-system, sans-serif;
-  background: linear-gradient(-45deg, #e9d5ff, #fbcfe8, #dbeafe, #dcfce7);
-  background-size: 400% 400%;
-  animation: admin-gradient-shift 20s ease infinite;
+  background: var(--pn-fundo-2);
+  color: var(--pn-tinta);
+  font-family: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-@keyframes admin-gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
+/* Peso alto e letra apertada eram a voz do painel antigo. */
 .admin-shell h1,
 .admin-shell h2,
 .admin-shell h3 {
-  font-weight: 800;
-  letter-spacing: -0.025em;
+  font-weight: 600;
+  letter-spacing: -0.021em;
 }
 
+/* Era vidro desfocado. Agora é superfície, que é o que um card precisa ser. */
 .admin-glass {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: var(--pn-fundo);
+  border: 1px solid var(--pn-linha);
+  border-radius: 12px;
+  box-shadow: none;
 }
 
-.admin-glass-dark {
-  background: rgba(49, 46, 129, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+/* Sem raio gigante: 32px de canto é linguagem de marca, não de ferramenta. */
+.admin-shell .rounded-\[32px\],
+.admin-shell .rounded-3xl {
+  border-radius: 14px;
 }
 
 .admin-sidebar-link {
-  transition: background-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
+  position: relative;
+  border-radius: 8px;
+  font-weight: 450;
+  color: var(--pn-tinta-2);
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.admin-sidebar-link:hover {
+  background: var(--n-100);
+  color: var(--pn-tinta);
 }
 
 .admin-sidebar-link[data-active="true"] {
-  background: var(--admin-indigo);
+  background: var(--n-100);
+  color: var(--pn-tinta);
+  font-weight: 550;
+}
+
+/* A aba ativa se marca por um traço, e não por um bloco de cor. */
+.admin-sidebar-link[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 18px;
+  background: var(--pn-tinta);
+  border-radius: 2px;
+}
+
+.admin-campo {
+  width: 100%;
+  border: 1px solid var(--pn-linha);
+  border-radius: 8px;
+  background: var(--pn-fundo);
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--pn-tinta);
+  outline: none;
+}
+
+.admin-campo:focus {
+  border-color: var(--pn-tinta);
+}
+
+.admin-botao {
+  border-radius: 8px;
+  background: var(--pn-tinta);
   color: #ffffff;
-  font-weight: 700;
-  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
+  font-size: 13px;
+  font-weight: 550;
+  padding: 10px 18px;
+  transition: opacity 0.12s ease;
 }
 
-.admin-sidebar-link[data-active="false"]:hover {
-  background: rgba(99, 102, 241, 0.08);
-  color: var(--admin-indigo-dark);
+.admin-botao:hover:not(:disabled) { opacity: 0.86; }
+.admin-botao:disabled { opacity: 0.45; }
+
+.admin-botao-secundario {
+  border: 1px solid var(--pn-linha);
+  border-radius: 8px;
+  background: var(--pn-fundo);
+  color: var(--pn-tinta-2);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 9px 16px;
 }
 
-.admin-fab {
-  animation: admin-fab-bounce 3s ease-in-out infinite;
-}
-
-@keyframes admin-fab-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
-
-.admin-fab:hover {
-  transform: scale(1.1);
-}
-
-.admin-fab:active {
-  transform: scale(0.95);
-}
-
-.admin-hero {
-  background: radial-gradient(circle at top left, #4f46e5 0%, #6366f1 40%, #8b5cf6 100%);
-}
-
-.admin-progress-track {
-  background: rgba(148, 163, 184, 0.25);
-}
+.admin-botao-secundario:hover { background: var(--n-100); color: var(--pn-tinta); }

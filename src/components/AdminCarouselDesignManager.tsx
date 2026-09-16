@@ -85,7 +85,7 @@ export function AdminCarouselDesignManager() {
   // cópias editáveis
   const [tokens, setTokens] = useState<CarouselTokens | null>(null);
   // Override por formato. É o que permite `tutorial` claro e `noticia` escuro:
-  // um `--s-bg` só não pode ser #F5F1ED e #080808 ao mesmo tempo.
+  // um `--s-bg` só não pode ser #fafafa e #18181b ao mesmo tempo.
   const [porFormato, setPorFormato] = useState<Record<string, OverrideDeTokens> | null>(null);
   const [configs, setConfigs] = useState<Record<CarouselFormat, FormatConfig> | null>(null);
 

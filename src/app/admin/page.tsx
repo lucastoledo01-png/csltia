@@ -17,17 +17,23 @@ import { MARCA } from "@/lib/marca";
 
 type Tab = "newsroom" | "social" | "carousel" | "layout" | "prompt-system" | "sources" | "cms" | "analytics" | "logs" | "comments";
 
-const NAV_ITEMS: Array<{ id: Tab; label: string; icon: string }> = [
-  { id: "newsroom", label: "Redação (IA)", icon: "⚡" },
-  { id: "social", label: "Publicações", icon: "📸" },
-  { id: "carousel", label: "Carrossel", icon: "🎨" },
-  { id: "layout", label: "Layout", icon: "📐" },
-  { id: "prompt-system", label: "Sistema PROMPT", icon: "🎯" },
-  { id: "sources", label: "Fontes", icon: "🛰️" },
-  { id: "cms", label: "CMS Artigos", icon: "📝" },
-  { id: "analytics", label: "Analytics", icon: "📊" },
-  { id: "logs", label: "Logs & Auditoria", icon: "📋" },
-  { id: "comments", label: "Comentários", icon: "💬" },
+/*
+ * Sem ícone. Emoji como sistema de ícones muda de desenho por sistema
+ * operacional, não tem peso nem alinhamento previsível, e aqui ele era
+ * decoração: "Redação", "Fontes" e "Logs" já dizem o que são. A aba ativa se
+ * marca por um traço à esquerda, no CSS.
+ */
+const NAV_ITEMS: Array<{ id: Tab; label: string }> = [
+  { id: "newsroom", label: "Redação" },
+  { id: "social", label: "Publicações" },
+  { id: "carousel", label: "Carrossel" },
+  { id: "layout", label: "Layout" },
+  { id: "prompt-system", label: "Sistema PROMPT" },
+  { id: "sources", label: "Fontes" },
+  { id: "cms", label: "CMS Artigos" },
+  { id: "analytics", label: "Analytics" },
+  { id: "logs", label: "Logs" },
+  { id: "comments", label: "Comentários" },
 ];
 
 type QuickStats = {
@@ -138,14 +144,11 @@ export default function AdminPage() {
   if (!isAuthenticated) {
     return (
       <main className="admin-shell grid min-h-screen place-items-center p-4">
-        <div className="w-full max-w-sm admin-glass rounded-[32px] p-8 shadow-xl shadow-indigo-200/50">
-          <div className="text-center">
-            <span className="inline-block rounded-full bg-indigo-600 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-white">
-              Acesso Restrito
-            </span>
-            <h1 className="mt-3 text-2xl text-slate-900">Painel de Controle</h1>
-            <p className="mt-1 text-xs text-slate-500">
-              Digite a senha de administrador para acessar o CMS e métricas.
+        <div className="w-full max-w-sm admin-glass p-8">
+          <div>
+            <h1 className="text-[22px] text-slate-900">{MARCA.nome}</h1>
+            <p className="mt-1 text-[13px] text-slate-500">
+              Painel de operação. Acesso restrito.
             </p>
           </div>
 
@@ -157,32 +160,31 @@ export default function AdminPage() {
             ) : null}
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
+              {/* `htmlFor` estava faltando: o rótulo existia e não apontava
+                  para campo nenhum, o que deixa leitor de tela sem nome para
+                  o input e quebra o clique no texto. */}
+              <label htmlFor="admin-senha" className="block text-[12px] text-slate-600">
                 Senha
               </label>
               <input
+                id="admin-senha"
                 type="password"
                 required
                 autoFocus
-                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white/70 px-4 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:bg-white focus:outline-none"
+                className="admin-campo mt-1.5"
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-full bg-indigo-600 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-300/50 transition-colors hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {loading ? "Entrando..." : "Entrar no Painel"}
+            <button type="submit" disabled={loading} className="admin-botao w-full">
+              {loading ? "Entrando" : "Entrar"}
             </button>
           </form>
 
-          <div className="mt-6 border-t border-white/60 pt-4 text-center">
-            <Link href="/" className="text-xs font-medium text-slate-500 hover:text-indigo-600">
-              ← Voltar para o site público
+          <div className="mt-6 border-t border-slate-200 pt-4">
+            <Link href="/" className="text-xs text-slate-500 hover:text-slate-900">
+              Voltar para o site
             </Link>
           </div>
         </div>
@@ -193,26 +195,27 @@ export default function AdminPage() {
   return (
     <div className="admin-shell flex min-h-screen">
       {/* Sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-[280px] shrink-0 flex-col border-r border-white/50 bg-white/90 backdrop-blur-xl lg:flex">
-        <div className="flex items-center gap-3 px-6 py-6">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-600 text-sm font-black text-white">
-            b.
-          </span>
-          <span className="text-[20px] text-slate-900">{MARCA.nome}</span>
+      <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
+        <div className="px-6 py-7">
+          {/*
+            O logotipo "b." e o domínio fixo saíram: eram da vertical anterior,
+            e o painel passa a mostrar o nome do projeto que está operando.
+          */}
+          <span className="text-[15px] font-medium text-slate-900">{MARCA.nome}</span>
+          <span className="mt-0.5 block text-[11px] text-slate-400">Painel de operação</span>
         </div>
 
-        <nav className="flex-1 space-y-2 px-4">
+        <nav className="flex-1 space-y-0.5 px-3">
           {NAV_ITEMS.map((item) => (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               data-active={activeTab === item.id}
-              className="admin-sidebar-link flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-left text-sm text-slate-600"
+              className="admin-sidebar-link flex w-full items-center px-4 py-2.5 text-left text-[13px]"
             >
-              <span className="text-lg">{item.icon}</span>
               {item.label}
               {item.id === "social" && stats && stats.postsFailedToday > 0 ? (
-                <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
+                <span className="ml-auto text-[11px] font-semibold text-rose-600">
                   {stats.postsFailedToday}
                 </span>
               ) : null}
@@ -220,43 +223,26 @@ export default function AdminPage() {
           ))}
         </nav>
 
-        <div className="m-4 rounded-2xl bg-indigo-50 p-4">
-          <p className="text-xs font-bold text-indigo-900">Conta Admin</p>
-          <p className="mt-0.5 text-[11px] text-indigo-500">casaloti.ia.br</p>
-          <button
-            onClick={handleLogout}
-            className="mt-3 w-full rounded-xl border border-indigo-200 bg-white py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-100"
-          >
-            Sair 🔒
+        <div className="border-t border-slate-200 p-3">
+          <button onClick={handleLogout} className="admin-botao-secundario w-full">
+            Sair
           </button>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top toolbar */}
-        <header className="sticky top-0 z-10 flex h-20 items-center justify-between gap-4 border-b border-white/40 bg-white/40 px-6 backdrop-blur-md lg:px-8">
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
-            <span>Painel</span>
-            <span>›</span>
-            <span className="font-bold text-slate-900">
-              {NAV_ITEMS.find((n) => n.id === activeTab)?.label}
-            </span>
-          </div>
+        <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b border-slate-200 bg-white px-6 lg:px-8">
+          <span className="text-[13px] font-medium text-slate-900">
+            {NAV_ITEMS.find((n) => n.id === activeTab)?.label}
+          </span>
 
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              target="_blank"
-              className="flex h-[42px] items-center rounded-xl border border-white/60 bg-white/70 px-4 text-xs font-semibold text-slate-700 hover:bg-white"
-            >
-              Ver Site ↗
+          <div className="flex items-center gap-2">
+            <Link href="/" target="_blank" className="admin-botao-secundario">
+              Ver site
             </Link>
-            <button
-              onClick={handleLogout}
-              className="flex h-[42px] w-[42px] items-center justify-center rounded-xl border border-white/60 bg-white/70 text-slate-600 hover:bg-white lg:hidden"
-              aria-label="Sair"
-            >
-              🔒
+            <button onClick={handleLogout} className="admin-botao-secundario lg:hidden">
+              Sair
             </button>
           </div>
         </header>
@@ -274,30 +260,26 @@ export default function AdminPage() {
           */}
           <section className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl text-slate-900">Central {MARCA.nome}</h2>
-              <p className="mt-0.5 text-sm text-slate-500">
-                Redacao, carrosseis e newsletter do dia.
+              <h2 className="text-[20px] text-slate-900">Hoje</h2>
+              <p className="mt-0.5 text-[13px] text-slate-500">
+                Redação, carrosséis e newsletter do dia.
               </p>
             </div>
-            <button
-              onClick={handleQuickTest}
-              disabled={runningQuick}
-              className="rounded-full bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-indigo-700 disabled:opacity-60"
-            >
-              {runningQuick ? "Testando..." : "⚡ Testar Redação Agora"}
+            <button onClick={handleQuickTest} disabled={runningQuick} className="admin-botao">
+              {runningQuick ? "Testando" : "Testar redação"}
             </button>
           </section>
 
           {/* Stats grid */}
-          <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Publicações IG hoje" value={stats?.postsToday ?? "—"} color="indigo" />
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard label="Publicações hoje" value={stats?.postsToday ?? "—"} />
             <StatCard
               label="Falharam hoje"
               value={stats?.postsFailedToday ?? "—"}
-              color={stats && stats.postsFailedToday > 0 ? "rose" : "emerald"}
+              alerta={Boolean(stats && stats.postsFailedToday > 0)}
             />
-            <StatCard label="Inscritos newsletter" value={stats?.totalLeads ?? "—"} color="amber" />
-            <StatCard label="Pageviews" value={stats?.totalPageviews ?? "—"} color="emerald" />
+            <StatCard label="Inscritos" value={stats?.totalLeads ?? "—"} />
+            <StatCard label="Pageviews" value={stats?.totalPageviews ?? "—"} />
           </section>
 
           {/* Conteúdo da aba selecionada */}
@@ -322,44 +304,38 @@ export default function AdminPage() {
         </main>
       </div>
 
-      {/* Floating AI trigger */}
-      <button
-        onClick={handleQuickTest}
-        disabled={runningQuick}
-        title="Testar a redação (dry run)"
-        className="admin-fab fixed bottom-8 right-8 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-[0_20px_25px_-5px_rgba(99,102,241,0.5)] disabled:opacity-60"
-      >
-        <span className="text-2xl">⚡</span>
-        {stats && stats.postsFailedToday > 0 ? (
-          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
-            {stats.postsFailedToday}
-          </span>
-        ) : null}
-      </button>
+      {/*
+        O botão flutuante saiu. Ele repetia, por cima do conteúdo, a mesma ação
+        que já existe no topo da área principal, e cobria a tabela justamente
+        no canto onde as linhas mais recentes aparecem.
+      */}
     </div>
   );
 }
 
+/**
+ * Número do dia.
+ *
+ * Antes cada card tinha a própria cor, o que dava quatro acentos lado a lado
+ * dizendo a mesma coisa: "sou um número". Agora todos são pretos, e a cor só
+ * aparece quando há falha. Achar o vermelho num painel cinza é instantâneo;
+ * achar o vermelho entre quatro cores é procurar.
+ */
 function StatCard({
   label,
   value,
-  color,
+  alerta = false,
 }: {
   label: string;
   value: number | string;
-  color: "indigo" | "rose" | "emerald" | "amber";
+  alerta?: boolean;
 }) {
-  const colorMap = {
-    indigo: "text-indigo-600",
-    rose: "text-rose-600",
-    emerald: "text-emerald-600",
-    amber: "text-amber-600",
-  };
-
   return (
-    <div className="admin-glass rounded-3xl p-6">
-      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</span>
-      <p className={`mt-2 text-2xl font-black ${colorMap[color]}`}>{value}</p>
+    <div className="admin-glass p-5">
+      <span className="text-[11px] text-slate-500">{label}</span>
+      <p className={`mt-1.5 text-[26px] font-medium ${alerta ? "text-rose-600" : "text-slate-900"}`}>
+        {value}
+      </p>
     </div>
   );
 }

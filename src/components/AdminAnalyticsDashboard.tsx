@@ -42,11 +42,11 @@ export function AdminAnalyticsDashboard() {
   }, []);
 
   if (loading) {
-    return <div className="py-12 text-center text-xs font-semibold text-[#6b7280]">Carregando dados do banco de dados...</div>;
+    return <div className="py-12 text-center text-xs font-semibold text-[#71717a]">Carregando dados do banco de dados...</div>;
   }
 
   if (!data) {
-    return <div className="py-12 text-center text-xs font-semibold text-[#ef4444]">Erro ao carregar métricas.</div>;
+    return <div className="py-12 text-center text-xs font-semibold text-[#c0322f]">Erro ao carregar métricas.</div>;
   }
 
   return (
@@ -54,27 +54,27 @@ export function AdminAnalyticsDashboard() {
       {/* Indicadores Principais em Tempo Real */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="admin-glass rounded-2xl p-5">
-          <p className="text-xs font-semibold text-[#6b7280]">Visualizações de Páginas</p>
-          <p className="mt-2 text-3xl font-bold text-[#111827]">{data.totalPageviews.toLocaleString("pt-BR")}</p>
-          <span className="mt-1 inline-block text-[11px] font-medium text-[#6b7280]">Métrica em tempo real</span>
+          <p className="text-xs font-semibold text-[#71717a]">Visualizações de Páginas</p>
+          <p className="mt-2 text-3xl font-bold text-[#18181b]">{data.totalPageviews.toLocaleString("pt-BR")}</p>
+          <span className="mt-1 inline-block text-[11px] font-medium text-[#71717a]">Métrica em tempo real</span>
         </div>
 
         <div className="admin-glass rounded-2xl p-5">
-          <p className="text-xs font-semibold text-[#6b7280]">Visitantes Estimados</p>
-          <p className="mt-2 text-3xl font-bold text-[#111827]">{data.uniqueVisitors.toLocaleString("pt-BR")}</p>
-          <span className="mt-1 inline-block text-[11px] font-medium text-[#6b7280]">Com base em pageviews</span>
+          <p className="text-xs font-semibold text-[#71717a]">Visitantes Estimados</p>
+          <p className="mt-2 text-3xl font-bold text-[#18181b]">{data.uniqueVisitors.toLocaleString("pt-BR")}</p>
+          <span className="mt-1 inline-block text-[11px] font-medium text-[#71717a]">Com base em pageviews</span>
         </div>
 
         <div className="admin-glass rounded-2xl p-5">
-          <p className="text-xs font-semibold text-[#6b7280]">Inscrições na Newsletter</p>
-          <p className="mt-2 text-3xl font-bold text-[#6366f1]">{data.totalLeads.toLocaleString("pt-BR")}</p>
-          <span className="mt-1 inline-block text-[11px] font-medium text-[#6b7280]">Leads no banco Supabase</span>
+          <p className="text-xs font-semibold text-[#71717a]">Inscrições na Newsletter</p>
+          <p className="mt-2 text-3xl font-bold text-[#18181b]">{data.totalLeads.toLocaleString("pt-BR")}</p>
+          <span className="mt-1 inline-block text-[11px] font-medium text-[#71717a]">Leads no banco Supabase</span>
         </div>
 
         <div className="admin-glass rounded-2xl p-5">
-          <p className="text-xs font-semibold text-[#6b7280]">Comentários Publicados</p>
-          <p className="mt-2 text-3xl font-bold text-[#111827]">{data.totalComments}</p>
-          <span className="mt-1 inline-block text-[11px] font-medium text-[#6b7280]">Média leitura: {data.avgReadingTime} min</span>
+          <p className="text-xs font-semibold text-[#71717a]">Comentários Publicados</p>
+          <p className="mt-2 text-3xl font-bold text-[#18181b]">{data.totalComments}</p>
+          <span className="mt-1 inline-block text-[11px] font-medium text-[#71717a]">Média leitura: {data.avgReadingTime} min</span>
         </div>
       </div>
 
@@ -82,14 +82,14 @@ export function AdminAnalyticsDashboard() {
       <div className="admin-glass rounded-2xl p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-[#111827]">Desempenho de Leitura por Artigo</h3>
-            <p className="mt-0.5 text-xs text-[#6b7280]">Relatório ordenado por visualizações registradas.</p>
+            <h3 className="text-lg font-bold text-[#18181b]">Desempenho de Leitura por Artigo</h3>
+            <p className="mt-0.5 text-xs text-[#71717a]">Relatório ordenado por visualizações registradas.</p>
           </div>
         </div>
 
         <div className="mt-5 overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="border-b border-[#f3f4f6] text-[11px] font-semibold text-[#6b7280]">
+            <thead className="border-b border-[#f4f4f5] text-[11px] font-semibold text-[#71717a]">
               <tr>
                 <th className="py-2.5 px-3">Título do Artigo</th>
                 <th className="py-2.5 px-3">Categoria</th>
@@ -98,15 +98,15 @@ export function AdminAnalyticsDashboard() {
                 <th className="py-2.5 px-3">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#f3f4f6]">
+            <tbody className="divide-y divide-[#f4f4f5]">
               {data.topArticles.map((art) => (
                 <tr key={art.slug} className="hover:bg-[#fafafa]">
-                  <td className="py-3 px-3 font-semibold text-[#111827]">{art.title}</td>
-                  <td className="py-3 px-3 text-[#6b7280]">{art.category}</td>
-                  <td className="py-3 px-3 font-mono font-bold text-[#6366f1]">{art.views}</td>
-                  <td className="py-3 px-3 text-[#6b7280]">{art.readTime}</td>
+                  <td className="py-3 px-3 font-semibold text-[#18181b]">{art.title}</td>
+                  <td className="py-3 px-3 text-[#71717a]">{art.category}</td>
+                  <td className="py-3 px-3 font-mono font-bold text-[#18181b]">{art.views}</td>
+                  <td className="py-3 px-3 text-[#71717a]">{art.readTime}</td>
                   <td className="py-3 px-3">
-                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${art.status === "published" ? "bg-[#f0fdf4] text-[#166534]" : "bg-[#fefce8] text-[#854d0e]"}`}>
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${art.status === "published" ? "bg-[#fafafa] text-[#3f3f46]" : "bg-[#fafafa] text-[#3f3f46]"}`}>
                       {art.status}
                     </span>
                   </td>
@@ -119,16 +119,16 @@ export function AdminAnalyticsDashboard() {
 
       {/* Log de Acessos no Banco de Dados */}
       <div className="admin-glass rounded-2xl p-6">
-        <h3 className="text-sm font-bold text-[#111827]">Log de Acessos Recentes</h3>
-        <p className="mt-0.5 text-xs text-[#6b7280]">Últimas requisições gravadas na tabela pageviews.</p>
+        <h3 className="text-sm font-bold text-[#18181b]">Log de Acessos Recentes</h3>
+        <p className="mt-0.5 text-xs text-[#71717a]">Últimas requisições gravadas na tabela pageviews.</p>
         <div className="mt-4 space-y-1.5 font-mono text-[11px]">
           {data.recentPageviews.length === 0 ? (
-            <p className="py-4 text-center text-[#9ca3af]">Nenhum acesso registrado no banco ainda.</p>
+            <p className="py-4 text-center text-[#71717a]">Nenhum acesso registrado no banco ainda.</p>
           ) : (
             data.recentPageviews.map((pv) => (
-              <div key={pv.id} className="flex items-center justify-between rounded-md bg-[#fafafa] px-3 py-2 border border-[#f3f4f6]">
-                <span className="font-semibold text-[#6366f1]">{pv.path}</span>
-                <span className="text-[#9ca3af]">
+              <div key={pv.id} className="flex items-center justify-between rounded-md bg-[#fafafa] px-3 py-2 border border-[#f4f4f5]">
+                <span className="font-semibold text-[#18181b]">{pv.path}</span>
+                <span className="text-[#71717a]">
                   {new Date(pv.created_at).toLocaleTimeString("pt-BR")}
                 </span>
               </div>

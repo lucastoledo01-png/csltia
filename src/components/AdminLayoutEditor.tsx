@@ -418,9 +418,9 @@ export function AdminLayoutEditor() {
                       height: `${b.h}%`,
                       background:
                         b.tipo === "imagem"
-                          ? "repeating-linear-gradient(45deg,#cbd5e1,#cbd5e1 4px,#e2e8f0 4px,#e2e8f0 8px)"
+                          ? "repeating-linear-gradient(45deg,#d4d4d8,#d4d4d8 4px,#e4e4e7 4px,#e4e4e7 8px)"
                           : b.tipo === "forma"
-                            ? b.fundo || "#94a3b8"
+                            ? b.fundo || "#a1a1aa"
                             : "rgba(99,102,241,0.14)",
                       zIndex: b.z,
                     }}
@@ -799,7 +799,7 @@ function PainelDoBloco({
           <input
             type="color"
             className="h-8 w-full rounded-lg border border-slate-200"
-            value={bloco.fundo || "#111111"}
+            value={bloco.fundo || "#18181b"}
             onChange={(e) => onChange({ fundo: e.target.value })}
           />
         </Campo>
