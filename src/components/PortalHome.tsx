@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { logoDoSite, MARCA } from "@/lib/marca";
+import { MARCA } from "@/lib/marca";
 import { EDITORIAS, nomeDaEditoria } from "@/lib/editorias";
 import type { PautaDoPortal } from "@/lib/server/portal";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
