@@ -30,6 +30,14 @@ export const InstagramSlideSchema = z.object({
   headline_style: z.enum(["clean", "underline_stroke", "pen_highlight"]).optional().default("clean"),
   cover_image_prompt: z.string().optional().default(""),
   bg_image_url: z.string().optional().default(""),
+  /**
+   * A segunda imagem, que a capa de jornal desenha em círculo.
+   *
+   * Opcional de propósito: a bolha é um reforço, não um requisito. Sem ela a
+   * capa continua completa, com foto, chapéu e manchete. Um campo obrigatório
+   * aqui transformaria "não achei uma segunda foto boa" em peça que não sai.
+   */
+  inset_image_url: z.string().optional().default(""),
   cta_text: z.string().optional().default(""),
 });
 

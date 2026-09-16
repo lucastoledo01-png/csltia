@@ -1,5 +1,6 @@
 import { esc, manterCodigosJuntos, pad2, safeImageUrl } from "./util";
 import { overlayBrand } from "./shell";
+import { MARCA } from "@/lib/marca";
 import type {
   InstagramSlide,
   InstagramSlideType,
@@ -270,6 +271,105 @@ ${comFoto ? `<div class="k-foto">${photo(slide.bg_image_url)}</div>` : ""}
   <span class="k-handle">@imigra.us</span>
   ${topo}
   <div class="k-manchete"><span>${marcarDestaque(titulo, slide.highlight_text ?? "")}</span></div>
+</div>`,
+    };
+  },
+};
+
+// --------------------------------------------------------------------------
+// GRAMÁTICA DE JORNAL
+// --------------------------------------------------------------------------
+
+/**
+ * O gabarito de jornal: foto sangrando, chapéu de editoria, manchete em caixa
+ * alta no rodapé.
+ *
+ * É um gabarito só, e é isso que o torna barato de operar. A capa e o miolo
+ * usam a mesma peça; a capa apenas acrescenta a bolha, que é uma segunda
+ * imagem em círculo. Não há um desenho para cada posição do carrossel, e não
+ * há decisão de layout por post.
+ *
+ * As medidas vieram de medição das referências, não de estimativa: bloco de
+ * texto de 70% a 90,5% da altura, margem lateral de 9%, degradê nascendo na
+ * metade. Estão no CSS, comentadas lá.
+ *
+ * O corpo da manchete é teto, não valor: quem decide é o navegador, pelo
+ * `SCRIPT_DE_AJUSTE`, porque manchete de 60 e de 120 caracteres não cabem no
+ * mesmo tamanho. Sem isso, ou a curta fica pequena ou a longa transborda.
+ */
+function jornal(
+  slide: InstagramSlide,
+  ctx: VariantContext,
+  opcoes: { comBolha?: boolean } = {},
+): VariantOutput {
+  const foto = (slide.bg_image_url ?? "").trim();
+  const bolha = (slide.inset_image_url ?? "").trim();
+  const chapeu = (slide.eyebrow ?? "").trim();
+
+  return {
+    full: true,
+    onDark: true,
+    body: `
+<div class="j-fundo"></div>
+${foto ? `<div class="j-foto">${photo(foto)}</div>` : ""}
+<div class="j-grad"></div>
+<img class="j-marca" src="${esc(MARCA.logoEscuro)}" alt="" />
+${opcoes.comBolha && bolha ? `<div class="j-bolha"><img src="${esc(bolha)}" alt="" /></div>` : ""}
+<div class="j-texto">
+  ${chapeu ? `<span class="j-chapeu">${esc(chapeu)}</span>` : ""}
+  <div class="j-manchete lay-texto" data-ajuste="encolher" data-max="74" data-min="40">
+    <span>${esc(slide.title)}</span>
+  </div>
+  ${/*
+     O convite de arrastar sai discreto, e sai porque a peça de várias telas
+     precisa dizer que tem várias telas. Os pontos do Instagram são pequenos
+     demais para cumprir isso sozinhos, e a peça única não pode convidar a
+     arrastar para lugar nenhum.
+  */ ""}
+  ${ctx.total > 1 ? `<span class="j-arrasta">Arrasta que eu te explico →</span>` : ""}
+</div>`,
+  };
+}
+
+const capaJornal: SlideVariant = {
+  key: "capa_jornal",
+  label: "Jornal: capa com foto e bolha",
+  render: (slide, ctx): VariantOutput => jornal(slide, ctx, { comBolha: true }),
+};
+
+const mioloJornal: SlideVariant = {
+  key: "miolo_jornal",
+  label: "Jornal: miolo com foto",
+  render: (slide, ctx): VariantOutput => jornal(slide, ctx),
+};
+
+/**
+ * O último slide, que pede a inscrição.
+ *
+ * Na referência esta peça vende um terminal no WhatsApp, e o desenho inteiro
+ * gira em torno de um celular com a conversa. Aqui o produto é outro: a
+ * newsletter diária. Copiar a moldura do celular seria copiar o argumento de
+ * venda de um produto que não é o nosso, e o leitor sairia esperando mensagem
+ * no WhatsApp.
+ *
+ * O que se mantém é a gramática: fundo cheio, uma frase grande com uma palavra
+ * em destaque, e a ação isolada num bloco de cor.
+ */
+const ctaNewsletter: SlideVariant = {
+  key: "cta_newsletter",
+  label: "Jornal: chamada da newsletter",
+  render: (slide, ctx): VariantOutput => {
+    const palavra = (slide.highlight_text ?? "").trim().toUpperCase() || "NEWS";
+
+    return {
+      full: true,
+      onDark: true,
+      body: `
+<div class="j-cta">
+  <img class="j-marca" src="${esc(MARCA.logoEscuro)}" alt="" />
+  <div class="j-cta-titulo">Receba isso <em>antes</em> de todo mundo.</div>
+  <div class="j-cta-linha">${esc(slide.body || ctx.ctaText || "A edição do dia no seu e-mail, todo dia às 6h. De graça.")}</div>
+  <span class="j-cta-palavra">Comente ${esc(palavra)}</span>
 </div>`,
     };
   },
@@ -728,6 +828,7 @@ export const SLIDE_VARIANTS: Record<InstagramSlideType, Record<string, SlideVari
     brand_card: coverBrandCard,
     noticia_sem_foto: coverNoticiaSemFoto,
     capa_destaque: coverCarrosselDestaque,
+    capa_jornal: capaJornal,
     result_showcase: coverResultShowcase,
     result_fullbleed: coverResultFullbleed,
     editorial_claro: coverEditorialClaro,
@@ -737,6 +838,7 @@ export const SLIDE_VARIANTS: Record<InstagramSlideType, Record<string, SlideVari
     bullets: contentBullets,
     highlight: contentHighlight,
     conteudo_editorial: conteudoEvergreen,
+    miolo_jornal: mioloJornal,
     comparacao_duas_colunas: comparacaoDuasColunas,
   },
   quote_highlight: { pull_quote: quotePull, ressalva_editorial: ressalvaEvergreen },
@@ -750,7 +852,11 @@ export const SLIDE_VARIANTS: Record<InstagramSlideType, Record<string, SlideVari
   tip: { destaque_claro: tipEditorialClaro, light_card: tipLightCard },
   gallery: { tela_cheia: galleryTelaCheia, image_caption: galleryImageCaption },
   personalization: { prompt_swap: personalizationPromptSwap },
-  cta: { keyword_claro: ctaEditorialClaro, dark_card: ctaDarkCard },
+  cta: {
+    keyword_claro: ctaEditorialClaro,
+    dark_card: ctaDarkCard,
+    cta_newsletter: ctaNewsletter,
+  },
 };
 
 /** `{ cover: [{key,label},…], … }` — o que o painel do admin lista. */

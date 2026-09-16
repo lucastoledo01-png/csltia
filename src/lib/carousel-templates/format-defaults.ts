@@ -25,7 +25,7 @@ export const FORMAT_DEFAULTS: Record<CarouselFormat, FormatDefault> = {
   noticia: {
     allowedSlideTypes: ["cover"],
     variantBySlideType: {
-      cover: "fullbleed_portrait",
+      cover: "capa_jornal",
     },
     systemPromptKey: "noticia",
   },

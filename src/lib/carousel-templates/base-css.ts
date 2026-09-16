@@ -339,4 +339,89 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
   padding:20px 46px;border-radius:8px;width:fit-content;text-transform:uppercase;}
 .e-kw-line{font-size:34px;line-height:1.45;color:var(--s-ink);font-weight:500;max-width:820px;}
 .e-kw-line b{font-weight:800;color:var(--s-accent);}
+
+/* --- gramatica de jornal -------------------------------------------------
+   Um gabarito so, usado na capa e no miolo: foto sangrando, marca no alto a
+   esquerda, e no rodape o chapeu de editoria com a manchete em caixa alta.
+   A capa e a mesma peca com a bolha por cima.
+
+   As medidas nao sao estimadas. Foram lidas de tres referencias: o bloco de
+   texto ocupa de 70 a 90,5 por cento da altura, a margem lateral e 9 por
+   cento da largura, e o degrade comeca a escurecer na metade.
+
+   A foto fica COLORIDA. O tratamento em cinza que a capa anterior usa e uma
+   escolha de outra peca; aqui a cor da foto e parte do formato. */
+/* Sem foto o fundo e azul-marinho, e nao o creme que o shell usa por padrao:
+   o texto desta gramatica e branco, e branco sobre creme nao se le. */
+.j-fundo{position:absolute;inset:0;z-index:0;background:#0A3161;}
+.j-foto{position:absolute;inset:0;z-index:1;}
+.j-foto .s-photo{width:100%;height:100%;object-fit:cover;}
+
+/* O degrade nasce em 64 por cento e fecha embaixo: e ele que garante contraste
+   para a manchete branca sobre qualquer foto, clara ou escura. */
+.j-grad{position:absolute;inset:0;z-index:2;background:linear-gradient(to top,
+  rgba(0,0,0,0.95) 0%,rgba(0,0,0,0.92) 22%,rgba(0,0,0,0.72) 40%,
+  rgba(0,0,0,0.30) 55%,rgba(0,0,0,0) 70%);}
+
+.j-marca{position:absolute;top:7.5%;left:9%;z-index:4;height:52px;width:auto;}
+
+/* A bolha: segunda imagem em circulo, com anel branco, na altura do terco
+   superior. Ela existe para a capa dizer duas coisas ao mesmo tempo, o
+   personagem e o assunto, sem dividir a foto ao meio. */
+.j-bolha{position:absolute;z-index:3;left:4%;top:19%;width:44%;aspect-ratio:1;
+  border-radius:50%;overflow:hidden;box-shadow:0 0 0 7px rgba(255,255,255,0.95),
+  0 18px 60px rgba(0,0,0,0.45);}
+.j-bolha img{width:100%;height:100%;object-fit:cover;display:block;}
+
+/* A faixa do texto tem altura DEFINIDA, e isso nao e detalhe.
+   O script de ajuste encolhe a manchete enquanto o conteudo nao couber na
+   caixa, e ele mede clientHeight. Com a caixa de altura automatica, o
+   clientHeight e a propria altura do conteudo: a condicao nunca e verdadeira,
+   o script nunca encolhe nada, e a manchete longa sobe por cima da bolha.
+   Foi o que aconteceu na primeira renderizacao. */
+.j-texto{position:absolute;left:9%;right:9%;top:58%;bottom:9.5%;z-index:4;
+  display:flex;flex-direction:column;justify-content:flex-end;}
+
+.j-chapeu{flex:0 0 auto;display:block;font-family:var(--s-font-display);font-size:26px;
+  font-weight:700;letter-spacing:0.19em;text-transform:uppercase;color:#fff;
+  margin-bottom:22px;}
+
+/* Caixa alta, peso 800, entrelinha curta. O tamanho e um teto: quem decide e o
+   navegador, pelo mesmo script que os layouts desenhados usam, porque manchete
+   de 60 e de 120 caracteres nao cabem no mesmo corpo. */
+/* O teto vem de max-height, e nao de flex:1.
+   Com flex:1 a manchete ocupava a faixa inteira e empurrava o chapeu para o
+   topo dela: manchete curta ficava com um buraco no meio. Com max-height os
+   dois se apoiam na base, encostados, e o script de ajuste continua tendo uma
+   caixa definida para medir, porque a faixa tem topo e base fixos. */
+.j-manchete{flex:0 0 auto;max-height:78%;overflow:hidden;display:block;
+  font-family:var(--s-font-display);font-size:74px;font-weight:800;line-height:1.1;
+  letter-spacing:-0.005em;text-transform:uppercase;color:#fff;}
+.j-manchete > span{display:block;}
+
+/* --- chamada da newsletter ------------------------------------------------ */
+/* As cores aqui sao escritas, e nao lidas dos tokens, de proposito.
+   Os tokens carregam a paleta da vertical anterior: fundo creme e acento
+   laranja. A primeira renderizacao desta peca saiu com texto branco sobre
+   creme, ou seja invisivel. A gramatica de jornal e da marca nova, e usa o
+   azul-marinho e o vermelho da bandeira. Quando os tokens forem migrados
+   para a marca nova, estas tres linhas voltam a ser var(). */
+/* Apoiado na base, e nao centrado. Centrado, o bloco ficava no meio e sobrava
+   um terco de vazio embaixo, que le como peca que nao terminou de carregar.
+   Na base, ele segue a mesma regra das outras pecas do carrossel: o texto mora
+   embaixo, e o que sobra em cima e respiro sob a marca. */
+.j-arrasta{display:block;margin-top:26px;font-family:var(--s-font-mono);
+  font-size:22px;font-weight:600;letter-spacing:0.04em;color:rgba(255,255,255,0.72);}
+
+.j-cta{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;
+  justify-content:flex-end;padding:0 9% 11% 9%;background:#0A3161;}
+.j-cta-titulo{font-family:var(--s-font-display);font-size:86px;font-weight:800;
+  line-height:1.06;letter-spacing:-0.02em;color:#fff;}
+.j-cta-titulo em{font-style:normal;color:#E4344A;}
+.j-cta-linha{margin-top:36px;font-family:var(--s-font-display);font-size:34px;
+  font-weight:500;line-height:1.4;color:rgba(255,255,255,0.78);}
+.j-cta-palavra{align-self:flex-start;margin-top:56px;padding:22px 42px;
+  background:#E4344A;color:#fff;font-family:var(--s-font-display);
+  font-size:40px;font-weight:800;letter-spacing:0.02em;text-transform:uppercase;}
+
 `;

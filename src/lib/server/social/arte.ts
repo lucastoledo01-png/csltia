@@ -239,12 +239,26 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
    * escura já é a peça, e a foto entra por cima dela quando existe. Uma
    * variante só significa que o dia sem imagem não muda a cara do feed.
    */
+  /*
+   * Uma gramatica so, com e sem foto, carrossel ou imagem unica.
+   *
+   * Eram tres variantes para a mesma pergunta, e a diferenca entre elas era
+   * historica, nao editorial: `fullbleed_portrait` traz o cartao de perfil da
+   * fase 1, `capa_destaque` marca uma palavra da manchete, `noticia_sem_foto`
+   * e uma peca inteira de tipo. Tres desenhos diferentes no mesmo feed fazem o
+   * perfil parecer tres perfis.
+   *
+   * `capa_jornal` cobre os dois casos COM foto, carrossel ou imagem unica, que
+   * antes eram dois desenhos diferentes sem motivo editorial.
+   *
+   * Sem foto continua sendo `noticia_sem_foto`, e isso nao e omissao. Aquela
+   * peca e tipografica de proposito, e faz coisas que a gramatica de jornal
+   * nao faz: mede o corpo do tipo no navegador e impede que "I-765" quebre no
+   * meio. Pintar um fundo azul e escrever a manchete em cima seria a mesma
+   * peca pior.
+   */
   const doCarrossel = entrada.estiloDaCapa === "carrossel";
-  const variante = doCarrossel
-    ? "capa_destaque"
-    : comFoto
-      ? "fullbleed_portrait"
-      : "noticia_sem_foto";
+  const variante = comFoto ? "capa_jornal" : "noticia_sem_foto";
 
   const slide: InstagramSlide = {
     index: 1,

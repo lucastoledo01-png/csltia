@@ -27,13 +27,13 @@ import { destaqueEhTrechoDaManchete } from "./guarda";
  * Determinismo aqui é o que o item 9 do pedido pede.
  */
 const VARIANTE_POR_TIPO: Record<string, string> = {
-  cover: "noticia_sem_foto",
-  content: "conteudo_editorial",
-  step: "numerado_claro",
-  quote_highlight: "ressalva_editorial",
-  practical_impact: "conteudo_editorial",
-  tip: "destaque_claro",
-  cta: "keyword_claro",
+  cover: "capa_jornal",
+  content: "miolo_jornal",
+  step: "miolo_jornal",
+  quote_highlight: "miolo_jornal",
+  practical_impact: "miolo_jornal",
+  tip: "miolo_jornal",
+  cta: "cta_newsletter",
 };
 
 function slideVazio(index: number, type: string, variant: string): InstagramSlide {
