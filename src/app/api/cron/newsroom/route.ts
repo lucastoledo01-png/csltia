@@ -79,7 +79,17 @@ async function reportNewsroomOutcome(
   }
 
   const semPautas = "selectedStoriesCount" in resultado && resultado.selectedStoriesCount === 0;
-  const qaReprovou = "qaResult" in resultado && resultado.qaResult && !resultado.qaResult.passed;
+  /*
+   * O alerta olha o MESMO campo que o portão de retenção olha.
+   *
+   * O portão retém por `hallucination_risk`; o alerta avisava por `passed`.
+   * `passed` é o veredito genérico que o auditor reprova por gramática, tom ou
+   * implicância de estilo, então o alerta dizia "campanha retida" em dias em
+   * que ela tinha sido disparada normalmente. Alerta que mente é alerta que
+   * alguém aprende a ignorar.
+   */
+  const qaReteve =
+    "qaResult" in resultado && resultado.qaResult && Boolean(resultado.qaResult.hallucination_risk);
 
   if (semPautas) {
     await sendAlert(
@@ -87,7 +97,7 @@ async function reportNewsroomOutcome(
       "Redação rodou mas não selecionou nenhuma pauta",
       "Nenhum candidato passou no ranqueamento hoje.",
     );
-  } else if (qaReprovou) {
+  } else if (qaReteve) {
     await sendAlert(
       "warning",
       "Edição retida no QA de alucinação",

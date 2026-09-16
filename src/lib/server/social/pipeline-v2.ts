@@ -14,6 +14,7 @@ import { modoDoPipelineSocial, permiteEnforce, diagnosticoSocialVazio } from "./
 import type { ResumoVisualDoDia } from "./modo";
 import type { DiagnosticoSocial, ModoSocial } from "./modo";
 import { chaveDeIdempotencia, resolverOrigem } from "./social-posts-store";
+import { alternarBolha, ultimaTeveBolha } from "./ritmo-da-bolha";
 import type { PostParaGravar, SocialPostsStore } from "./social-posts-store";
 import { mesmaKeyword, resolverKeywordCanonica } from "./keyword-canonica";
 import type { ResolucaoDaKeyword } from "./keyword-canonica";
@@ -486,7 +487,50 @@ export async function rodarCicloSocial(
     linhas.push(`[SOCIAL V2] não consegui ler os posts do dia, seguindo sem o filtro: ${(erro as Error).message}`);
   }
 
-  for (const p of previews) {
+  /*
+   * O ritmo da bolha, decidido antes de qualquer render.
+   *
+   * A bolha é o círculo com a segunda foto na capa. Ela chama atenção porque
+   * quebra o padrão, e recurso que quebra padrão só funciona enquanto for
+   * exceção: em todo post, ele VIRA o padrão e o feed fica com cara de
+   * template. Então ter a segunda foto é condição necessária, não suficiente.
+   *
+   * O estado vem do feed, e não da leva: sem ler a última peça publicada, cada
+   * execução recomeçaria o ritmo do zero e duas capas com bolha se encostariam
+   * na virada do dia, que é justamente onde o leitor percebe repetição.
+   *
+   * Falha de leitura não derruba a leva. Ela só faz a primeira peça sair sem
+   * bolha, que é o lado seguro do erro.
+   */
+  let ultimaComBolha = false;
+  try {
+    ultimaComBolha = ultimaTeveBolha(await opcoes.store.ultimasCapas(opcoes.projectId, 1));
+  } catch (erro) {
+    linhas.push(
+      `[SOCIAL V2] não consegui ler o ritmo da bolha, a leva começa sem ela: ${(erro as Error).message}`,
+    );
+    ultimaComBolha = true;
+  }
+
+  const bolhas = alternarBolha(
+    previews.map((p) => ({ temSegundaFoto: Boolean(p.visual?.assetSecundario) })),
+    ultimaComBolha,
+  );
+  linhas.push(
+    `[SOCIAL V2] ritmo da bolha: ${bolhas.map((b) => (b ? "com" : "sem")).join(", ")} ` +
+      `(a peça anterior do feed ${ultimaComBolha ? "tinha" : "não tinha"} bolha)`,
+  );
+
+  for (const [indice, p] of previews.entries()) {
+    /*
+     * A bolha desta peça, já decidida pelo ritmo.
+     *
+     * Zerar o secundário AQUI, e não lá dentro do desenho, é o que faz o
+     * artefato congelado e a linha do banco contarem a mesma história: o que
+     * for gravado como `bolha` é o que a peça realmente mostra.
+     */
+    const secundarioDaCapa = bolhas[indice] ? (p.visual?.assetSecundario ?? null) : null;
+
     if (jaTemPostHoje.has(chaveDeIdempotencia(opcoes.editionDate, p.post.pauta.storyId))) {
       linhas.push(
         `[SOCIAL V2] ${p.post.pauta.storyId} já tem post hoje: não renderiza de novo ` +
@@ -513,7 +557,7 @@ export async function rodarCicloSocial(
             {
               eixo: p.post.pauta.classificacao.eixo ?? "",
               asset: p.visual?.asset ?? null,
-              assetSecundario: p.visual?.assetSecundario ?? null,
+              assetSecundario: secundarioDaCapa,
               motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
             },
           ).entradas,
@@ -525,7 +569,7 @@ export async function rodarCicloSocial(
             headline: p.post.copy.headline,
             eixo: p.post.pauta.classificacao.eixo,
             asset: p.visual?.asset ?? null,
-            assetSecundario: p.visual?.assetSecundario ?? null,
+            assetSecundario: secundarioDaCapa,
             motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
           },
           path,
@@ -565,6 +609,7 @@ export async function rodarCicloSocial(
       origem: p.origem,
       formato: carrossel ? "carousel" : "static",
       artefatos,
+      bolha: Boolean(secundarioDaCapa),
     });
   }
 

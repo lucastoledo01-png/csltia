@@ -520,6 +520,24 @@ export async function renderizarCapas(
         }
       }
 
+      /*
+       * A bolha também é embutida, e não apontada.
+       *
+       * A foto de fundo virava data URL logo acima; a do círculo ia como
+       * endereço remoto direto no HTML. Se o host recusasse o pedido no
+       * instante do screenshot, e o Commons recusa pedido sem User-Agent com
+       * alguma frequência, o PNG aprovado saía com um círculo branco vazio no
+       * terço superior, e o hash congelava esse defeito.
+       *
+       * Bolha que não baixa vira capa sem bolha. É o mesmo tratamento que a
+       * foto de fundo recebe, e pelo mesmo motivo: ausência é melhor que
+       * buraco.
+       */
+      if (capa.slide.inset_image_url) {
+        const bolha = await baixarComoDataUrl(capa.slide.inset_image_url, fetcher);
+        capa = { ...capa, slide: { ...capa.slide, inset_image_url: bolha ?? "" } };
+      }
+
       // Ver `layoutCarregaAFoto`: sem bloco de imagem, o desenho engole a foto
       // e deixa a manchete branca sobre fundo claro.
       const diagnosticoDoLayout = diagnosticarLayout(layout, capa.comFoto);

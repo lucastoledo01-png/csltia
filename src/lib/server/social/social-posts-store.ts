@@ -110,6 +110,15 @@ export type PostParaGravar = {
   artefatos: ArtefatoDeSlide[];
   /** Imagem única ou carrossel. Gravado, nunca deduzido da contagem. */
   formato: FormatoDoPost;
+  /**
+   * Esta capa saiu com o círculo da segunda foto?
+   *
+   * Gravado, e não deduzido de `visual.assetSecundario`, porque as duas coisas
+   * são diferentes: o visual diz que EXISTIA uma segunda foto aprovada, e este
+   * campo diz que ela FOI ao ar. Quem alterna o ritmo lê este campo, e ler o
+   * outro faria a alternância enxergar bolha onde a peça não tem nenhuma.
+   */
+  bolha: boolean;
 };
 
 /** O artefato como a linha o registra. Um formato, usado pela capa e por slide. */
@@ -145,6 +154,12 @@ type LinhaExistente = {
 export type SocialPostsStore = {
   /** O que já existe para este projeto nesta data. Base da idempotência. */
   doDia(projectId: string, editionDate: string): Promise<LinhaExistente[]>;
+  /**
+   * As capas mais recentes, da mais nova para a mais antiga, só com o que o
+   * ritmo precisa saber. Atravessa dias de propósito: o feed não zera à
+   * meia-noite.
+   */
+  ultimasCapas(projectId: string, limite: number): Promise<Array<{ bolha: boolean }>>;
   gravar(posts: PostParaGravar[]): Promise<ResultadoDaGravacaoSocial>;
 };
 
@@ -160,6 +175,31 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
 
       if (error) throw new Error(`social_posts, leitura do dia falhou: ${error.message}`);
       return (data ?? []) as unknown as LinhaExistente[];
+    },
+
+    async ultimasCapas(projectId, limite) {
+      const { data, error } = await client
+        .from("social_posts")
+        .select("content_json")
+        .eq("project_id", projectId)
+        .eq("platform", "instagram")
+        .order("scheduled_at", { ascending: false })
+        .limit(limite);
+
+      if (error) throw new Error(`social_posts, leitura do ritmo falhou: ${error.message}`);
+
+      /*
+       * Linha antiga não tem o campo, e a resposta certa para ela é `false`.
+       *
+       * Toda peça gravada antes de 16/09/2026 saiu sem o registro do ritmo.
+       * Tratar ausência como "teve bolha" faria a primeira peça depois do
+       * deploy sair sem círculo por engano; tratar como "não teve" apenas
+       * permite que a próxima leve, que é o comportamento neutro.
+       */
+      return (data ?? []).map((linha) => {
+        const conteudo = (linha as { content_json?: { arte?: { bolha?: boolean } } }).content_json;
+        return { bolha: conteudo?.arte?.bolha === true };
+      });
     },
 
     async gravar(posts) {
@@ -339,6 +379,15 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
                * outro.
                */
               artefatos: p.artefatos.map(comoRegistro),
+              /*
+               * O ritmo do feed, gravado peça a peça.
+               *
+               * É a única memória de que a capa anterior levou o círculo. Sem
+               * ela, a próxima execução não teria como alternar e a bolha
+               * voltaria a sair em todo post, que é o defeito apontado em
+               * 16/09/2026.
+               */
+              bolha: p.bolha,
             },
             /*
              * O registro do direito é completo mesmo quando a arte não imprime

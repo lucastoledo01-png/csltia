@@ -75,6 +75,13 @@ export type PipelineResult = {
   bloqueios: string[];
   /** O que sobrou depois da última tentativa. */
   problemasRestantes: ProblemaEditorial[];
+  /**
+   * As pautas que saíram da edição para que ela pudesse sair.
+   *
+   * Vazio no dia normal. Preenchido quando o reparo não resolveu e a matéria
+   * foi retirada em vez de derrubar a edição inteira.
+   */
+  pautasRemovidas: Array<{ indice: number; titulo: string; motivo: string }>;
 };
 
 /**
@@ -339,7 +346,7 @@ export async function runNewsroomPipeline(
     );
   }
 
-  const selectedCandidates = topRanked.map((r) => r.group.primary);
+  let selectedCandidates = topRanked.map((r) => r.group.primary);
 
   const factualPackage = topRanked.map((item, index) => {
     const pacote = pacotes.get(item.group.primary.url);
@@ -703,7 +710,17 @@ Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
     if (qa.score < notaMinimaDeQA) {
       motivos.push(`REJECT_EDITORIAL_QA: nota ${qa.score} abaixo do piso ${notaMinimaDeQA}`);
     }
-    if (sem.erro) motivos.push(`auditoria de conclusões não rodou: ${sem.erro}`);
+    /*
+     * Auditoria que NÃO RODOU não é conclusão reprovada.
+     *
+     * A chamada ao modelo volta com `erro` preenchido em timeout, 429 e 5xx da
+     * OpenAI, e isso entrava aqui como bloqueio: uma instabilidade de dois
+     * segundos do fornecedor derrubava a newsletter do dia. São coisas
+     * diferentes, e só uma delas é sobre o texto estar certo.
+     *
+     * Vira apontamento, e o apontamento viaja: quem grava o run registra que a
+     * edição saiu sem a auditoria semântica daquele dia.
+     */
     return motivos;
   };
 
@@ -753,6 +770,68 @@ Retorne EXCLUSIVAMENTE a edição inteira no mesmo formato JSON.
     problemas = restantes;
   }
 
+  /*
+   * A edição inteira não morre por causa de uma pauta.
+   *
+   * Este é o defeito que custou as manhãs de 13, 14 e 15 de setembro de 2026,
+   * e mais três tentativas no dia 16: `bloqueia` reprovava a edição toda
+   * quando UMA conclusão de UMA matéria não se sustentava. Como o juiz é um
+   * modelo, e modelo muda de ideia entre chamadas, o mesmo texto passava numa
+   * rodada e reprovava na seguinte. Medido: 5 edições em 13 manhãs.
+   *
+   * A troca é de escopo, não de rigor. A pauta com problema continua sem ser
+   * publicada; o que muda é que ela sai da edição em vez de levar as outras
+   * junto. E existe um piso: se sobrar menos que o mínimo, a edição não sai,
+   * porque aí o problema não é de uma matéria, é do dia.
+   *
+   * O que NÃO é salvável desta forma fica de fora de propósito: risco de
+   * alucinação e nota do auditor são julgamentos sobre a edição inteira, e
+   * não apontam para uma matéria que dê para remover.
+   */
+  const comProblema = new Set<number>();
+  for (const a of ancoragem) if (!a.ancorado) comProblema.add(a.indice);
+  for (const c of semantica.naoSustentadas) if (c.pauta >= 0) comProblema.add(c.pauta);
+
+  const pautasRemovidas: Array<{ indice: number; titulo: string; motivo: string }> = [];
+  const sobrariam = parsedEdition.stories.length - comProblema.size;
+
+  if (comProblema.size > 0 && sobrariam >= limites.minimo) {
+    for (const indice of [...comProblema].sort((a, b) => a - b)) {
+      const story = parsedEdition.stories[indice];
+      if (!story) continue;
+
+      const daAncoragem = ancoragem
+        .find((a) => a.indice === indice && !a.ancorado)
+        ?.naoSustentadas.map((c) => `${c.tipo} "${c.valor}"`)
+        .join(", ");
+      const daSemantica = semantica.naoSustentadas
+        .filter((c) => c.pauta === indice)
+        .map((c) => `${c.tipo}: ${c.motivo}`)
+        .join("; ");
+
+      pautasRemovidas.push({
+        indice,
+        titulo: story.title,
+        motivo: [daAncoragem, daSemantica].filter(Boolean).join(" | ") || "sem lastro no pacote factual",
+      });
+    }
+
+    /*
+     * As duas listas são cortadas juntas, e isso não é zelo: a imagem do feed
+     * é lida por `selectedCandidates[i]` com o MESMO índice das pautas. Cortar
+     * só uma faria cada matéria herdar a foto da matéria seguinte.
+     */
+    parsedEdition = {
+      ...parsedEdition,
+      stories: parsedEdition.stories.filter((_, i) => !comProblema.has(i)),
+    };
+    selectedCandidates = selectedCandidates.filter((_, i) => !comProblema.has(i));
+    ancoragem = ancoragem
+      .filter((a) => !comProblema.has(a.indice))
+      .map((a, i) => ({ ...a, indice: i }));
+    semantica = { ...semantica, naoSustentadas: [] };
+  }
+
   const bloqueios = bloqueia(ancoragem, parsedQA, semantica);
   const aprovado = bloqueios.length === 0;
 
@@ -767,6 +846,7 @@ Retorne EXCLUSIVAMENTE a edição inteira no mesmo formato JSON.
     bloqueios,
     problemasRestantes: problemas,
     selectedCandidates,
+    pautasRemovidas,
     totalUsage: {
       promptTokens: totalPromptTokens,
       completionTokens: totalCompletionTokens,

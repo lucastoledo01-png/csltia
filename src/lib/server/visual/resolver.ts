@@ -12,7 +12,13 @@ import { escolherEntidadeVisual, entidadeConceitual } from "./entidade-visual";
 import { buscarNoCommons, candidatoParaAsset } from "./wikimedia";
 import { buscarNoOpenverse, candidatoParaAsset as candidatoDoOpenverse } from "./openverse";
 import { buscarEmFonteOficial } from "./fonte-oficial";
-import { carregarConfigDeImagem, pisoDeRelevancia, pontuarImagem } from "./relevancia";
+import {
+  carregarConfigDeImagem,
+  pisoDeRelevancia,
+  pontuarImagem,
+  temIdentidade,
+  type NotaDaImagem,
+} from "./relevancia";
 import { avaliarLicenca, montarAtribuicao } from "./licencas";
 import { bancoConfigurado, buscarFotoDeBanco, identidadeDaFoto } from "../prompt-system/stock";
 import { consultaConceitual } from "./conceitual";
@@ -515,7 +521,7 @@ function melhorPontuado<T extends AssetVisual>(
    * Por isso a vice sai daqui, e não de um segundo filtro em outro lugar:
    * quem sabe quais candidatas foram aprovadas é este laço.
    */
-  const aprovadas: Array<{ item: T; nota: number }> = [];
+  const aprovadas: Array<{ item: T; nota: NotaDaImagem }> = [];
 
   for (const c of candidatos) {
     // Largura zero significa dimensão desconhecida (fonte oficial não informa),
@@ -612,10 +618,10 @@ function melhorPontuado<T extends AssetVisual>(
       continue;
     }
 
-    aprovadas.push({ item: c, nota: nota.total });
+    aprovadas.push({ item: c, nota });
   }
 
-  aprovadas.sort((a, b) => b.nota - a.nota);
+  aprovadas.sort((a, b) => b.nota.total - a.nota.total);
 
   /*
    * A vice não pode ser a mesma imagem da vencedora.
@@ -629,7 +635,30 @@ function melhorPontuado<T extends AssetVisual>(
     aprovadas.find(
       (a) =>
         a.item !== melhor &&
-        identidadeDaFoto(a.item.imageUrl) !== identidadeDaFoto(melhor?.imageUrl ?? ""),
+        identidadeDaFoto(a.item.imageUrl) !== identidadeDaFoto(melhor?.imageUrl ?? "") &&
+        /*
+         * A bolha exige MAIS do que a foto de fundo, e não o mesmo.
+         *
+         * O fundo pode ser a cena: a rua, o prédio, o plano aberto. Ele ocupa
+         * a peça inteira e o degradê come metade dele. A bolha é um círculo de
+         * 44 por cento de largura no terço superior, e o que não é
+         * reconhecível ali vira mancha. Passar na mesma régua do fundo não
+         * basta; a vice precisa mostrar quem ou o que a pauta cita.
+         */
+        temIdentidade(a.nota) &&
+        /*
+         * E a vice NUNCA é do banco conceitual.
+         *
+         * O banco conceitual entra como último caso para a foto de fundo: numa
+         * pauta sem rosto e sem lugar, uma imagem de apoio ainda é melhor que
+         * peça vazia. Para a bolha o cálculo é outro. O círculo é pequeno,
+         * fica no terço superior e é a primeira coisa que o olho encontra: ali
+         * uma foto genérica de banco não reforça nada, ela anuncia que a peça
+         * não tinha o que mostrar. Melhor capa sem bolha do que bolha sem
+         * assunto, e foi exatamente esta a correção pedida em 16/09/2026.
+         */
+        a.item.source !== "banco_conceitual" &&
+        a.item.imageContextType !== "conceptual",
     )?.item ?? null;
 
   return { melhor, vice };

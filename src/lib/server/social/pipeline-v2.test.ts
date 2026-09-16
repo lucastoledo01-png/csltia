@@ -83,6 +83,7 @@ function storeEspiao() {
   const tentativas: unknown[][] = [];
   const store: SocialPostsStore = {
     async doDia() { return []; },
+    async ultimasCapas() { return []; },
     async gravar(posts) {
       tentativas.push(posts as unknown[]);
       return { gravados: posts.length, bloqueadosPorIdempotencia: [], erros: [], ids: posts.map((_, i) => `id-${i}`) };

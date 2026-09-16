@@ -12,6 +12,9 @@ import {
 } from "../projects";
 import { getSupabaseAdminClient } from "../supabase-admin";
 import { collectAllNews } from "./collector";
+import { coletarTendencias, limparTendencias, triarTendencias } from "../editorial/tendencias";
+import { buscasDoDia } from "../editorial/busca-dinamica";
+import { agendaEmTexto, somarDias } from "../editorial/calendario";
 import { deduplicateCandidates } from "./deduplicator";
 import { runNewsroomPipeline } from "./pipeline";
 import { rankAndFilterCandidates } from "./ranker";
@@ -969,6 +972,24 @@ export async function runNewsroom(
   }
 }
 
+/**
+ * A agenda escrita para o redator, ou vazio.
+ *
+ * O horizonte é curto de propósito. Trinta dias é o que cabe numa edição
+ * diária: o que está a noventa dias não muda uma linha do texto de hoje, e
+ * encheria o briefing de ruído que o modelo tentaria usar.
+ */
+function agendaDoBriefing(hoje: string): string {
+  const texto = agendaEmTexto(hoje, 30);
+  if (!texto) return "";
+
+  return [
+    "O QUE VEM POR AÍ (use só se a pauta do dia encostar no assunto, e nunca force):",
+    texto,
+    "Não escreva sobre uma data futura como se fosse notícia do dia. Ela serve para dar contexto a uma pauta que já existe.",
+  ].join("\n");
+}
+
 async function executarRedacaoDoDia(
   options: RunNewsroomOptions = {},
   env: Record<string, string | undefined> = process.env,
@@ -1017,8 +1038,49 @@ async function executarRedacaoDoDia(
   // então um projeto de outro segmento exigiria editar o fonte e fazer deploy.
   const sources = await getProjectNewsSources(project.id);
 
-  console.log(`[NEWSROOM] Coletando notícias de ${sources.length} fontes configuradas para ${project.slug}...`);
-  const collectionResult = await collectAllNews(sources, fetcher);
+  /*
+   * As buscas que o DIA cria, somadas às fontes cadastradas.
+   *
+   * As fontes do banco respondem "o que estas publicações publicaram?". Isso
+   * deixa de fora o que ainda não foi publicado mas tem data marcada, e o que
+   * o país inteiro está procurando agora. O calendário resolve o primeiro, a
+   * tendência resolve o segundo, e as duas viram fonte de busca para
+   * atravessarem a MESMA coleta, deduplicação, classificação e guarda.
+   *
+   * O bloco inteiro é opcional por construção. Ele está dentro de um try, a
+   * triagem já devolve vazio quando falha, e a chave desliga tudo: nenhuma
+   * dessas três coisas pode custar a edição do dia, porque a edição não
+   * depende delas para existir.
+   */
+  const fontesDoDia = [...sources];
+  if (env.EDITORIAL_BUSCA_DINAMICA !== "off") {
+    try {
+      const { tendencias, avisos } = await coletarTendencias({
+        fetcher,
+        ontem: somarDias(todayStr, -1),
+      });
+      if (avisos.length > 0) console.warn(`[NEWSROOM] tendências, fontes que falharam: ${avisos.join(" | ")}`);
+
+      const triagem = await triarTendencias(limparTendencias(tendencias), env, fetcher);
+      if (triagem.erro) console.warn(`[NEWSROOM] triagem de tendências não rodou: ${triagem.erro}`);
+
+      const buscas = buscasDoDia({ hoje: todayStr, tendencias: triagem.aprovadas });
+      fontesDoDia.push(...buscas.fontes);
+
+      console.log(
+        `[NEWSROOM] ${buscas.fontes.length} busca(s) do dia: ` +
+          [
+            ...buscas.doCalendario.map((d) => `calendário "${d.nome}" em ${d.faltam}d`),
+            ...buscas.deTendencia.map((t) => `tendência "${t.termo}" (${t.eixo})`),
+          ].join(" | "),
+      );
+    } catch (erro) {
+      console.warn(`[NEWSROOM] busca dinâmica não rodou, seguindo só com as fontes do banco: ${(erro as Error).message}`);
+    }
+  }
+
+  console.log(`[NEWSROOM] Coletando notícias de ${fontesDoDia.length} fontes (${sources.length} do banco) para ${project.slug}...`);
+  const collectionResult = await collectAllNews(fontesDoDia, fetcher);
   console.log(`[NEWSROOM] ${collectionResult.candidates.length} candidatas encontradas na janela de ${collectionResult.windowHours}h em ${collectionResult.sourcesAttempted} fontes.`);
 
   const { uniqueGroups, duplicatesCount } = deduplicateCandidates(collectionResult.candidates);
@@ -1338,7 +1400,18 @@ async function executarRedacaoDoDia(
     {
       nome: project.brand.displayName || project.name,
       nicho: project.niche,
-      extra: project.editorialPromptExtra,
+      /*
+       * A voz do projeto, mais o que vem por aí.
+       *
+       * O redator escrevia sem saber a data. Com a agenda no briefing, uma
+       * pauta de varejo escrita em 6 de novembro pode dizer que a Black Friday
+       * é dali a três semanas, porque a informação está na mão dele. Sem ela,
+       * o texto trata toda semana como se fosse uma semana qualquer.
+       *
+       * Vazio na maior parte dos dias, e isso está certo: em 5 de janeiro não
+       * existe gancho, e inventar um seria pior do que não ter.
+       */
+      extra: [project.editorialPromptExtra, agendaDoBriefing(todayStr)].filter(Boolean).join("\n\n"),
       assinatura:
         String(project.settings?.final_line ?? "").trim() ||
         `Até amanhã. Equipe ${project.brand.displayName || project.name}.`,
@@ -1419,6 +1492,28 @@ async function executarRedacaoDoDia(
     console.error(
       `[NEWSROOM] Auditoria de conclusões não rodou: ${pipelineResult.claimsSemanticas.erro}. ` +
         "Isso NÃO é aprovação.",
+    );
+  }
+
+  /*
+   * A matéria que saiu para a edição poder sair.
+   *
+   * Isto precisa ser barulhento. Uma edição de duas pautas quando o dia tinha
+   * quatro é uma edição menor de propósito, e quem lê o log amanhã tem que
+   * saber que a decisão foi tomada aqui e por qual motivo, não descobrir pela
+   * contagem.
+   */
+  if (pipelineResult.pautasRemovidas.length > 0) {
+    console.warn(
+      `[NEWSROOM] ${pipelineResult.pautasRemovidas.length} pauta(s) retirada(s) para a edição sair: ` +
+        pipelineResult.pautasRemovidas.map((p) => `"${p.titulo}" (${p.motivo})`).join(" | "),
+    );
+    await sendAlert(
+      "warning",
+      `Edição saiu sem ${pipelineResult.pautasRemovidas.length} pauta(s)`,
+      pipelineResult.pautasRemovidas.map((p) => `${p.titulo}: ${p.motivo}`).join("\n") +
+        `\n\nA edição foi publicada com as ${pipelineResult.edition.stories.length} pautas que sobraram. ` +
+        "Antes de 16/09/2026 este caso derrubava a edição inteira.",
     );
   }
 

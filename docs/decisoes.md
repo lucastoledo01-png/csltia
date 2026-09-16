@@ -204,6 +204,71 @@ descrição larga.** O instalador oficial busca da branch `main` no momento da
 instalação, então auditar e instalar viram conteúdos diferentes. Detalhes em
 `.claude/skills/PROCEDENCIA.md`.
 
+## O dia deixou de ser só reativo (16/09/2026)
+
+A coleta lê 55 fontes e responde uma pergunta só: *o que estas publicações
+publicaram?* Isso deixa dois buracos, e os dois são de tempo.
+
+**O futuro.** A Black Friday é daqui a três semanas e nenhuma fonte escreveu
+sobre ela ainda. Quando escreverem, faltarão dois dias. Quem sabe a data é o
+calendário, e ele sabe hoje. `editorial/calendario.ts` gera de 84 a 92 datas
+por ano, por REGRA e não por tabela, para os Estados Unidos e para o Brasil,
+válido de 2026 a 2030 e além. Só vira tabela o que não tem regra: as reuniões
+do Fomc, copiadas do Federal Reserve, e os grandes eventos já marcados.
+
+**O agora.** O assunto do país pode não estar em nenhuma das 55.
+`editorial/tendencias.ts` lê Google Trends (EUA e Brasil), os mais lidos da
+Wikipédia e a capa do Hacker News. Reddit ficou de fora: devolve 403 sem
+autenticação, medido.
+
+Os dois viram fonte de busca no Google News, em `editorial/busca-dinamica.ts`,
+para atravessarem a MESMA coleta, deduplicação, classificação e guarda. Nada
+disso publica nada; só abre a porta.
+
+Três coisas que custaram medida e não podem ser desfeitas por engano:
+
+- **Tendência crua é quase toda esporte e celebridade.** Medido em 16/09/2026:
+  o Google Trends dos EUA trazia "barca game", "aaron judge" e "man u" entre os
+  dez primeiros. Por isso existe a triagem, e por isso ela devolve VAZIO quando
+  falha: passar o cru adiante pagaria classificação por placar de jogo.
+- **O relatório de emprego NÃO sai na primeira sexta do mês.** A regra do BLS é
+  a terceira sexta depois do fim da semana que contém o dia 12 do mês de
+  referência. As duas coincidem na maioria dos meses, e é por isso que a lenda
+  sobrevive. Conferido contra o feed oficial: agosto de 2026 saiu em 4 de
+  setembro.
+- **A Black Friday não é a última sexta de novembro.** É o dia seguinte à
+  QUARTA quinta-feira. Em anos com cinco quintas em novembro, a regra popular
+  erra por uma semana.
+
+## Uma pauta ruim não derruba mais a edição (16/09/2026)
+
+Entre 04/09 e 16/09 a redação rodou 13 manhãs e publicou 5. As de 13, 14 e 15
+morreram inteiras, e no dia 16 três execuções morreram antes de a quarta
+passar. O motivo estava sempre na mesma linha: o portão reprovava a EDIÇÃO
+quando UMA conclusão de UMA matéria não se sustentava no pacote factual.
+
+Seria defensável se o juiz fosse determinístico. Ele não é: quem decide é um
+modelo, e o mesmo texto reprovava numa chamada e passava na seguinte.
+
+A troca é de escopo, não de rigor. A matéria sem lastro continua não sendo
+publicada; ela é que sai, e não a edição. Abaixo do mínimo de pautas a edição
+continua não saindo, porque aí o problema é do dia. E auditoria que NÃO RODOU
+deixou de bloquear: timeout da OpenAI não é conclusão reprovada.
+
+## A bolha da capa tem régua própria (16/09/2026)
+
+A bolha é o círculo com a segunda foto. Duas regras novas, pedidas pelo dono:
+
+- **Identidade, não relevância.** O fundo pode ser a cena; o círculo precisa
+  mostrar quem ou o que a pauta cita. Uma foto sem nenhuma correspondência de
+  entidade soma 55 pontos, acima do piso de 45 do fundo, e virava o círculo. O
+  piso de identidade (38, que é 85 por cento do peso de entidade) barra isso
+  sem mexer no piso do fundo.
+- **Ritmo, não disponibilidade.** Recurso que quebra padrão só funciona
+  enquanto for exceção. Depois de uma capa com bolha vem uma sem, mesmo que a
+  segunda foto exista. O estado vem do feed, não da leva, senão duas capas com
+  bolha se encostam na virada do dia.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

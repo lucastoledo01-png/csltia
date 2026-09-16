@@ -78,7 +78,16 @@ export async function PUT(req: NextRequest) {
         name: String(body.name ?? "").slice(0, 80),
         canvas: parsed.data.canvas,
         blocks: parsed.data.blocks,
-        enabled: body.enabled !== false,
+        /*
+         * Ligar um desenho salvo é ato EXPLÍCITO.
+         *
+         * Era `body.enabled !== false`, então qualquer gravação sem o campo
+         * religava o desenho. Foi assim que o layout de 04/09, com a marca
+         * antiga e o bloco de imagem de fundo, voltou a vencer a gramática
+         * nova sempre que havia foto: ninguém religou de propósito, o padrão
+         * religou sozinho.
+         */
+        enabled: body.enabled === true,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "project_id,format,slide_type" },

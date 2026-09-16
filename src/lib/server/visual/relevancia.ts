@@ -119,6 +119,27 @@ export function pontuarImagem(asset: AssetVisual, entidade: EntidadeVisual): Not
   };
 }
 
+/**
+ * O piso de IDENTIDADE, que é outra pergunta do piso de relevância.
+ *
+ * Relevância pergunta "esta foto serve para esta pauta?". Identidade pergunta
+ * "dá para reconhecer nela quem ou o que a pauta cita?". Uma foto de rua
+ * qualquer de Boston pode servir a uma pauta sobre Boston e não mostrar nada
+ * reconhecível; uma foto do campus de Harvard mostra.
+ *
+ * 38 é 85 por cento do peso de entidade, que é exatamente a faixa em que a
+ * descrição da imagem CONTÉM o nome da entidade, ou em que o Wikidata declara
+ * a foto como sendo dela. Abaixo disso a foto casou por palavra solta.
+ *
+ * Quem usa isto é a bolha da capa. O círculo é pequeno e é a primeira coisa
+ * que o olho encontra: foto sem identidade ali não reforça, só ocupa.
+ */
+export const PISO_DE_IDENTIDADE = Math.round(PESO.entidade * 0.85);
+
+export function temIdentidade(nota: NotaDaImagem): boolean {
+  return nota.partes.entidade >= PISO_DE_IDENTIDADE;
+}
+
 /** O piso que esta pauta exige. Pessoa exige mais. */
 export function pisoDeRelevancia(entidade: EntidadeVisual, config: ConfigDeImagem): number {
   return ehPessoa(entidade.tipo) ? config.relevanciaMinimaPessoa : config.relevanciaMinima;
