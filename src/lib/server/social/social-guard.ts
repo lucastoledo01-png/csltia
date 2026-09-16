@@ -83,6 +83,28 @@ export type ProblemaDoPost = {
  * aprovação, elegibilidade, prazo ou custo num post é o tipo de coisa que
  * gera reclamação e, pior, faz alguém tomar decisão de vida com base numa
  * frase de marketing.
+ *
+ * ## O critério, que faltava escrito
+ *
+ * Promessa é AFIRMAÇÃO DE RESULTADO sobre o caso de quem lê: dizer que a
+ * pessoa se qualifica, que a aprovação está garantida, que sai em tal prazo ou
+ * que não precisa de advogado.
+ *
+ * Pergunta e convite NÃO são promessa. "Você pode morar nos Estados Unidos
+ * legalmente?" abre uma dúvida e manda a pessoa responder um questionário;
+ * "você pode morar nos Estados Unidos legalmente" afirma que ela pode, sem
+ * saber nada do caso dela. A primeira é chamada, a segunda é o que esta lista
+ * existe para barrar.
+ *
+ * A entrada "descubra se voce pode morar legalmente" saiu em 16/09/2026 por
+ * isso: ela barrava um convite, e não uma promessa. Pior, era incoerente com o
+ * produto, porque o e-mail já imprime a mesma pergunta no bloco de análise de
+ * perfil, e nunca houve decisão de proibi-la.
+ *
+ * Cuidado ao acrescentar: `normalizar` apaga a pontuação, então nenhuma
+ * entrada aqui consegue distinguir pergunta de afirmação. Uma frase que só
+ * vira promessa por causa do ponto de interrogação ausente NÃO pode entrar na
+ * lista, porque ela barraria as duas.
  */
 const PROMESSAS_PROIBIDAS = [
   "voce se qualifica",
@@ -96,7 +118,6 @@ const PROMESSAS_PROIBIDAS = [
   "sem burocracia",
   "sem advogado",
   "moradia legal garantida",
-  "descubra se voce pode morar legalmente",
 ];
 
 /** Urgência inventada é a outra família. */

@@ -171,7 +171,7 @@ async function main() {
         nome: project.brand.displayName || project.name,
         nicho: project.niche,
         extra: project.editorialPromptExtra ?? "",
-        keyword: String(project.settings?.instagram_keyword ?? "").trim() || "VISA",
+        keyword: String(project.settings?.instagram_keyword ?? "").trim() || "NEWS",
       },
       historico,
       config,

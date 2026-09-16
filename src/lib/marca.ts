@@ -39,8 +39,17 @@ export const MARCA = {
 
   /** Encerramento da edição e do post. */
   assinatura: "Até amanhã. Equipe usa.journal.",
-  /** Palavra que o leitor comenta no post para receber o material. */
-  keyword: "VISTO",
+  /**
+   * Palavra que o leitor comenta no post.
+   *
+   * Este valor é o PADRÃO de última instância, não a fonte da verdade. Quem
+   * manda é `prompt_campaigns.keyword`, porque é dela que sai o valor entregue
+   * ao OpenReply, que é quem escuta o comentário. Ver `keyword-canonica.ts`.
+   *
+   * Ele estava em "VISTO" aqui, "VISA" no banco e "NEWS" no padrão do worker:
+   * três palavras para um valor só. Agora as três dizem NEWS.
+   */
+  keyword: "NEWS",
 
   site: "https://casaloti.ia.br",
 

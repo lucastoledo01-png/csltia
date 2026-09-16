@@ -18,7 +18,7 @@ import { alternarFormatos, determinarFormatoEvergreen } from "../lib/server/soci
 import { levaCta } from "../lib/server/social/copy";
 
 /** A keyword do funil. Não é lida do banco aqui: o que importa é existir. */
-const MARCA_KEYWORD = "VISA";
+const MARCA_KEYWORD = "NEWS";
 
 /**
  * Sete dias de feed, com e sem conteúdo permanente.

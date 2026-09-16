@@ -236,10 +236,31 @@ describe("o que nenhuma reescrita conserta", () => {
 describe("promessa e urgência", () => {
   it("prometer aprovação é bloqueado", () => {
     const r = avaliarPostSocial(
-      copy({ cta: "Comente VISA e descubra se você pode morar legalmente nos EUA." }),
+      copy({ cta: "Comente NEWS e receba a aprovação garantida do seu visto." }),
       contexto(),
     );
     expect(r.issues.map((p) => p.motivo)).toContain(MOTIVOS_DO_SOCIAL_GUARD.CTA_PROIBIDO);
+  });
+
+  /*
+   * Este teste é a régua nova, e ele nasceu de uma pergunta do dono: "uma
+   * pergunta não é uma promessa, promessas são afirmações".
+   *
+   * Ele está certo, e a lista estava errada. A entrada que barrava "descubra
+   * se você pode morar legalmente" barrava um CONVITE, não uma afirmação de
+   * resultado, e era incoerente com o próprio produto: o e-mail imprime essa
+   * pergunta no bloco de análise de perfil desde sempre.
+   *
+   * Cuidado ao mexer: `normalizar` apaga a pontuação, então a guarda não
+   * consegue ver o ponto de interrogação. Ou seja, nenhuma entrada da lista
+   * pode depender dele.
+   */
+  it("convidar a descobrir não é prometer", () => {
+    const r = avaliarPostSocial(
+      copy({ cta: "Comente NEWS e descubra se você pode morar legalmente nos EUA." }),
+      contexto(),
+    );
+    expect(r.issues.map((p) => p.motivo)).not.toContain(MOTIVOS_DO_SOCIAL_GUARD.CTA_PROIBIDO);
   });
 
   it("urgência inventada é bloqueada", () => {
