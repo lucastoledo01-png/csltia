@@ -795,7 +795,18 @@ Retorne EXCLUSIVAMENTE a edição inteira no mesmo formato JSON.
   const pautasRemovidas: Array<{ indice: number; titulo: string; motivo: string }> = [];
   const sobrariam = parsedEdition.stories.length - comProblema.size;
 
-  if (comProblema.size > 0 && sobrariam >= limites.minimo) {
+  /*
+   * O piso é o maior entre o mínimo configurado e DOIS.
+   *
+   * `EditionContentSchema` exige `stories` com pelo menos 2, e o mínimo
+   * editorial vem do ambiente: alguém pode pôr 1 em `EDITORIAL_MIN_PAUTAS` e,
+   * sem esta linha, a remoção deixaria uma edição de uma pauta só, que o
+   * schema recusa na primeira revalidação lá na frente. Melhor não remover e
+   * bloquear do que produzir uma edição que não existe.
+   */
+  const pisoDePautas = Math.max(limites.minimo, 2);
+
+  if (comProblema.size > 0 && sobrariam >= pisoDePautas) {
     for (const indice of [...comProblema].sort((a, b) => a - b)) {
       const story = parsedEdition.stories[indice];
       if (!story) continue;
