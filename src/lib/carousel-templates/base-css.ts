@@ -216,17 +216,28 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 /* O autor, no topo, como em qualquer post de rede social. Sem selo de
    verificado: o perfil nao e verificado, e desenhar o selo seria dizer que e. */
 .r-autor{flex:0 0 auto;display:flex;align-items:center;gap:22px;margin-bottom:5.5%;}
-.r-ava{width:76px;height:76px;border-radius:50%;background:#0A3161;color:#fff;
-  display:flex;align-items:center;justify-content:center;font-size:38px;line-height:1;
-  box-shadow:0 0 0 3px #E4344A;}
+.r-ava{width:76px;height:76px;border-radius:50%;object-fit:cover;display:block;
+  background:#0A3161;}
 .r-quem{display:flex;flex-direction:column;gap:2px;}
 .r-nome{font-family:var(--s-font-display);font-size:34px;font-weight:800;color:#0f172a;
   letter-spacing:-0.01em;}
 .r-arroba{font-size:27px;font-weight:500;color:#64748b;}
 
-/* O bloco que encolhe. A altura e FLEX-BASIS pelo mesmo motivo da capa sem
-   foto: o script de ajuste mede clientHeight ANTES de aplicar o data-max, e
-   contra caixa de altura automatica ele conclui que so cabem duas linhas. */
+/* O CORPO E FIXO EM 46px, e nao e o ajuste que decide.
+
+   Esta e a diferenca de filosofia entre o recorte e a capa de jornal. Na capa
+   de jornal a manchete e a peca inteira, entao faz sentido ela crescer e
+   encolher para ocupar a faixa: o leitor ve uma peca por vez.
+
+   O recorte e um carrossel, e o leitor ve os slides EM SEQUENCIA, arrastando.
+   Tipo que muda de tamanho de um slide para o outro denuncia que a peca foi
+   montada por maquina, e foi exatamente isso que o dono apontou em 16/09/2026:
+   "precisa ter um padrao de tamanho de fonte, nao pode cada slide ter um
+   tamanho".
+
+   A consequencia e que o texto passa a ter ORCAMENTO. O que nao cabe em 46px
+   nao e encolhido nem cortado: a peca sai na gramatica de jornal, que sabe se
+   virar com texto de qualquer tamanho. Ver CAPACIDADE_DO_RECORTE. */
 .r-texto{flex:0 0 76%;overflow:hidden;display:block;
   font-family:var(--s-font-body);font-size:46px;font-weight:400;line-height:1.34;
   color:#0f172a;letter-spacing:-0.005em;}

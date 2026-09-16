@@ -408,6 +408,55 @@ export function primeiraFrase(texto: string): { tese: string; resto: string } {
 }
 
 /**
+ * Quanto texto cabe no recorte, com o corpo travado em 46px.
+ *
+ * Medido no navegador em 16/09/2026, por busca binária, com frase de português
+ * real (acento, cedilha e palavra longa), e no PIOR caso de divisão entre a
+ * abertura e o segundo parágrafo: 216 caracteres com foto e 474 sem. O número
+ * aqui desconta cerca de 7 por cento disso, porque a medição usa uma frase e a
+ * redação escreve outra.
+ *
+ * Este orçamento existe porque o corpo do tipo não negocia mais. Antes, texto
+ * grande demais encolhia a fonte, e o dono apontou o efeito: cada slide do
+ * carrossel saía com um tamanho, o que denuncia peça montada por máquina. Com
+ * o tipo fixo, sobrou uma escolha honesta: o que não cabe não entra neste
+ * desenho, e a peça sai na gramática de jornal, que se vira com qualquer
+ * tamanho de texto.
+ *
+ * Cortar o texto seria a terceira opção, e é a pior: a peça de hoje saiu com
+ * "a conta de morar pesa mais que a de comer no" e parou ali, no meio da
+ * frase.
+ */
+export const CAPACIDADE_DO_RECORTE = { comFoto: 200, semFoto: 440 } as const;
+
+/**
+ * O texto desta pauta cabe no recorte?
+ *
+ * Conta o que vai para a peça: chapéu, título, corpo e itens, mais os dois
+ * pontos e os espaços que o desenho acrescenta entre eles.
+ */
+export function cabeNoRecorte(entrada: {
+  chapeu?: string;
+  titulo?: string;
+  corpo?: string;
+  itens?: string[];
+  temFoto: boolean;
+}): boolean {
+  const chapeu = (entrada.chapeu ?? "").trim();
+  const titulo = (entrada.titulo ?? "").trim();
+  const corpo = (entrada.corpo ?? "").trim();
+  const itens = (entrada.itens ?? []).filter((i) => (i ?? "").trim());
+
+  const total =
+    (chapeu ? chapeu.length + 2 : 0) +
+    titulo.length +
+    (corpo ? corpo.length + 1 : 0) +
+    itens.reduce((soma, i) => soma + i.trim().length + 1, 0);
+
+  return total <= (entrada.temFoto ? CAPACIDADE_DO_RECORTE.comFoto : CAPACIDADE_DO_RECORTE.semFoto);
+}
+
+/**
  * O recorte de post: a peça que parece alguém comentando a notícia.
  *
  * É a segunda gramática de capa, ao lado da capa de jornal, e a diferença
@@ -466,19 +515,21 @@ function recorteDePost(slide: InstagramSlide, ctx: VariantContext): VariantOutpu
     body: `
 <div class="r-pagina">
   <div class="r-autor">
-    <span class="r-ava">★</span>
+    <img class="r-ava" src="${esc(MARCA.avatar)}" alt="" />
     <span class="r-quem">
       <span class="r-nome">${esc(MARCA.nome)}</span>
       <span class="r-arroba">${esc(MARCA.instagramHandle)}</span>
     </span>
   </div>
   ${/*
-     Sem foto, o tipo cresce, e é a mesma regra da capa sem foto: quando não há
-     imagem para ocupar a peça, o texto É a arte e precisa do espaço. Com o teto
-     fixo em 46 a peça de texto puro saía com 45 por cento de branco embaixo,
-     que não é respiro, é sobra.
+     Sem `data-ajuste`, e é o ponto do desenho.
+
+     O carrossel é lido em sequência: tipo que muda de tamanho de um slide para
+     o outro denuncia a peça montada por máquina. Aqui o corpo é 46px em todos
+     os slides, e o que não couber não é encolhido, é recusado, em
+     `cabeNoRecorte`.
   */ ""}
-  <div class="r-texto lay-texto" data-ajuste="encolher" data-max="${foto ? 46 : 60}" data-min="${foto ? 26 : 34}">
+  <div class="r-texto">
     <span>
       <p>${abertura}</p>
       ${foto ? `<div class="r-midia">${photo(foto)}</div>` : ""}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assembleSlide } from "./assemble";
 import { DEFAULT_TOKENS } from "./tokens";
-import { primeiraFrase, SLIDE_VARIANTS } from "./variants";
+import { CAPACIDADE_DO_RECORTE, cabeNoRecorte, primeiraFrase, SLIDE_VARIANTS } from "./variants";
 import type { InstagramSlide } from "./types";
 
 /**
@@ -116,26 +116,32 @@ describe("o recorte de post", () => {
   });
 
   /**
-   * Sem foto o tipo cresce, pela mesma regra da capa sem foto: quando não há
-   * imagem, o texto É a arte. Com o teto fixo em 46 a peça de texto puro saía
-   * com 45 por cento de branco embaixo, que não é respiro, é sobra.
+   * O CORPO NÃO NEGOCIA, e é a regra central deste desenho.
+   *
+   * O carrossel é lido em sequência, arrastando. Tipo que muda de tamanho de
+   * um slide para o outro denuncia peça montada por máquina, e foi o que o
+   * dono apontou em 16/09/2026: "precisa ter um padrão de tamanho de fonte,
+   * não pode cada slide ter um tamanho".
+   *
+   * Por isso o bloco NÃO carrega `data-ajuste`: o script de encolher não pode
+   * encostar nele.
    */
-  it("cresce o teto do tipo quando não há foto", () => {
-    expect(montar({ title: "t", bg_image_url: "https://upload.wikimedia.org/a.jpg" })).toContain('data-max="46"');
-    expect(montar({ title: "t" })).toContain('data-max="60"');
-  });
+  it("o corpo do tipo é fixo, com foto e sem foto", () => {
+    const com = montar({ title: "t", bg_image_url: "https://upload.wikimedia.org/a.jpg" });
+    const sem = montar({ title: "t" });
 
-  /**
-   * A caixa que encolhe precisa de altura DEFINIDA antes de qualquer fonte
-   * carregar, senão o script de ajuste mede a altura do conteúdo herdado e
-   * conclui que só cabem duas linhas. Foi o que derrubou a capa sem foto para
-   * 44px numa faixa de 871px.
-   */
-  it("o bloco que encolhe tem altura por flex-basis, e o script o encontra", () => {
-    const html = montar({ title: "t" });
-    expect(html).toContain('class="r-texto lay-texto"');
-    expect(html).toContain('data-ajuste="encolher"');
-    expect(html).toContain(".r-texto{flex:0 0 76%");
+    expect(com).toContain('class="r-texto"');
+    expect(sem).toContain('class="r-texto"');
+    /*
+     * O script de ajuste só enxerga `.lay-texto[data-ajuste]`. Manter o bloco
+     * fora dessa classe é o que garante que ninguém encoste no corpo do tipo.
+     * A string `data-ajuste` aparece no próprio script, embutido em toda
+     * página, então o que se afirma aqui é a ausência da COMBINAÇÃO.
+     */
+    expect(com).not.toContain("r-texto lay-texto");
+    expect(sem).not.toContain("r-texto lay-texto");
+    expect(com).toContain(".r-texto{flex:0 0 76%");
+    expect(com).toContain("font-size:46px");
   });
 
   it("o convite de arrastar sai só na capa de peça com mais de um slide", () => {
@@ -174,5 +180,83 @@ describe("a escolha da gramática", () => {
 
     expect(capa.variante).toBe("recorte_post");
     expect(capa.slide.variant).toBe("recorte_post");
+  });
+});
+
+describe("o orçamento de texto", () => {
+  /**
+   * Os números saíram de medição no navegador, por busca binária, com frase de
+   * português real e no pior caso de divisão entre os dois parágrafos: 216
+   * caracteres com foto e 474 sem. O orçamento desconta cerca de 7 por cento,
+   * porque a medição usa uma frase e a redação escreve outra.
+   */
+  it("conhece a capacidade medida", () => {
+    expect(CAPACIDADE_DO_RECORTE.comFoto).toBe(200);
+    expect(CAPACIDADE_DO_RECORTE.semFoto).toBe(440);
+  });
+
+  it("aceita o texto que cabe e recusa o que não cabe", () => {
+    const curto = { titulo: "a".repeat(80), corpo: "b".repeat(80), temFoto: true };
+    const longo = { titulo: "a".repeat(180), corpo: "b".repeat(180), temFoto: true };
+
+    expect(cabeNoRecorte(curto)).toBe(true);
+    expect(cabeNoRecorte(longo)).toBe(false);
+  });
+
+  it("sem foto cabe mais do que o dobro, porque o cartão de mídia sai", () => {
+    const texto = { titulo: "a".repeat(200), corpo: "b".repeat(200) };
+    expect(cabeNoRecorte({ ...texto, temFoto: true })).toBe(false);
+    expect(cabeNoRecorte({ ...texto, temFoto: false })).toBe(true);
+  });
+
+  it("conta o chapéu e os itens, que também ocupam a caixa", () => {
+    const base = { titulo: "a".repeat(190), temFoto: true };
+    expect(cabeNoRecorte(base)).toBe(true);
+    // Mais o chapéu e os dois pontos, e já não cabe.
+    expect(cabeNoRecorte({ ...base, chapeu: "Custo de vida" })).toBe(false);
+  });
+});
+
+describe("a peça que não cabe sai de jornal", () => {
+  /**
+   * Três saídas existiam para o texto que estoura o orçamento: encolher o
+   * tipo, que desfaz a regra do tamanho único; cortar a frase, que foi o
+   * defeito que a primeira renderização mostrou, com a peça terminando em "a
+   * conta de morar pesa mais que a de comer no"; ou desenhar na gramática de
+   * jornal, que se vira com texto de qualquer tamanho.
+   *
+   * A terceira é a única sem mentira.
+   */
+  it("texto que não cabe no recorte volta para a capa de jornal", async () => {
+    const { montarCapaDoPost } = await import("@/lib/server/social/arte");
+    const foto = { imageUrl: "https://upload.wikimedia.org/a.jpg", attribution: "" };
+
+    const cabe = montarCapaDoPost({
+      headline: "O Fed cortou os juros nesta quarta.",
+      corpo: "O dólar responde a essa taxa antes de qualquer outra coisa:",
+      gramatica: "recorte",
+      asset: foto,
+    });
+    expect(cabe.variante).toBe("recorte_post");
+
+    const naoCabe = montarCapaDoPost({
+      headline: "O Fed cortou os juros nesta quarta e sinalizou mais dois cortes até o fim do ano, num movimento que o mercado esperava desde julho.",
+      corpo: "Quem acha que isso é só assunto de mercado não entendeu o tamanho da mudança, porque o dólar, a passagem e a prestação da casa nos Estados Unidos respondem a essa taxa:",
+      gramatica: "recorte",
+      asset: foto,
+    });
+    expect(naoCabe.variante).toBe("capa_jornal");
+  });
+
+  it("o corpo só é impresso na gramática que sabe desenhá-lo", async () => {
+    const { montarCapaDoPost } = await import("@/lib/server/social/arte");
+
+    const recorte = montarCapaDoPost({ headline: "Curto.", corpo: "Uma leitura curta:", gramatica: "recorte" });
+    const jornal = montarCapaDoPost({ headline: "Curto.", corpo: "Uma leitura curta:", gramatica: "jornal" });
+
+    expect(recorte.slide.body).toBe("Uma leitura curta:");
+    // Na capa de jornal o parágrafo entraria na MESMA caixa da manchete, com o
+    // mesmo corpo de tipo, e a peça viraria um bloco só.
+    expect(jornal.slide.body).toBe("");
   });
 });

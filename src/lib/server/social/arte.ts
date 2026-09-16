@@ -2,6 +2,7 @@ import type { CarouselFormat, InstagramSlide } from "@/lib/carousel-templates/ty
 import type { Layout } from "@/lib/carousel-templates/layout";
 import type { Affordance } from "@/lib/carousel-templates/chrome";
 import type { AssetVisual } from "../visual/tipos";
+import { cabeNoRecorte } from "@/lib/carousel-templates/variants";
 
 /**
  * A arte do post do feed, e a única regra que ela não negocia.
@@ -187,6 +188,15 @@ export type EntradaDaCapa = {
    */
   gramatica?: GramaticaDaCapa;
   /**
+   * O segundo parágrafo, que só o recorte desenha.
+   *
+   * Na gramática de jornal a capa é manchete e foto, e não há onde pôr um
+   * parágrafo de leitura. No recorte ele é metade da peça: é o que separa o
+   * fato do que o fato significa. Vazio, o recorte sai só com a abertura, e
+   * continua de pé.
+   */
+  corpo?: string;
+  /**
    * Moldura discreta: sem colchetes de corte e sem contador no cabeçalho.
    *
    * Vale para o carrossel inteiro, capa e miolo. A capa é sangrada e não tem
@@ -306,7 +316,32 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
    * peca pior.
    */
   const doCarrossel = entrada.estiloDaCapa === "carrossel";
-  const variante = varianteDaCapa(comFoto, entrada.gramatica);
+
+  /*
+   * A gramática pedida pode não caber, e aí ela não é usada.
+   *
+   * O recorte tem o corpo do tipo travado em 46px, porque carrossel com um
+   * tamanho por slide denuncia peça de máquina. O preço disso é um orçamento
+   * de caracteres, e quando o texto o estoura só existem três saídas:
+   * encolher o tipo, que desfaz a regra; cortar a frase, que foi o defeito que
+   * a primeira renderização mostrou; ou desenhar a peça na gramática de
+   * jornal, que se vira com texto de qualquer tamanho.
+   *
+   * A terceira é a única sem mentira, e é a que está aqui.
+   */
+  const gramaticaPedida = entrada.gramatica ?? "jornal";
+  const gramatica: GramaticaDaCapa =
+    gramaticaPedida === "recorte" &&
+    !cabeNoRecorte({
+      chapeu: sobrancelha(entrada.eixo),
+      titulo: entrada.headline,
+      corpo: entrada.corpo,
+      temFoto: comFoto,
+    })
+      ? "jornal"
+      : gramaticaPedida;
+
+  const variante = varianteDaCapa(comFoto, gramatica);
 
   /*
    * A bolha, e as duas condições para ela existir.
@@ -338,7 +373,15 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
      */
     eyebrow: sobrancelha(entrada.eixo),
     title: entrada.headline,
-    body: "",
+    /*
+     * O corpo só existe no recorte.
+     *
+     * A capa de jornal imprime manchete e foto, e mandar um parágrafo para ela
+     * faria o texto entrar na mesma caixa da manchete, com o mesmo corpo de
+     * tipo: a peça viraria um bloco só, que é o defeito que o miolo do jornal
+     * já teve.
+     */
+    body: gramatica === "recorte" ? (entrada.corpo ?? "").trim() : "",
     bullet_points: [],
     highlight_text: doCarrossel ? (entrada.destaque ?? "").trim() : "",
     variant: variante,

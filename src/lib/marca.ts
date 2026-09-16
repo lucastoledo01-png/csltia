@@ -78,6 +78,16 @@ export const MARCA = {
    * vermelho do ".journal" permanece, porque ele tem contraste nos dois fundos.
    */
   logoEscuro: "https://casaloti.ia.br/marca/usa-journal-escuro.png",
+  /**
+   * A marca em círculo, que é a foto de perfil.
+   *
+   * O logotipo é uma assinatura horizontal e não cabe num círculo de 76px sem
+   * virar borrão. Esta é a versão de avatar, com o ponto vermelho, o "usa" em
+   * branco e a Estátua da Liberdade em marca-d'água sobre o azul-marinho. É
+   * ela que aparece no recorte de post, onde a peça inteira imita a gramática
+   * de uma rede social e o perfil está no topo.
+   */
+  avatar: "https://casaloti.ia.br/marca/usa-journal-avatar.png",
   /*
    * O perfil, conferido na Graph API em 16/09/2026, não suposto.
    *

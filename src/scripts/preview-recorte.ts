@@ -53,20 +53,19 @@ const peças: Array<{ nome: string; slide: Partial<InstagramSlide>; tipo: string
     },
   },
   {
-    // O teto: texto longo nas duas áreas. Se este couber sem cortar, nenhum
-    // aprovado pela guarda estoura.
-    nome: "3-capa-no-teto",
+    // O teto REAL: 196 caracteres somados, contra o orçamento de 200. É o
+    // limite que a peça aceita com foto, e o que passar disso sai de jornal.
+    nome: "3-capa-no-teto-do-orcamento",
     tipo: "cover",
     variante: "recorte_post",
     total: 6,
     indice: 1,
     slide: {
       eyebrow: "Custo de vida",
-      title:
-        "o preço do aluguel nos Estados Unidos subiu pelo quinto mês seguido, e a alta se concentra nas cidades onde mais brasileiro mora: Orlando, Miami, Boston e Newark.",
+      title: "o aluguel nos EUA subiu pelo quinto mês seguido, e a alta se concentra em Orlando e Miami.",
       bg_image_url: FOTO,
       body:
-        "Quem olha só a inflação cheia perde o que está acontecendo. A conta de morar pesa mais que a de comer no orçamento de quem acabou de chegar, e ela é a que menos aparece no número que o noticiário repete:",
+        "A conta de morar pesa mais que a de comer para quem chegou agora. É a que menos aparece no número:",
     },
   },
   {
