@@ -105,6 +105,10 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 .s-check{background:#3b82f6;color:#fff;font-size:11px;width:18px;height:18px;border-radius:50%;
   display:inline-flex;align-items:center;justify-content:center;font-weight:900;}
 .s-phandle{font-size:15px;color:rgba(255,255,255,0.8);}
+/* Segue viva para a variante result_showcase, que e dos formatos de tutorial e
+   de prompt. Ali a linha promete um conteudo (Passo a passo completo), e nao
+   ensina o leitor a arrastar. A regra de nao convidar ao arraste e da gramatica
+   de noticia. */
 .s-swipe{font-size:18px;font-weight:700;color:#e4e4e7;letter-spacing:0.5px;text-align:right;}
 
 /* ---- CTA ---- */
@@ -254,13 +258,6 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 .r-midia{position:relative;margin:0.55em 0 0.7em;border-radius:28px;overflow:hidden;
   height:430px;background:#e2e8f0;}
 .r-midia .s-photo{width:100%;height:100%;object-fit:cover;}
-
-/* O convite de arrastar fica fora do bloco que encolhe, senao ele encolheria
-   junto e sumiria justamente na peca de texto longo, que e onde ele mais serve. */
-.r-arrasta{flex:0 0 auto;margin-top:auto;font-size:26px;font-weight:700;color:#94a3b8;
-  letter-spacing:0.02em;}
-
-.r-marca{flex:0 0 auto;margin-top:auto;height:46px;width:auto;align-self:flex-start;}
 
 /* A faixa de texto comeca mais alto que na peca com foto (30% contra 58%)
    porque aqui nao ha imagem para ocupar o topo: a manchete e a arte, e ela
@@ -515,9 +512,6 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
    um terco de vazio embaixo, que le como peca que nao terminou de carregar.
    Na base, ele segue a mesma regra das outras pecas do carrossel: o texto mora
    embaixo, e o que sobra em cima e respiro sob a marca. */
-.j-arrasta{display:block;margin-top:20px;font-family:var(--s-font-mono);
-  font-size:19px;font-weight:600;letter-spacing:0.04em;color:rgba(255,255,255,0.72);}
-
 .j-cta{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;
   justify-content:flex-end;padding:0 9% 11% 9%;background:#0A3161;}
 .j-cta-titulo{font-family:var(--s-font-display);font-size:86px;font-weight:800;

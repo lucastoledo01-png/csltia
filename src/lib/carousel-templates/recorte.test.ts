@@ -144,12 +144,17 @@ describe("o recorte de post", () => {
     expect(com).toContain("font-size:46px");
   });
 
-  it("o convite de arrastar sai só na capa de peça com mais de um slide", () => {
-    expect(montar({ title: "t" }, { total: 5, indice: 1 })).toContain("Arrasta que eu te explico");
-    // Peça única não promete slide que não existe.
-    expect(montar({ title: "t" }, { total: 1, indice: 1 })).not.toContain("Arrasta que eu te explico");
-    // No miolo o convite já foi aceito: ali entra a marca.
-    expect(montar({ title: "t" }, { total: 5, indice: 3 })).toContain("r-marca");
+  /**
+   * Nada no pé da peça: nem convite de arraste, nem marca repetida.
+   *
+   * O convite saiu por evidência, medida nas referências. A marca saiu por
+   * redundância: ela já está no topo, no avatar e no nome do perfil, que é
+   * justamente o que esta gramática copia da rede social.
+   */
+  it("não convida a arrastar em tela nenhuma", () => {
+    expect(montar({ title: "t" }, { total: 5, indice: 1 })).not.toContain("Arrasta");
+    expect(montar({ title: "t" }, { total: 1, indice: 1 })).not.toContain("Arrasta");
+    expect(montar({ title: "t" }, { total: 5, indice: 3 })).not.toContain("Arrasta");
   });
 
   it("escapa o que vem do texto, para manchete com sinal não virar marcação", () => {

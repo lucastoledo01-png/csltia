@@ -92,14 +92,26 @@ describe("capa de jornal", () => {
     expect(html).toContain("j-fundo");
   });
 
-  it("a peça de várias telas convida a arrastar uma vez, na capa", () => {
+  /**
+   * Nenhuma peça convida a arrastar, e a regra veio de medição.
+   *
+   * O convite existiu, com um argumento razoável: a peça de várias telas
+   * precisa dizer que tem várias telas. O argumento perdeu para a evidência.
+   * Em 16/09/2026 foram baixadas quatro capas de carrossel reais de
+   * @notjournal.ai e @braziljournal, as duas referências do produto, e
+   * nenhuma das quatro traz convite nenhum. A referência de recorte enviada
+   * pelo dono também não traz.
+   *
+   * O leitor de Instagram já sabe arrastar. A linha gastava espaço para
+   * ensinar o que ninguém precisa aprender.
+   */
+  it("nenhuma tela convida a arrastar, nem a capa do carrossel", () => {
     const unica = capa.render(slide({ title: "T" }), ctx(1)).body;
     const primeira = capa.render(slide({ title: "T" }), ctx(5, 1)).body;
     const terceira = miolo.render(slide({ title: "T" }), ctx(5, 3)).body;
 
     expect(unica).not.toContain("Arrasta");
-    expect(primeira).toContain("Arrasta");
-    // Quem está no slide 3 já arrastou duas vezes: repetir deixa de informar.
+    expect(primeira).not.toContain("Arrasta");
     expect(terceira).not.toContain("Arrasta");
   });
 

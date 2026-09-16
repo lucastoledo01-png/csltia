@@ -129,7 +129,7 @@ describe("capa do post do feed", () => {
   });
 });
 
-describe("a peça única não convida a arrastar, nem com foto", () => {
+describe("nenhuma peça convida a arrastar, com foto ou sem", () => {
   /*
    * A capa de texto já não emitia nada de carrossel. A capa COM foto emitia:
    * `fullbleed_portrait` imprimia "Arrasta que eu te atualizo em 1 minuto" num
@@ -169,8 +169,15 @@ describe("a peça única não convida a arrastar, nem com foto", () => {
     expect(h).not.toContain("s-swipe\"");
   });
 
-  it("carrossel de verdade continua convidando", () => {
-    expect(comFoto(5)).toContain("Arrasta");
+  /**
+   * E o carrossel também não convida.
+   *
+   * O convite saiu de todas as telas em 16/09/2026, depois de conferido nas
+   * referências: quatro capas de carrossel reais de @notjournal.ai e
+   * @braziljournal, nenhuma com convite.
+   */
+  it("carrossel também não convida", () => {
+    expect(comFoto(5)).not.toContain("Arrasta");
   });
 });
 

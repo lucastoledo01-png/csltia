@@ -255,6 +255,25 @@ publicada; ela é que sai, e não a edição. Abaixo do mínimo de pautas a edi�
 continua não saindo, porque aí o problema é do dia. E auditoria que NÃO RODOU
 deixou de bloquear: timeout da OpenAI não é conclusão reprovada.
 
+## Nenhuma peça convida a arrastar (16/09/2026)
+
+O convite existiu, com um argumento razoável: a peça de várias telas precisa
+dizer que tem várias telas, e os pontos do Instagram são pequenos. O argumento
+perdeu para a evidência.
+
+Foram baixadas quatro capas de carrossel reais de @notjournal.ai e
+@braziljournal, as duas referências do produto. **Nenhuma das quatro traz
+convite.** A referência de recorte enviada pelo dono, um post do Tallis Gomes,
+também não traz. O que as quatro têm é logotipo, chapéu de editoria e manchete.
+
+O leitor de Instagram já sabe arrastar. A linha gastava espaço para ensinar o
+que ninguém precisa aprender, e é o tipo de detalhe que denuncia peça feita
+para performar em vez de informar.
+
+Saiu das três gramáticas de notícia: capa de jornal, capa sem foto e recorte.
+Continua viva na variante `result_showcase`, que é dos formatos de tutorial e
+de prompt, e ali a linha promete um conteúdo, não ensina a arrastar.
+
 ## A bolha da capa tem régua própria (16/09/2026)
 
 A bolha é o círculo com a segunda foto. Duas regras novas, pedidas pelo dono:

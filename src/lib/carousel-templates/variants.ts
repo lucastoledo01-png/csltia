@@ -116,7 +116,6 @@ ${photo(slide.bg_image_url)}
     </div>
     <div class="s-title" style="color:#fff;text-shadow:0 4px 20px rgba(0,0,0,0.7)">${esc(slide.title)}</div>
   </div>
-  ${ctx.total > 1 ? `<div class="s-swipe">Arrasta que eu te atualizo em 1 minuto →</div>` : ""}
 </div>`,
   }),
 };
@@ -186,7 +185,6 @@ const coverNoticiaSemFoto: SlideVariant = {
 <div class="n-texto">
   ${editoria ? `<span class="j-chapeu">${esc(editoria)}</span>` : ""}
   <div class="n-manchete lay-texto" data-ajuste="encolher" data-min="40" data-max="104"><span>${manterCodigosJuntos(esc(titulo))}</span></div>
-  ${ctx.total > 1 && ctx.slideIndex === 1 ? `<span class="j-arrasta">Arrasta que eu te explico →</span>` : ""}
 </div>`,
     };
   },
@@ -363,14 +361,19 @@ ${opcoes.comBolha && bolha ? `<div class="j-bolha"><img src="${esc(bolha)}" alt=
     <span>${titulo}${corpo ? ` ${esc(corpo)}` : ""}${itens.map((b) => `<i>${esc(b)}</i>`).join("")}</span>
   </div>
   ${/*
-     O convite de arrastar sai discreto, sai uma vez e sai na CAPA.
-     
-     Ele existe porque a peça de várias telas precisa dizer que tem várias
-     telas, e os pontos do Instagram são pequenos demais para cumprir isso
-     sozinhos. Repetido em todos os slides ele deixa de informar: quem está no
-     slide 4 já arrastou três vezes, e a referência não o usa em tela nenhuma.
+     Não existe convite de arrastar, e isso foi MEDIDO, não suposto.
+
+     O argumento a favor dele era razoável: a peça de várias telas precisa
+     dizer que tem várias telas, e os pontos do Instagram são pequenos. O
+     argumento perdeu para a evidência. Em 16/09/2026 foram baixadas quatro
+     capas de carrossel reais de @notjournal.ai e @braziljournal, as duas
+     referências do produto, e nenhuma das quatro traz convite nenhum. A
+     referência de recorte enviada pelo dono também não traz.
+
+     O leitor de Instagram já sabe arrastar. Dizer isso na peça gasta uma linha
+     para ensinar o que ninguém precisa aprender, e é a linha que denuncia que
+     a peça foi feita para performar, e não para informar.
   */ ""}
-  ${ctx.total > 1 && ctx.slideIndex === 1 ? `<span class="j-arrasta">Arrasta que eu te explico →</span>` : ""}
 </div>`,
   };
 }
@@ -537,11 +540,6 @@ function recorteDePost(slide: InstagramSlide, ctx: VariantContext): VariantOutpu
       ${lista}
     </span>
   </div>
-  ${
-    ctx.total > 1 && ctx.slideIndex === 1
-      ? `<span class="r-arrasta">Arrasta que eu te explico →</span>`
-      : `<img class="r-marca" src="${esc(MARCA.logoClaro)}" alt="" />`
-  }
 </div>`,
   };
 }
