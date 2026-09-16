@@ -317,6 +317,45 @@ Instagram passou a aceitar 3:4 no feed.
 apagar as duas constantes. Deixá-las declaradas e não usadas é o mesmo padrão do
 incidente de `escolherUrlPublicavel`: dá a impressão de que o caso está coberto.
 
+### 16/09: QA 98, sem alucinação, e a edição barrada mesmo assim
+
+**Sintoma.** O ciclo rodou inteiro, 9 minutos, e foi barrado por
+`UNGROUNDED_EDITORIAL_CLAIM` em quatro conclusões. O detalhe, agora gravado no
+banco, mostrou o que três dias de discussão não tinham mostrado:
+
+```
+QA 98 | alucinação: não | reparos: 2
+[conclusão impacto] "Estudantes e visitantes de intercâmbio afetados
+  ACOMPANHAM o adiamento antes de uma possível mudança na duração do status"
+  -> o pacote identifica os grupos abrangidos e o adiamento, mas não informa
+     que eles acompanham o adiamento.
+```
+
+As quatro conclusões eram **a mesma frase reescrita pelo laço de reparo**, e a
+objeção era sempre a mesma forma.
+
+**O auditor estava certo.** Nenhuma fonte oficial afirma o que as pessoas estão
+acompanhando: ela fala de regra, prazo e decisão. "Estudantes acompanham" é
+afirmação sobre comportamento de terceiros, e não há pacote factual que a
+sustente.
+
+**Quem estava errado era a instrução.** O campo `practical_impact` pedia, com
+todas as letras, "o que a pessoa precisa fazer ou **observar**". A redação
+obedecia, e a régua recusava. O reparo não salvava porque ele reescrevia
+mantendo o verbo: o verbo era o que a instrução pedia.
+
+**Corrigido sem tocar na régua.** A instrução passou a pedir o EFEITO da regra
+sobre as pessoas, que está na fonte, e a proibir afirmação sobre o que elas
+fazem, acompanham, observam ou esperam. E oferece a saída, porque proibir sem
+mostrar o caminho deixa o modelo sem opção: para falar com o leitor, fale COM
+ele ("se você está com F-1, o prazo antigo continua valendo"), que é
+endereçamento e não afirmação sobre terceiros.
+
+**Lição.** Quando uma guarda reprova todo dia com nota alta e sem risco de
+alucinação, o suspeito não é a guarda: é a instrução que fabrica o que ela
+recusa. E laço de reparo não conserta contradição entre instrução e guarda, só
+a repete com sinônimos.
+
 ### O build de produção quebrou, e o contêiner antigo continuou no ar
 
 **Sintoma.** Deploy disparado nos dois serviços. O worker reiniciou dois minutos

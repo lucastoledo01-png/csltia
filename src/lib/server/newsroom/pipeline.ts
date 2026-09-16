@@ -181,6 +181,10 @@ DIRETRIZES DE TOM & ESTILO (Estilo "The News"):
 3. Personalidade: observações e sacadas são bem-vindas quando o assunto comporta. Assunto sensível (dinheiro, saúde, situação legal de alguém) pede sobriedade, não piada.
 4. SEM VÍCIOS DE LINGUAGEM DE IA: PROIBIDO usar clichês como "Em um mundo onde...", "No cenário atual...", "Não é apenas X, é Y", "Desvendando...", "Vale ressaltar...", "Sem dúvida...", "Em suma...". Seja autêntico, humano e direto!
 5. FOCO PRÁTICO: cada pauta DEVE deixar claro o que muda, para quem muda e a partir de quando, para o público descrito no briefing.
+6. RELEVÂNCIA SEM INVENTAR COMPORTAMENTO: a fonte fala de regra, prazo e decisão. Ela NUNCA fala do que as pessoas fazem, acompanham, observam, esperam ou pretendem.
+   Escreva "o adiamento vale para estudantes com visto F-1 e adia a mudança de prazo" (efeito da regra, está na fonte).
+   NÃO escreva "estudantes acompanham o adiamento" nem "estudantes devem observar a nova data" (comportamento das pessoas, não está em fonte nenhuma e será reprovado por falta de lastro).
+   Quando quiser falar com o leitor, fale com ele: "se você está com F-1, o prazo antigo continua valendo". Isso é endereçamento, não afirmação sobre terceiros.
 6. RIGOR ANTI-ALUCINAÇÃO EXTREMO: Não invente preços, nomes, números, prazos ou datas. Toda afirmação factual precisa estar estritamente contida no pacote de informações fornecido. Se um detalhe relevante não está no pacote, escreva que a fonte não divulgou. Nunca preencha a lacuna.
 7. ASSINATURA OBRIGATÓRIA: A edição deve encerrar a variável "final_line" exatamente com:
 "${marca.assinatura}"
@@ -237,8 +241,8 @@ ESTRUTURA DO JSON DE SAÍDA (retorne exclusivamente este JSON estrito):
       "title": "O QUE MUDOU + PARA QUEM IMPORTA. Máximo 95 caracteres. Sem jargão sozinho, sem órgão praticando ato burocrático.",
       "summary": "Resumo COMPLETO e aprofundado do fato em 2 a 3 parágrafos explicativos (sem cortar a informação pela metade).",
       "context": "Contexto do mercado ou da ferramenta.",
-      "why_it_matters": "Por que isso importa para quem quer morar, trabalhar ou estudar nos EUA. Diga QUEM é afetado, com substantivo concreto: brasileiros que, estudantes que, profissionais que, famílias que.",
-      "practical_impact": "O que muda na prática: para quem vale, a partir de quando, e o que a pessoa precisa fazer ou observar.",
+      "why_it_matters": "Por que isso importa para quem quer morar, trabalhar ou estudar nos EUA. Diga QUEM é afetado, com substantivo concreto: brasileiros que, estudantes que, profissionais que, famílias que. Descreva o EFEITO da regra sobre essas pessoas. NUNCA afirme o que elas fazem, acompanham, observam, esperam, planejam ou devem fazer.",
+      "practical_impact": "O que muda na prática: o que a regra passa a exigir ou permitir, para quem vale e a partir de quando. Só o que a fonte afirma. NUNCA o que a pessoa precisa fazer, observar ou acompanhar.",
       "humor_line": "Observação curta e humana sobre a pauta. Vazia quando o assunto não comporta leveza.",
       "source_name": "Nome da fonte original",
       "source_url": "URL da fonte"
