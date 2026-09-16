@@ -1,10 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { vi } from "vitest";
-import JournalIndex from "@/components/JournalIndex";
-
-// `Home` virou server component assíncrono; o menu que este teste compara
-// vive em `JournalIndex`, que continua síncrono.
-const Home = JournalIndex;
+import { TopoDoPortal } from "@/components/PortalChrome";
 
 /**
  * A página busca os artigos publicados no Supabase. Sem este mock o teste
@@ -34,9 +30,23 @@ vi.mock("@/lib/server/articles-service", () => ({
 const { default: ArticlesPage } = await import("./page");
 
 describe("Articles index", () => {
+  /**
+   * A regra é a mesma de antes, e ela pegou um defeito real.
+   *
+   * O menu do portal é azul-marinho e o da landing anterior era branco. Quando
+   * o topo vivia dentro da home, `/artigos` continuava com o branco, e o site
+   * tinha dois menus conforme a página. O dono viu isso como "menu com texto
+   * preto e fundo branco" num produto cujo topo é escuro.
+   *
+   * O rótulo mudou de "Navegação principal" para "Editorias" porque é isso que
+   * o menu lista agora. A regra não mudou: as duas páginas usam o mesmo topo.
+   */
   it("usa o mesmo padrão de menu da home", async () => {
-    const { unmount } = render(<Home />);
-    const homeNav = screen.getByLabelText("Navegação principal");
+    // A comparação é contra `TopoDoPortal`, que é a fonte única do topo. A
+    // home é componente de servidor assíncrono e renderizá-la aqui traria o
+    // banco junto, sem acrescentar nada à regra que este teste guarda.
+    const { unmount } = render(<TopoDoPortal />);
+    const homeNav = screen.getByLabelText("Editorias");
     const homeLinks = Array.from(homeNav.querySelectorAll("a")).map((link) => ({
       href: link.getAttribute("href"),
       text: link.textContent,
@@ -46,7 +56,7 @@ describe("Articles index", () => {
     unmount();
 
     render(await ArticlesPage());
-    const articlesNav = screen.getByLabelText("Navegação principal");
+    const articlesNav = screen.getByLabelText("Editorias");
     const articlesLinks = Array.from(articlesNav.querySelectorAll("a")).map((link) => ({
       href: link.getAttribute("href"),
       text: link.textContent,
@@ -60,7 +70,9 @@ describe("Articles index", () => {
   it("exibe o cabeçalho clean e a lista de artigos estilo Substack", async () => {
     render(await ArticlesPage());
 
-    expect(screen.getByRole("heading", { level: 1, name: /Artigos & Análises/i })).toBeInTheDocument();
+    // O título anterior era da vertical de IA: "Artigos & Análises", com a
+    // linha "Leitura quinzenal sobre IA, produtos e tecnologia sem hype".
+    expect(screen.getByRole("heading", { level: 1, name: /Edições/i })).toBeInTheDocument();
     expect(screen.getByLabelText("lista editorial de artigos")).toBeInTheDocument();
   });
 

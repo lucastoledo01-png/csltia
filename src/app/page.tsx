@@ -3,17 +3,23 @@ import { montarHome, pautasRecentes } from "@/lib/server/portal";
 import { DEFAULT_PROJECT_ID } from "@/lib/server/projects";
 
 /**
- * A listagem sai do banco, e o banco muda depois do build.
+ * A home não é pré-renderizada, e a razão é concreta.
  *
- * Sem isto a página é pré-renderizada uma vez e servida com
- * `s-maxage=31536000`: um ano. A edição de 09/09 foi criada às 09:08, o build
- * era das 03:01, e o artigo existia, abria pela URL direta e simplesmente não
- * aparecia na lista — o que de fora é indistinguível de não ter sido escrito.
+ * Com `revalidate = 300` ela era gerada no build e revalidada a cada cinco
+ * minutos. O problema não é a janela: é que **o build não tem as variáveis do
+ * banco**. O EasyPanel injeta o ambiente em execução, não na construção, então
+ * a leitura falhava, o `catch` devolvia lista vazia, e a página nascia sem
+ * notícia nenhuma. Em 16/09 o dono abriu o site depois de um deploy e viu
+ * exatamente isso: portal no ar, zero matérias.
  *
- * Cinco minutos é folga suficiente para uma edição diária e ainda mantém a
- * página em cache na quase totalidade dos acessos.
+ * Ela se curava sozinha na primeira visita depois dos cinco minutos, o que é
+ * pior que falhar: o defeito aparecia para quem chegasse primeiro e sumia
+ * antes de alguém conseguir olhar.
+ *
+ * O custo de renderizar por requisição é uma consulta de 0,3s numa página que
+ * publica uma edição por dia. Um site de notícia vazio custa mais.
  */
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 /**
  * A home é um jornal, e a unidade dela é a pauta.

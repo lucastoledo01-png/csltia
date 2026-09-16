@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { SiteHeader } from "@/components/SiteHeader";
+import { RodapeDoPortal, TopoDoPortal } from "@/components/PortalChrome";
+import { MARCA } from "@/lib/marca";
 import { Article } from "@/lib/editorial";
 import { getPublishedArticles } from "@/lib/server/articles-service";
 
@@ -66,11 +67,18 @@ export default async function ArticlesPage() {
 
   return (
     <main className="min-h-screen bg-white text-[#111827]">
-      <SiteHeader ctaHref="#inscrever" />
+      <TopoDoPortal />
       <section aria-label="lista editorial de artigos" className="mx-auto max-w-[760px] px-4 pb-20 pt-6 sm:px-6 md:pt-10" id="inscrever">
         <div className="border-b border-[#111827] pb-4">
-          <h1 className="font-serif text-3xl font-bold tracking-tight text-[#111827]">Artigos & Análises</h1>
-          <p className="mt-1 text-sm text-[#6b7280]">Leitura quinzenal sobre IA, produtos e tecnologia sem hype.</p>
+          {/*
+            O título e a linha de apoio eram da vertical anterior: "Leitura
+            quinzenal sobre IA, produtos e tecnologia sem hype" num portal de
+            imigração para os Estados Unidos.
+          */}
+          <h1 className="font-serif text-3xl font-bold tracking-tight text-[#111827]">Edições</h1>
+          <p className="mt-1 text-sm text-[#6b7280]">
+            Todas as edições do {MARCA.nome}, da mais recente para a mais antiga.
+          </p>
         </div>
 
         <div className="mt-4 divide-y divide-[#f3f4f6]">
@@ -79,6 +87,7 @@ export default async function ArticlesPage() {
           ))}
         </div>
       </section>
+      <RodapeDoPortal />
     </main>
   );
 }

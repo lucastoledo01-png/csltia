@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArticleComments } from "@/components/ArticleComments";
-import { SiteHeader } from "@/components/SiteHeader";
+import { RodapeDoPortal, TopoDoPortal } from "@/components/PortalChrome";
 import { SubstackArticleRenderer } from "@/components/SubstackArticleRenderer";
 import { articles as staticArticles } from "@/lib/editorial";
 import { getArticleBySlug } from "@/lib/server/articles-service";
@@ -33,7 +33,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 
   return (
     <main className="min-h-screen bg-white text-[#111827]">
-      <SiteHeader ctaHref="/newsletter" />
+      <TopoDoPortal />
 
       <div className="mx-auto max-w-[720px] px-4 pb-20 pt-6 sm:px-6 md:pt-10">
         <div className="mb-6">
@@ -59,6 +59,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         {/* Seção de Comentários do Leitor com Likes & Dislikes */}
         <ArticleComments articleSlug={slug} />
       </div>
+      <RodapeDoPortal />
     </main>
   );
 }
