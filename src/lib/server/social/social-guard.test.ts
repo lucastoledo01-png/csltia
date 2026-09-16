@@ -148,17 +148,51 @@ describe("forma da manchete", () => {
     expect(conferirFormaDaHeadline("USCIS muda")?.motivo).toBe(MOTIVOS_DO_SOCIAL_GUARD.HEADLINE_FORA_DA_FORMA);
   });
 
+  /*
+   * O caso que fez a faixa mudar.
+   *
+   * Cinco palavras cabem em qualquer arte e não dizem qual regra, de quem, nem
+   * a partir de quando. Era o que saía todo dia, dentro da régua antiga, e é a
+   * distância entre a nossa capa e a da referência.
+   */
+  it("rótulo dentro do teto antigo agora é recusado", () => {
+    const vaga = "Corte adia regra de prazo";
+    expect(conferirFormaDaHeadline(vaga)?.detalhe).toMatch(/rótulo/);
+  });
+
+  it("a manchete na medida da referência passa", () => {
+    // 15 palavras, 105 caracteres: a capa medida em 15/09/2026.
+    const referencia =
+      '"SUS para quem trabalha": nova regra condiciona parte do Medicaid a 80 horas mensais de atividade';
+    expect(conferirFormaDaHeadline(referencia)).toBeNull();
+  });
+
   it("longa demais some na arte", () => {
-    const longa = "O USCIS anunciou nesta quinta que amplia o prazo de renovação automática da permissão de trabalho";
+    const longa =
+      "O USCIS anunciou nesta quinta que amplia o prazo de renovação automática da permissão " +
+      "de trabalho para quem pediu a troca de status e ainda aguarda a análise do pedido";
     expect(conferirFormaDaHeadline(longa)?.detalhe).toMatch(/ilegível/);
   });
 
+  it("poucas palavras, mas compridas, não cabem na faixa", () => {
+    // O teto de palavras passa e o de caracteres não: é o caractere que a
+    // faixa da arte mede.
+    const comprida =
+      "Regulamentação interdepartamental condiciona reconsiderações administrativas subsequentes " +
+      "a comprovações documentais complementares";
+    expect(conferirFormaDaHeadline(comprida)?.detalhe).toMatch(/caracteres/);
+  });
+
   it("pergunta é teaser, não manchete", () => {
-    expect(conferirFormaDaHeadline("O que muda no prazo do EAD?")?.detalhe).toMatch(/teaser/);
+    expect(conferirFormaDaHeadline("O que muda no prazo do EAD para quem já pediu?")?.detalhe).toMatch(
+      /teaser/,
+    );
   });
 
   it("manchete na forma passa", () => {
-    expect(conferirFormaDaHeadline("USCIS amplia prazo do EAD para 540 dias")).toBeNull();
+    expect(
+      conferirFormaDaHeadline("USCIS amplia o prazo do EAD para 540 dias a partir de janeiro"),
+    ).toBeNull();
   });
 });
 

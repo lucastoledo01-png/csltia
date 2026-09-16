@@ -871,6 +871,69 @@ veracidade, e o prompt não pode prometer o que ela não entrega. E métrica de
 guarda que dá zero precisa de um teste que produza um não, senão "zero" e
 "desligado" são indistinguíveis.
 
+### 16/09: a regra contra pauta repetida entrou e a edição saiu repetida mesmo assim
+
+**Sintoma.** A edição publicada em 16/09 tinha quatro pautas, e três contavam o
+mesmo adiamento da regra de Duration of Status. O teto por acontecimento tinha
+sido implementado horas antes, com teste passando.
+
+**Causa raiz.** O teto agrupava por `impressaoDoAcontecimento`, que é igualdade
+EXATA de ator, lugar e tipo de evento, normalizados. Três escritórios de
+advocacia descrevendo a mesma liminar escrevem "Court", "DHS" e "District
+Court", e termos como "postponed", "preliminary injunction" e "rule ending
+duration of status". Nenhuma chave colidia com nenhuma outra, então a regra
+rodava e não agrupava nada. O teste passava porque a fixture dava o mesmo
+`acontecimento` às três pautas, que é justamente o caso que a realidade não
+produz.
+
+**O que mediu.** Os 14 aprovados daquele dia, 91 pares, com os vetores que já
+estavam gravados em `news_candidates.embedding`:
+
+| par | cosseno |
+|---|---|
+| mesma liminar, murthy x klasko | 0.892 |
+| mesma liminar, murthy x ogletree | 0.808 |
+| mesma sessão do STF, dois ângulos | 0.793 |
+| mesmo dia de decisão de juros | 0.743 |
+| primeiro par de fatos DISTINTOS | 0.563 |
+| mediana dos 91 pares | 0.214 |
+
+**Correção.** `comporEdicao` passou a comparar, além da impressão, o vetor da
+pauta contra o das que JÁ ENTRARAM na edição, com limiar em 0.70
+(`EDITORIAL_LIMIAR_AGRUPAMENTO`). Reaplicado ao pool daquele dia, a edição sai
+com quatro fatos diferentes em vez de um fato quatro vezes.
+
+**Lição, e ela é de método.** Fixture que constrói o caso pela chave que o
+código usa não testa o código, testa a fixture. O caso real chega com a chave
+DIFERENTE, que é o motivo de o problema existir. Quando a regra é "reconhecer a
+mesma coisa escrita de outro jeito", o teste tem que escrever de outro jeito.
+
+### O teto da manchete era da arte antiga, e o produto pedia o dobro
+
+**Sintoma.** As capas saíam com manchete curta e vaga ("Corte adia regra de
+prazo"), sem número, sem prazo e sem dizer quem é afetado. Nada estava
+quebrado: o sistema entregava exatamente o que estava escrito.
+
+**Causa raiz.** Três números em desacordo, nenhum deles revisado quando a
+gramática visual mudou. O prompt pedia "de 3 a 10 palavras", a guarda recusava
+acima de 12 com o comentário "é o limite da arte, três linhas", e as capas de
+referência que o produto persegue têm 11, 15 e 16 palavras, de 61 a 116
+caracteres. O limite era real no desenho ANTERIOR. Na gramática de jornal a
+faixa da manchete tem topo e base fixos e o corpo do tipo é decidido pelo
+navegador entre 74px e 40px: 130 caracteres cabem em cinco linhas legíveis,
+verificado renderizando.
+
+**Correção.** `FORMA_DA_MANCHETE` e `REGRA_DA_MANCHETE` passaram a morar em
+`social/manchete.ts`, lidos pelos dois prompts e pela guarda. A faixa virou 6 a
+18 palavras e 45 a 130 caracteres, e a regra ensina a forma de duas partes que
+a referência usa.
+
+**Lição.** Limite copiado de um desenho que não existe mais é limite inventado.
+Quando o layout muda, os números que falam dele têm que ser medidos de novo, na
+arte nova, ou eles continuam decidindo o produto sozinhos. E limite que o
+prompt e a guarda enunciam diferente é sempre um dos dois errado.
+
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

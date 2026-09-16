@@ -33,13 +33,41 @@ const peças: Array<{ nome: string; slide: Partial<InstagramSlide>; tipo: string
     },
   },
   {
-    nome: "2-capa-manchete-curta",
+    // A medida da referência: 15 palavras, 105 caracteres, três a quatro
+    // linhas. É o caso que a faixa precisa segurar em corpo legível, e era o
+    // que a régua antiga recusava antes de chegar à arte.
+    nome: "2-capa-na-medida-da-referencia",
+    tipo: "cover",
+    variante: "capa_jornal",
+    slide: {
+      eyebrow: "Decisão judicial",
+      title:
+        "Decisão em Boston adia a regra de prazo fixo: estudante com F-1 segue no status atual até 27 de outubro",
+      bg_image_url: FOTO,
+      inset_image_url: BOLHA,
+    },
+  },
+  {
+    // O teto: 130 caracteres. Se este couber, nenhum aprovado pela guarda
+    // estoura a faixa.
+    nome: "3-capa-no-teto",
+    tipo: "cover",
+    variante: "capa_jornal",
+    slide: {
+      eyebrow: "Processo",
+      title:
+        "Renovação automática da permissão de trabalho vai a 540 dias: quem pediu a troca de status entra na conta a partir de janeiro",
+      bg_image_url: FOTO,
+    },
+  },
+  {
+    nome: "4-capa-manchete-curta",
     tipo: "cover",
     variante: "capa_jornal",
     slide: { eyebrow: "Boletim de vistos", title: "Boletim de outubro avança para EB-2", bg_image_url: FOTO },
   },
   {
-    nome: "3-miolo",
+    nome: "5-miolo",
     tipo: "content",
     variante: "miolo_jornal",
     slide: {
@@ -49,7 +77,7 @@ const peças: Array<{ nome: string; slide: Partial<InstagramSlide>; tipo: string
     },
   },
   {
-    nome: "4-cta",
+    nome: "6-cta",
     tipo: "cta",
     variante: "cta_newsletter",
     slide: { title: "", body: "A edição do dia no seu e-mail, todo dia às 6h. De graça.", highlight_text: "news" },

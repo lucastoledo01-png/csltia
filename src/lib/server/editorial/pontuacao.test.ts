@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { carregarConfigEditorial } from "./config";
-import { edicaoViavel, ordenarESelecionar, pontuarPauta } from "./pontuacao";
+import { comporEdicao, edicaoViavel, pontuarPauta } from "./pontuacao";
 import type { PautaOrdenavel } from "./pontuacao";
 import type { Classificacao } from "./classificador";
 
@@ -85,7 +85,7 @@ describe("pontuarPauta", () => {
   });
 });
 
-describe("ordenarESelecionar", () => {
+describe("comporEdicao", () => {
   /*
    * O acontecimento varia por pauta, e isso não é detalhe de fixture.
    *
@@ -118,7 +118,7 @@ describe("ordenarESelecionar", () => {
       pauta("d", 6, "Congresso", "d.com"),
       pauta("e", 5, "Suprema Corte", "e.com"),
     ];
-    expect(ordenarESelecionar(lista, config)).toHaveLength(config.maximoDePautas);
+    expect(comporEdicao(lista, config).escolhidas).toHaveLength(config.maximoDePautas);
   });
 
   it("não deixa um dia movimentado do USCIS tomar a edição inteira", () => {
@@ -128,7 +128,7 @@ describe("ordenarESelecionar", () => {
       pauta("c", 9, "USCIS", "c.com"),
       pauta("d", 4, "STF", "d.com"),
     ];
-    const escolhidas = ordenarESelecionar(lista, config);
+    const escolhidas = comporEdicao(lista, config).escolhidas;
     const uscis = escolhidas.filter((p) => p.classificacao.atores[0] === "USCIS");
     expect(uscis).toHaveLength(2);
   });
@@ -162,7 +162,7 @@ describe("ordenarESelecionar", () => {
       };
     };
 
-    const escolhidas = ordenarESelecionar(
+    const escolhidas = comporEdicao(
       [
         derivada("fraca", 5, "DHS", "a.com"),
         derivada("forte", 9, "DHS", "b.com"),
@@ -170,7 +170,7 @@ describe("ordenarESelecionar", () => {
         pauta("outra", 6, "Departamento de Estado", "d.com"),
       ],
       config,
-    );
+    ).escolhidas;
 
     const doMesmoFato = escolhidas.filter((p) => p.classificacao.acontecimento === mesmo);
     expect(doMesmoFato).toHaveLength(1);
@@ -199,10 +199,10 @@ describe("ordenarESelecionar", () => {
       };
     };
 
-    const escolhidas = ordenarESelecionar(
+    const escolhidas = comporEdicao(
       [semFato("x", 8, "a.com"), semFato("y", 7, "b.com")],
       config,
-    );
+    ).escolhidas;
 
     expect(escolhidas).toHaveLength(2);
   });
@@ -231,10 +231,138 @@ describe("ordenarESelecionar", () => {
       brasileira("Moraes", 8, "folha.com"),
       pauta("eua", 5, "USCIS", "uscis.gov"),
     ];
-    const escolhidas = ordenarESelecionar(lista, config);
+    const escolhidas = comporEdicao(lista, config).escolhidas;
     const brasil = escolhidas.filter((p) => p.classificacao.pais === "Brasil");
     expect(brasil).toHaveLength(config.maximoDePautasBrasil);
     expect(escolhidas.some((p) => p.classificacao.pais === "EUA")).toBe(true);
+  });
+
+  /*
+   * Os números destes testes são os do pool aprovado de 16/09/2026.
+   *
+   * Naquele dia o teto por acontecimento tinha acabado de entrar e a edição
+   * saiu com três pautas sobre o mesmo adiamento de regra. A impressão do
+   * acontecimento não colidiu porque quatro veículos escreveram atores e
+   * termos diferentes para o mesmo fato: é isso que as fixtures reproduzem,
+   * cada pauta com acontecimento PRÓPRIO e vetor parecido.
+   */
+  function vetorDistante(semelhanca: number): number[] {
+    // Vetor unitário em duas dimensões cujo cosseno com [1, 0] é exatamente o
+    // pedido. Duas dimensões bastam: a função sob teste só chama `cosseno`.
+    const angulo = Math.acos(semelhanca);
+    return [Math.cos(angulo), Math.sin(angulo)];
+  }
+
+  function comVetor(
+    nome: string,
+    relevancia: number,
+    ator: string,
+    dominio: string,
+    vetor: number[] | null,
+  ): PautaOrdenavel<string> {
+    const c = classificacao({ relevancia, atores: [ator], acontecimento: [`termo-de-${nome}`] });
+    return {
+      item: nome,
+      classificacao: c,
+      dominio,
+      vetor,
+      pontuacao: pontuarPauta({
+        classificacao: c,
+        prioridadeDaFonte: 1,
+        quantasFontesConfirmam: 1,
+        publicadoEm: agora,
+        semelhancaComHistorico: 0,
+        temCorpoFactual: true,
+      }),
+    };
+  }
+
+  it("agrupa o mesmo fato contado por veículos diferentes, que a impressão não pegava", () => {
+    const composicao = comporEdicao(
+      [
+        comVetor("murthy", 9, "Court", "murthy.com", [1, 0]),
+        comVetor("klasko", 8, "DHS", "klaskolaw.com", vetorDistante(0.892)),
+        comVetor("ogletree", 7, "District Court", "ogletree.com", vetorDistante(0.805)),
+      ],
+      config,
+    );
+
+    expect(composicao.escolhidas.map((p) => p.item)).toEqual(["murthy"]);
+    expect(composicao.absorvidas).toHaveLength(2);
+    expect(composicao.absorvidas.every((a) => a.camada === "vetor")).toBe(true);
+    // O par e o número ficam registrados: é com eles que o limiar se calibra.
+    expect(composicao.absorvidas[0].representante.item).toBe("murthy");
+    expect(composicao.absorvidas[0].score).toBeCloseTo(0.892, 3);
+  });
+
+  it("dois fatos distintos do mesmo dia continuam entrando", () => {
+    // 0.563 foi o par mais próximo entre fatos REALMENTE distintos naquele
+    // pool. Se o limiar descer até aqui, a edição perde pauta boa.
+    const composicao = comporEdicao(
+      [
+        comVetor("liminar", 9, "Court", "a.com", [1, 0]),
+        comVetor("public charge", 8, "DHS", "b.com", vetorDistante(0.563)),
+      ],
+      config,
+    );
+
+    expect(composicao.escolhidas).toHaveLength(2);
+    expect(composicao.absorvidas).toHaveLength(0);
+  });
+
+  it("sem vetor, a composição é exatamente a de antes", () => {
+    // Dia em que a API de embedding cai. A edição sai com os tetos de sempre,
+    // e não sai vazia nem agrupada por engano.
+    const composicao = comporEdicao(
+      [
+        comVetor("a", 9, "Court", "a.com", null),
+        comVetor("b", 8, "DHS", "b.com", null),
+      ],
+      config,
+    );
+
+    expect(composicao.escolhidas).toHaveLength(2);
+    expect(composicao.absorvidas).toHaveLength(0);
+  });
+
+  it("limiar zero desliga a camada sem precisar tirar os vetores", () => {
+    const composicao = comporEdicao(
+      [
+        comVetor("a", 9, "Court", "a.com", [1, 0]),
+        comVetor("b", 8, "DHS", "b.com", [1, 0]),
+      ],
+      { ...config, limiarDeAgrupamento: 0 },
+    );
+
+    expect(composicao.escolhidas).toHaveLength(2);
+  });
+
+  it("a impressão do acontecimento continua agrupando, e diz que foi ela", () => {
+    const mesmo = ["liminar", "duration of status"];
+    const doMesmoFato = (nome: string, relevancia: number, dominio: string) => {
+      const c = classificacao({ relevancia, atores: ["DHS"], acontecimento: mesmo });
+      return {
+        item: nome,
+        classificacao: c,
+        dominio,
+        pontuacao: pontuarPauta({
+          classificacao: c,
+          prioridadeDaFonte: 1,
+          quantasFontesConfirmam: 1,
+          publicadoEm: agora,
+          semelhancaComHistorico: 0,
+          temCorpoFactual: true,
+        }),
+      };
+    };
+
+    const composicao = comporEdicao(
+      [doMesmoFato("forte", 9, "a.com"), doMesmoFato("fraca", 5, "b.com")],
+      config,
+    );
+
+    expect(composicao.escolhidas.map((p) => p.item)).toEqual(["forte"]);
+    expect(composicao.absorvidas[0].camada).toBe("impressao");
   });
 
   it("limita também o mesmo veículo", () => {
@@ -243,7 +371,7 @@ describe("ordenarESelecionar", () => {
       pauta("b", 9, "STF", "mesmo.com"),
       pauta("c", 9, "Casa Branca", "mesmo.com"),
     ];
-    expect(ordenarESelecionar(lista, config)).toHaveLength(2);
+    expect(comporEdicao(lista, config).escolhidas).toHaveLength(2);
   });
 });
 

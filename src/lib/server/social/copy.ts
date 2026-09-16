@@ -3,6 +3,7 @@ import { callOpenAIJSON, getAIProviderConfig } from "../newsroom/ai-provider";
 import type { PacoteFactual } from "../editorial/pacote-factual";
 import type { PautaAvaliada } from "../editorial/guarda";
 import { limparVicios } from "../newsroom/anti-vicios";
+import { REGRA_DA_MANCHETE } from "./manchete";
 
 /**
  * O texto de um post, escrito para o feed e não para o e-mail.
@@ -152,7 +153,9 @@ REGRA QUE VALE SOBRE TODAS: você só pode afirmar o que está no PACOTE FACTUAL
 
 CANAL: isto é Instagram, não newsletter. O perfil publica várias vezes por dia, então NÃO existe despedida. Proibido "Até amanhã", "Nos vemos amanhã", "Equipe ${marca.nome}", "Boa leitura" e qualquer assinatura de e-mail.
 
-headline: a manchete da arte. De 3 a 10 palavras. Ela dá o FATO, não um teaser.
+${REGRA_DA_MANCHETE}
+
+E, na manchete, as quatro que derrubam o post:
 - Nada de clickbait, nada de pergunta retórica, nada de "você não vai acreditar".
 - Não transforme possibilidade em certeza: "pode mudar" não vira "muda", "proposta avançou" não vira "aprovado".
 - Não inverta a decisão: quem suspendeu não aprovou.

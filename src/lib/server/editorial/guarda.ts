@@ -21,7 +21,7 @@ import { textoParaVetor } from "./embeddings";
 import type { Canal, RegistroHistorico } from "./history";
 import { gerarStoryId } from "./history";
 import type { Pontuacao } from "./pontuacao";
-import { edicaoViavel, ordenarESelecionar, pontuarPauta } from "./pontuacao";
+import { comporEdicao, edicaoViavel, pontuarPauta } from "./pontuacao";
 import { descreverSinais, verificarRepeticao } from "./repeticao";
 import type { SinaisDeRepeticao, Veredito } from "./repeticao";
 import { dominioDe } from "./url-canonica";
@@ -89,6 +89,15 @@ export type ResultadoDaGuarda = {
    */
   approvedEditorialPool: PautaAvaliada[];
   recusadas: Recusa[];
+  /**
+   * Quantas saíram da edição por já estarem contadas por outra pauta.
+   *
+   * Não são recusas: elas continuam no pool aprovado, e o Instagram pode
+   * publicá-las. É corte de COMPOSIÇÃO, e fica separado do resto do corte de
+   * composição porque é o único que responde por qualidade editorial e não por
+   * teto: uma edição que repete o mesmo fato não é uma edição cheia.
+   */
+  agrupadasPorAcontecimento: number;
   viavel: boolean;
   motivoDaInviabilidade: string;
   custoUsd: number;
@@ -140,6 +149,7 @@ export async function avaliarPautas(
       selecionadas: [],
       approvedEditorialPool: [],
       recusadas: [],
+      agrupadasPorAcontecimento: 0,
       viavel: false,
       motivoDaInviabilidade: "nenhuma candidata coletada",
       custoUsd: 0,
@@ -477,6 +487,7 @@ export async function avaliarPautas(
     classificacao: Classificacao;
     dominio: string;
     pontuacao: Pontuacao;
+    vetor: Vetor | null;
   }> = [];
 
   paraAvaliar.forEach((a, i) => {
@@ -543,6 +554,10 @@ export async function avaliarPautas(
       classificacao: a.classificacao,
       dominio: dominioDe(a.grupo.primary.url),
       pontuacao,
+      // O mesmo vetor que a camada de repetição acabou de usar contra os
+      // últimos trinta dias serve agora para comparar as pautas de hoje entre
+      // si. Gerar de novo seria pagar duas vezes pela mesma medida.
+      vetor,
     });
   });
 
@@ -626,8 +641,36 @@ export async function avaliarPautas(
   }
 
   const approvedEditorialPool = candidatas.map((c) => c.item);
-  const selecionadas = ordenarESelecionar(candidatas, config).map((p) => p.item);
+  const composicao = comporEdicao(candidatas, config);
+  const selecionadas = composicao.escolhidas.map((p) => p.item);
   const viabilidade = edicaoViavel(selecionadas.length, config);
+
+  /*
+   * O agrupamento tem que aparecer PAR A PAR, com o número.
+   *
+   * Um contador de "3 agrupadas" não diz se o limiar está no lugar. O par mais
+   * a semelhança dizem, e é com essas linhas que 0.70 vai ser confirmado ou
+   * corrigido depois de algumas edições. Sem vetor nenhum, uma linha só avisa
+   * que a camada não rodou, em vez de ela sumir em silêncio.
+   */
+  const semVetor = candidatas.filter((c) => !c.vetor || c.vetor.length === 0).length;
+  if (semVetor > 0) {
+    linhas.push(
+      `[GUARDA] ${semVetor} de ${candidatas.length} candidata(s) sem vetor: ` +
+        `para elas o agrupamento por semelhança não roda, só a impressão do acontecimento`
+    );
+  }
+  for (const a of composicao.absorvidas) {
+    const como =
+      a.camada === "vetor"
+        ? `semelhança ${a.score.toFixed(3)}`
+        : "mesma impressão de acontecimento";
+    linhas.push(
+      `[GUARDA] mesmo acontecimento (${como}), fica a de maior nota :: ` +
+        `fora: ${a.descartada.item.grupo.primary.title.slice(0, 60)} :: ` +
+        `entra: ${a.representante.item.grupo.primary.title.slice(0, 60)}`
+    );
+  }
 
   linhas.push(
     `[GUARDA] ${selecionadas.length} selecionadas de ${grupos.length} candidatas, ` +
@@ -636,7 +679,8 @@ export async function avaliarPautas(
   if (approvedEditorialPool.length > selecionadas.length) {
     linhas.push(
       `[GUARDA] ${approvedEditorialPool.length - selecionadas.length} do pool fora por composição da newsletter ` +
-        `(teto ${config.maximoDePautas}, Brasil ${config.maximoDePautasBrasil}, 2 por ator, 2 por domínio)`
+        `(${composicao.absorvidas.length} por mesmo acontecimento, e o resto por ` +
+        `teto ${config.maximoDePautas}, Brasil ${config.maximoDePautasBrasil}, 2 por ator, 2 por domínio)`
     );
   }
   for (const s of selecionadas) {
@@ -647,6 +691,7 @@ export async function avaliarPautas(
     selecionadas,
     approvedEditorialPool,
     recusadas,
+    agrupadasPorAcontecimento: composicao.absorvidas.length,
     viavel: viabilidade.viavel,
     motivoDaInviabilidade: viabilidade.viavel ? "" : viabilidade.motivo,
     custoUsd: custoTotal,

@@ -20,6 +20,7 @@ import type { PacoteFactual } from "../../editorial/pacote-factual";
 import type { PautaAvaliada } from "../../editorial/guarda";
 import { CopyDoPostSchema, ctaDaPosicao, levaCta, type MarcaSocial } from "../copy";
 import { papeisDoModelo, papeisPara, type EstruturaDoCarrossel, type PapelDeSlide } from "./estrutura";
+import { REGRA_DA_MANCHETE } from "../manchete";
 
 /**
  * Corta na última palavra inteira que cabe.
@@ -161,11 +162,14 @@ COMO ESCREVER CADA SLIDE:
 - bullets: até ${MAXIMO_DE_BULLETS} itens de até ${BULLET_DO_SLIDE} caracteres, só quando a informação é naturalmente uma lista. Preencha corpo OU bullets, não os dois cheios.
 - Nada de linguagem jurídica, nada de lista enorme, nada de citação de regulamento.
 
-O SLIDE 1 É O ÚNICO QUE APARECE NO FEED de quem não deslizou. Ele precisa funcionar sozinho: curto, humano, claro, interessante, compreensível para quem não é advogado, e ancorado no pacote. Não é teaser: ele já diz do que se trata.
+O SLIDE 1 É O ÚNICO QUE APARECE NO FEED de quem não deslizou. Ele precisa funcionar sozinho: humano, claro, interessante, compreensível para quem não é advogado, e ancorado no pacote. Não é teaser: ele já diz do que se trata, e o "headline" abaixo é o texto dele.
 
 A LEGENDA não repete o carrossel. O detalhe está nos slides. A legenda tem gancho, resumo, ressalva quando necessária, e nada mais.
 
-headline: a manchete do slide 1. De 3 a 10 palavras, afirmando o fato.
+${REGRA_DA_MANCHETE}
+
+Os outros campos:
+
 destaque: de 1 a 4 palavras copiadas LITERALMENTE do headline. Vazio se não houver nada óbvio.
 gancho: a primeira linha da legenda. Continua a manchete, não a repete.
 fato_principal: o resumo do carrossel em duas frases no máximo.

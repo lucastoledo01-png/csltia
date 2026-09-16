@@ -8,6 +8,7 @@ import type { ContextoDaLegenda } from "./legenda";
 import type { CandidataPersistida } from "../editorial/candidatos-store";
 import { podePublicar } from "../editorial/candidatos-store";
 import { escolherUrlPublicavel } from "../editorial/regras-duras";
+import { FORMA_DA_MANCHETE } from "./manchete";
 
 /**
  * A última pergunta antes de um post existir.
@@ -114,25 +115,48 @@ function normalizar(texto: string): string {
 /**
  * A manchete cabe na arte e diz um fato?
  *
- * O teto de palavras é da arte: três linhas, e um título longo encolhe até
- * ficar ilegível no celular. O piso é editorial: manchete de duas palavras
- * quase nunca é fato, é rótulo.
+ * Os números são de `FORMA_DA_MANCHETE`, e não estão escritos aqui de
+ * propósito: o prompt que pede a manchete e a conferência que a recusa
+ * precisam falar da mesma faixa. Quando eles divergiram, o prompt pedia até 10
+ * palavras, a guarda recusava acima de 12, e a referência que o produto
+ * persegue tem 15. O resultado era a manchete curta e vaga, todo dia, sem
+ * ninguém ter decidido isso.
+ *
+ * O piso é editorial: manchete curta demais quase nunca é fato, é rótulo. O
+ * teto é da arte, medido na faixa da gramática de jornal.
  */
 export function conferirFormaDaHeadline(headline: string): ProblemaDoPost | null {
-  const palavras = headline.trim().split(/\s+/).filter(Boolean);
+  const limpa = headline.trim();
+  const palavras = limpa.split(/\s+/).filter(Boolean);
 
-  if (palavras.length < 3) {
+  if (palavras.length < FORMA_DA_MANCHETE.minimoDePalavras) {
     return {
       motivo: MOTIVOS_DO_SOCIAL_GUARD.HEADLINE_FORA_DA_FORMA,
-      detalhe: `${palavras.length} palavra(s); com menos de três não se afirma um fato`,
+      detalhe:
+        `${palavras.length} palavra(s); abaixo de ${FORMA_DA_MANCHETE.minimoDePalavras} a manchete vira rótulo ` +
+        `e não diz o que muda, para quem, nem a partir de quando`,
       reparavel: true,
     };
   }
 
-  if (palavras.length > 12) {
+  if (palavras.length > FORMA_DA_MANCHETE.maximoDePalavras) {
     return {
       motivo: MOTIVOS_DO_SOCIAL_GUARD.HEADLINE_FORA_DA_FORMA,
-      detalhe: `${palavras.length} palavras; acima de 12 o texto encolhe até ficar ilegível na arte`,
+      detalhe:
+        `${palavras.length} palavras; acima de ${FORMA_DA_MANCHETE.maximoDePalavras} ` +
+        `o texto encolhe até ficar ilegível na arte`,
+      reparavel: true,
+    };
+  }
+
+  // O caractere é o que a arte mede de verdade: seis palavras longas ocupam
+  // mais faixa do que doze curtas, e a faixa tem topo e base fixos.
+  if (limpa.length > FORMA_DA_MANCHETE.maximoDeCaracteres) {
+    return {
+      motivo: MOTIVOS_DO_SOCIAL_GUARD.HEADLINE_FORA_DA_FORMA,
+      detalhe:
+        `${limpa.length} caracteres; acima de ${FORMA_DA_MANCHETE.maximoDeCaracteres} ` +
+        `a manchete não cabe na faixa da capa em corpo legível`,
       reparavel: true,
     };
   }

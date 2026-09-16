@@ -66,6 +66,15 @@ isso fabrica, todo dia, a frase que a régua recusa.
 pegavam três leituras do mesmo fato por veículos diferentes. Além da repetição,
 um fato esticado em três matérias faz a redação enfeitar.
 
+**O agrupamento é por SEMELHANÇA, não por igualdade.** A primeira versão
+comparava impressão exata de ator, lugar e termo, e não agrupou nada: quatro
+veículos sobre a mesma liminar escrevem palavras diferentes. A régua é o vetor
+que já existe em `news_candidates.embedding`, com limiar de 0.70 entre as
+pautas do mesmo dia. O número é medido, não escolhido: o mesmo fato por
+veículos diferentes deu 0.89, 0.81 e 0.80, e o primeiro par de fatos distintos,
+0.563. Não confunda com o limiar de 0.85 da repetição histórica: são perguntas
+diferentes, e o mesmo dia repete muito mais que trinta dias.
+
 **Google News é descoberta, nunca a fonte publicada.** Link de agregador não
 resolve para o leitor. Resolver o link dele é engenharia reversa de endpoint
 privado, e já foi medido: não vale.
@@ -74,6 +83,19 @@ privado, e já foi medido: não vale.
 
 **Templates travados.** A LLM escreve o texto e nunca toca no layout. Não existe
 decisão de layout por post.
+
+**A manchete da capa tem forma, e a forma tem um lugar só.** De 6 a 18 palavras
+e de 45 a 130 caracteres, em duas partes: o que é, com nome próprio ou citação,
+e o que muda, com o detalhe que prova. A faixa saiu da medição das capas de
+referência (11, 15 e 16 palavras) e da capacidade medida da arte nova, não de
+gosto. Os números e o texto da regra vivem em `social/manchete.ts`, e os dois
+prompts e a guarda leem de lá. Manchete de cinco palavras cabe em qualquer arte
+e não diz qual regra, de quem, nem a partir de quando.
+
+**O chapéu de editoria aparece sempre.** Com foto ou sem, peça única ou
+carrossel. Ele ficava de fora na peça única com foto, herança do desenho
+anterior, e é a linha que diz de que editoria é aquilo antes de o leitor ler a
+manchete.
 
 **A gramática dos posts é uma só:** foto sangrando colorida, marca no alto à
 esquerda, chapéu de editoria e manchete em caixa alta no rodapé. A capa é a

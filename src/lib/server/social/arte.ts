@@ -300,7 +300,19 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
   const slide: InstagramSlide = {
     index: 1,
     type: "cover",
-    eyebrow: comFoto && !doCarrossel ? "" : sobrancelha(entrada.eixo),
+    /*
+     * O chapéu sai SEMPRE, com foto ou sem, peça única ou carrossel.
+     *
+     * Ele ficava de fora justamente no caso mais comum, a peça única com foto,
+     * herança do desenho anterior em que a capa com foto não tinha onde
+     * colocá-lo. Na gramática de jornal ele é parte da peça: é a linha que diz
+     * ao leitor de que editoria é aquilo antes de ele ler a manchete, e nas
+     * três capas de referência medidas ela está nas três.
+     *
+     * Eixo sem rótulo continua sem chapéu. Nomear o que a classificação não
+     * soube nomear seria inventar editoria, e isso não mudou.
+     */
+    eyebrow: sobrancelha(entrada.eixo),
     title: entrada.headline,
     body: "",
     bullet_points: [],

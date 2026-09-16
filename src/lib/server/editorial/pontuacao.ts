@@ -2,6 +2,8 @@ import type { Classificacao } from "./classificador";
 import type { ConfigEditorial } from "./config";
 import { impressaoDoAcontecimento } from "./fingerprint";
 import { entidadesDaClassificacao } from "./classificador";
+import type { Vetor } from "./embeddings";
+import { cosseno } from "./embeddings";
 
 /**
  * Nota da pauta.
@@ -132,11 +134,42 @@ export type PautaOrdenavel<T> = {
   pontuacao: Pontuacao;
   classificacao: Classificacao;
   dominio: string;
+  /**
+   * O vetor da pauta, quando a camada semântica estiver ligada.
+   *
+   * Opcional porque a composição precisa continuar funcionando sem ele: dia em
+   * que a API de embedding cai, a edição sai com os tetos de sempre e uma
+   * linha no log dizendo que o agrupamento ficou de fora. O que ela não pode é
+   * depender do vetor para existir.
+   */
+  vetor?: Vetor | null;
+};
+
+/** Uma pauta que saiu porque outra, melhor, já contava o mesmo fato. */
+export type Absorvida<T> = {
+  descartada: PautaOrdenavel<T>;
+  representante: PautaOrdenavel<T>;
+  /** Quem reconheceu o mesmo fato. */
+  camada: "impressao" | "vetor";
+  /** Cosseno, quando quem reconheceu foi o vetor. Um, quando foi a impressão. */
+  score: number;
+};
+
+export type ComposicaoDaEdicao<T> = {
+  escolhidas: Array<PautaOrdenavel<T>>;
+  /**
+   * O que foi agrupado, com o par e o número.
+   *
+   * Existe para ser lido depois. Sem o score gravado, calibrar o limiar vira
+   * palpite, que é exatamente o erro que a versão por igualdade exata cometeu:
+   * ela não agrupava nada e não deixava rastro de que não agrupava.
+   */
+  absorvidas: Array<Absorvida<T>>;
 };
 
 /**
- * Ordena e limita a repetição de ator, de veículo e de ACONTECIMENTO na mesma
- * edição.
+ * Compõe a edição: ordena e limita repetição de ator, de veículo e de
+ * ACONTECIMENTO.
  *
  * Sem isso, um dia movimentado no USCIS vira uma edição inteira sobre o USCIS.
  *
@@ -147,25 +180,38 @@ export type PautaOrdenavel<T> = {
  * atores diferentes na primeira posição, passavam pelos dois tetos e chegavam
  * juntas à edição.
  *
- * Em 16/09/2026 o auditor apontou: "as três primeiras histórias cobrem
- * essencialmente o mesmo adiamento da regra, gerando repetição editorial
- * significativa". E o efeito não parou na repetição: com um fato só esticado em
- * três matérias, a redação não tem o que dizer de diferente e passa a enfeitar,
- * o que derrubou a edição por falta de lastro.
+ * ## Por que a impressão exata não bastou
+ *
+ * Em 16/09/2026 o teto por acontecimento entrou, e na mesma noite a edição
+ * publicada saiu com três das quatro pautas sobre o mesmo adiamento de regra.
+ * A impressão é montada por igualdade exata de ator, lugar e termo, e quatro
+ * escritórios de advocacia descrevendo a mesma liminar escrevem "court",
+ * "district court", "DHS" e "duration of status rule" em combinações que nunca
+ * coincidem. A chave não colidia, então nada agrupava.
+ *
+ * O sinal que enxerga isso é o vetor, e ele já existia: `news_candidates.embedding`
+ * é calculado para toda pauta aprovada, e a camada de repetição histórica já o
+ * usa. Faltava usar a mesma medida ENTRE as pautas do dia. Medido naquele
+ * pool: o mesmo fato por três veículos deu 0.892, 0.808 e 0.805; o primeiro
+ * par de fatos distintos, 0.563.
+ *
+ * As duas camadas continuam valendo, nesta ordem: a impressão é de graça e
+ * pega o caso fácil; o vetor pega o caso que custou a edição.
  */
-export function ordenarESelecionar<T>(
+export function comporEdicao<T>(
   pautas: Array<PautaOrdenavel<T>>,
   config: ConfigEditorial,
   maximoPorAtor = 2,
   maximoPorDominio = 2
-): Array<PautaOrdenavel<T>> {
+): ComposicaoDaEdicao<T> {
   const ordenadas = [...pautas].sort((a, b) => b.pontuacao.total - a.pontuacao.total);
 
   const porAtor: Record<string, number> = {};
   const porDominio: Record<string, number> = {};
-  const acontecimentos = new Set<string>();
+  const porAcontecimento = new Map<string, PautaOrdenavel<T>>();
   let doBrasil = 0;
   const escolhidas: Array<PautaOrdenavel<T>> = [];
+  const absorvidas: Array<Absorvida<T>> = [];
 
   for (const p of ordenadas) {
     if (escolhidas.length >= config.maximoDePautas) break;
@@ -183,7 +229,30 @@ export function ordenarESelecionar<T>(
      * mesma situação.
      */
     const acontecimento = impressaoDoAcontecimento(entidadesDaClassificacao(p.classificacao));
-    if (acontecimento && acontecimentos.has(acontecimento)) continue;
+    const porChave = acontecimento ? porAcontecimento.get(acontecimento) : undefined;
+    if (porChave) {
+      absorvidas.push({ descartada: p, representante: porChave, camada: "impressao", score: 1 });
+      continue;
+    }
+
+    /*
+     * A mesma pergunta, feita ao vetor.
+     *
+     * Compara só contra QUEM JÁ ENTROU, e não contra tudo que passou por aqui.
+     * Uma pauta cortada pelo teto de veículo não está na edição, e não há por
+     * que a semelhança com ela impedir uma terceira de entrar: o que se evita é
+     * a edição dizer duas vezes a mesma coisa, não a existência do assunto.
+     */
+    const parecida = maisParecidaEntreAsEscolhidas(p, escolhidas, config.limiarDeAgrupamento);
+    if (parecida) {
+      absorvidas.push({
+        descartada: p,
+        representante: parecida.pauta,
+        camada: "vetor",
+        score: parecida.score,
+      });
+      continue;
+    }
 
     if (ator && (porAtor[ator] ?? 0) >= maximoPorAtor) continue;
     if (dominio && (porDominio[dominio] ?? 0) >= maximoPorDominio) continue;
@@ -198,11 +267,42 @@ export function ordenarESelecionar<T>(
 
     if (ator) porAtor[ator] = (porAtor[ator] ?? 0) + 1;
     if (dominio) porDominio[dominio] = (porDominio[dominio] ?? 0) + 1;
-    if (acontecimento) acontecimentos.add(acontecimento);
+    if (acontecimento) porAcontecimento.set(acontecimento, p);
     escolhidas.push(p);
   }
 
-  return escolhidas;
+  return { escolhidas, absorvidas };
+}
+
+/**
+ * A escolhida mais próxima desta pauta, se passar do limiar.
+ *
+ * Devolve a de MAIOR semelhança, e não a primeira que passa, porque o número
+ * que vai para o log é o que se usa depois para calibrar: saber que a pauta
+ * bateu 0.89 com a manchete certa vale mais do que saber que bateu 0.71 com a
+ * primeira que apareceu.
+ *
+ * Limiar zero ou negativo desliga a camada, e é assim que se testa a edição
+ * sem ela sem precisar tirar os vetores do caminho.
+ */
+function maisParecidaEntreAsEscolhidas<T>(
+  pauta: PautaOrdenavel<T>,
+  escolhidas: Array<PautaOrdenavel<T>>,
+  limiar: number
+): { pauta: PautaOrdenavel<T>; score: number } | null {
+  if (!(limiar > 0)) return null;
+  const vetor = pauta.vetor;
+  if (!vetor || vetor.length === 0) return null;
+
+  let melhor: { pauta: PautaOrdenavel<T>; score: number } | null = null;
+  for (const e of escolhidas) {
+    if (!e.vetor || e.vetor.length === 0) continue;
+    const score = cosseno(vetor, e.vetor);
+    if (score >= limiar && (melhor === null || score > melhor.score)) {
+      melhor = { pauta: e, score };
+    }
+  }
+  return melhor;
 }
 
 /**

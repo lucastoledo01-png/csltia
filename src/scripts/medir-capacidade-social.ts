@@ -407,7 +407,7 @@ async function main() {
   }
   escrever();
   escrever(
-    `A diferença entre as duas colunas do meio é o corte de \`ordenarESelecionar\`: teto global, teto Brasil, ` +
+    `A diferença entre as duas colunas do meio é o corte de \`comporEdicao\`: teto global, teto Brasil, ` +
       `e dois tetos NÃO configuráveis, 2 por ator e 2 por domínio, escritos como valor padrão de parâmetro ` +
       `em \`pontuacao.ts\` e nunca passados pela guarda. O que eles cortam não aparece em \`recusadas\`.`,
   );

@@ -25,6 +25,15 @@ export type ConfigEditorial = {
   limiarSemantico: number;
   /** Acima disto é repetição sem precisar de mais nada. */
   limiarSemanticoCerto: number;
+  /**
+   * Acima disto, duas pautas da MESMA edição contam o mesmo acontecimento.
+   *
+   * Outro limiar e outra pergunta. Os dois de cima comparam a pauta com os
+   * últimos trinta dias, e errar ali custa uma pauta boa barrada. Este compara
+   * as pautas do dia entre si, e errar custa o inverso: a edição inteira
+   * dizendo a mesma coisa quatro vezes.
+   */
+  limiarDeAgrupamento: number;
   /** Acima disto, dois títulos são o mesmo título com outras palavras. */
   limiarDeTitulo: number;
   /** Dias de histórico consultados na verificação de repetição. */
@@ -57,6 +66,21 @@ export function carregarConfigEditorial(env: Ambiente = process.env): ConfigEdit
     // número só não resolve: entre 0.72 e 0.85 quem decide é a entidade.
     limiarSemantico: numeroDoAmbiente("EDITORIAL_LIMIAR_SEMANTICO", 0.72, env),
     limiarSemanticoCerto: numeroDoAmbiente("EDITORIAL_LIMIAR_SEMANTICO_CERTO", 0.85, env),
+    /*
+     * Medido no pool aprovado de 16/09/2026, 14 pautas e 91 pares.
+     *
+     * O mesmo adiamento da regra de Duration of Status, contado por três
+     * escritórios diferentes, deu 0.892, 0.808 e 0.805. A mesma sessão do STF,
+     * por dois ângulos, deu 0.793 e 0.712. O mesmo dia de decisão de juros deu
+     * 0.743. O primeiro par de fatos REALMENTE distintos aparece em 0.563, e a
+     * mediana dos 91 pares é 0.214.
+     *
+     * Ou seja: há um vale entre 0.57 e 0.71 onde não mora nada, e 0.70 cai
+     * dentro dele com folga dos dois lados. Não é o limiar de repetição
+     * histórica (0.85), que é outra pergunta: aqui é o mesmo dia, e o mesmo
+     * dia repete muito mais.
+     */
+    limiarDeAgrupamento: numeroDoAmbiente("EDITORIAL_LIMIAR_AGRUPAMENTO", 0.7, env),
     limiarDeTitulo: numeroDoAmbiente("EDITORIAL_LIMIAR_TITULO", 0.72, env),
     janelaDeDias: numeroDoAmbiente("EDITORIAL_JANELA_DIAS", 30, env),
     janelaDeImagemEmDias: numeroDoAmbiente("EDITORIAL_JANELA_IMAGEM_DIAS", 30, env),
