@@ -1,5 +1,7 @@
 import type { Classificacao } from "./classificador";
 import type { ConfigEditorial } from "./config";
+import { impressaoDoAcontecimento } from "./fingerprint";
+import { entidadesDaClassificacao } from "./classificador";
 
 /**
  * Nota da pauta.
@@ -133,11 +135,23 @@ export type PautaOrdenavel<T> = {
 };
 
 /**
- * Ordena e limita a repetição de ator e de veículo dentro da mesma edição.
+ * Ordena e limita a repetição de ator, de veículo e de ACONTECIMENTO na mesma
+ * edição.
  *
  * Sem isso, um dia movimentado no USCIS vira uma edição inteira sobre o USCIS.
- * O limite é por ator principal e por domínio, não por assunto: assunto
- * parecido já foi tratado pela camada de repetição.
+ *
+ * O acontecimento entrou depois, e o comentário anterior dizia que assunto
+ * parecido "já foi tratado pela camada de repetição". Estava errado: aquela
+ * camada compara com os ÚLTIMOS 30 DIAS, não com as outras pautas da mesma
+ * edição. Duas leituras do mesmo fato, publicadas por veículos diferentes e com
+ * atores diferentes na primeira posição, passavam pelos dois tetos e chegavam
+ * juntas à edição.
+ *
+ * Em 16/09/2026 o auditor apontou: "as três primeiras histórias cobrem
+ * essencialmente o mesmo adiamento da regra, gerando repetição editorial
+ * significativa". E o efeito não parou na repetição: com um fato só esticado em
+ * três matérias, a redação não tem o que dizer de diferente e passa a enfeitar,
+ * o que derrubou a edição por falta de lastro.
  */
 export function ordenarESelecionar<T>(
   pautas: Array<PautaOrdenavel<T>>,
@@ -149,6 +163,7 @@ export function ordenarESelecionar<T>(
 
   const porAtor: Record<string, number> = {};
   const porDominio: Record<string, number> = {};
+  const acontecimentos = new Set<string>();
   let doBrasil = 0;
   const escolhidas: Array<PautaOrdenavel<T>> = [];
 
@@ -157,6 +172,18 @@ export function ordenarESelecionar<T>(
 
     const ator = (p.classificacao.atores[0] || "").toLowerCase();
     const dominio = p.dominio.toLowerCase();
+
+    /*
+     * Um acontecimento, uma pauta. A primeira é a de maior nota, porque a lista
+     * já vem ordenada: quando duas cobrem o mesmo fato, fica a melhor.
+     *
+     * Impressão vazia não agrupa nada. Uma pauta sem ator, lugar nem
+     * acontecimento classificado produz string vazia, e tratar isso como chave
+     * faria a primeira pauta sem classificação bloquear todas as outras na
+     * mesma situação.
+     */
+    const acontecimento = impressaoDoAcontecimento(entidadesDaClassificacao(p.classificacao));
+    if (acontecimento && acontecimentos.has(acontecimento)) continue;
 
     if (ator && (porAtor[ator] ?? 0) >= maximoPorAtor) continue;
     if (dominio && (porDominio[dominio] ?? 0) >= maximoPorDominio) continue;
@@ -171,6 +198,7 @@ export function ordenarESelecionar<T>(
 
     if (ator) porAtor[ator] = (porAtor[ator] ?? 0) + 1;
     if (dominio) porDominio[dominio] = (porDominio[dominio] ?? 0) + 1;
+    if (acontecimento) acontecimentos.add(acontecimento);
     escolhidas.push(p);
   }
 

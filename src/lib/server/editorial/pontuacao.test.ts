@@ -86,8 +86,15 @@ describe("pontuarPauta", () => {
 });
 
 describe("ordenarESelecionar", () => {
+  /*
+   * O acontecimento varia por pauta, e isso não é detalhe de fixture.
+   *
+   * Existem dois tetos diferentes aqui: um por ator e outro por acontecimento.
+   * Com todas as pautas compartilhando o mesmo acontecimento, o segundo cortava
+   * antes e o teste do primeiro passava a medir outra coisa.
+   */
   function pauta(nome: string, relevancia: number, ator: string, dominio: string): PautaOrdenavel<string> {
-    const c = classificacao({ relevancia, atores: [ator] });
+    const c = classificacao({ relevancia, atores: [ator], acontecimento: [`fato-${nome}`] });
     return {
       item: nome,
       classificacao: c,
@@ -124,6 +131,80 @@ describe("ordenarESelecionar", () => {
     const escolhidas = ordenarESelecionar(lista, config);
     const uscis = escolhidas.filter((p) => p.classificacao.atores[0] === "USCIS");
     expect(uscis).toHaveLength(2);
+  });
+
+  /**
+   * Em 16/09/2026 o auditor apontou que as três primeiras histórias da edição
+   * cobriam o mesmo adiamento de regra. Os dois tetos existentes não pegavam:
+   * veículos diferentes passam no teto de domínio, e atores diferentes na
+   * primeira posição passam no teto de ator.
+   *
+   * O efeito não parou na repetição. Com um fato só esticado em três matérias,
+   * a redação não tem o que dizer de diferente e enfeita, e a edição caiu por
+   * falta de lastro.
+   */
+  it("o mesmo acontecimento entra uma vez, e fica a de maior nota", () => {
+    const mesmo = ["liminar", "duration of status"];
+    const derivada = (nome: string, relevancia: number, ator: string, dominio: string) => {
+      const c = classificacao({ relevancia, atores: [ator], acontecimento: mesmo });
+      return {
+        item: nome,
+        classificacao: c,
+        dominio,
+        pontuacao: pontuarPauta({
+          classificacao: c,
+          prioridadeDaFonte: 1,
+          quantasFontesConfirmam: 1,
+          publicadoEm: agora,
+          semelhancaComHistorico: 0,
+          temCorpoFactual: true,
+        }),
+      };
+    };
+
+    const escolhidas = ordenarESelecionar(
+      [
+        derivada("fraca", 5, "DHS", "a.com"),
+        derivada("forte", 9, "DHS", "b.com"),
+        derivada("media", 7, "DHS", "c.com"),
+        pauta("outra", 6, "Departamento de Estado", "d.com"),
+      ],
+      config,
+    );
+
+    const doMesmoFato = escolhidas.filter((p) => p.classificacao.acontecimento === mesmo);
+    expect(doMesmoFato).toHaveLength(1);
+    expect(doMesmoFato[0].item).toBe("forte");
+    // A pauta de outro fato continua entrando: o corte é do repetido, não do resto.
+    expect(escolhidas.map((p) => p.item)).toContain("outra");
+  });
+
+  it("pauta sem acontecimento classificado não bloqueia as outras", () => {
+    // Impressão vazia não é chave: se fosse, a primeira pauta sem
+    // classificação derrubaria todas as outras na mesma situação.
+    const semFato = (nome: string, relevancia: number, dominio: string) => {
+      const c = classificacao({ relevancia, atores: [], lugares: [], acontecimento: [] });
+      return {
+        item: nome,
+        classificacao: c,
+        dominio,
+        pontuacao: pontuarPauta({
+          classificacao: c,
+          prioridadeDaFonte: 1,
+          quantasFontesConfirmam: 1,
+          publicadoEm: agora,
+          semelhancaComHistorico: 0,
+          temCorpoFactual: true,
+        }),
+      };
+    };
+
+    const escolhidas = ordenarESelecionar(
+      [semFato("x", 8, "a.com"), semFato("y", 7, "b.com")],
+      config,
+    );
+
+    expect(escolhidas).toHaveLength(2);
   });
 
   it("não deixa a crise do STF tomar a edição de uma publicação sobre os EUA", () => {

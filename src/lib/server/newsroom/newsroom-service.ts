@@ -656,6 +656,8 @@ export async function registrarFalhaDaRedacao(
     startTime: number;
     options: RunNewsroomOptions;
     env: Record<string, string | undefined>;
+    /** Onde o funil parou. Sem isto a linha de falha grava zeros. */
+    funil?: ContadoresDoFunil;
   },
   cliente?: ReturnType<typeof getSupabaseAdminClient>,
 ): Promise<void> {
@@ -689,11 +691,18 @@ export async function registrarFalhaDaRedacao(
       : `${cabeca}${linhaDoStack}`;
 
     const supabase = cliente ?? getSupabaseAdminClient();
+    const funil = contexto.funil ?? funilVazio();
+
     await supabase.from("newsroom_runs").insert({
       project_id: project.id,
       started_at: new Date(contexto.startTime).toISOString(),
       finished_at: new Date().toISOString(),
       status: "failed",
+      sources_count: funil.sourcesCount,
+      candidates_found: funil.candidatesFound,
+      candidates_filtered: Math.max(0, funil.candidatesFound - funil.uniqueCount),
+      duplicates_count: funil.duplicatesCount,
+      stories_selected: funil.approvedCount,
       dry_run: false,
       edition_id: null,
       error_message: motivo.slice(0, 2000),
@@ -745,9 +754,41 @@ export function modoSocialParaOEnsaio(
  * sobrevive à exceção. Não há cópia paralela: o diagnóstico mora aqui e só
  * aqui, porque duas variáveis que podem discordar é o defeito seguinte.
  */
+/**
+ * O que sobrevive ao `throw` e chega em quem grava a falha.
+ *
+ * O diagnóstico social já viajava aqui. Os números do funil passaram a viajar
+ * junto porque a linha de falha os gravava zerados: eles só eram escritos no
+ * caminho de sucesso, então um dia bloqueado perdia exatamente os números que
+ * explicam por que foi bloqueado.
+ *
+ * Em 16/09/2026 isso apareceu na prática: três execuções falhadas, todas com
+ * `candidates_found: 0`, e nenhuma forma de saber se o pool estava cheio ou
+ * vazio sem reler o banco de candidatas na mão.
+ */
 export type RastroDaExecucao = {
   social: DiagnosticoSocialDoDia;
+  funil: ContadoresDoFunil;
 };
+
+export type ContadoresDoFunil = {
+  sourcesCount: number;
+  candidatesFound: number;
+  uniqueCount: number;
+  duplicatesCount: number;
+  /** Quantas a linha editorial aprovou, antes da composição da edição. */
+  approvedCount: number;
+};
+
+export function funilVazio(): ContadoresDoFunil {
+  return {
+    sourcesCount: 0,
+    candidatesFound: 0,
+    uniqueCount: 0,
+    duplicatesCount: 0,
+    approvedCount: 0,
+  };
+}
 
 /** Motivo estruturado da falha, para quem lê a resposta decidir o que fazer. */
 export const MOTIVO_QA_BLOQUEOU = "EDITORIAL_QA";
@@ -876,12 +917,13 @@ export async function runNewsroom(
   const startTime = Date.now();
   const rastro: RastroDaExecucao = {
     social: diagnosticoSocialAusente(modoDoPipelineSocial(env)),
+    funil: funilVazio(),
   };
 
   try {
     return await executarRedacaoDoDia(options, env, fetcher, rastro);
   } catch (erro) {
-    await registrarFalhaDaRedacao(erro, { startTime, options, env });
+    await registrarFalhaDaRedacao(erro, { startTime, options, env, funil: rastro.funil });
     // O erro segue sendo erro. Ele só passa a carregar o que já tinha sido
     // produzido antes dele.
     throw anexar(erro, CHAVE_DIAGNOSTICO, rastro.social);
@@ -892,7 +934,10 @@ async function executarRedacaoDoDia(
   options: RunNewsroomOptions = {},
   env: Record<string, string | undefined> = process.env,
   fetcher: typeof fetch = fetch,
-  rastro: RastroDaExecucao = { social: diagnosticoSocialAusente(modoDoPipelineSocial(env)) },
+  rastro: RastroDaExecucao = {
+    social: diagnosticoSocialAusente(modoDoPipelineSocial(env)),
+    funil: funilVazio(),
+  },
 ) {
   const dryRun = options.dryRun ?? (env.DRY_RUN === "true" || env.DRY_RUN === undefined ? true : false);
   const publishToPortal = options.publishToPortal ?? !dryRun;
@@ -939,6 +984,22 @@ async function executarRedacaoDoDia(
 
   const { uniqueGroups, duplicatesCount } = deduplicateCandidates(collectionResult.candidates);
   console.log(`[NEWSROOM] ${uniqueGroups.length} grupos únicos após deduplicação (${duplicatesCount} duplicatas removidas).`);
+
+  /*
+   * Os números do funil entram no rastro assim que existem, e não no fim.
+   *
+   * O rastro é o que sobrevive ao `throw`. Preenchê-lo aqui é o que faz a linha
+   * de falha dizer quantas fontes responderam e quantas candidatas chegaram,
+   * em vez de zeros que não distinguem "coleta vazia" de "bloqueado com o pool
+   * cheio".
+   */
+  rastro.funil = {
+    ...rastro.funil,
+    sourcesCount: collectionResult.sourcesAttempted,
+    candidatesFound: collectionResult.candidates.length,
+    uniqueCount: uniqueGroups.length,
+    duplicatesCount,
+  };
 
   /*
    * A seleção do dia.
@@ -1052,6 +1113,9 @@ async function executarRedacaoDoDia(
      * O `try` não é decoração: falha técnica do social não pode derrubar a
      * edição. O motivo vira diagnóstico e alerta, e o e-mail segue.
      */
+    /* Quantas a linha editorial aprovou, antes de a composição escolher. */
+    rastro.funil = { ...rastro.funil, approvedCount: resultado.approvedEditorialPool.length };
+
     const modoSocialDoEnsaio = modoSocialParaOEnsaio(dryRun, env, project);
 
     try {

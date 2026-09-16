@@ -292,3 +292,59 @@ describe("a falha gravada carrega o que o QA barrou", () => {
     expect(mensagem).toContain(" | at ");
   });
 });
+
+/**
+ * A linha de falha precisa dizer onde o funil parou.
+ *
+ * Em 16/09/2026 três execuções falharam no portão editorial, e as três
+ * gravaram `candidates_found: 0`, `sources_count: 0`, `stories_selected: 0`.
+ * Os contadores só eram escritos no caminho de sucesso, então a linha que
+ * explica o dia bloqueado era exatamente a que não tinha números.
+ *
+ * A diferença entre "coleta vazia" e "pool cheio e barrado no fim" muda a ação:
+ * a primeira é problema de fonte, a segunda é problema de redação. Sem os
+ * números, as duas se parecem.
+ */
+describe("a falha gravada diz onde o funil parou", () => {
+  beforeEach(() => {
+    vi.mocked(projetos.requireActiveProject).mockReset().mockResolvedValue(PROJETO);
+    vi.mocked(projetos.projectToday).mockReset().mockReturnValue("2026-09-10");
+  });
+
+  it("grava fontes, coletadas, duplicatas e aprovadas", async () => {
+    const { client, gravadas } = bancoFalso();
+
+    await registrarFalhaDaRedacao(
+      new Error("Edição bloqueada"),
+      {
+        ...CONTEXTO,
+        funil: {
+          sourcesCount: 29,
+          candidatesFound: 120,
+          uniqueCount: 96,
+          duplicatesCount: 24,
+          approvedCount: 5,
+        },
+      },
+      client,
+    );
+
+    const linha = gravadas[0];
+    expect(linha.sources_count).toBe(29);
+    expect(linha.candidates_found).toBe(120);
+    expect(linha.duplicates_count).toBe(24);
+    expect(linha.candidates_filtered).toBe(24);
+    expect(linha.stories_selected).toBe(5);
+  });
+
+  it("sem os números, grava zeros e não quebra", async () => {
+    // Falha antes da coleta existe: leitura de projeto, de fontes, de
+    // histórico. Nesses casos zero é a resposta correta, e não ausência de
+    // informação.
+    const { client, gravadas } = bancoFalso();
+    await registrarFalhaDaRedacao(new Error("Gateway Timeout"), CONTEXTO, client);
+
+    expect(gravadas[0].candidates_found).toBe(0);
+    expect(gravadas[0].status).toBe("failed");
+  });
+});
