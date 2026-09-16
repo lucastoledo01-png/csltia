@@ -62,18 +62,34 @@ export const REGRA_DA_MANCHETE = `A MANCHETE DA CAPA
 
 Ela é o post inteiro para quem não deslizou. Manchete ampla não dá o que decidir: "Corte adia regra de prazo" serve para qualquer regra, qualquer prazo e qualquer pessoa, e quem lê passa reto.
 
-A forma é de duas partes, quase sempre ligadas por dois-pontos:
+DE QUEM É ESTA NOTÍCIA. Antes da forma, responda isto: quem, entre as pessoas que leem, sente a mudança? Esse grupo TEM QUE APARECER na manchete, com as palavras que a própria fonte usa: quem tem visto de estudante, quem já protocolou o pedido, quem assinou o compromisso de sustento, empresa que patrocina, profissional de tecnologia. Medido nas nossas primeiras 79 manchetes: em 25 o sujeito era uma instituição ou um ato jurídico, e em 25 o leitor não aparecia de jeito nenhum.
 
-  [o que é, com nome próprio ou citação]: [o que muda, com o detalhe que prova]
+NACIONALIDADE DE TERCEIRO PAÍS NUNCA ENTRA. Se a pessoa da história não é brasileira, a nacionalidade dela sai da manchete e é substituída pela profissão, pela área ou pela etapa do processo. O leitor está no Brasil e vai para os Estados Unidos; a nacionalidade de um terceiro não diz nada a ele.
+  Errado: "O-1B para designer de cenários do México: USCIS aprova com processamento premium"
+  Certo: "Designer de cenários aprovado no O-1B, o visto de quem trabalha com arte, pelo processamento premium"
 
-  "SUS PARA QUEM TRABALHA": NOVA REGRA CONDICIONA PARTE DO MEDICAID A 80 HORAS MENSAIS DE ATIVIDADE
-  GILMAR MENDES EM SESSÃO SOBRE MORAES: "ATÉ A MÁFIA TEM ÉTICA"
-  DECISÃO EM BOSTON ADIA A REGRA DE PRAZO FIXO: ESTUDANTE COM F-1 SEGUE NO STATUS ATUAL ATÉ 27 DE OUTUBRO
+  Um país que não é o Brasil nem os Estados Unidos só fica na manchete quando ele é o OBJETO da regra, como no TPS de El Salvador, e mesmo aí a outra metade precisa dizer o que aquilo muda para quem lê.
 
-A primeira parte é o sujeito do fato, o nome do programa ou da regra, ou uma frase literal entre aspas. A segunda traz o número, o prazo, a data, o valor ou quem é afetado. Sem os dois-pontos também vale, desde que as duas informações estejam lá.
+ÓRGÃO E ATO JURÍDICO NÃO ABREM. Corte, tribunal, juiz, liminar, decisão, regra, USCIS e DHS entram depois, como fiança do fato. Abre a manchete o que passou a valer ou deixou de valer, e para quem.
 
-TAMANHO: de ${FORMA_DA_MANCHETE.minimoDePalavras} a ${FORMA_DA_MANCHETE.maximoDePalavras} palavras, de ${FORMA_DA_MANCHETE.minimoDeCaracteres} a ${FORMA_DA_MANCHETE.maximoDeCaracteres} caracteres. São três linhas na arte, e três linhas é o alvo, não o limite tolerado.
+JURISDIÇÃO NO FIM. Estado, cidade, corte ou distrito vão para a última posição. O leitor precisa saber se aquilo o alcança antes de saber onde foi decidido.
+  Errado: "Na Califórnia, acordos nupciais geralmente não encerram o I-864"
+  Certo: "Quem assinou o compromisso de sustentar um imigrante costuma seguir responsável depois do divórcio, na Califórnia"
 
-O DETALHE VEM DO PACOTE FACTUAL. Se não houver número, prazo nem citação, a segunda parte é o efeito concreto que a fonte descreve, com as palavras da fonte. Inventar o detalhe para caber na forma é pior do que a manchete curta: a forma é para organizar o que existe, nunca para pedir o que falta.
+SIGLA NUNCA SOZINHA. Ou ela vem com três a cinco palavras que dizem o que é ("o I-864, o compromisso de sustentar o imigrante"), ou sai. D/S, duration of status, EAD, NIW e I-765 crus não são manchete, são anotação de escritório.
+
+A FORMA. De duas partes, e os dois-pontos são UMA opção, não o padrão: nas 25 manchetes de referência medidas, só 2 usam dois-pontos. Vírgula, "e" e a frase corrida funcionam igual.
+
+  [o que muda, e para quem] + [o detalhe que prova: número, prazo, data, quem decidiu]
+
+  "Quem tem visto de estudante segue no prazo até 27 de outubro: decisão em Boston adiou a regra"
+  "Regra de prazo fixo segue suspensa e o prazo aberto continua valendo para estudantes"
+  "Gilmar Mendes em sessão sobre Moraes: 'até a máfia tem ética'"
+
+TAMANHO: de ${FORMA_DA_MANCHETE.minimoDePalavras} a ${FORMA_DA_MANCHETE.maximoDePalavras} palavras, de ${FORMA_DA_MANCHETE.minimoDeCaracteres} a ${FORMA_DA_MANCHETE.maximoDeCaracteres} caracteres. São três linhas na arte, e três linhas é o alvo.
+
+O DETALHE VEM DO PACOTE FACTUAL. Se não houver número, prazo nem citação, a segunda parte é o efeito concreto que a fonte descreve, com as palavras dela. E nomear o leitor é obrigação de FORMA, nunca licença para inventar alcance: o grupo afetado sai da fonte. Continua proibido escrever que algo "muda o cenário para brasileiros" quando o pacote não diz isso.
+
+RETOMADA. Quando a mesma história volta, a manchete carrega o dado NOVO: a data, a etapa, quem fica de fora, o que passa a valer. Trocar "corte" por "tribunal" e "D/S" por "duration of status" não é manchete nova, é a mesma repetida.
 
 PROIBIDO na manchete: pergunta, "entenda", "veja o que muda", "tudo sobre", "saiba mais", promessa de resultado, e adjetivo no lugar do fato ("decisão histórica", "mudança enorme"). O que prende a atenção é o fato com o detalhe, não o adjetivo sobre ele.`;

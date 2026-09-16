@@ -244,3 +244,40 @@ describe("a linha de baixo repete a de cima", () => {
     expect(r.filter((a) => a.motivo === "REDUNDANT_SUBHEAD")).toHaveLength(0);
   });
 });
+
+describe("o protagonista de terceiro país", () => {
+  /*
+   * O caso real, apontado pelo dono em 16/09/2026: "O-1B para designer de
+   * cenários do México: USCIS aprova com processamento premium". O fato é
+   * verdadeiro e o visto interessa, mas quem lê está no Brasil indo para os
+   * Estados Unidos, e a nacionalidade de um terceiro ocupava a primeira metade
+   * da frase, que é onde deveria estar o que muda e para quem.
+   */
+  it("pega o gentílico que não é brasileiro nem americano", () => {
+    const r = conferirLinguagemDoLeitor(
+      edicao([materia({ title: "Cirurgião mexicano tem aprovação em caso de EB-2 NIW" })]),
+    );
+    const achado = r.find((a) => a.motivo === "FOREIGN_SUBJECT");
+    expect(achado).toBeDefined();
+    expect(achado?.descricao).toContain("mexicano");
+  });
+
+  it("brasileiro e americano continuam livres", () => {
+    for (const titulo of [
+      "Brasileiros com visto de estudante seguem no prazo de sempre",
+      "Empregador americano passa a informar o salário antes do registro",
+    ]) {
+      const r = conferirLinguagemDoLeitor(edicao([materia({ title: titulo })]));
+      expect(r.filter((a) => a.motivo === "FOREIGN_SUBJECT")).toHaveLength(0);
+    }
+  });
+
+  it("não confunde palavra que contém o gentílico", () => {
+    // "indiano" está dentro de "indianópolis", e a régua compara palavra
+    // inteira justamente para não apontar isso.
+    const r = conferirLinguagemDoLeitor(
+      edicao([materia({ title: "Escritório de Indianópolis passa a atender pedidos de trabalho" })]),
+    );
+    expect(r.filter((a) => a.motivo === "FOREIGN_SUBJECT")).toHaveLength(0);
+  });
+});

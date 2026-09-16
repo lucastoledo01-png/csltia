@@ -148,6 +148,22 @@ Títulos REAIS que saíram e não deveriam ter saído:
 - "Regra permite registro de residência para determinadas crianças nascidas nos EUA" — "determinadas" esconde exatamente a informação que o leitor procura: quais crianças.
 Uma direção melhor para o segundo, SE o pacote sustentar: "Nova regra pode facilitar o caminho da residência para filhos de certos funcionários estrangeiros". Se o pacote não sustentar "facilitar", não escreva "facilitar".
 
+DE QUEM É ESTA NOTÍCIA, e isto vem antes da forma:
+Quem, entre as pessoas que leem, sente a mudança? Esse grupo TEM QUE APARECER no título, com as palavras que a fonte usa: quem tem visto de estudante, quem já protocolou, quem assinou o compromisso de sustento, empresa que patrocina, profissional de tecnologia.
+Medido nas nossas 79 primeiras manchetes: em 25 o sujeito era uma instituição ou um ato jurídico, e em 25 o leitor não aparecia de jeito nenhum. Nas 25 manchetes da referência, o sujeito é um ator reconhecível com verbo no presente, e quando a notícia é dos EUA o efeito aqui entra no próprio título ("Chuvas nos EUA e alta do petróleo elevam preço da soja").
+
+NACIONALIDADE DE TERCEIRO PAÍS NÃO ENTRA NO TÍTULO. Se a pessoa da história não é brasileira, a nacionalidade sai e entra a profissão, a área ou a etapa do processo. O leitor está no Brasil e vai para os Estados Unidos; a nacionalidade de um terceiro não diz nada a ele.
+  Errado: "O-1B para designer de cenários do México: USCIS aprova com processamento premium"
+  Errado: "Cirurgião mexicano tem aprovação em caso de EB-2 NIW"
+  Certo: "Cirurgião aprovado no EB-2 NIW, a via para quem tem qualificação reconhecida"
+Um país que não é o Brasil nem os Estados Unidos só fica quando é o OBJETO da regra, como no TPS de El Salvador, e mesmo aí a outra metade diz o que muda para quem lê.
+
+JURISDIÇÃO NO FIM. Estado, cidade, corte ou distrito vão para a última posição, nunca antes do sujeito.
+  Errado: "Na Califórnia, acordos nupciais geralmente não encerram o I-864"
+  Certo: "Quem assinou o compromisso de sustentar um imigrante costuma seguir responsável depois do divórcio, na Califórnia"
+
+RETOMADA DE PAUTA: quando a mesma história volta, o título carrega o dado NOVO, a data, a etapa, quem fica de fora. Trocar "corte" por "tribunal" e "D/S" por "duration of status" não é título novo.
+
 PROIBIDO no título da matéria:
 - abrir com o nome do órgão praticando ato burocrático: "DHS publica regra referente a...", "USCIS anuncia atualização relacionada a...", "Ordem judicial determina..."
 - "determinadas pessoas", "certos casos", "alguns requerentes" sem dizer quais, quando o pacote diz quais
@@ -712,6 +728,7 @@ COMO CORRIGIR:
 - LEGAL_JARGON_OVERLOAD: o caminho preferido é TIRAR o termo, e não explicá-lo. "Quem assinou o compromisso de sustento continua responsável" resolve sem citar formulário nenhum. Quando o termo precisar ficar, explique em fala, numa frase à parte e curta: "o I-864 é a carta em que alguém se compromete a sustentar o imigrante." Não invente o que o termo significa: se o pacote não diz, descreva o tipo de documento e siga.
 - LOW_READER_RELEVANCE: escreva quem é afetado e qual o efeito da regra sobre essa pessoa, com o que o pacote afirma. O público é pessoa comum que quer morar, trabalhar ou estudar nos EUA, não advogado. Se o pacote NÃO sustenta quem é afetado nem qual o efeito, esvazie o campo em vez de escrever ressalva: "a fonte não detalhou" não é relevância, é confissão dentro do texto, e será reprovada por falta de lastro.
 - HEADLINE_TOO_LONG: reescreva o título mais curto, mantendo o fato. Corte a qualificação jurídica e mantenha o que mudou e para quem.
+- FOREIGN_SUBJECT: tire o gentílico do título e ponha no lugar a profissão, a área ou a etapa do processo. "Cirurgião mexicano tem aprovação em caso de EB-2 NIW" vira "Cirurgião aprovado no EB-2 NIW, a via para quem tem qualificação reconhecida". Se o país for o OBJETO da regra, e não a ficha do personagem, mantenha o país e use a outra metade do título para dizer o que aquilo muda para quem lê daqui.
 - REDUNDANT_SUBHEAD: NÃO mexa na linha de cima. Reescreva a de baixo com a informação que ela não trouxe: quem é afetado, o prazo, o número, o que muda a partir de quando, sempre com o que o pacote afirma. Se depois de tirar a repetição não sobrar informação nova no pacote, a linha de baixo pode ficar mais curta.
 - Afirmação que o pacote não sustenta: remova a afirmação ou troque pelo que o pacote diz. Se depois disso faltar informação, o texto fica mais curto, e está certo. NÃO escreva que a fonte não informou: isso fala da reportagem, e o leitor quer o fato.
 - Nome, número ou data fora do pacote: tire. Não substitua por outro nome, número ou data.

@@ -183,7 +183,11 @@ function explicadoEmAlgumCampo(campos: string[], termo: string): boolean {
  * para os motivos dela e não conhece esse. O erro estava certo: a régua do
  * slide não deve herdar uma conferência que ele não faz.
  */
-export type MotivoDeTexto = "LEGAL_JARGON_OVERLOAD" | "LOW_READER_RELEVANCE" | "HEADLINE_TOO_LONG";
+export type MotivoDeTexto =
+  | "LEGAL_JARGON_OVERLOAD"
+  | "LOW_READER_RELEVANCE"
+  | "HEADLINE_TOO_LONG"
+  | "FOREIGN_SUBJECT";
 export type MotivoDeLeitor = MotivoDeTexto | "REDUNDANT_SUBHEAD";
 
 export type AchadoDeLeitor = {
@@ -204,6 +208,59 @@ const TETO_DE_TERMOS_SEM_EXPLICACAO = 2;
  * texto minúsculo, e a saída certa é o título ser mais curto.
  */
 const TETO_DO_TITULO = 95;
+
+/**
+ * Gentílico de terceiro país no título.
+ *
+ * O caso real: "O-1B para designer de cenários do México" e "Cirurgião
+ * mexicano tem aprovação em caso de EB-2 NIW". O fato é verdadeiro e o visto
+ * interessa, mas o leitor está no Brasil indo para os Estados Unidos, e a
+ * nacionalidade de um terceiro não diz nada a ele. Pior: ela ocupa a primeira
+ * metade da frase, que é onde deveria estar o que muda e para quem.
+ *
+ * `brasileiro` e `americano` ficam de fora da lista, porque são os dois países
+ * da publicação. Este apontamento é REPARÁVEL, e não bloqueio: quando o país é
+ * o OBJETO da regra, como no TPS de El Salvador, o gentílico é legítimo, e
+ * quem decide isso é a reescrita com o pacote factual na mão.
+ */
+const GENTILICOS_DE_TERCEIRO_PAIS = [
+  "mexicano", "mexicana", "mexicanos", "mexicanas",
+  "salvadorenho", "salvadorenha", "salvadorenhos", "salvadorenhas",
+  "venezuelano", "venezuelana", "venezuelanos", "venezuelanas",
+  "colombiano", "colombiana", "colombianos", "colombianas",
+  "cubano", "cubana", "cubanos", "cubanas",
+  "haitiano", "haitiana", "haitianos", "haitianas",
+  "argentino", "argentina", "argentinos", "argentinas",
+  "peruano", "peruana", "peruanos", "peruanas",
+  "indiano", "indiana", "indianos", "indianas",
+  "chines", "chinesa", "chineses", "chinesas",
+  "russo", "russa", "russos", "russas",
+  "ucraniano", "ucraniana", "ucranianos", "ucranianas",
+  "filipino", "filipina", "filipinos", "filipinas",
+  "nigeriano", "nigeriana", "nigerianos", "nigerianas",
+  "coreano", "coreana", "coreanos", "coreanas",
+  "japones", "japonesa", "japoneses", "japonesas",
+  "alemao", "alema", "alemaes",
+  "frances", "francesa", "franceses", "francesas",
+  "italiano", "italiana", "italianos", "italianas",
+  "espanhol", "espanhola", "espanhois", "espanholas",
+  "portugues", "portuguesa", "portugueses", "portuguesas",
+];
+
+function semAcento(texto: string): string {
+  return (texto || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+export function gentilicoDeTerceiroPais(titulo: string): string | null {
+  const limpo = ` ${semAcento(titulo).replace(/[^a-z0-9]+/g, " ")} `;
+  for (const g of GENTILICOS_DE_TERCEIRO_PAIS) {
+    if (limpo.includes(` ${g} `)) return g;
+  }
+  return null;
+}
 
 export type AchadoSemIndice = { motivo: MotivoDeTexto; descricao: string };
 
@@ -324,6 +381,19 @@ export function conferirLinguagemDeUmTexto(entrada: {
         `essa pessoa, com o que a fonte afirma. Não escreva o que ela deve fazer, acompanhar ` +
         `ou observar, e não escreva que a fonte não informou: se o efeito não estiver na fonte, ` +
         `deixe o campo vazio.`,
+    });
+  }
+
+  const gentilico = gentilicoDeTerceiroPais(entrada.titulo);
+  if (gentilico) {
+    achados.push({
+      motivo: "FOREIGN_SUBJECT",
+      descricao:
+        `o título qualifica alguém como "${gentilico}", e quem lê está no Brasil indo para os ` +
+        `Estados Unidos: a nacionalidade de um terceiro país não diz nada a essa pessoa. ` +
+        `Troque pela profissão, pela área ou pela etapa do processo. Se o país for o OBJETO da ` +
+        `regra, e não a ficha do personagem, mantenha e diga na outra metade o que aquilo muda ` +
+        `para quem lê.`,
     });
   }
 

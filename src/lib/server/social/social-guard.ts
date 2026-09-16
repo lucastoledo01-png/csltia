@@ -51,6 +51,15 @@ export const MOTIVOS_DO_SOCIAL_GUARD = {
   RELEVANCIA_BAIXA: "LOW_READER_RELEVANCE",
   MANCHETE_LONGA: "HEADLINE_TOO_LONG",
   /*
+   * O protagonista de terceiro país, e ele vale nos dois canais.
+   *
+   * A manchete que motivou a regra era de um POST: "O-1B para designer de
+   * cenários do México". Como a régua do slide é a mesma do e-mail, o motivo
+   * precisa existir aqui também, senão o `next build` recusa o mapeamento e,
+   * pior, o carrossel deixaria passar o que a newsletter aponta.
+   */
+  PROTAGONISTA_ESTRANGEIRO: "FOREIGN_SUBJECT",
+  /*
    * Claim qualitativa: a afirmação que não tem número, data nem nome próprio.
    *
    * A conferência determinística não tem o que conferir nela, e ela pode ser
