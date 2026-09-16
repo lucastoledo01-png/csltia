@@ -184,8 +184,8 @@ function ehPoliticaBrasileira(c: Classificacao, titulo: string): boolean {
   if (c.pais !== "Brasil") return false;
   const texto = normalizar(`${titulo} ${c.atores.join(" ")} ${c.acontecimento.join(" ")}`);
   return (
-    c.eixo === "deterioracao_brasil" ||
-    c.eixo === "decisao_judicial" ||
+    c.eixo === "brasil" ||
+    c.eixo === "politica" ||
     / stf | supremo | ministro | policia federal | congresso | senado | camara | governo | presidente /.test(texto)
   );
 }

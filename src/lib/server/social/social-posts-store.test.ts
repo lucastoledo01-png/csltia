@@ -49,7 +49,7 @@ function paraGravar(over: Record<string, unknown> = {}): PostParaGravar {
        * é a sobrancelha da capa de texto. O tipo sempre teve o campo; o
        * dublê é que estava incompleto, e o teste passava por sorte.
        */
-      pauta: { storyId, pontuacao: { total: 70 }, classificacao: { eixo: "processo" } },
+      pauta: { storyId, pontuacao: { total: 70 }, classificacao: { eixo: "imigracao" } },
       copy: { headline: "USCIS amplia prazo do EAD", hashtags: [] },
       veredicto: {
         passed: true, issues: [], repairableIssues: [], fatalIssues: [],

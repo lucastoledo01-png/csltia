@@ -221,11 +221,14 @@ export type EntradaDaCapa = {
  * custa seis linhas e não deixa caso solto.
  */
 const ROTULO_DO_EIXO: Record<string, string> = {
-  oportunidade: "OPORTUNIDADE",
-  processo: "PROCESSO",
-  decisao_judicial: "DECISÃO JUDICIAL",
+  economia: "ECONOMIA",
+  trabalho: "TRABALHO",
   custo_de_vida: "CUSTO DE VIDA",
-  deterioracao_brasil: "BRASIL",
+  politica: "POLÍTICA",
+  tecnologia: "TECNOLOGIA",
+  cultura: "CULTURA",
+  imigracao: "IMIGRAÇÃO",
+  brasil: "BRASIL",
   // "outro" não tem rótulo: nomear o que a classificação não soube nomear
   // seria inventar uma editoria.
 };

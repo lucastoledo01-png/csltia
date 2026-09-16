@@ -16,6 +16,20 @@ decida e acrescente.
 
 ## Produto e marca
 
+**A publicação é sobre os ESTADOS UNIDOS, não sobre imigração.** Virada de
+16/09/2026, decidida pelo dono depois de ler uma manchete sobre o visto de um
+designer mexicano. Economia, trabalho, custo de vida, política, tecnologia,
+cultura e cidades, com a imigração como UMA editoria entre elas, teto de uma
+pauta de visto por edição.
+
+O que mudou junto, porque prompt sozinho não muda produto: 10 das 13 fontes de
+escritório de advocacia foram desligadas e 12 fontes americanas de economia,
+política, tecnologia e sociedade entraram; as cinco editorias do classificador,
+que eram todas de imigração, viraram oito; o briefing do banco perdeu a ordem de
+preferência que ranqueava visto em primeiro lugar. **Não reverta uma dessas
+partes sozinha:** com as fontes antigas de volta, nenhuma regra de texto segura
+a pauta técnica, porque o sistema não escreve sobre o que não coleta.
+
 **A marca é `usa.journal`.** Era `imigra.us`, e antes disso `desbuguei.ia`. A
 troca é de nome e de logotipo, não de linha editorial: continua sendo notícia
 dos EUA para brasileiros.

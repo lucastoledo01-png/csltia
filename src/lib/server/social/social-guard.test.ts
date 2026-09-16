@@ -54,7 +54,7 @@ function pauta(over: Record<string, unknown> = {}): PautaAvaliada {
     },
     storyId: "s1",
     classificacao: {
-      id: "c1", pais: "EUA", imigracao: true, leitura: "oportunidade", eixo: "processo",
+      id: "c1", pais: "EUA", imigracao: true, leitura: "oportunidade", eixo: "imigracao",
       natureza: "official_action", relevancia: 8, atores: ["USCIS"], lugares: ["Estados Unidos"],
       acontecimento: ["prorrogação"], justificativa: "",
     },

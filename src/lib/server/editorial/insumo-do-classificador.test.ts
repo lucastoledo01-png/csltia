@@ -53,7 +53,7 @@ describe("REJECT_LOW_RELEVANCE eram três recusas com um nome só", () => {
       justificativa: "",
       pais: "EUA",
       leitura: "oportunidade",
-      eixo: "processo",
+      eixo: "imigracao",
       relevancia: 8,
       natureza: "official_action",
       imigracao: true,
@@ -84,7 +84,7 @@ describe("REJECT_LOW_RELEVANCE eram três recusas com um nome só", () => {
 
   it("pauta brasileira fora do eixo tem código próprio", () => {
     const r = decidirPauta(
-      classificacao({ pais: "Brasil", relevancia: 9, eixo: "decisao_judicial", imigracao: false }),
+      classificacao({ pais: "Brasil", relevancia: 9, eixo: "politica", imigracao: false }),
       config,
     );
     expect(r.aprovada).toBe(false);

@@ -16,7 +16,7 @@ function classificacao(over: Partial<Classificacao> = {}): Classificacao {
     pais: "EUA",
     imigracao: true,
     leitura: "oportunidade",
-    eixo: "processo",
+    eixo: "imigracao",
     natureza: "official_action",
     relevancia: 8,
     atores: ["USCIS"],
@@ -33,7 +33,7 @@ describe("ato e fala", () => {
       classificacao({
         pais: "Brasil",
         imigracao: false,
-        eixo: "deterioracao_brasil",
+        eixo: "brasil",
         leitura: "desfavoravel",
         natureza: "political_statement",
         relevancia: 8,
@@ -49,7 +49,7 @@ describe("ato e fala", () => {
       classificacao({
         pais: "Brasil",
         imigracao: false,
-        eixo: "deterioracao_brasil",
+        eixo: "brasil",
         natureza: "official_action",
         relevancia: 8,
       }),
@@ -75,7 +75,7 @@ describe("decidirPauta", () => {
         pais: "Brasil",
         imigracao: false,
         leitura: "desfavoravel",
-        eixo: "deterioracao_brasil",
+        eixo: "brasil",
       }),
       config
     );
@@ -411,7 +411,7 @@ describe("montarSystemDoClassificador", () => {
 describe("eixo Brasil, o que é custo de vida do leitor", () => {
   it("descarta disputa comercial e commodity do eixo de custo de vida", () => {
     const s = montarSystemDoClassificador();
-    expect(s).toContain("NÃO entra aqui disputa comercial entre países");
+    expect(s).toContain("NÃO entra preço de commodity nem balanço de empresa");
     expect(s).toContain("Notícia setorial");
   });
 });

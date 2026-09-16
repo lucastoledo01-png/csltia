@@ -76,10 +76,10 @@ describe("capa do post do feed", () => {
   it("o eixo vira rótulo escrito, não o valor cru da classificação", () => {
     const capa = montarCapaDoPost({
       headline: "Ordem manda USCIS retomar pedidos pendentes",
-      eixo: "decisao_judicial",
+      eixo: "politica",
       asset: null,
     });
-    expect(capa.slide.eyebrow).toBe("DECISÃO JUDICIAL");
+    expect(capa.slide.eyebrow).toBe("POLÍTICA");
     expect(capa.slide.eyebrow).not.toContain("_");
   });
 
@@ -143,7 +143,7 @@ describe("a peça única não convida a arrastar, nem com foto", () => {
   function comFoto(total: number): string {
     const capa = montarCapaDoPost({
       headline: "Suprema Corte aceita analisar regra de asilo",
-      eixo: "decisao_judicial",
+      eixo: "politica",
       asset: {
         imageUrl: "https://upload.wikimedia.org/foto.jpg",
         license: "Public domain",
@@ -270,7 +270,7 @@ describe("falta de imagem não elimina o post", () => {
 });
 
 describe("a capa de texto é decisão, não fallback quebrado", () => {
-  function html(headline: string, eixo = "processo"): string {
+  function html(headline: string, eixo = "imigracao"): string {
     const capa = montarCapaDoPost({ headline, eixo, asset: null, motivoSemFoto: "NO_VALID_IMAGE" });
     return assembleSlide(capa.slide, {
       format: "noticia",
@@ -327,7 +327,7 @@ describe("a capa de texto é decisão, não fallback quebrado", () => {
   it("a manchete é o elemento principal e o rótulo não é repetido", () => {
     const h = html(CURTA);
     // Uma vez na sobrancelha, e não uma segunda dentro de um cartão.
-    expect(h.split("PROCESSO").length - 1).toBe(1);
+    expect(h.split("IMIGRAÇÃO").length - 1).toBe(1);
     expect(h).toContain("n-manchete");
     // O código de visto vem embrulhado; o resto da manchete, literal.
     expect(h).toContain("Corte suspende regra de vistos ");

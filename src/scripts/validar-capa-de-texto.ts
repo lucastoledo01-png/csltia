@@ -51,17 +51,17 @@ function carregarEnv(): void {
  * compridas.
  */
 const CASOS: Array<{ nome: string; headline: string; eixo: string; credito?: string }> = [
-  { nome: "3-palavras-minimo-da-guarda", headline: "Corte suspende decreto", eixo: "decisao_judicial" },
-  { nome: "6-palavras-tipica", headline: "USCIS muda prazo de análise do I-765", eixo: "processo" },
+  { nome: "3-palavras-minimo-da-guarda", headline: "Corte suspende decreto", eixo: "politica" },
+  { nome: "6-palavras-tipica", headline: "USCIS muda prazo de análise do I-765", eixo: "imigracao" },
   {
     nome: "codigos-de-formulario-e-visto",
     headline: "Fila do EB-2 anda e o H-1B trava até 2027",
-    eixo: "oportunidade",
+    eixo: "imigracao",
   },
   {
     nome: "12-palavras-teto-da-guarda",
     headline: "Departamento de Estado suspende entrevistas de visto em consulados brasileiros até outubro",
-    eixo: "processo",
+    eixo: "imigracao",
   },
   /*
    * Acima do teto de propósito.
@@ -73,13 +73,13 @@ const CASOS: Array<{ nome: string; headline: string; eixo: string; credito?: str
   {
     nome: "15-palavras-acima-do-teto",
     headline: "Departamento de Estado suspende entrevistas de visto em consulados do Brasil a partir de outubro",
-    eixo: "processo",
+    eixo: "imigracao",
   },
   {
     nome: "12-palavras-compridas-pior-caso",
     headline:
       "Administração restringe elegibilidade transnacional preferencial extraordinária internacional multinacional intracompanhia investidor empreendedor sobrestada permanentemente",
-    eixo: "oportunidade",
+    eixo: "imigracao",
   },
   {
     nome: "sem-eixo-conhecido",
@@ -89,7 +89,7 @@ const CASOS: Array<{ nome: string; headline: string; eixo: string; credito?: str
   {
     nome: "com-credito-de-licenca",
     headline: "Suprema Corte aceita analisar regra de asilo",
-    eixo: "decisao_judicial",
+    eixo: "politica",
     credito: "Foto: Joe Ravi / CC BY-SA 3.0",
   },
 ];

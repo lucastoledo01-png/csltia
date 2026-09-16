@@ -21,10 +21,19 @@ export const MARCA = {
   /** Sufixo colorido do logotipo. */
   nomeSufixo: ".journal",
   handle: "@usa.journal.ai",
-  tagline: "O que muda para quem vai para os EUA.",
+  /*
+   * A publicação deixou de ser sobre imigração em 16/09/2026.
+   *
+   * O dono apontou que as manchetes falavam de visto e de sigla o tempo todo,
+   * e que as referências do produto não fazem isso. A virada é de escopo: os
+   * Estados Unidos para brasileiros, com economia, trabalho, custo de vida,
+   * política, tecnologia e cultura, e a imigração como UMA editoria entre
+   * elas. As fontes, a classificação e o briefing do banco mudaram junto.
+   */
+  tagline: "Os Estados Unidos, todo dia, em português.",
   descricao:
-    "Notícias de imigração para os Estados Unidos: vistos, green card, prazos e " +
-    "o que muda para brasileiros. Sem promessa e sem juridiquês.",
+    "Os Estados Unidos para brasileiros: economia, trabalho, custo de vida, " +
+    "política, tecnologia e cultura. Todo dia, em português, sem juridiquês.",
 
   /**
    * Vermelho da bandeira dos EUA (Old Glory Red, #B31942) clareado.

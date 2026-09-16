@@ -29,7 +29,7 @@ const PROJ = "proj-1";
 
 function classificacao(p: Partial<Classificacao> = {}): Classificacao {
   return {
-    id: "c1", pais: "EUA", imigracao: true, leitura: "oportunidade", eixo: "oportunidade",
+    id: "c1", pais: "EUA", imigracao: true, leitura: "oportunidade", eixo: "imigracao",
     natureza: "official_action", relevancia: 7, atores: ["USCIS"], lugares: [], acontecimento: [],
     justificativa: "", ...p,
   } as Classificacao;
@@ -292,7 +292,7 @@ describe("hash do que foi verificado", () => {
     titulo: "USCIS publica guia",
     fonte: "USCIS",
     contexto: "A agência publicou orientação sobre interesse nacional.",
-    classificacao: { pais: "EUA", leitura: "oportunidade", eixo: "processo", relevancia: 7 },
+    classificacao: { pais: "EUA", leitura: "oportunidade", eixo: "imigracao", relevancia: 7 },
   };
 
   it("mesma entrada, mesmo hash", () => {

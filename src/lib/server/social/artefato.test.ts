@@ -120,7 +120,7 @@ describe("qual arquivo publica", () => {
 });
 
 describe("congelar de ponta a ponta", () => {
-  const capa = { headline: "USCIS muda prazo do I-765", eixo: "processo", asset: null };
+  const capa = { headline: "USCIS muda prazo do I-765", eixo: "imigracao", asset: null };
 
   it("sobe o arquivo e sela com o hash dos bytes que subiram", async () => {
     const subidos: Array<{ caminho: string; bytes: Buffer }> = [];

@@ -30,14 +30,23 @@ import type { FamiliaEvergreen, ItemEvergreen } from "./tipos";
  */
 
 /** A família editorial vira o eixo que o guard e a diversidade entendem. */
-const EIXO_DA_FAMILIA: Record<FamiliaEvergreen, "oportunidade" | "processo" | "outro"> = {
-  visa_explainer: "oportunidade",
-  glossary: "processo",
-  faq: "processo",
-  comparison: "oportunidade",
-  process_explainer: "processo",
-  evidence_education: "processo",
-  professional_education: "oportunidade",
+/*
+ * O conteúdo permanente é de imigração, e agora ele diz isso.
+ *
+ * As famílias do catálogo explicam visto, processo e formulário, e as
+ * editorias antigas separavam "oportunidade" de "processo" dentro desse mesmo
+ * assunto. Com a publicação ampliada, a separação que importa é outra: este
+ * material é da editoria de imigração, e disputa espaço com economia,
+ * trabalho e cultura como qualquer outro.
+ */
+const EIXO_DA_FAMILIA: Record<FamiliaEvergreen, "imigracao" | "outro"> = {
+  visa_explainer: "imigracao",
+  glossary: "imigracao",
+  faq: "imigracao",
+  comparison: "imigracao",
+  process_explainer: "imigracao",
+  evidence_education: "imigracao",
+  professional_education: "imigracao",
 };
 
 /**

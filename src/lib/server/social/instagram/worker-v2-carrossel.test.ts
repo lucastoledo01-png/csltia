@@ -174,7 +174,7 @@ function linhaCarrossel(over: Record<string, unknown> = {}, arte: Record<string,
       arte: {
         versao: "v2",
         variante: "noticia_sem_foto",
-        eixo: "processo",
+        eixo: "imigracao",
         artefato: artefatoDaLinha(SLIDES[0]),
         artefatos: SLIDES.map(artefatoDaLinha),
         ...arte,
@@ -197,7 +197,7 @@ function linhaEstatica(over: Record<string, unknown> = {}) {
       arte: {
         versao: "v2",
         variante: "noticia_sem_foto",
-        eixo: "processo",
+        eixo: "imigracao",
         artefato: artefatoDaLinha(s),
       },
       visual: { capa: "texto", motivo: "NO_VALID_IMAGE" },

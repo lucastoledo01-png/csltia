@@ -37,7 +37,7 @@ function pauta(id: string, titulo: string, ator = "USCIS"): PautaAvaliada {
     },
     storyId: `s-${id}`,
     classificacao: {
-      id, pais: "EUA", imigracao: true, leitura: "oportunidade", eixo: "processo",
+      id, pais: "EUA", imigracao: true, leitura: "oportunidade", eixo: "imigracao",
       natureza: "official_action", relevancia: 8, atores: [ator], lugares: ["Estados Unidos"],
       acontecimento: ["prorrogação"], justificativa: "",
     },

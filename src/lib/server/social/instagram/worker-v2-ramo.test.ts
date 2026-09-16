@@ -202,7 +202,7 @@ function linhaV2(over: Record<string, unknown> = {}, conteudo: Record<string, un
       arte: {
         versao: "v2",
         variante: "noticia_sem_foto",
-        eixo: "processo",
+        eixo: "imigracao",
         artefato: {
           url: "https://storage.exemplo/imigra-us/2026-09-06/social-v2.png",
           path: "imigra-us/2026-09-06/post-v2/social-v2.png",
@@ -464,7 +464,7 @@ describe("D. social-v2 sem foto publica o brand card", () => {
         arte: {
           versao: "v2",
           variante: "capa_jornal",
-          eixo: "processo",
+          eixo: "imigracao",
           artefato: {
             url: "https://storage.exemplo/imigra-us/2026-09-06/social-v2.png",
             path: "imigra-us/2026-09-06/post-v2/social-v2.png",

@@ -89,16 +89,31 @@ export const ClassificacaoSchema = z.object({
   /** A pauta trata de imigração, visto, status ou vida do imigrante? */
   imigracao: z.boolean(),
   /**
-   * Como a notícia chega a quem quer se mudar para os EUA. Não é o tom do
-   * texto: é o efeito do fato sobre o projeto de vida do leitor.
+   * Como a notícia chega ao leitor brasileiro que acompanha os EUA. Não é o
+   * tom do texto: é o efeito do fato sobre a vida, o bolso ou o plano dele.
    */
   leitura: z.enum(["oportunidade", "neutra", "desfavoravel"]),
+  /*
+   * As editorias da publicação, e elas mudaram em 16/09/2026.
+   *
+   * Eram cinco, e as cinco eram de imigração: oportunidade, processo,
+   * decisao_judicial, custo_de_vida e deterioracao_brasil. O produto era uma
+   * publicação sobre visto, e o dono repositionou: os Estados Unidos para
+   * brasileiros, com economia, trabalho, política, tecnologia e cultura, e a
+   * imigração como UMA editoria entre elas.
+   *
+   * O `imigracao` booleano continua existindo logo acima, e é ele que o teto
+   * do feed usa para a imigração não voltar a ocupar o dia inteiro.
+   */
   eixo: z.enum([
-    "oportunidade",
-    "processo",
-    "decisao_judicial",
+    "economia",
+    "trabalho",
     "custo_de_vida",
-    "deterioracao_brasil",
+    "politica",
+    "tecnologia",
+    "cultura",
+    "imigracao",
+    "brasil",
     "outro",
   ]),
   /**
@@ -110,7 +125,7 @@ export const ClassificacaoSchema = z.object({
    * um deles é fato novo.
    */
   natureza: z.enum(["official_action", "political_statement", "outro"]).default("outro"),
-  /** 0 a 10, o quanto muda a vida de quem planeja a mudança. */
+  /** 0 a 10, o quanto interessa a um brasileiro que acompanha os EUA. */
   relevancia: z.number().min(0).max(10),
   atores: listaDeTexto,
   lugares: listaDeTexto,
@@ -148,17 +163,22 @@ leitura: como o FATO afeta o projeto de mudança do leitor, não o tom do texto.
 - "neutra": informa sem mudar o caminho em nenhuma direção. Consulta pública, nomeação, dado estatístico, mudança de formulário.
 - "desfavoravel": fecha, encarece, atrasa ou ameaça um caminho, ou retrata os EUA como lugar hostil, perigoso ou arbitrário. Exemplos: taxa maior, prazo maior, batida policial, prisão de imigrante, agente acusado de crime, corte de cota.
 
-eixo: o assunto central.
-- "oportunidade": abertura de caminho, programa, vaga, benefício.
-- "processo": trâmite, formulário, prazo, taxa, consulado.
-- "decisao_judicial": corte, juiz, liminar, processo criminal.
-- "custo_de_vida": o que muda o bolso de quem lê. Moradia, salário, imposto sobre renda ou patrimônio, câmbio, juros, preço ao consumidor. NÃO entra aqui disputa comercial entre países, preço de commodity, cotação de exportação nem resultado de empresa: isso é economia setorial, e o leitor não é produtor nem investidor institucional. Só entra se a matéria disser o efeito no preço que o leitor paga.
-- "deterioracao_brasil": fato brasileiro com efeito prático sobre patrimônio, empresa, carreira ou segurança. Instituições, tributação, economia, segurança jurídica e violência entram aqui quando há fato, e não quando há apenas opinião ou disputa política.
+eixo: a editoria da pauta. São oito, e imigração é UMA delas, não o eixo da publicação.
+- "economia": juros, inflação, emprego, mercado, câmbio, empresa que contrata ou demite em massa, decisão do Fed.
+- "trabalho": salário, carreira, profissão em alta, jornada, sindicato, o que muda para quem trabalha.
+- "custo_de_vida": o que muda o bolso. Moradia, aluguel, energia, combustível, mercado, plano de saúde, imposto sobre renda ou consumo. NÃO entra preço de commodity nem balanço de empresa: só entra se a matéria disser o efeito no preço que a pessoa paga.
+- "politica": governo, Congresso, eleição, decisão de corte com efeito prático, medida do Executivo. O fato, nunca a disputa partidária pela disputa.
+- "tecnologia": produto, empresa de tecnologia, inteligência artificial, plataforma, o que muda no que a pessoa usa.
+- "cultura": comportamento, sociedade, cidade, educação, esporte, o que a vida americana tem de diferente.
+- "imigracao": visto, status, processo migratório, fronteira, cidadania. É uma editoria como as outras, e não a régua do dia.
+- "brasil": fato brasileiro com efeito prático sobre patrimônio, empresa, carreira ou segurança, que pesa na comparação com os EUA.
 - "outro": o que não couber acima.
 
 relevancia: 0 a 10, e a régua depende do país.
 
-Para notícia dos EUA: quanto o fato muda, na prática, o plano de quem quer morar lá. Nomeação de cargo sem efeito prático é 1. Mudança de prazo de um formulário que milhares usam é 8. Nova categoria de visto ou decisão que destrava uma fila é 9.
+Para notícia dos EUA: quanto o fato interessa a um brasileiro que acompanha os Estados Unidos, seja porque pensa em morar lá, seja porque aquilo mexe no bolso, no trabalho ou no mundo dele daqui.
+Nomeação de cargo sem efeito prático é 1. Nota de rodapé de mercado é 2. Decisão do Fed sobre juros é 7, porque mexe no câmbio e no preço aqui. Mudança de prazo de um formulário que milhares usam é 8. Lei que muda o que se paga de imposto, empresa grande demitindo em massa, cidade que virou destino de brasileiros, tecnologia que troca o jeito de trabalhar: 7 a 9.
+NÃO confunda relevância com imigração. Uma pauta de economia americana pode valer 9 sem citar visto nenhum, e uma mudança de formulário obscuro pode valer 3.
 
 Para notícia do Brasil: quanto existe ali um PROBLEMA FACTUAL CONCRETO que afeta quem tem patrimônio, empresa ou carreira, e que pesa na decisão de ficar ou sair. Notícia setorial, disputa comercial, safra, exportação e balanço de empresa não pesam nessa decisão: valem 1 a 3, por maior que seja o número envolvido. Vale de 6 a 9 quando há fato verificável com alcance: mudança de alíquota, decisão que muda regra do jogo, número de inflação, câmbio, juros, dado de violência, decisão institucional com efeito prático. Fofoca de bastidor, disputa de cargo, declaração de político e pesquisa eleitoral isolada valem 1 a 3.
 
@@ -493,7 +513,11 @@ export function decidirPauta(c: Classificacao, config: ConfigEditorial): Decisao
     // Assunto brasileiro só entra pelo eixo que interessa ao leitor que
     // pensa em sair: instituição, tributo, economia, segurança. Notícia
     // brasileira qualquer não é pauta desta publicação.
-    const noEixo = c.eixo === "deterioracao_brasil" || c.eixo === "custo_de_vida" || c.imigracao;
+    const noEixo =
+      c.eixo === "brasil" ||
+      c.eixo === "custo_de_vida" ||
+      c.eixo === "economia" ||
+      c.imigracao;
     if (!noEixo) {
       return {
         aprovada: false,

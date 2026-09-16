@@ -118,7 +118,7 @@ async function main() {
     const copy = copyCheia(c.estrutura, c.comCta);
     const papeis = papeisPara(c.estrutura, 7, c.comCta);
     const montado = entradasDoCarrossel(copy, papeis, {
-      eixo: "processo",
+      eixo: "imigracao",
       asset: null,
       motivoSemFoto: "NO_VALID_IMAGE",
     });
@@ -316,7 +316,7 @@ export async function varredura(saida: string): Promise<void> {
     const copy = copyCheia("explainer", true);
     copy.slides = copy.slides.map((s) => ({ ...s, corpo: T(n, CORPO_CHEIO + " ") }));
     const montado = entradasDoCarrossel(copy, papeis, {
-      eixo: "processo",
+      eixo: "imigracao",
       asset: null,
       motivoSemFoto: "NO_VALID_IMAGE",
     });

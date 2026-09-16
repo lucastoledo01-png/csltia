@@ -49,7 +49,7 @@ function classificacao(over: Partial<Classificacao> = {}): Classificacao {
     pais: "EUA",
     imigracao: true,
     leitura: "oportunidade",
-    eixo: "processo",
+    eixo: "imigracao",
     natureza: "official_action",
     relevancia: 8,
     atores: ["USCIS"],
@@ -86,7 +86,7 @@ describe("avaliarPautas", () => {
       env,
       fetcher: fetcherCom([
         classificacao({ id: "1" }),
-        classificacao({ id: "2", leitura: "desfavoravel", eixo: "decisao_judicial" }),
+        classificacao({ id: "2", leitura: "desfavoravel", eixo: "politica" }),
       ]),
     });
 

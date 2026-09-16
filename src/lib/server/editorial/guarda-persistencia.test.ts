@@ -43,7 +43,7 @@ function grupo(id: string, title: string, url: string): DeduplicatedGroup {
 
 function classificacao(over: Partial<Classificacao> = {}): Classificacao {
   return {
-    id: "1", pais: "EUA", imigracao: true, leitura: "oportunidade", eixo: "processo",
+    id: "1", pais: "EUA", imigracao: true, leitura: "oportunidade", eixo: "imigracao",
     natureza: "official_action", relevancia: 8, atores: ["USCIS"], lugares: ["EUA"],
     acontecimento: ["prorrogação"], justificativa: "", ...over,
   };
@@ -114,7 +114,7 @@ describe("persistência de todos os classificados", () => {
     const { store, gravadas } = storeFalso();
     const { fetcher } = fetcherCom([
       classificacao({ id: "1" }),
-      classificacao({ id: "2", leitura: "desfavoravel", eixo: "decisao_judicial" }),
+      classificacao({ id: "2", leitura: "desfavoravel", eixo: "politica" }),
     ]);
 
     const r = await avaliarPautas(

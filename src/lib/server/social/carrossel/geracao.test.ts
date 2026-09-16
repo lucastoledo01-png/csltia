@@ -66,7 +66,7 @@ const PAUTA: PautaAvaliada = {
     pais: "EUA",
     imigracao: true,
     leitura: "neutra",
-    eixo: "processo",
+    eixo: "imigracao",
     natureza: "official_action",
     relevancia: 5,
     atores: [],
@@ -643,7 +643,7 @@ describe("capa e fechamento não carregam claim nova", () => {
     expect(fechamento.escritoEmCodigo).toBe(true);
 
     const montado = entradasDoCarrossel({ ...r.post!.copy, slides: c.slides }, c.papeis, {
-      eixo: "processo",
+      eixo: "imigracao",
       asset: null,
       motivoSemFoto: "NO_VALID_IMAGE",
     });
@@ -668,7 +668,7 @@ describe("capa e fechamento não carregam claim nova", () => {
     expect(c.papeis[0].escritoEmCodigo).toBe(true);
 
     const montado = entradasDoCarrossel({ ...r.post!.copy, slides: c.slides }, c.papeis, {
-      eixo: "processo",
+      eixo: "imigracao",
       asset: null,
       motivoSemFoto: "NO_VALID_IMAGE",
     });

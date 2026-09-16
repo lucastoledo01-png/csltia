@@ -12,7 +12,7 @@ function classificacao(over: Partial<Classificacao> = {}): Classificacao {
     pais: "EUA",
     imigracao: true,
     leitura: "oportunidade",
-    eixo: "processo",
+    eixo: "imigracao",
     natureza: "official_action",
     relevancia: 5,
     atores: ["USCIS"],
@@ -209,7 +209,7 @@ describe("comporEdicao", () => {
 
   it("não deixa a crise do STF tomar a edição de uma publicação sobre os EUA", () => {
     function brasileira(nome: string, relevancia: number, dominio: string): PautaOrdenavel<string> {
-      const c = classificacao({ relevancia, pais: "Brasil", eixo: "deterioracao_brasil", atores: [nome] });
+      const c = classificacao({ relevancia, pais: "Brasil", eixo: "brasil", atores: [nome] });
       return {
         item: nome,
         classificacao: c,

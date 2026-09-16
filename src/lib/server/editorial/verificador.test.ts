@@ -22,7 +22,7 @@ function classificacao(p: Partial<Classificacao> = {}): Classificacao {
     pais: "EUA",
     imigracao: true,
     leitura: "oportunidade",
-    eixo: "oportunidade",
+    eixo: "imigracao",
     natureza: "official_action",
     relevancia: 7,
     atores: ["USCIS"],
@@ -67,7 +67,7 @@ const LEITURA_OK = {
   pais: "EUA",
   eua_desfavoravel: false,
   leitura: "oportunidade",
-  eixo: "oportunidade",
+  eixo: "imigracao",
   relevancia: 7,
   fato_principal: "A agência publicou orientação nova.",
   adequada: true,
@@ -127,7 +127,7 @@ describe("verificação de finalistas", () => {
   });
 
   it("divergência só no eixo não segura a pauta", async () => {
-    const { fetcher } = modelo([{ ...LEITURA_OK, eixo: "processo" }]);
+    const { fetcher } = modelo([{ ...LEITURA_OK, eixo: "economia" }]);
     const r = await verificarFinalistas([finalista()], { config: CONFIG, env: ENV, fetcher });
 
     const v = r.verificacoes.get("s1")!;

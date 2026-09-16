@@ -124,7 +124,7 @@ function pauta(id: string, titulo: string, ator = "USCIS") {
     },
     pontuacao: { total: 70, partes: {}, explicacao: "" },
     classificacao: {
-      eixo: "processo",
+      eixo: "imigracao",
       pais: "EUA",
       relevancia: 7,
       imigracao: true,

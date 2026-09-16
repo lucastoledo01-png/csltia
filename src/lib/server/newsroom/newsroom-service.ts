@@ -525,8 +525,8 @@ export function renderEditionToHtml(
                 ${rotulo("Quem somos", "#A1A1AA")}
                 <p style="font-family:${fonte};font-size:14px;line-height:1.65;color:${TINTA_SUAVE};margin:0 0 14px 0;">
                   A <strong style="color:${TINTA};">${MARCA.nome}</strong> é uma newsletter diária e gratuita
-                  sobre imigração para os Estados Unidos: mudanças de regra, prazos, decisões
-                  e o que elas significam para brasileiros, sempre com a fonte oficial ao lado.
+                  sobre os Estados Unidos, escrita em português: economia, trabalho, custo de vida,
+                  política, tecnologia e cultura, sempre com a fonte ao lado.
                 </p>
                 <p style="font-family:${fonte};font-size:12px;line-height:1.6;color:#8A8A8F;margin:0 0 20px 0;">
                   Conteúdo informativo, não orientação jurídica. Regras de imigração mudam e cada

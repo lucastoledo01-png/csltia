@@ -42,7 +42,7 @@ function grupo(id: string, title: string, url: string): DeduplicatedGroup {
 
 function classificacao(over: Partial<Classificacao> = {}): Classificacao {
   return {
-    id: "1", pais: "EUA", imigracao: true, leitura: "oportunidade", eixo: "processo",
+    id: "1", pais: "EUA", imigracao: true, leitura: "oportunidade", eixo: "imigracao",
     natureza: "official_action", relevancia: 8, atores: ["USCIS"], lugares: ["EUA"],
     acontecimento: ["prorrogação"], justificativa: "", ...over,
   };
@@ -61,10 +61,10 @@ const GRUPOS = [
 const LEITURAS = [
   classificacao({ id: "1", relevancia: 9 }),
   classificacao({ id: "2", relevancia: 8, atores: ["Departamento de Estado"] }),
-  classificacao({ id: "3", leitura: "desfavoravel", eixo: "decisao_judicial", relevancia: 7 }),
+  classificacao({ id: "3", leitura: "desfavoravel", eixo: "politica", relevancia: 7 }),
   classificacao({ id: "4", pais: "Brasil", imigracao: false, eixo: "custo_de_vida", leitura: "desfavoravel", relevancia: 6, atores: ["Banco Central"] }),
-  classificacao({ id: "5", eixo: "oportunidade", relevancia: 7, atores: ["Empresa"] }),
-  classificacao({ id: "6", pais: "Brasil", imigracao: false, eixo: "deterioracao_brasil", leitura: "desfavoravel", relevancia: 5, atores: ["STF"] }),
+  classificacao({ id: "5", eixo: "imigracao", relevancia: 7, atores: ["Empresa"] }),
+  classificacao({ id: "6", pais: "Brasil", imigracao: false, eixo: "brasil", leitura: "desfavoravel", relevancia: 5, atores: ["STF"] }),
 ];
 
 function fetcherCom(pautas: Classificacao[]) {

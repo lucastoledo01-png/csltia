@@ -257,7 +257,7 @@ describe("teste de diversidade", () => {
 
   it("feed cheio com poucos tópicos é reprovado", () => {
     const pool = Array.from({ length: 6 }, (_, i) =>
-      pauta({ titulo: `Assunto ${i}`, nota: 60 - i, eixo: "oportunidade", atores: [`Ator ${i}`] }),
+      pauta({ titulo: `Assunto ${i}`, nota: 60 - i, eixo: "imigracao", atores: [`Ator ${i}`] }),
     );
 
     const r = comporFeedSocial(pool, { ...CONFIG, maximoPorEixo: 10, maximoPorTopico: 10 });

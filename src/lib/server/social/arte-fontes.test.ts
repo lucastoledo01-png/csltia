@@ -19,7 +19,7 @@ import { familiasQueFaltaram, montarCapaDoPost, renderizarCapas } from "./arte";
 
 const ENTRADA = {
   headline: "USCIS muda prazo de análise do I-765",
-  eixo: "processo",
+  eixo: "imigracao",
   asset: null,
   motivoSemFoto: "NO_VALID_IMAGE",
 };

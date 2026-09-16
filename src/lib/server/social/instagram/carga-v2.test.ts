@@ -57,7 +57,7 @@ function post(visual: unknown): PostParaGravar {
     vaga: { posicao: 1, slot: `${DIA}-01`, quandoIso: `${DIA}T11:00:00Z`, horaLocal: "08:00" },
     visual,
     post: {
-      pauta: { storyId: "s-1", pontuacao: { total: 71 }, classificacao: { eixo: "processo" } },
+      pauta: { storyId: "s-1", pontuacao: { total: 71 }, classificacao: { eixo: "imigracao" } },
       copy: { headline: "USCIS muda prazo de análise do I-765", hashtags: [] },
       veredicto: {
         passed: true,
@@ -135,7 +135,7 @@ describe("a linha que o pipeline grava é aceita pelo worker", () => {
     expect(leitura.carga.headline).toBe("USCIS muda prazo de análise do I-765");
     expect(leitura.carga.legenda).toBe(linha.caption);
     expect(leitura.carga.hashtags).toEqual(["#USCIS", "#I765"]);
-    expect(leitura.carga.eixo).toBe("processo");
+    expect(leitura.carga.eixo).toBe("imigracao");
     expect(leitura.carga.foto).toBeNull();
     expect(leitura.carga.motivoSemFoto).toBe("NO_VALID_IMAGE");
     expect(leitura.carga.artefato.sha256).toBe("b".repeat(64));
@@ -200,7 +200,7 @@ describe("a linha que o pipeline grava é aceita pelo worker", () => {
     expect(Object.keys(conteudo)).toContain("arte");
     expect(Object.keys(conteudo)).toContain("visual");
     expect(Object.keys(conteudo)).toContain("hashtags");
-    expect((conteudo.arte as Record<string, unknown>).eixo).toBe("processo");
+    expect((conteudo.arte as Record<string, unknown>).eixo).toBe("imigracao");
 
     // E sem a chave, a leitura falha fechada com o código estruturado.
     const semArte = { ...linha, content_json: { ...conteudo, arte: undefined } };
@@ -327,7 +327,7 @@ describe("entradas adversárias na leitura da carga", () => {
       content_json: {
         ...(linha.content_json as object),
         // A linha diz peça com foto de fundo, e o registro visual é capa de texto.
-        arte: { versao: "v2", variante: "capa_jornal", eixo: "processo" },
+        arte: { versao: "v2", variante: "capa_jornal", eixo: "imigracao" },
       },
     });
     expect(leitura.ok).toBe(false);

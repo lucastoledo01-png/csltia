@@ -115,7 +115,7 @@ function casos(): Array<{ nome: string; post: PostParaGravar }> {
         pauta: {
           storyId: "s-simulado",
           pontuacao: { total: 71 },
-          classificacao: { eixo: "processo" },
+          classificacao: { eixo: "imigracao" },
         },
         copy: {
           headline: "USCIS muda prazo de análise do I-765",

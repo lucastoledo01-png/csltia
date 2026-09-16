@@ -84,7 +84,7 @@ eua_desfavoravel: true quando o FATO deixa os Estados Unidos em posição pior p
 
 leitura: como o FATO chega a quem quer se mudar. "oportunidade", "neutra" ou "desfavoravel".
 
-eixo: um entre oportunidade, processo, decisao_judicial, custo_de_vida, deterioracao_brasil, outro.
+eixo: um entre economia, trabalho, custo_de_vida, politica, tecnologia, cultura, imigracao, brasil, outro.
 
 relevancia: 0 a 10, o quanto muda a vida de quem planeja a mudança. Seja severo: 8 ou mais é pauta que altera decisão de alguém esta semana.
 
