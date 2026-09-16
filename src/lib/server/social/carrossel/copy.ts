@@ -164,6 +164,13 @@ COMO ESCREVER CADA SLIDE:
 
 O SLIDE 1 É O ÚNICO QUE APARECE NO FEED de quem não deslizou. Ele precisa funcionar sozinho: humano, claro, interessante, compreensível para quem não é advogado, e ancorado no pacote. Não é teaser: ele já diz do que se trata, e o "headline" abaixo é o texto dele.
 
+VOZ DE REDE SOCIAL: aqui é feed, não é e-mail nem jornal.
+- Frase curta. Uma ideia por linha. Se der para cortar uma palavra, corte.
+- Fale com a pessoa: "se você está com F-1", "quem já protocolou". Isso é endereçamento, e é permitido.
+- Comece pelo que aconteceu, nunca pelo nome de um órgão praticando ato.
+- Palavra comum primeiro, sigla depois e só se ajudar. Nome oficial de norma e de processo em inglês não entra.
+- Zero emoji, zero gíria. Leve não é frouxo, e o assunto é a vida de alguém.
+
 A LEGENDA não repete o carrossel. O detalhe está nos slides. A legenda tem gancho, resumo, ressalva quando necessária, e nada mais.
 
 ${REGRA_DA_MANCHETE}
@@ -175,7 +182,10 @@ gancho: a primeira linha da legenda. Continua a manchete, não a repete.
 fato_principal: o resumo do carrossel em duas frases no máximo.
 contexto: deixe VAZIO. No carrossel, contexto é slide.
 informacao_util: deixe VAZIO. No carrossel, isso é slide.
-ressalva: só quando calar seria enganoso. Use as lacunas do pacote.
+ressalva: quase sempre VAZIA. Ela só existe quando calar seria enganoso, e mesmo aí ela fala do FATO, nunca da reportagem.
+- Proibido: "a fonte não informa", "a fonte não detalha", "não há detalhes", "o veículo não diz". Isso é confissão dentro do post, e vira tique: o leitor não quer saber o que a matéria deixou de apurar.
+- Quando a falta É a notícia, escreva falando da divulgação: "a nova data ainda não foi divulgada".
+- Na dúvida, deixe vazio. Post mais curto é melhor que post que explica o que não tem.
 cta: deixe VAZIO. O CTA é montado em código.
 hashtags: de 4 a 7, específicas DESTE assunto.
 

@@ -1,4 +1,5 @@
 import type { EditionContent, EditionStory } from "./schemas";
+import { palavrasChave } from "../editorial/fingerprint";
 
 /**
  * A newsletter é para quem quer morar nos EUA, não para quem advoga sobre isso.
@@ -96,6 +97,36 @@ const MARCAS_DE_EXPLICACAO = [
   "agencia",
   "órgão",
   "orgao",
+  /*
+   * Marcas de FALA, e elas entraram por necessidade.
+   *
+   * A lista acima só reconhece explicação escrita no registro formal
+   * ("documento em que...", "processo pelo qual..."). Depois que o tom do
+   * produto passou a ser conversa, a explicação boa virou outra: "o I-765 é o
+   * pedido de autorização de trabalho", "funciona assim", "na prática". Sem
+   * estas marcas, o texto leve era apontado como jargão não explicado, ia para
+   * o reparo, e o reparo devolvia o aposto jurídico. A régua desfazia, todo
+   * dia, a mudança que o prompt pedia.
+   */
+  /*
+   * "é o" e "é a" sozinhos ficaram de fora depois de tentados: em uma janela
+   * de 160 caracteres eles aparecem em quase toda frase, e a régua parava de
+   * apontar qualquer jargão. Marca que reconhece tudo não reconhece nada.
+   * As que ficaram são as que só aparecem quando alguém está de fato
+   * explicando, e a lista formal acima já cobre "é o pedido de autorização",
+   * porque "pedido" e "autorização" estão nela.
+   */
+  "é quando",
+  "e quando",
+  "funciona assim",
+  "na prática",
+  "na pratica",
+  "quer dizer",
+  "em outras palavras",
+  "nada mais é",
+  "nada mais e",
+  "vale para",
+  "serve de",
 ];
 
 /**
@@ -139,9 +170,25 @@ function explicadoEmAlgumCampo(campos: string[], termo: string): boolean {
   return false;
 }
 
+/**
+ * Dois conjuntos de motivo, e a separação não é burocracia.
+ *
+ * `MotivoDeTexto` é o que se pode apontar olhando UM texto: jargão, relevância
+ * e comprimento de título. O carrossel do Instagram usa exatamente essa régua,
+ * pelo mesmo módulo, e por isso ela não pode crescer sem que ele cresça junto.
+ *
+ * `REDUNDANT_SUBHEAD` não cabe ali: ele nasce da relação entre DUAS linhas, o
+ * título e a que vem embaixo. Quando ele foi acrescentado ao motivo único, o
+ * `next build` recusou na hora, porque a guarda do social mapeia os achados
+ * para os motivos dela e não conhece esse. O erro estava certo: a régua do
+ * slide não deve herdar uma conferência que ele não faz.
+ */
+export type MotivoDeTexto = "LEGAL_JARGON_OVERLOAD" | "LOW_READER_RELEVANCE" | "HEADLINE_TOO_LONG";
+export type MotivoDeLeitor = MotivoDeTexto | "REDUNDANT_SUBHEAD";
+
 export type AchadoDeLeitor = {
   indice: number;
-  motivo: "LEGAL_JARGON_OVERLOAD" | "LOW_READER_RELEVANCE" | "HEADLINE_TOO_LONG";
+  motivo: MotivoDeLeitor;
   descricao: string;
 };
 
@@ -158,7 +205,7 @@ const TETO_DE_TERMOS_SEM_EXPLICACAO = 2;
  */
 const TETO_DO_TITULO = 95;
 
-export type AchadoSemIndice = Omit<AchadoDeLeitor, "indice">;
+export type AchadoSemIndice = { motivo: MotivoDeTexto; descricao: string };
 
 /**
  * A régua de leitor sobre um texto qualquer, em campos.
@@ -263,10 +310,20 @@ export function conferirLinguagemDeUmTexto(entrada: {
     const onde = entrada.ondeEscreverRelevancia ? `Escreva em ${entrada.ondeEscreverRelevancia} ` : "Escreva ";
     achados.push({
       motivo: "LOW_READER_RELEVANCE",
+      /*
+       * Esta descrição pedia "o que essa pessoa deve fazer ou observar agora",
+       * e o prompt do redator PROÍBE exatamente isso, com a palavra NUNCA.
+       * O único texto que satisfazia os dois lados era a frase de hedge com
+       * ressalva, que é o tique que o dono pediu para remover. As duas réguas
+       * empurravam em direções opostas, e o texto ruim era o ponto de
+       * equilíbrio entre elas.
+       */
       descricao:
         `o texto explica o acontecimento e não diz por que ele importa para quem quer morar, ` +
-        `trabalhar ou estudar nos EUA. ${onde}quem é afetado e o que essa pessoa deve fazer ou ` +
-        `observar agora.`,
+        `trabalhar ou estudar nos EUA. ${onde}quem é afetado e qual o EFEITO da regra sobre ` +
+        `essa pessoa, com o que a fonte afirma. Não escreva o que ela deve fazer, acompanhar ` +
+        `ou observar, e não escreva que a fonte não informou: se o efeito não estiver na fonte, ` +
+        `deixe o campo vazio.`,
     });
   }
 
@@ -282,8 +339,85 @@ export function conferirLinguagemDeUmTexto(entrada: {
   return achados;
 }
 
+/**
+ * A linha de baixo repete a de cima?
+ *
+ * Em 16/09/2026 a edição saiu com o título "Corte adia regra para estudantes e
+ * intercambistas" e, logo abaixo, "Corte adia regra para F-1, J-1 e I; a nova
+ * data de vigência ainda não foi informada". A segunda linha não acrescentava
+ * nada: era a primeira, com siglas no lugar das palavras.
+ *
+ * Nenhum portão via isso. A semelhança de título existia no sistema, mas
+ * comparando a pauta de hoje com o HISTÓRICO, para não repetir pauta entre
+ * dias. Faltava comparar os dois textos que o leitor vê um embaixo do outro.
+ *
+ * É APONTAMENTO, e não bloqueio, de propósito: defeito de redação manda a
+ * edição para o reparo, não para o lixo. Derrubar o dia por forma repetiria o
+ * erro que este módulo inteiro existe para não cometer.
+ */
+const LIMIAR_DE_REDUNDANCIA = 0.6;
+
+/**
+ * Quanto da linha de CIMA reaparece na de baixo.
+ *
+ * É contenção, e não Jaccard, e a diferença decidiu o caso real. O par de
+ * 16/09 dá 0.27 de Jaccard, porque a linha de baixo acrescenta palavras
+ * (siglas, "nova data", "não foi informada") e o denominador cresce. Só que
+ * essas palavras são justamente a versão técnica do que já foi dito, e o
+ * defeito é o título inteiro estar contido ali: 3 das 5 palavras do título
+ * reaparecem, ou seja 0.60.
+ *
+ * Jaccard pune a linha longa por ser longa. Contenção pergunta o que interessa:
+ * o leitor que já leu a linha de cima ganha alguma coisa lendo a de baixo?
+ */
+function contencao(deCima: string, deBaixo: string): number {
+  const cima = new Set(palavrasChave(deCima));
+  if (cima.size === 0) return 0;
+  const baixo = new Set(palavrasChave(deBaixo));
+
+  let dentro = 0;
+  for (const p of cima) if (baixo.has(p)) dentro += 1;
+  return dentro / cima.size;
+}
+
+function conferirRedundancia(
+  deCima: string,
+  deBaixo: string,
+  nomeDeCima: string,
+  nomeDeBaixo: string,
+): { motivo: "REDUNDANT_SUBHEAD"; descricao: string } | null {
+  const cima = (deCima ?? "").trim();
+  const baixo = (deBaixo ?? "").trim();
+  if (cima.length < 15 || baixo.length < 15) return null;
+
+  /*
+   * Compara só a PRIMEIRA frase da linha de baixo.
+   *
+   * Um resumo de três parágrafos que começa repetindo o título e depois conta
+   * o resto tem semelhança baixa no todo e é exatamente o defeito: o leitor
+   * trava na primeira linha, que é onde ele decide continuar. Comparar o texto
+   * inteiro deixaria esse caso passar.
+   */
+  const primeiraFrase = baixo.split(/(?<=[.!?])\s+/)[0] ?? baixo;
+  const score = contencao(cima, primeiraFrase);
+  if (score < LIMIAR_DE_REDUNDANCIA) return null;
+
+  return {
+    motivo: "REDUNDANT_SUBHEAD",
+    descricao:
+      `"${nomeDeBaixo}" repete "${nomeDeCima}" (${Math.round(score * 100)}% das palavras significativas ` +
+      `de "${nomeDeCima}" reaparecem na primeira frase). ` +
+      `A linha de baixo tem que ACRESCENTAR: quem é afetado, o prazo, o número, o que muda. ` +
+      `Reescreva "${nomeDeBaixo}" começando de onde "${nomeDeCima}" parou, sem repetir o fato já dito.`,
+  };
+}
+
 export function conferirLinguagemDoLeitor(edition: EditionContent): AchadoDeLeitor[] {
   const achados: AchadoDeLeitor[] = [];
+
+  // O par do topo da edição, que é o que o leitor vê antes de qualquer pauta.
+  const doTopo = conferirRedundancia(edition.headline, edition.preheader, "headline", "preheader");
+  if (doTopo) achados.push({ indice: -1, ...doTopo });
 
   edition.stories.forEach((story, i) => {
     const doTexto = conferirLinguagemDeUmTexto({
@@ -293,6 +427,9 @@ export function conferirLinguagemDoLeitor(edition: EditionContent): AchadoDeLeit
       ondeEscreverRelevancia: '"why_it_matters" e "practical_impact"',
     });
     for (const a of doTexto) achados.push({ indice: i, ...a });
+
+    const daPauta = conferirRedundancia(story.title, story.summary, "title", "summary");
+    if (daPauta) achados.push({ indice: i, ...daPauta });
   });
 
   return achados;

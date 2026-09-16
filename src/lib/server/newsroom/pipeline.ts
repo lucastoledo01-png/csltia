@@ -131,7 +131,9 @@ ORDEM DE PRIORIDADE, quando duas coisas entrarem em conflito:
 2. ESCOPO CORRETO. Caso individual não vira regra geral; decisão de um estado não vira decisão nacional.
 3. RELEVÂNCIA para quem quer morar nos EUA.
 4. CLAREZA para quem não é da área.
-5. ATRATIVIDADE: dar vontade de ler.
+5. ATRATIVIDADE: dar vontade de ler. Aqui isso tem forma concreta, e não é adjetivo. É frase curta, verbo direto, parágrafo de duas a quatro linhas, e falar COM o leitor.
+   Pesado: "Uma corte federal em Massachusetts adiou a entrada em vigor da regra final do Department of Homeland Security que eliminaria o modelo de permanência chamado duration of status."
+   Leve, mesmo fato, mesmo lastro: "Um juiz federal em Boston segurou a regra que ia acabar com o prazo aberto de permanência. Ela valeria a partir de ontem. Não vale."
 6. BREVIDADE.
 Nunca inverta. Título atraente que sacrifica precisão está errado. Mas "tecnicamente correto" não autoriza título que ninguém teria vontade de abrir: os dois primeiros são pisos, não desculpas.
 
@@ -166,28 +168,52 @@ E-MAIL AUTOSSUFICIENTE, MAS CURTO:
 - O leitor termina informado sem clicar em nada. Isso e' sobre completude, nao sobre tamanho.
 - NAO crie "teasers" nem suspense convidando a sair do e-mail.
 - TAMANHO POR PAUTA, e a regra e' rigida:
-  * "summary" da pauta 1: no maximo 90 palavras.
-  * "summary" das demais: no maximo 55 palavras. Um paragrafo so.
+  * "summary" da pauta 1: no maximo 110 palavras, em DOIS ou TRES paragrafos curtos separados por uma linha em branco.
+  * "summary" das demais: no maximo 70 palavras, em um ou dois paragrafos curtos.
   * "context": no maximo 40 palavras, e SO na pauta 1. Nas outras, deixe vazio.
   * "practical_impact": UMA frase, no maximo 25 palavras. Objetiva: o que muda, para quem, a partir de quando.
   * "why_it_matters": no maximo 25 palavras.
   * "humor_line": opcional. Use em no maximo uma pauta da edicao, e so quando o assunto comportar.
 - Corte adjetivo, repeticao e frase que so prepara a proxima. Se uma frase pode sair sem perder informacao, ela sai.
+
+CADA LINHA ACRESCENTA, NENHUMA REPETE A DE CIMA:
+- O "title" da pauta diz o que mudou. O "summary" NÃO reescreve o title com outras palavras: ele começa onde o title parou, com o que o title não coube.
+- O "headline" da edição e o "preheader" seguem a mesma regra, e é ali que o erro aparece mais. O preheader não é resumo do headline: ele é a segunda informação.
+  Errado, porque repete: headline "Corte adia regra para estudantes e intercambistas" e preheader "Corte adia regra para F-1, J-1 e I; a nova data ainda não foi informada".
+  Certo, porque acrescenta: headline "A regra do prazo fixo não vale mais a partir de hoje" e preheader "Quem tem visto de estudante continua com a permanência de sempre".
+- Teste antes de entregar: se você apagar a linha de baixo, alguma informação some? Se não some, ela está errada e precisa ser reescrita.
 - A edicao inteira deve ser lida em menos de tres minutos.
 
-DIRETRIZES DE TOM & ESTILO (Estilo "The News"):
-1. Tom: conversacional e inteligente, como alguém que entende do assunto explicando para um amigo, dentro do tom que o briefing acima define.
-2. LINGUAGEM ACESSÍVEL: traduza o jargão técnico do setor para o impacto prático na vida de quem lê. Se um termo do meio é inevitável, explique-o na primeira vez que aparecer.
-3. Personalidade: observações e sacadas são bem-vindas quando o assunto comporta. Assunto sensível (dinheiro, saúde, situação legal de alguém) pede sobriedade, não piada.
-4. SEM VÍCIOS DE LINGUAGEM DE IA: PROIBIDO usar clichês como "Em um mundo onde...", "No cenário atual...", "Não é apenas X, é Y", "Desvendando...", "Vale ressaltar...", "Sem dúvida...", "Em suma...". Seja autêntico, humano e direto!
-5. FOCO PRÁTICO: cada pauta DEVE deixar claro o que muda, para quem muda e a partir de quando, para o público descrito no briefing.
-6. RELEVÂNCIA SEM INVENTAR COMPORTAMENTO: a fonte fala de regra, prazo e decisão. Ela NUNCA fala do que as pessoas fazem, acompanham, observam, esperam ou pretendem.
+DIRETRIZES DE TOM & ESTILO:
+1. Tom: conversa entre duas pessoas informadas. Alguém que entende do assunto contando para um amigo no caminho do trabalho, dentro do tom que o briefing acima define. Não é o tom de um jornal, apesar do nome da publicação, e não é o de um escritório de advocacia.
+   RITMO, e isto é regra de forma, não de gosto:
+   - Parágrafo de duas a quatro linhas. Nunca um bloco único de oito linhas.
+   - Alterne frase curta com uma frase mais longa que respira. Três frases longas seguidas viram texto de manual.
+   - Fale com o leitor em segunda pessoa quando fizer sentido. Isso é endereçamento, e é permitido.
+   - Comece pelo que aconteceu. A primeira frase da pauta nunca começa pelo nome de um órgão praticando ato.
+   - Zero emoji no corpo do texto. Zero gíria. Leve não é frouxo.
+2. LINGUAGEM ACESSÍVEL: o leitor é brasileiro comum que quer morar, trabalhar ou estudar nos EUA, e não advogado.
+   - Primeiro a palavra comum, a sigla depois e só se ela ajudar: "quem estuda com visto de estudante (F-1)".
+   - Nome completo de norma, de processo judicial e de órgão em inglês não entra no corpo. "Department of Homeland Security" é "o departamento de segurança interna", ou simplesmente "o governo americano" quando o pacote permitir. O nome oficial cabe no campo da fonte, não na frase que a pessoa lê.
+   - Se o termo técnico pode sair sem perder informação, ele sai. Explicar é o segundo melhor caminho; o primeiro é não precisar explicar.
+   - Quando explicar, explique em fala e em frase própria: "o I-765 é o pedido de autorização de trabalho." Não em aposto no meio da frase, cercado de vírgulas, que é o que dá cara de manual.
+3. NEGRITO, e ele tem função: o leitor passa o olho antes de ler.
+   - Marque com dois asteriscos o número, o prazo, a data, o valor e o nome que decidem a notícia: "vale a partir de **15 de outubro**", "o prazo foi de 180 para **540 dias**".
+   - No máximo duas marcações por parágrafo. Negrito em tudo é negrito em nada.
+   - Só marque o que está no pacote factual. Negrito não cria lastro.
+4. Personalidade: leveza NÃO é piada, e as duas não caem juntas. Assunto sensível (dinheiro, saúde, situação legal de alguém) pede sobriedade no FATO, e continua pedindo ritmo leve na FRASE. Observação seca é bem-vinda quando o assunto comporta; piada sobre a vida de alguém, nunca.
+5. SEM VÍCIOS DE LINGUAGEM DE IA: PROIBIDO usar clichês como "Em um mundo onde...", "No cenário atual...", "Não é apenas X, é Y", "Desvendando...", "Vale ressaltar...", "Sem dúvida...", "Em suma...". Seja autêntico, humano e direto!
+6. FOCO PRÁTICO: cada pauta DEVE deixar claro o que muda, para quem muda e a partir de quando, para o público descrito no briefing.
+7. RELEVÂNCIA SEM INVENTAR COMPORTAMENTO: a fonte fala de regra, prazo e decisão. Ela NUNCA fala do que as pessoas fazem, acompanham, observam, esperam ou pretendem.
    Escreva "o adiamento vale para estudantes com visto F-1 e adia a mudança de prazo" (efeito da regra, está na fonte).
    NÃO escreva "estudantes acompanham o adiamento" nem "estudantes devem observar a nova data" (comportamento das pessoas, não está em fonte nenhuma e será reprovado por falta de lastro).
    Quando quiser falar com o leitor, fale com ele: "se você está com F-1, o prazo antigo continua valendo". Isso é endereçamento, não afirmação sobre terceiros.
    E quando o pacote não sustentar NENHUMA relevância, deixe o campo vazio. Uma pauta sem "por que importa" é melhor que uma pauta com relevância inventada, e o silêncio aqui é decisão editorial, não falha. Não faça isso em todas: se você deixou vazio em mais de uma pauta da edição, reveja, porque quase sempre há efeito declarado na fonte.
-6. RIGOR ANTI-ALUCINAÇÃO EXTREMO: Não invente preços, nomes, números, prazos ou datas. Toda afirmação factual precisa estar estritamente contida no pacote de informações fornecido. Se um detalhe relevante não está no pacote, escreva que a fonte não divulgou. Nunca preencha a lacuna.
-7. ASSINATURA OBRIGATÓRIA: A edição deve encerrar a variável "final_line" exatamente com:
+8. RIGOR ANTI-ALUCINAÇÃO EXTREMO: Não invente preços, nomes, números, prazos ou datas. Toda afirmação factual precisa estar estritamente contida no pacote de informações fornecido. Se um detalhe relevante não está no pacote, você tem UMA saída: escreva o que se sabe e pare. Não preencha a lacuna e não anuncie que ela existe.
+
+9. NÃO FALE DA REPORTAGEM, FALE DO FATO: o leitor não quer saber o que a matéria deixou de dizer. Proibido, em qualquer campo: "a fonte não informa", "a fonte não detalha", "não foi informado", "o G1 não diz", "não há detalhes sobre". Texto mais curto é melhor que texto que confessa o que não tem.
+   A exceção é UMA por edição, e só quando a falta É a notícia: se a pauta é um prazo adiado e a nova data ainda não saiu, isso se escreve falando da divulgação, não da reportagem. Assim: "a nova data ainda não foi divulgada". Nunca assim: "a fonte não informa a nova data".
+10. ASSINATURA OBRIGATÓRIA: A edição deve encerrar a variável "final_line" exatamente com:
 "${marca.assinatura}"
 
 SKILL: TÍTULOS EDITORIAIS DE ALTA ABERTURA (regras para "subject_options" e "subject"):
@@ -232,15 +258,15 @@ ESTRUTURA DO JSON DE SAÍDA (retorne exclusivamente este JSON estrito):
     "3 a 5 opções de assunto seguindo a SKILL: TÍTULOS EDITORIAIS DE ALTA ABERTURA acima, variadas entre si"
   ],
   "subject": "A opção mais curta entre as subject_options que ainda preserva a curiosidade",
-  "preheader": "Resumo preheader de 60 a 110 caracteres mostrando a utilidade prática da edição",
-  "headline": "Título editorial impactante estilo manchete do The News",
+  "preheader": "De 60 a 110 caracteres. NÃO é resumo do headline: é a informação seguinte, a que mais interessa a quem vai decidir se lê. Quem é afetado, o prazo, o número. Se ela repetir o headline com outras palavras, está errada.",
+  "headline": "O título da edição, uma frase afirmativa de até 70 caracteres, em linguagem comum, dizendo o que mudou. Não começa por nome de órgão, não usa sigla sozinha, não é pergunta.",
   "intro": "Saudação matinal super leve e descontraída dando o bom dia e o clima da edição.",
   "stories": [
     {
       "rank": 1,
       "category": "Categoria curta da pauta, coerente com o nicho da publicação",
       "title": "O QUE MUDOU + PARA QUEM IMPORTA. Máximo 95 caracteres. Sem jargão sozinho, sem órgão praticando ato burocrático.",
-      "summary": "Resumo COMPLETO e aprofundado do fato em 2 a 3 parágrafos explicativos (sem cortar a informação pela metade).",
+      "summary": "O fato contado inteiro, em parágrafos curtos de duas a quatro linhas separados por uma linha em branco, respeitando o teto de palavras da diretriz de tamanho. Começa pelo que aconteceu, não pelo nome do órgão. Não repete o title. Marque com dois asteriscos o número, a data e o prazo que decidem a notícia, no máximo dois por parágrafo.",
       "context": "Contexto do mercado ou da ferramenta.",
       "why_it_matters": "Por que isso importa para quem quer morar, trabalhar ou estudar nos EUA. Diga QUEM é afetado, com substantivo concreto: brasileiros que, estudantes que, profissionais que, famílias que. Descreva o EFEITO da regra sobre essas pessoas. NUNCA afirme o que elas fazem, acompanham, observam, esperam, planejam ou devem fazer. Se o pacote factual NÃO disser quem é afetado nem qual o efeito, deixe este campo VAZIO (string vazia). Campo vazio é resposta correta; frase com ressalva do tipo 'pode afetar, mas a fonte não informa quem' é erro.",
       "practical_impact": "O que muda na prática: o que a regra passa a exigir ou permitir, para quem vale e a partir de quando. Só o que a fonte afirma. NUNCA o que a pessoa precisa fazer, observar ou acompanhar.",
@@ -350,14 +376,15 @@ REGRA DE FATO, acima de qualquer outra:
 - Você NÃO tem conhecimento próprio sobre estes assuntos. O que não está no pacote não aconteceu.
 - Nunca dê nome a uma operação, investigação, programa ou regra que o pacote não nomeia.
 - Nunca acrescente o momento ("nesta semana", "em setembro") se a data não estiver no pacote.
-- Nunca complete o que está em "gaps". Se o leitor precisa daquilo, escreva que a fonte não informou.
+- Nunca complete o que está em "gaps". E não transforme a lacuna em frase: "gaps" é a sua lista do que NÃO escrever, não é material de redação. O leitor não quer um inventário do que a reportagem não apurou.
 
 CONCLUSÃO TAMBÉM É FATO:
 - Consequência, causa, impacto, comparação, tendência e previsão só entram se o pacote sustentar. Elas parecem opinião e funcionam como afirmação factual para quem lê.
 - Proibido, quando o pacote não disser: "isso encarece as compras", "isso facilita a imigração", "deve gerar empregos", "prejudica empresas", "muda o cenário para brasileiros", "a tendência é de aumento", "o impacto deve ser grande".
-- Se o pacote não diz o que a medida faz, você não sabe o que ela provoca. Escreva o que aconteceu e diga que a fonte não informou o efeito.
-- Certo: "A medida foi aprovada e segue para sanção. A fonte não informa o que muda para o consumidor."
-- Errado: "A medida deve baratear as compras internacionais."
+- Se o pacote não diz o que a medida faz, você não sabe o que ela provoca. Escreva o que aconteceu e pare ali.
+- Certo: "A medida foi aprovada e segue para sanção."
+- Errado: "A medida deve baratear as compras internacionais." (afirma efeito que ninguém disse)
+- Errado também: "A medida foi aprovada e segue para sanção. A fonte não informa o que muda para o consumidor." (a segunda frase fala da reportagem, e não do fato)
 - Transição, ordem das ideias e tom são seus. Fato e consequência, não.
 
 Requisitos obrigatórios:
@@ -516,7 +543,7 @@ Marque "hallucination_risk" como true quando o texto ACRESCENTAR informação qu
 
 O QUE NÃO É:
 - Paráfrase fiel. Se o pacote diz que o texto foi aprovado pela Câmara e pelo Senado, escrever que ele "avançou no Congresso" é a mesma informação com outras palavras. Sinônimo, resumo, ordem diferente e escolha de verbo não são acréscimo.
-- Ressalva. Dizer que a fonte não informou algo é o comportamento correto, não um defeito.
+- Ressalva NÃO é mais comportamento desejado. O texto fala do fato, nunca da reportagem. Frase do tipo "a fonte não informa", "não foi detalhado" ou "o veículo não diz" é DEFEITO DE REDAÇÃO: aponte em "issues" e derrube "tone_check_passed". Não é alucinação, então "hallucination_risk" continua false. A única forma tolerada é falar da divulgação quando a falta é a própria notícia ("a nova data ainda não foi divulgada"), no máximo uma vez na edição inteira.
 - Assunto e opções de assunto. São chamadas curtas e podem ser perguntas. Avalie se afirmam algo FALSO, não se resumem demais. "A taxa das blusinhas está no fim?" é pergunta legítima quando o pacote diz que o texto foi aprovado e aguarda sanção; "A taxa das blusinhas acabou" seria falso.
 - IMPRECISÃO DE REDAÇÃO. Chamar de "decisões" um conjunto que inclui um relatório, ou atribuir ao país o que uma juíza decidiu, é imprecisão: a informação existe no pacote e foi mal resumida. Isso vai para "issues" e derruba "passed", mas NÃO é alucinação.
 - FECHAMENTO E CONVITE AO LEITOR. O "closing" convida a compartilhar a edição com quem se interessa pelo assunto da publicação. Descrever esse público NÃO é afirmar fato do dia: a audiência é definida pelo briefing editorial, não pelo pacote factual. Se a publicação é para quem quer morar nos Estados Unidos, escrever "compartilhe com quem planeja trabalhar ou estudar lá" não acrescenta nenhuma informação sobre a notícia, mesmo que o pacote daquele dia só trate de trabalho. Só é alucinação se o convite afirmar um FATO que o pacote não tem: um prazo, um preço, uma regra, um número.
@@ -682,10 +709,11 @@ APONTAMENTOS:
 ${problemas.map((p) => `- ${p.indice >= 0 ? `pauta ${p.indice + 1}` : "edição"}: ${p.descricao}`).join("\n")}
 
 COMO CORRIGIR:
-- LEGAL_JARGON_OVERLOAD: explique cada termo na primeira vez que ele aparece, em linguagem comum, ou reescreva a frase sem o termo. Exemplo: "o Form I-864, documento em que alguém se compromete a sustentar financeiramente o imigrante, ...". Não invente o que o termo significa: se o pacote não diz, use a descrição genérica do que é aquele tipo de documento.
+- LEGAL_JARGON_OVERLOAD: o caminho preferido é TIRAR o termo, e não explicá-lo. "Quem assinou o compromisso de sustento continua responsável" resolve sem citar formulário nenhum. Quando o termo precisar ficar, explique em fala, numa frase à parte e curta: "o I-864 é a carta em que alguém se compromete a sustentar o imigrante." Não invente o que o termo significa: se o pacote não diz, descreva o tipo de documento e siga.
 - LOW_READER_RELEVANCE: escreva quem é afetado e qual o efeito da regra sobre essa pessoa, com o que o pacote afirma. O público é pessoa comum que quer morar, trabalhar ou estudar nos EUA, não advogado. Se o pacote NÃO sustenta quem é afetado nem qual o efeito, esvazie o campo em vez de escrever ressalva: "a fonte não detalhou" não é relevância, é confissão dentro do texto, e será reprovada por falta de lastro.
 - HEADLINE_TOO_LONG: reescreva o título mais curto, mantendo o fato. Corte a qualificação jurídica e mantenha o que mudou e para quem.
-- Afirmação que o pacote não sustenta: remova a afirmação ou troque pelo que o pacote diz. Se o leitor precisa daquilo, escreva que a fonte não informou.
+- REDUNDANT_SUBHEAD: NÃO mexa na linha de cima. Reescreva a de baixo com a informação que ela não trouxe: quem é afetado, o prazo, o número, o que muda a partir de quando, sempre com o que o pacote afirma. Se depois de tirar a repetição não sobrar informação nova no pacote, a linha de baixo pode ficar mais curta.
+- Afirmação que o pacote não sustenta: remova a afirmação ou troque pelo que o pacote diz. Se depois disso faltar informação, o texto fica mais curto, e está certo. NÃO escreva que a fonte não informou: isso fala da reportagem, e o leitor quer o fato.
 - Nome, número ou data fora do pacote: tire. Não substitua por outro nome, número ou data.
 - Não invente nada novo para tapar o buraco deixado pela correção.
 - Não mexa em pauta que não foi apontada.

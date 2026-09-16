@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { identidadeDaPauta, renderEditionToHtml } from "./newsroom-service";
 import type { EditionContent } from "./schemas";
+import { MARCA } from "@/lib/marca";
 
 /**
  * A mesma edição vai para a caixa de entrada e para o corpo do artigo no
@@ -33,7 +34,9 @@ const EDICAO: EditionContent = {
       source_url: "https://exemplo.com/1",
     },
   ],
-  quick_bits: [],
+  quick_bits: [
+    { title: "Um giro", text: "Uma linha solta de giro rápido.", url: "https://exemplo.com/2" },
+  ],
   closing: "Fechamento da edição.",
   final_line: "Até amanhã. — imigra.us",
 } as unknown as EditionContent;
@@ -45,6 +48,40 @@ describe("HTML da edição", () => {
     expect(html).toContain("Nesta edição");
     expect(html).toContain("Quem somos");
     expect(html).toContain("UnsubscribeURL");
+  });
+
+  /*
+   * O fim do e-mail tinha três blocos disputando a mesma atenção: o giro
+   * rápido repetindo fatos das pautas, a análise de perfil e um convite para
+   * seguir o Instagram. Dois saíram, e estes testes existem para que não
+   * voltem por descuido.
+   */
+  it("o giro rápido não é renderizado, mesmo quando a edição tem um", () => {
+    const html = renderEditionToHtml(EDICAO, new Map());
+
+    expect(EDICAO.quick_bits.length).toBeGreaterThan(0);
+    expect(html).not.toContain("Giro rápido");
+    expect(html).not.toContain("Uma linha solta de giro rápido.");
+  });
+
+  it("o convite ao Instagram não compete com a edição que a pessoa acabou de ler", () => {
+    const html = renderEditionToHtml(EDICAO, new Map());
+
+    expect(html).not.toContain("Todo dia no Instagram");
+    expect(html).not.toContain("Seguir ");
+    // O que fica é a análise de perfil, com o desenho escuro que era do
+    // bloco do Instagram.
+    expect(html).toContain("Fazer a análise de perfil");
+    expect(html).toContain(MARCA.tintaEscura);
+  });
+
+  it("o Instagram vive no rodapé, como ícone e nome", () => {
+    const html = renderEditionToHtml(EDICAO, new Map());
+
+    expect(html).toContain("/marca/instagram.png");
+    expect(html).toContain(MARCA.instagramNome);
+    // Arroba com sufixo técnico ao lado de um ícone é ruído.
+    expect(html).not.toContain(`${MARCA.instagramHandle} no Instagram`);
   });
 
   it("no portal não repete o que a página já mostra", () => {

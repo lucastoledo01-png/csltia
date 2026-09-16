@@ -3,7 +3,7 @@ import { callOpenAIJSON, getAIProviderConfig } from "../newsroom/ai-provider";
 import type { PacoteFactual } from "../editorial/pacote-factual";
 import type { PautaAvaliada } from "../editorial/guarda";
 import { limparVicios } from "../newsroom/anti-vicios";
-import { REGRA_DA_MANCHETE } from "./manchete";
+import { FORMA_DA_MANCHETE, REGRA_DA_MANCHETE } from "./manchete";
 
 /**
  * O texto de um post, escrito para o feed e não para o e-mail.
@@ -171,9 +171,19 @@ contexto: por que isso importa para quem planeja se mudar. Sem futurologia.
 
 informacao_util: o que a pessoa faz com essa informação. Prazo, requisito ou passo, SE estiverem no pacote. Vazio é melhor que inventado.
 
-ressalva: só quando calar seria enganoso. Use as lacunas do pacote. Não escreva "a fonte não detalha" em todo post: isso vira tique.
+ressalva: quase sempre VAZIA. Ela só existe quando calar seria enganoso, e mesmo aí ela fala do FATO, nunca da reportagem.
+- Proibido: "a fonte não informa", "a fonte não detalha", "não há detalhes", "o veículo não diz". Isso é confissão dentro do post, e vira tique: o leitor não quer saber o que a matéria deixou de apurar.
+- Quando a falta É a notícia, escreva falando da divulgação: "a nova data ainda não foi divulgada".
+- Na dúvida, deixe vazio. Post mais curto é melhor que post que explica o que não tem.
 
 hashtags: de 4 a 7, específicas DESTA pauta.
+
+VOZ DE REDE SOCIAL: aqui é feed, não é e-mail nem jornal.
+- Frase curta. Uma ideia por linha. Se der para cortar uma palavra, corte.
+- Fale com a pessoa: "se você está com F-1", "quem já protocolou". Isso é endereçamento, e é permitido.
+- Comece pelo que aconteceu, nunca pelo nome de um órgão praticando ato.
+- Palavra comum primeiro, sigla depois e só se ajudar. Nome oficial de norma e de processo em inglês não entra.
+- Zero emoji, zero gíria. Leve não é frouxo, e o assunto é a vida de alguém.
 
 ESTRUTURA DA LEGENDA, nesta ordem: gancho, fato principal, contexto, informação útil, ressalva quando necessária.
 
@@ -295,7 +305,7 @@ ${lista}
 REGRAS DA CORREÇÃO:
 - Não invente nada para tapar buraco. Se um número, prazo ou nome não está no pacote factual, REMOVA a frase inteira em vez de trocar por outro valor.
 - Não mexa no que não foi apontado. Frase que não tem problema fica como está.
-- Manchete: de 3 a 10 palavras, afirmando o fato, sem pergunta e sem clickbait.
+- Manchete: de ${FORMA_DA_MANCHETE.minimoDePalavras} a ${FORMA_DA_MANCHETE.maximoDePalavras} palavras, afirmando o fato, sem pergunta e sem clickbait.
 - Não escreva despedida, assinatura nem "Até amanhã".
 - Não prometa aprovação, elegibilidade, prazo ou custo.
 

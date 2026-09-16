@@ -20,7 +20,7 @@ export const MARCA = {
   nomeBase: "usa",
   /** Sufixo colorido do logotipo. */
   nomeSufixo: ".journal",
-  handle: "@eua.journal",
+  handle: "@usa.journal.ai",
   tagline: "O que muda para quem vai para os EUA.",
   descricao:
     "Notícias de imigração para os Estados Unidos: vistos, green card, prazos e " +
@@ -60,8 +60,21 @@ export const MARCA = {
    * vermelho do ".journal" permanece, porque ele tem contraste nos dois fundos.
    */
   logoEscuro: "https://casaloti.ia.br/marca/usa-journal-escuro.png",
-  instagram: "https://instagram.com/eua.journal",
-  instagramHandle: "@eua.journal",
+  /*
+   * O perfil, conferido na Graph API em 16/09/2026, não suposto.
+   *
+   * O handle já foi `@desbuguei.ia`, depois `@imigra.us`, depois
+   * `@eua.journal`, e hoje é `@usa.journal.ai`. O `.ai` no fim não é engano:
+   * `usa.journal` sem sufixo é OUTRA conta, e mandar o leitor para lá é mandar
+   * para o perfil de outra pessoa.
+   *
+   * `instagramNome` é o nome de EXIBIÇÃO do perfil, que é o que o rodapé do
+   * e-mail imprime ao lado do ícone. Arroba com sufixo técnico ao lado de um
+   * ícone é ruído; o nome as pessoas reconhecem.
+   */
+  instagram: "https://instagram.com/usa.journal.ai",
+  instagramHandle: "@usa.journal.ai",
+  instagramNome: "USA Journal",
 
   /**
    * Paleta da bandeira aplicada à interface.

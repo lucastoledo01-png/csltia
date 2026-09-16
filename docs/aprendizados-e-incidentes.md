@@ -954,6 +954,66 @@ arte nova, ou eles continuam decidindo o produto sozinhos. E limite que o
 prompt e a guarda enunciam diferente é sempre um dos dois errado.
 
 
+### A frase robótica não era do modelo: eram nove instruções pedindo ela
+
+**Sintoma.** O dono leu a edição e disse que todo bloco terminava dizendo que a
+fonte não informou alguma coisa, e que "parece que existe alguma trava que está
+tornando a linguagem robótica". Três das quatro pautas tinham a frase.
+
+**Causa raiz.** Não era tique de modelo. A frase estava pedida em NOVE lugares,
+e blindada em dois:
+
+| onde | o que fazia |
+|---|---|
+| `pacote-factual.ts:58` | o extrator produzia a lista de lacunas de cada pauta |
+| `pipeline.ts:189`, `:353`, `:358` | três instruções mandando escrever que a fonte não divulgou |
+| `pipeline.ts:359` | o exemplo do que é CERTO trazia a frase pronta, literal |
+| `pipeline.ts:688` | o reparo convertia afirmação sem lastro em ressalva |
+| `pipeline.ts:519` | o auditor de QA: dizer que a fonte não informou é correto, não é defeito |
+| `claims-semanticas.ts:107` | o auditor semântico: ignore, é ressalva e é desejável |
+| `projects.editorial_prompt_extra` | "na dúvida, escreva o fato e diga que o órgão não divulgou o detalhe" |
+
+As duas últimas linhas são a trava de verdade: com os dois auditores isentando a
+frase, ela nunca entrava na lista de reparo, e o laço ainda a reinseria.
+
+**O que quase deu errado.** Tirar a frase sem mais nada teria repetido o
+incidente dos cinco dias: a ressalva era a ÚNICA saída autorizada diante de uma
+lacuna, e sem ela o modelo só tinha completar o vazio (bloqueia por lastro) ou
+escrever hedge (bloqueia por escopo). Foram necessárias, na mesma mudança: a
+autorização explícita de SILÊNCIO em todos os campos, a reescrita do prompt de
+reparo, e a troca do apontamento `LOW_READER_RELEVANCE` em `leitor.ts`, que
+pedia "o que essa pessoa deve fazer ou observar" enquanto o prompt proibia isso
+com a palavra NUNCA. O texto ruim era o ponto de equilíbrio entre duas réguas
+empurrando em direções opostas.
+
+**A régua que desfazia a mudança todo dia.** `MARCAS_DE_EXPLICACAO`, em
+`leitor.ts`, só reconhecia explicação escrita no registro formal. Um texto leve
+que explicasse em fala caía em `LEGAL_JARGON_OVERLOAD`, ia para o reparo, e o
+reparo devolvia o aposto jurídico, porque era esse o exemplo no prompt de
+correção. Foram acrescentadas marcas de fala, e as candidatas boas demais ("é
+o", "é a") ficaram de fora: numa janela de 160 caracteres elas aparecem em
+quase toda frase, e a régua parava de apontar qualquer jargão.
+
+**Lição.** Antes de mudar o TOM de um sistema com auditores, procure todas as
+instruções que pedem o comportamento atual, e confira se alguma guarda o declara
+desejável. Guarda que isenta um comportamento é o que torna a regressão
+invisível: se a frase voltar daqui a três dias, nada acusa.
+
+### O `next build` pegou o que 1462 testes não pegaram, de novo
+
+**O que.** Ao acrescentar o motivo `REDUNDANT_SUBHEAD` ao tipo de achado do
+leitor, a suíte inteira passou. O `next build` recusou: a guarda do carrossel
+mapeia os achados do MESMO módulo para os motivos dela, e não conhecia o novo.
+
+**Por que importa.** O erro estava certo, e apontou um erro de modelagem: a
+régua do slide não deve herdar uma conferência que ele não faz. O tipo foi
+separado em `MotivoDeTexto` (o que se apura olhando um texto só) e
+`MotivoDeLeitor` (que inclui a relação entre duas linhas).
+
+**Lição.** É a terceira vez que o `next build` pega o que o `vitest` não pega.
+Ele não é etapa de deploy, é o type check do projeto inteiro.
+
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

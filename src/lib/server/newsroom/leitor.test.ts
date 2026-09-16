@@ -180,3 +180,67 @@ describe("o apontamento aponta a matéria certa", () => {
     expect(r.every((x) => x.indice === 1)).toBe(true);
   });
 });
+
+describe("a linha de baixo repete a de cima", () => {
+  /*
+   * O par real da edição de 16/09/2026, que o dono apontou: o preheader era o
+   * headline com siglas no lugar das palavras. Nenhum portão via isso, porque
+   * a única semelhança de título que o sistema calculava comparava a pauta de
+   * hoje com o histórico de outros dias.
+   */
+  it("pega o par real do topo da edição", () => {
+    const r = conferirLinguagemDoLeitor({
+      headline: "Corte adia regra para estudantes e intercambistas",
+      preheader: "Corte adia regra para F-1, J-1 e I; a nova data de vigência ainda não foi informada",
+      stories: [materia()],
+    } as unknown as EditionContent);
+
+    const achado = r.find((a) => a.motivo === "REDUNDANT_SUBHEAD");
+    expect(achado).toBeDefined();
+    expect(achado?.indice).toBe(-1);
+    expect(achado?.descricao).toContain("preheader");
+  });
+
+  it("linha que acrescenta passa", () => {
+    const r = conferirLinguagemDoLeitor({
+      headline: "A regra do prazo fixo não vale a partir de hoje",
+      preheader: "Quem tem visto de estudante continua com a permanência de sempre, sem pedir extensão",
+      stories: [materia()],
+    } as unknown as EditionContent);
+
+    expect(r.filter((a) => a.motivo === "REDUNDANT_SUBHEAD")).toHaveLength(0);
+  });
+
+  it("compara a PRIMEIRA frase do resumo, não o resumo inteiro", () => {
+    // Um resumo longo que começa repetindo o título tem semelhança baixa no
+    // todo, e é exatamente o defeito: o leitor trava na primeira linha, que é
+    // onde ele decide continuar.
+    const r = conferirLinguagemDoLeitor(
+      edicao([
+        materia({
+          title: "USCIS reduz prazo de análise da autorização de trabalho",
+          summary:
+            "O USCIS reduziu o prazo de análise da autorização de trabalho. " +
+            "A mudança vale para pedidos protocolados a partir de outubro e alcança quem já " +
+            "está com o processo parado na fila desde o ano passado, segundo o comunicado.",
+        }),
+      ]),
+    );
+
+    const achado = r.find((a) => a.motivo === "REDUNDANT_SUBHEAD");
+    expect(achado).toBeDefined();
+    expect(achado?.indice).toBe(0);
+  });
+
+  it("texto curto demais não é julgado", () => {
+    // Abaixo de 15 caracteres não há palavra significativa suficiente para a
+    // medida dizer alguma coisa, e apontar aí seria ruído no reparo.
+    const r = conferirLinguagemDoLeitor({
+      headline: "Prazo novo",
+      preheader: "Prazo novo",
+      stories: [materia()],
+    } as unknown as EditionContent);
+
+    expect(r.filter((a) => a.motivo === "REDUNDANT_SUBHEAD")).toHaveLength(0);
+  });
+});

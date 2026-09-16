@@ -194,6 +194,34 @@ export function renderEditionToHtml(
    */
   const SEM_BORDA = "border:0;border-collapse:collapse";
 
+  /*
+   * O corpo da pauta, com negrito e com parágrafos.
+   *
+   * Duas coisas que a referência faz e que o texto corrido não fazia. O leitor
+   * passa o olho antes de ler, e o que segura o olho é o número em negrito; e
+   * um bloco único de oito linhas é o que faz uma notícia curta parecer longa.
+   *
+   * A ordem aqui importa e é a única coisa delicada: escapa PRIMEIRO, converte
+   * depois. Invertido, um `<b>` escrito pelo modelo viraria marcação de
+   * verdade no e-mail de todo mundo. Depois do escape, só os asteriscos que o
+   * próprio modelo escreveu podem virar tag, e nada mais.
+   */
+  const corpoDoTexto = (texto: string, estilo: string): string => {
+    const paragrafos = escapeHtml(texto ?? "")
+      .split(/\n\s*\n/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    if (paragrafos.length === 0) return "";
+
+    return paragrafos
+      .map((t) => {
+        const comNegrito = t.replace(/\*\*([^*]+)\*\*/g, "<strong style=\"color:#1A1A1A;\">$1</strong>");
+        return `<p style="${estilo}">${comNegrito.replace(/\n/g, "<br />")}</p>`;
+      })
+      .join("");
+  };
+
   const rotulo = (texto: string, cor: string) =>
     `<div style="font-family:${fonte};font-size:12px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:${cor};margin:0 0 10px 0;">${escapeHtml(texto)}</div>`;
 
@@ -262,9 +290,7 @@ export function renderEditionToHtml(
             ? `<img src="${escapeHtml(fotoNaProporcao(imagem))}" alt="" width="${FOTO_LARGURA}" height="${FOTO_ALTURA}" style="${ESTILO_DA_FOTO}margin:0 0 14px 0;" />${creditoHtml}`
             : ""
         }
-        <p style="font-family:${fonte};font-size:16px;line-height:1.62;color:${TINTA_SUAVE};margin:0 0 12px 0;">
-          ${escapeHtml(s.summary)}
-        </p>
+        ${corpoDoTexto(s.summary, `font-family:${fonte};font-size:16px;line-height:1.62;color:${TINTA_SUAVE};margin:0 0 12px 0;`)}
         ${linhaDaFonte}
       </td></tr>`;
       }
@@ -283,23 +309,37 @@ export function renderEditionToHtml(
             : ""
         }
 
-        <p style="font-family:${fonte};font-size:17px;line-height:1.6;color:${TINTA_SUAVE};margin:0 0 14px 0;">
-          ${escapeHtml(s.summary)}
-        </p>
+        ${corpoDoTexto(s.summary, `font-family:${fonte};font-size:17px;line-height:1.6;color:${TINTA_SUAVE};margin:0 0 14px 0;`)}
 
         ${/*
           Contexto e relevância no mesmo parágrafo, sem rótulo. O conteúdo do
           "Por que olhar de perto" continua na edição; o que sai é o rótulo
           repetido em toda pauta, que era o que dava cara de formulário.
         */ ""}
+        ${/*
+          "Por que isso importa?" volta como rótulo, e a diferença com o que
+          saiu está no desenho.
+
+          O que tinha sido removido era um QUADRO com rótulo fixo em toda
+          pauta, que pedia conteúdo mesmo quando não havia. Este rótulo é
+          inline, em negrito, no começo do próprio parágrafo, que é a forma da
+          referência: ele não cria caixa, não ocupa linha sozinho e some junto
+          com o texto quando o campo está vazio.
+
+          E o campo vazio é resultado válido desde 15/09: quando o pacote não
+          sustenta relevância, a pauta sai sem esta linha, e não com uma frase
+          de enchimento.
+        */ ""}
         ${
-          s.context || s.why_it_matters
-            ? `<p style="font-family:${fonte};font-size:17px;line-height:1.6;color:${TINTA_SUAVE};margin:0 0 18px 0;">${[
-                escapeHtml(s.context ?? ""),
-                escapeHtml(s.why_it_matters ?? ""),
-              ]
-                .filter(Boolean)
-                .join(" ")}</p>`
+          s.context
+            ? corpoDoTexto(s.context, `font-family:${fonte};font-size:17px;line-height:1.6;color:${TINTA_SUAVE};margin:0 0 14px 0;`)
+            : ""
+        }
+        ${
+          s.why_it_matters
+            ? `<p style="font-family:${fonte};font-size:17px;line-height:1.6;color:${TINTA_SUAVE};margin:0 0 18px 0;"><strong style="color:${TINTA};">Por que isso importa:</strong> ${escapeHtml(
+                s.why_it_matters,
+              ).replace(/\*\*([^*]+)\*\*/g, "<strong style=\"color:#1A1A1A;\">$1</strong>")}</p>`
             : ""
         }
 
@@ -321,25 +361,19 @@ export function renderEditionToHtml(
     })
     .join("");
 
-  // --- giro rápido ----------------------------------------------------------
-  const quickBitsHtml =
-    edition.quick_bits && edition.quick_bits.length > 0
-      ? `
-      <tr><td style="padding:0 0 40px 0;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA}">
-          <tr><td style="background:#FAFAFA;border:1px solid ${LINHA};border-radius:12px;padding:22px 24px;">
-            ${rotulo("Giro rápido", TINTA_SUAVE)}
-            ${edition.quick_bits
-              .map(
-                (q) => `<p style="font-family:${fonte};font-size:16px;line-height:1.6;color:${TINTA_SUAVE};margin:0 0 10px 0;">
-                  <strong style="color:${TINTA};">${escapeHtml(q.title)}</strong> ${escapeHtml(q.text ?? "")}
-                </p>`,
-              )
-              .join("")}
-          </td></tr>
-        </table>
-      </td></tr>`
-      : "";
+  /*
+   * O "Giro rápido" saiu do e-mail.
+   *
+   * Ele repetia, em três linhas soltas, fatos que as pautas logo acima já
+   * tinham dado. Num dia em que as quatro pautas cobrem o mesmo
+   * acontecimento, ele vira a quinta e a sexta vez que o leitor lê a mesma
+   * coisa, agora sem contexto nenhum.
+   *
+   * O campo continua sendo gerado e gravado em `news_editions.quick_bits`:
+   * o que saiu foi a RENDERIZAÇÃO, não o dado. É a mesma decisão que tirou o
+   * quadro "O que muda na prática" logo acima, e pelo mesmo motivo: rótulo
+   * fixo pede conteúdo fixo, e conteúdo que não existe vira enchimento.
+   */
 
   /*
    * Mobile-first, e aqui isso é literal: os valores inline são os do celular.
@@ -431,49 +465,41 @@ export function renderEditionToHtml(
 
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA}">
               ${storiesHtml}
-              ${quickBitsHtml}
             </table>
 
             ${/*
-              Análise de perfil. Vem antes do convite ao Instagram porque é a
-              única coisa aqui que responde à pergunta que levou a pessoa a
-              assinar: eu consigo? O link carrega a edição no utm_content, então
-              dá para saber qual edição converte.
-            */ ""}
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA};margin:0 0 24px 0;">
-              <tr><td style="background:${MARCA.fundoRealce};border:1px solid ${MARCA.bordaRealce};border-radius:14px;padding:28px 26px;">
-                ${rotulo("Análise de perfil", MARCA.cor)}
-                <div style="font-family:${fonte};font-size:21px;line-height:1.3;font-weight:800;color:${MARCA.tintaEscura};margin:0 0 10px 0;">
-                  Você pode morar nos Estados Unidos legalmente?
-                </div>
-                <p style="font-family:${fonte};font-size:15px;line-height:1.65;color:${TINTA_SUAVE};margin:0 0 20px 0;">
-                  Responda algumas perguntas sobre formação, profissão e situação atual
-                  e veja quais caminhos de visto existem para o seu caso. Leva poucos minutos.
-                </p>
-                <a href="${escapeHtml(linkDaNewsletter(todayStr))}" target="_blank" style="display:inline-block;background:${MARCA.tintaEscura};color:#FFFFFF;font-family:${fonte};font-size:15px;font-weight:800;padding:14px 30px;border-radius:999px;text-decoration:none;">
-                  Fazer a análise de perfil
-                </a>
-              </td></tr>
-            </table>
+              O único convite do fim do e-mail, e por que é este.
 
-            ${/*
-              Convite ao Instagram. Depois do conteúdo: quem chegou aqui leu a
-              edição, e é a essa pessoa que vale pedir o seguir.
+              Aqui havia dois blocos, um embaixo do outro: a análise de perfil
+              e um convite para seguir o Instagram. O segundo disputava com a
+              própria newsletter a atenção de quem tinha acabado de ler a
+              edição, e oferecia o MESMO conteúdo em outro formato. Pedir que
+              o leitor troque o e-mail pelo feed é pedir que ele saia de onde
+              ele já está.
+
+              Fica a análise de perfil, que é a única coisa aqui que responde à
+              pergunta que levou a pessoa a assinar: eu consigo? Ela herda o
+              desenho escuro que era do bloco do Instagram, porque aquele
+              desenho é o mais forte da peça. O Instagram desce para o rodapé,
+              num ícone.
+
+              O link carrega a edição no utm_content, então dá para saber qual
+              edição converte.
             */ ""}
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA};margin:0 0 32px 0;">
               <tr><td align="center" style="background:${MARCA.tintaEscura};border-radius:14px;padding:30px 26px;">
                 <div style="font-family:${fonte};font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#9DB4D8;margin:0 0 10px 0;">
-                  Todo dia no Instagram
+                  Análise de perfil
                 </div>
                 <div style="font-family:${fonte};font-size:21px;line-height:1.3;font-weight:800;color:#FFFFFF;margin:0 0 10px 0;">
-                  A notícia do dia em uma imagem
+                  Você pode morar nos Estados Unidos legalmente?
                 </div>
                 <p style="font-family:${fonte};font-size:15px;line-height:1.6;color:#C8D6EC;margin:0 0 20px 0;">
-                  Mudança de regra, prazo e decisão que afeta brasileiros nos EUA, no
-                  formato que dá para ler no ônibus e mandar para quem precisa.
+                  Responda algumas perguntas sobre formação, profissão e situação atual
+                  e veja quais caminhos de visto existem para o seu caso. Leva poucos minutos.
                 </p>
-                <a href="${MARCA.instagram}" target="_blank" style="display:inline-block;background:${MARCA.cor};color:#FFFFFF;font-family:${fonte};font-size:15px;font-weight:800;padding:14px 30px;border-radius:999px;text-decoration:none;">
-                  Seguir ${MARCA.instagramHandle}
+                <a href="${escapeHtml(linkDaNewsletter(todayStr))}" target="_blank" style="display:inline-block;background:${MARCA.cor};color:#FFFFFF;font-family:${fonte};font-size:15px;font-weight:800;padding:14px 30px;border-radius:999px;text-decoration:none;">
+                  Fazer a análise de perfil
                 </a>
               </td></tr>
             </table>
@@ -507,8 +533,21 @@ export function renderEditionToHtml(
                   caso tem particularidades. Confirme na fonte citada ou com um advogado
                   licenciado antes de tomar qualquer decisão.
                 </p>
+                ${/*
+                  O Instagram, agora, é isto: um ícone e o nome do perfil.
+
+                  Ele tinha um bloco inteiro no fim do e-mail, competindo com a
+                  edição que o leitor acabou de ler. Aqui ele cumpre a função
+                  que lhe cabe, que é existir para quem foi procurar, do mesmo
+                  jeito que a referência faz: uma fileira discreta de ícones no
+                  rodapé.
+
+                  PNG, e não SVG, porque cliente de e-mail não renderiza SVG. É
+                  o mesmo caminho do ícone do WhatsApp que já está na peça.
+                */ ""}
                 <p style="font-family:${fonte};font-size:13px;margin:0 0 16px 0;">
-                  <a href="${MARCA.instagram}" target="_blank" style="color:${TINTA};font-weight:700;text-decoration:none;">${MARCA.instagramHandle} no Instagram</a>
+                  <a href="${MARCA.instagram}" target="_blank" style="color:#8A8A8F;font-weight:600;text-decoration:none;">
+                    <img src="${MARCA.site}/marca/instagram.png" alt="" width="15" height="15" style="width:15px;height:15px;vertical-align:-3px;border:0;margin-right:6px;" />${MARCA.instagramNome}</a>
                 </p>
                 <p style="font-family:${fonte};font-size:12px;line-height:1.6;color:#A1A1AA;margin:0;">
                   Atualize suas <a href="{{ UnsubscribeURL }}" style="color:#71717A;">preferências</a>
@@ -1756,8 +1795,16 @@ async function executarRedacaoDoDia(
              *
              * O limite de 160 é o que o Google costuma mostrar; o que passa
              * disso não é penalizado, é cortado no meio da frase.
+             *
+             * O TÍTULO DE BUSCA É O `headline`, e não o `subject`. O assunto do
+             * e-mail é escrito para dar vontade de abrir na caixa de entrada,
+             * com curiosidade incompleta e caixa baixa ("o prazo fixo ficou
+             * para depois"). Isso é ótimo no Gmail e péssimo num resultado de
+             * busca, onde quem lê está procurando um assunto e não recebendo
+             * uma carta. O `headline` é a frase afirmativa que diz o que
+             * mudou, que é exatamente o que a busca precisa.
              */
-            seo_title: pipelineResult.edition.subject || pipelineResult.edition.headline,
+            seo_title: pipelineResult.edition.headline || pipelineResult.edition.subject,
             seo_description: (pipelineResult.edition.preheader || pipelineResult.edition.intro || "").slice(0, 160),
             canonical_url: `${MARCA.site}/artigos/${articleSlug}`,
             published_at: new Date().toISOString(),

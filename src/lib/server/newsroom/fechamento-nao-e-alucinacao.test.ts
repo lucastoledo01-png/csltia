@@ -54,8 +54,28 @@ describe("a lista do que NÃO é alucinação", () => {
   });
 
   it("as outras exceções da lista seguem no lugar", () => {
-    for (const ancora of ["Paráfrase fiel", "Ressalva.", "Assunto e opções de assunto", "IMPRECISÃO DE REDAÇÃO"]) {
+    for (const ancora of ["Paráfrase fiel", "Assunto e opções de assunto", "IMPRECISÃO DE REDAÇÃO"]) {
       expect(FONTE).toContain(ancora);
     }
+  });
+
+  /*
+   * "Ressalva." saiu desta lista em 16/09/2026, e a troca é de produto.
+   *
+   * O auditor era instruído a tratar "a fonte não informa" como comportamento
+   * correto. Junto com a mesma isenção no auditor semântico, isso garantia que
+   * a frase NUNCA entrasse na lista de reparo. O dono leu a edição e apontou o
+   * efeito: três das quatro pautas terminavam falando do que a reportagem não
+   * apurou, e a leitura ficava robótica.
+   *
+   * A frase continua não sendo alucinação, e é por isso que o teste abaixo
+   * exige que ela NÃO mexa em `hallucination_risk`: o portão de envio olha esse
+   * campo, e transformar defeito de redação em risco de fato derrubaria a
+   * edição inteira por causa de uma frase.
+   */
+  it("a ressalva virou defeito de redação, e não de fato", () => {
+    expect(FONTE).toContain("Ressalva NÃO é mais comportamento desejado");
+    expect(FONTE).toContain('derrube "tone_check_passed"');
+    expect(FONTE).toContain('"hallucination_risk" continua false');
   });
 });

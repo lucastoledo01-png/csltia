@@ -36,6 +36,21 @@ ninguém, e trocar mexe em chave de idempotência e caminho de Storage. Fica.
 
 ## Cadência e canais
 
+**O fim do e-mail tem UM convite, e é a análise de perfil.** Havia três blocos
+disputando a mesma atenção: o "Giro rápido" repetindo fatos das pautas, a
+análise de perfil e um convite para seguir o Instagram. O convite ao Instagram
+oferecia o mesmo conteúdo em outro formato para quem tinha acabado de ler a
+edição, e saiu. O Instagram vive no rodapé, como ícone mais o nome do perfil.
+
+**O `quick_bits` continua sendo gerado e não é mais renderizado.** O campo
+alimenta o carrossel e o relatório. O que saiu foi a renderização, como já tinha
+acontecido com "O que muda na prática".
+
+**O título de busca do artigo é o `headline`, não o `subject`.** O assunto do
+e-mail é escrito para dar vontade de abrir na caixa de entrada, com curiosidade
+incompleta e caixa baixa. Isso é ótimo no Gmail e péssimo num resultado de
+busca.
+
 **Uma newsletter por dia.** Não é fio contínuo por e-mail: dezenas de disparos
 queimariam a lista, e nem a referência faz isso.
 
@@ -45,6 +60,42 @@ continuam saindo em dias em que a edição é barrada.
 
 **O portal tem a PAUTA como unidade**, não a edição. Quem procura "o que mudou
 no H1B" precisa achar o assunto, e não um item chamado `edicao-2026-09-12`.
+
+## Voz
+
+**A publicação fala, não relata.** O nome tem "journal", o texto não tem. A
+régua é conversa entre duas pessoas informadas: parágrafo de duas a quatro
+linhas, frase curta alternada com uma que respira, segunda pessoa quando fizer
+sentido, zero emoji e zero gíria no corpo. Vale igual para newsletter, artigo do
+portal e Instagram, e no portal isso é automático: o artigo é a edição
+regravada, sem chamada nova de LLM.
+
+**O texto fala do FATO, nunca da reportagem.** "A fonte não informa", "não foi
+detalhado" e "o G1 não diz" estão proibidos em qualquer campo. Isso não era um
+descuido do modelo: eram nove instruções pedindo a frase, mais dois auditores
+instruídos a tratá-la como desejável, mais o laço de reparo convertendo
+afirmação sem lastro em ressalva. A exceção é uma por edição, quando a falta É a
+notícia, e mesmo aí se escreve falando da divulgação: "a nova data ainda não foi
+divulgada".
+
+**Silêncio é resultado válido, e agora em todos os campos.** Era autorizado só
+em `why_it_matters`. Sem essa autorização, tirar a ressalva deixaria o modelo
+sem saída: completar a lacuna bloqueia por falta de lastro, e hedge bloqueia por
+escopo.
+
+**Português primeiro, sigla depois e só se ajudar.** Nome oficial de norma, de
+processo judicial e de órgão em inglês não entra no corpo do texto. O caminho
+preferido para jargão é TIRAR, não explicar; quando precisar explicar, é em
+frase própria e falada, nunca em aposto no meio da frase.
+
+**Negrito tem função.** Número, prazo, data e valor que decidem a notícia saem
+em negrito, no máximo dois por parágrafo, marcados com dois asteriscos pelo
+redator e convertidos no template. O leitor passa o olho antes de ler.
+
+**Cada linha acrescenta, nenhuma repete a de cima.** O preheader não é resumo do
+headline, e o summary não reescreve o title. Existe uma conferência
+determinista que mede isso por CONTENÇÃO de palavras, não por Jaccard, e ela
+gera apontamento de reparo, nunca bloqueio.
 
 ## Editorial
 

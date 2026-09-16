@@ -104,7 +104,9 @@ NÃO está sustentada quando exige informação que o pacote não tem. Exemplos:
 - o pacote não compara períodos, e o texto afirma que a situação piorou.
 - o pacote registra em "gaps" que a matéria não informa algo, e o texto informa assim mesmo.
 
-Frase que apenas descreve o que aconteceu não é claim: ignore. Frase que diz explicitamente que a fonte não informou algo não é claim: ignore, é ressalva e é desejável.
+Frase que apenas descreve o que aconteceu não é claim: ignore.
+
+Frase que diz que a fonte não informou algo também não é claim, e continua sendo ignorada AQUI: ela não afirma nada sobre o mundo, então não há o que sustentar. Mas ela deixou de ser desejável no produto, e quem aponta isso é o auditor de qualidade, não este. Não a marque como claim não sustentada: marcar faria uma escolha de redação derrubar a edição por falta de lastro, que é coisa diferente.
 
 Seja literal. Não invente claim que o texto não faz, e não perdoe claim que o pacote não sustenta.
 
