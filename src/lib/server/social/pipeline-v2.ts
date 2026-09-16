@@ -460,7 +460,41 @@ export async function rodarCicloSocial(
   const congelarSlides = opcoes.congelarCarrossel ?? congelarCarrossel;
   const paraGravar: PostParaGravar[] = [];
 
+  /*
+   * O que o store vai bloquear não chega a ser renderizado.
+   *
+   * A idempotência era conferida só na gravação, no fim. Numa segunda execução
+   * do ciclo no mesmo dia, a arte da pauta já publicada era renderizada de
+   * novo e subia para o MESMO caminho do Storage, porque o caminho é a chave
+   * de idempotência. O arquivo mudava alguns bytes (foto nova, fonte
+   * recarregada), a linha antiga continuava com o hash antigo, e o worker
+   * recusava publicar com SOCIAL_ARTIFACT_HASH_MISMATCH: o post existente
+   * quebrava por causa de uma execução que nem era dele.
+   *
+   * Aconteceu em 16/09/2026, numa leva extra disparada para validar o desenho
+   * novo. O post das 14h32 morreu assim.
+   *
+   * Conferir antes também economiza o render, que é a etapa mais cara do
+   * ciclo: navegador aberto, fontes carregadas, foto baixada.
+   */
+  const jaTemPostHoje = new Set<string>();
+  try {
+    for (const linha of await opcoes.store.doDia(opcoes.projectId, opcoes.editionDate)) {
+      if (linha.idempotency_key) jaTemPostHoje.add(linha.idempotency_key);
+    }
+  } catch (erro) {
+    linhas.push(`[SOCIAL V2] não consegui ler os posts do dia, seguindo sem o filtro: ${(erro as Error).message}`);
+  }
+
   for (const p of previews) {
+    if (jaTemPostHoje.has(chaveDeIdempotencia(opcoes.editionDate, p.post.pauta.storyId))) {
+      linhas.push(
+        `[SOCIAL V2] ${p.post.pauta.storyId} já tem post hoje: não renderiza de novo ` +
+          `(renderizar sobrescreveria o artefato aprovado e quebraria o hash do post existente)`,
+      );
+      continue;
+    }
+
     const path = `${opcoes.slugDoProjeto ?? opcoes.projectId}/${opcoes.editionDate}/${p.chaveDeIdempotencia}`;
     const carrossel = p.post.carrossel;
 
