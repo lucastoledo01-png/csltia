@@ -1677,6 +1677,25 @@ async function executarRedacaoDoDia(
             category: "Edição Diária",
             author: MARCA.nome,
             reading_minutes: Math.ceil(wordCount / 200),
+            /*
+             * Título e descrição de busca, das colunas que existiam e ninguém
+             * preenchia: em 16/09/2026, zero dos quatro artigos publicados
+             * tinha `seo_title`, `seo_description`, `aeo_questions` ou
+             * `canonical_url`.
+             *
+             * Não há chamada nova de LLM aqui, e isso é deliberado. O assunto
+             * do e-mail e o preheader já foram escritos e já passaram pela
+             * auditoria de lastro: eles são, por construção, a versão curta e
+             * conferida da edição. Gerar um segundo par só para a busca
+             * acrescentaria custo, latência e uma superfície nova para
+             * alucinar.
+             *
+             * O limite de 160 é o que o Google costuma mostrar; o que passa
+             * disso não é penalizado, é cortado no meio da frase.
+             */
+            seo_title: pipelineResult.edition.subject || pipelineResult.edition.headline,
+            seo_description: (pipelineResult.edition.preheader || pipelineResult.edition.intro || "").slice(0, 160),
+            canonical_url: `${MARCA.site}/artigos/${articleSlug}`,
             published_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },

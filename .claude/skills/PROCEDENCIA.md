@@ -15,6 +15,14 @@ Origem: `github.com/davila7/claude-code-templates`, **fixado no commit
 | `frontend-dev-guidelines/` | `components/skills/development/frontend-dev-guidelines/` |
 | `security-best-practices/references/` | idem, **só as referências** |
 
+Segunda leva, **fixada no commit `d2b1e748aeae813ffd65a81b9bd534d572226168`**
+(16/09/2026), de `components/skills/business-marketing/`:
+
+| Pasta | Por que entrou |
+|---|---|
+| `seo-optimizer/` | o portal é site de notícia e vive de busca |
+| `content-creator/` | referências de framework e o analisador de voz de marca |
+
 As duas skills do Supabase são de outra origem e não fazem parte desta auditoria.
 
 ## Por que não pelo instalador oficial
@@ -47,12 +55,29 @@ doze scripts que elas prometem são o mesmo esqueleto de 114 linhas com o nome d
 classe trocado, e o corpo é `# Main logic here`. As próprias instruções são o
 mesmo template. Prometem ferramenta e entregam `print`.
 
+**`marketing-strategy-pmm`**: 1163 linhas de posicionamento, GTM e battlecard
+competitivo, para um trabalho que já foi feito no dossiê dos concorrentes.
+
+**`marketing-ideas`**: crescimento de SaaS, que não é este produto.
+
+**`content-research-writer`**: pesquisa com citação, que é exatamente o que o
+pipeline de redação já faz em produção, com auditoria de lastro por cima.
+
+**`copywriting` e `social-content`**: sem risco e talvez úteis quando eu escrever
+a home ou calibrar o prompt da copy social. Ficaram de fora por ora porque skill
+instalada custa contexto em toda sessão, e essas duas servem a tarefas raras.
+
+**A ressalva que vale para toda skill de marketing aqui:** skill muda o que eu
+faço numa sessão, e não muda o que a produção escreve. A newsletter e os posts
+saem às 06:03 sem ninguém. Melhorar aquele texto é editar `pipeline.ts` e o
+prompt da copy social, não instalar skill.
+
 **`agent-development`, `debugger`, `algorithmic-art`**: sem risco, sem uso aqui.
 Skill instalada custa contexto em toda sessão.
 
 ## O que foi conferido
 
-Em todos os 101 arquivos instalados: nenhum caractere invisível ou tag Unicode,
+Em todos os 109 arquivos instalados, nas duas levas: nenhum caractere invisível ou tag Unicode,
 nenhum bloco base64, nenhuma chamada de rede, `subprocess`, `eval` ou
 `os.system`, nenhuma leitura de `.env`, chave ou token, e nenhuma instrução de
 sobrescrever instrução anterior ou de silenciar achado.
