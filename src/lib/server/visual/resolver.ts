@@ -85,6 +85,7 @@ export async function resolveVisualAsset(
     storyId: pauta.storyId,
     entidade,
     asset: null,
+    assetSecundario: null,
     status: "NO_VALID_IMAGE",
     motivo,
     fontesConsultadas,
@@ -131,7 +132,7 @@ export async function resolveVisualAsset(
   });
 
   const piso = pisoDeRelevancia(entidade, config);
-  const aprovar = (asset: AssetVisual, id?: string): ResultadoVisual => ({
+  const aprovar = (asset: AssetVisual, id?: string, segundo?: AssetVisual | null): ResultadoVisual => ({
     storyId: pauta.storyId,
     entidade,
     asset: {
@@ -140,6 +141,7 @@ export async function resolveVisualAsset(
       entityConfidence: entidade.confianca,
       entityEvidence: entidade.evidencias,
     },
+    assetSecundario: segundo ?? null,
     status: "SELECTED",
     motivo: null,
     fontesConsultadas,
@@ -182,7 +184,7 @@ export async function resolveVisualAsset(
         nota: `${disponiveis.length} disponível(is) depois da janela de repetição`,
       });
 
-      const melhor = melhorPontuado(disponiveis, entidade, piso, recusados, config.larguraMinima, {
+      const { melhor } = melhorPontuado(disponiveis, entidade, piso, recusados, config.larguraMinima, {
         titulo: pauta.titulo,
         resumo: pauta.resumo,
         atores: pauta.classificacao.atores,
@@ -342,7 +344,7 @@ export async function resolveVisualAsset(
    * conceitual produzia sozinho.
    */
   const disponiveis = novos.filter((a) => !usadosAgora.has(a.imageUrl) && !jaSaiu(a.imageUrl));
-  const escolhido = melhorPontuado(disponiveis, entidade, piso, recusados, config.larguraMinima, {
+  const { melhor: escolhido, vice } = melhorPontuado(disponiveis, entidade, piso, recusados, config.larguraMinima, {
     titulo: pauta.titulo,
     resumo: pauta.resumo,
     atores: pauta.classificacao.atores,
@@ -363,7 +365,7 @@ export async function resolveVisualAsset(
       const guardado = await biblioteca.guardar(escolhido);
       if (guardado?.id) {
         await biblioteca.registrarUso(guardado.id);
-        return aprovar(escolhido, guardado.id);
+        return aprovar(escolhido, guardado.id, vice);
       }
     } catch (erro) {
       fontesConsultadas.push({
@@ -374,7 +376,7 @@ export async function resolveVisualAsset(
     }
   }
 
-  return aprovar(escolhido);
+  return aprovar(escolhido, undefined, vice);
 }
 
 /**
@@ -390,9 +392,20 @@ function melhorPontuado<T extends AssetVisual>(
   recusados: CandidatoRecusado[],
   larguraMinima: number,
   pauta?: { titulo: string; resumo?: string; atores?: string[] }
-): T | null {
-  let melhor: T | null = null;
-  let melhorNota = -1;
+): { melhor: T | null; vice: T | null } {
+  /*
+   * A vice existe porque a capa quer DUAS imagens.
+   *
+   * A bolha da capa mostra um segundo assunto ao lado do personagem, e ela
+   * precisa de uma foto que tenha passado pelas MESMAS barreiras da primeira:
+   * resolução, licença, temporalidade, figura não central e piso de
+   * relevância. Pegar a segunda da lista bruta traria de volta exatamente o
+   * que cada barreira recusou.
+   *
+   * Por isso a vice sai daqui, e não de um segundo filtro em outro lugar:
+   * quem sabe quais candidatas foram aprovadas é este laço.
+   */
+  const aprovadas: Array<{ item: T; nota: number }> = [];
 
   for (const c of candidatos) {
     // Largura zero significa dimensão desconhecida (fonte oficial não informa),
@@ -489,11 +502,25 @@ function melhorPontuado<T extends AssetVisual>(
       continue;
     }
 
-    if (nota.total > melhorNota) {
-      melhorNota = nota.total;
-      melhor = c;
-    }
+    aprovadas.push({ item: c, nota: nota.total });
   }
 
-  return melhor;
+  aprovadas.sort((a, b) => b.nota - a.nota);
+
+  /*
+   * A vice não pode ser a mesma imagem da vencedora.
+   *
+   * Duas fontes diferentes devolvem o mesmo arquivo do Commons com frequência,
+   * e a capa ficaria com a mesma foto no fundo e dentro do círculo, que é pior
+   * que não ter bolha nenhuma.
+   */
+  const melhor = aprovadas[0]?.item ?? null;
+  const vice =
+    aprovadas.find(
+      (a) =>
+        a.item !== melhor &&
+        identidadeDaFoto(a.item.imageUrl) !== identidadeDaFoto(melhor?.imageUrl ?? ""),
+    )?.item ?? null;
+
+  return { melhor, vice };
 }

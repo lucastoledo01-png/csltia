@@ -161,6 +161,14 @@ export type ResultadoVisual = {
   storyId: string;
   entidade: EntidadeVisual | null;
   asset: AssetVisual | null;
+  /**
+   * A segunda melhor imagem aprovada, para a bolha da capa.
+   *
+   * Passou pelas mesmas barreiras da primeira: resolução, licença,
+   * temporalidade, figura não central e piso de relevância. É nula quando só
+   * uma candidata sobreviveu, e nesse caso a capa sai sem bolha, inteira.
+   */
+  assetSecundario: AssetVisual | null;
   status: "SELECTED" | "NO_VALID_IMAGE";
   motivo: MotivoDeRecusa | null;
   /** Quais fontes foram efetivamente consultadas, na ordem. */

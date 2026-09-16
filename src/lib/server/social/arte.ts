@@ -130,6 +130,14 @@ export type FotoDaCapa = Pick<AssetVisual, "imageUrl" | "attribution">;
 
 export type EntradaDaCapa = {
   headline: string;
+  /**
+   * A segunda foto, desenhada em círculo na capa.
+   *
+   * Vem da vice-campeã do resolvedor, que passou pelas mesmas barreiras da
+   * vencedora. Nula na maioria dos dias, e a capa sai inteira sem ela: a bolha
+   * é reforço, não requisito.
+   */
+  assetSecundario?: FotoDaCapa | null;
   /** Categoria editorial, usada como sobrancelha na capa sem foto. */
   eixo?: string;
   /**
@@ -260,6 +268,19 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
   const doCarrossel = entrada.estiloDaCapa === "carrossel";
   const variante = comFoto ? "capa_jornal" : "noticia_sem_foto";
 
+  /*
+   * A bolha, e as duas condições para ela existir.
+   *
+   * Precisa de foto principal, porque sem ela a capa é a peça tipográfica e
+   * não tem onde pôr um círculo. E precisa ser outra foto: o resolvedor já
+   * recusa a repetição, e a regra é reafirmada aqui porque é aqui que ela
+   * aparece para quem vê. Mesma imagem no fundo e no círculo é pior que capa
+   * sem bolha, e a mesma foto chega por dois caminhos com frequência, já que
+   * fontes diferentes servem o mesmo arquivo do Commons.
+   */
+  const segunda = (entrada.assetSecundario?.imageUrl ?? "").trim();
+  const bolha = comFoto && segunda && segunda !== asset!.imageUrl ? segunda : "";
+
   const slide: InstagramSlide = {
     index: 1,
     type: "cover",
@@ -276,6 +297,14 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
     cover_image_prompt: "",
     // A ÚNICA origem possível de imagem nesta superfície.
     bg_image_url: comFoto ? asset!.imageUrl : "",
+    /*
+     * A bolha só existe quando HÁ foto principal.
+     *
+     * Sem foto a capa é a peça tipográfica, que não tem onde pôr um círculo:
+     * mandar a segunda imagem assim mesmo faria a peça de texto carregar um
+     * campo que ela ignora, e alguém depois acharia que ela deveria usá-lo.
+     */
+    inset_image_url: bolha,
     cta_text: "",
   };
 

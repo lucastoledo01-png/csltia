@@ -105,3 +105,61 @@ describe("chamada da newsletter", () => {
     expect(html).toContain("Comente NEWS");
   });
 });
+
+describe("a vice-campeã do resolvedor vira a bolha", () => {
+  /**
+   * A bolha precisa de uma foto que tenha passado pelas MESMAS barreiras da
+   * primeira: resolução, licença, temporalidade, figura não central e piso de
+   * relevância. Pegar a segunda da lista bruta traria de volta exatamente o que
+   * cada barreira recusou, e a capa publicaria em destaque uma imagem que o
+   * sistema tinha acabado de rejeitar.
+   *
+   * Por isso a vice sai de dentro do laço que aprova, e não de um segundo
+   * filtro em outro lugar. Este teste guarda a consequência visível disso.
+   */
+  it("a bolha nunca repete a foto de fundo", async () => {
+    const { montarCapaDoPost } = await import("@/lib/server/social/arte");
+
+    const mesma = { imageUrl: "https://upload.wikimedia.org/a.jpg", attribution: "" };
+    const capa = montarCapaDoPost({
+      headline: "Uma manchete",
+      estiloDaCapa: "carrossel",
+      asset: mesma,
+      assetSecundario: mesma,
+    });
+
+    // O resolvedor já recusa a repetição, e aqui a regra é reafirmada no ponto
+    // em que ela aparece para quem vê: mesma foto no fundo e no círculo é pior
+    // que capa sem bolha.
+    expect(capa.slide.bg_image_url).toBe(mesma.imageUrl);
+    expect(capa.slide.inset_image_url).toBe("");
+  });
+
+  it("sem foto principal não há bolha, mesmo com segunda imagem", async () => {
+    const { montarCapaDoPost } = await import("@/lib/server/social/arte");
+
+    const capa = montarCapaDoPost({
+      headline: "Uma manchete",
+      estiloDaCapa: "carrossel",
+      asset: null,
+      assetSecundario: { imageUrl: "https://upload.wikimedia.org/b.jpg", attribution: "" },
+    });
+
+    // Sem foto a capa é a peça tipográfica, que não tem onde pôr um círculo.
+    expect(capa.slide.inset_image_url).toBe("");
+  });
+  it("com duas fotos diferentes, a bolha aparece", async () => {
+    const { montarCapaDoPost } = await import("@/lib/server/social/arte");
+
+    const capa = montarCapaDoPost({
+      headline: "Uma manchete",
+      estiloDaCapa: "carrossel",
+      asset: { imageUrl: "https://upload.wikimedia.org/fundo.jpg", attribution: "" },
+      assetSecundario: { imageUrl: "https://upload.wikimedia.org/bolha.jpg", attribution: "" },
+    });
+
+    // Sem este caso, os dois testes acima passariam com a bolha desligada para
+    // sempre, que é o jeito mais fácil de nunca repetir foto.
+    expect(capa.slide.inset_image_url).toBe("https://upload.wikimedia.org/bolha.jpg");
+  });
+});

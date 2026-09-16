@@ -137,7 +137,13 @@ export type EntradasDoCarrossel = {
 export function entradasDoCarrossel(
   copy: CopyDoCarrossel,
   papeis: PapelDeSlide[],
-  opcoes: { eixo: string; asset: FotoDaCapa | null; motivoSemFoto: string },
+  opcoes: {
+    eixo: string;
+    asset: FotoDaCapa | null;
+    /** A vice-campeã do resolvedor, que a capa desenha em círculo. */
+    assetSecundario?: FotoDaCapa | null;
+    motivoSemFoto: string;
+  },
 ): EntradasDoCarrossel {
   const doModelo = papeisDoModelo(papeis);
   const total = papeis.length;
@@ -165,6 +171,9 @@ export function entradasDoCarrossel(
         headline: copy.headline,
         eixo: opcoes.eixo,
         asset: opcoes.asset,
+        // A bolha vale para a CAPA. Os slides de miolo usam a mesma gramática
+        // sem ela: um círculo repetido em cinco telas vira moldura, não ênfase.
+        assetSecundario: opcoes.assetSecundario ?? null,
         motivoSemFoto: opcoes.motivoSemFoto,
         posicao,
         total,

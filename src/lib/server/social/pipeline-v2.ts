@@ -479,6 +479,7 @@ export async function rodarCicloSocial(
             {
               eixo: p.post.pauta.classificacao.eixo ?? "",
               asset: p.visual?.asset ?? null,
+              assetSecundario: p.visual?.assetSecundario ?? null,
               motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
             },
           ).entradas,
@@ -490,6 +491,7 @@ export async function rodarCicloSocial(
             headline: p.post.copy.headline,
             eixo: p.post.pauta.classificacao.eixo,
             asset: p.visual?.asset ?? null,
+            assetSecundario: p.visual?.assetSecundario ?? null,
             motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
           },
           path,
