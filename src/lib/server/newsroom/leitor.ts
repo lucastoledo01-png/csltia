@@ -238,7 +238,28 @@ export function conferirLinguagemDeUmTexto(entrada: {
     "beneficiari",
   ].some((m) => relevancia.includes(m));
 
-  if (relevancia.trim().length < 40 || !falaDoLeitor) {
+  /*
+   * Relevância vazia é resultado válido, e não falha.
+   *
+   * Nem toda pauta tem relevância com lastro. Uma liminar que só diz "a medida
+   * está suspensa" não informa quem é afetado, e não existe frase de impacto
+   * que o pacote sustente. Enquanto o vazio era apontado como problema, o laço
+   * de reparo insistia, e a redação produzia o único texto possível: hedge que
+   * o auditor semântico recusa. Em 16/09/2026 saiu assim, com QA 94:
+   *
+   *   "Pessoas sujeitas à nova regra podem ser afetadas, mas a fonte não
+   *    informa quais grupos específicos estão abrangidos."
+   *
+   * Dois portões empurrando em direções opostas custam o dia inteiro. Este
+   * cede, e o do lastro não: a régua de alucinação continua intacta.
+   *
+   * O que não muda é a régua para quem ESCREVEU alguma coisa. Relevância curta
+   * ou que não fala com o leitor continua sendo apontada, porque aí houve
+   * tentativa e ela saiu ruim.
+   */
+  if (relevancia.trim().length === 0) {
+    // Silêncio deliberado. Segue para as outras conferências.
+  } else if (relevancia.trim().length < 40 || !falaDoLeitor) {
     const onde = entrada.ondeEscreverRelevancia ? `Escreva em ${entrada.ondeEscreverRelevancia} ` : "Escreva ";
     achados.push({
       motivo: "LOW_READER_RELEVANCE",

@@ -185,6 +185,7 @@ DIRETRIZES DE TOM & ESTILO (Estilo "The News"):
    Escreva "o adiamento vale para estudantes com visto F-1 e adia a mudança de prazo" (efeito da regra, está na fonte).
    NÃO escreva "estudantes acompanham o adiamento" nem "estudantes devem observar a nova data" (comportamento das pessoas, não está em fonte nenhuma e será reprovado por falta de lastro).
    Quando quiser falar com o leitor, fale com ele: "se você está com F-1, o prazo antigo continua valendo". Isso é endereçamento, não afirmação sobre terceiros.
+   E quando o pacote não sustentar NENHUMA relevância, deixe o campo vazio. Uma pauta sem "por que importa" é melhor que uma pauta com relevância inventada, e o silêncio aqui é decisão editorial, não falha. Não faça isso em todas: se você deixou vazio em mais de uma pauta da edição, reveja, porque quase sempre há efeito declarado na fonte.
 6. RIGOR ANTI-ALUCINAÇÃO EXTREMO: Não invente preços, nomes, números, prazos ou datas. Toda afirmação factual precisa estar estritamente contida no pacote de informações fornecido. Se um detalhe relevante não está no pacote, escreva que a fonte não divulgou. Nunca preencha a lacuna.
 7. ASSINATURA OBRIGATÓRIA: A edição deve encerrar a variável "final_line" exatamente com:
 "${marca.assinatura}"
@@ -241,7 +242,7 @@ ESTRUTURA DO JSON DE SAÍDA (retorne exclusivamente este JSON estrito):
       "title": "O QUE MUDOU + PARA QUEM IMPORTA. Máximo 95 caracteres. Sem jargão sozinho, sem órgão praticando ato burocrático.",
       "summary": "Resumo COMPLETO e aprofundado do fato em 2 a 3 parágrafos explicativos (sem cortar a informação pela metade).",
       "context": "Contexto do mercado ou da ferramenta.",
-      "why_it_matters": "Por que isso importa para quem quer morar, trabalhar ou estudar nos EUA. Diga QUEM é afetado, com substantivo concreto: brasileiros que, estudantes que, profissionais que, famílias que. Descreva o EFEITO da regra sobre essas pessoas. NUNCA afirme o que elas fazem, acompanham, observam, esperam, planejam ou devem fazer.",
+      "why_it_matters": "Por que isso importa para quem quer morar, trabalhar ou estudar nos EUA. Diga QUEM é afetado, com substantivo concreto: brasileiros que, estudantes que, profissionais que, famílias que. Descreva o EFEITO da regra sobre essas pessoas. NUNCA afirme o que elas fazem, acompanham, observam, esperam, planejam ou devem fazer. Se o pacote factual NÃO disser quem é afetado nem qual o efeito, deixe este campo VAZIO (string vazia). Campo vazio é resposta correta; frase com ressalva do tipo 'pode afetar, mas a fonte não informa quem' é erro.",
       "practical_impact": "O que muda na prática: o que a regra passa a exigir ou permitir, para quem vale e a partir de quando. Só o que a fonte afirma. NUNCA o que a pessoa precisa fazer, observar ou acompanhar.",
       "humor_line": "Observação curta e humana sobre a pauta. Vazia quando o assunto não comporta leveza.",
       "source_name": "Nome da fonte original",
@@ -682,7 +683,7 @@ ${problemas.map((p) => `- ${p.indice >= 0 ? `pauta ${p.indice + 1}` : "edição"
 
 COMO CORRIGIR:
 - LEGAL_JARGON_OVERLOAD: explique cada termo na primeira vez que ele aparece, em linguagem comum, ou reescreva a frase sem o termo. Exemplo: "o Form I-864, documento em que alguém se compromete a sustentar financeiramente o imigrante, ...". Não invente o que o termo significa: se o pacote não diz, use a descrição genérica do que é aquele tipo de documento.
-- LOW_READER_RELEVANCE: escreva quem é afetado e o que essa pessoa deve fazer ou observar agora. O público é pessoa comum que quer morar, trabalhar ou estudar nos EUA, não advogado. Não invente consequência: se o pacote não sustenta um impacto, diga a quem o assunto se aplica e que a fonte não detalhou o resto.
+- LOW_READER_RELEVANCE: escreva quem é afetado e qual o efeito da regra sobre essa pessoa, com o que o pacote afirma. O público é pessoa comum que quer morar, trabalhar ou estudar nos EUA, não advogado. Se o pacote NÃO sustenta quem é afetado nem qual o efeito, esvazie o campo em vez de escrever ressalva: "a fonte não detalhou" não é relevância, é confissão dentro do texto, e será reprovada por falta de lastro.
 - HEADLINE_TOO_LONG: reescreva o título mais curto, mantendo o fato. Corte a qualificação jurídica e mantenha o que mudou e para quem.
 - Afirmação que o pacote não sustenta: remova a afirmação ou troque pelo que o pacote diz. Se o leitor precisa daquilo, escreva que a fonte não informou.
 - Nome, número ou data fora do pacote: tire. Não substitua por outro nome, número ou data.

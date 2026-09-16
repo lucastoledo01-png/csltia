@@ -111,7 +111,11 @@ describe("relevância para o leitor", () => {
     for (const quem of [
       "Brasileiros com pedido em análise ganham tempo.",
       "Estudantes que pretendem estagiar depois do curso são os afetados.",
-      "Famílias que já protocolaram devem acompanhar o novo prazo.",
+      // Era "Famílias que já protocolaram DEVEM ACOMPANHAR o novo prazo", e a
+      // frase passava aqui e era reprovada pelo auditor semântico: fonte
+      // nenhuma afirma o que as pessoas acompanham. Os dois portões pediam
+      // coisas opostas, e a contradição estava escrita nesta fixture.
+      "Famílias que já protocolaram passam a ter o prazo antigo mantido.",
       "Quem espera a autorização recebe resposta mais rápido.",
     ]) {
       const r = conferirLinguagemDoLeitor(edicao([materia({ why_it_matters: quem, practical_impact: quem })]));
@@ -119,8 +123,30 @@ describe("relevância para o leitor", () => {
     }
   });
 
-  it("campo vazio é apontado", () => {
+  /**
+   * Silêncio deliberado deixou de ser falha.
+   *
+   * Nem toda pauta tem relevância com lastro. Uma liminar que só diz "a medida
+   * está suspensa" não informa quem é afetado, e não existe frase de impacto
+   * que o pacote sustente. Enquanto o vazio era apontado, o laço de reparo
+   * insistia, e a redação devolvia o único texto possível: hedge. Em
+   * 16/09/2026 a edição foi barrada por isso, com QA 94 e a frase
+   * "Pessoas sujeitas à nova regra podem ser afetadas, mas a fonte não informa
+   * quais grupos específicos estão abrangidos".
+   *
+   * O que cedeu foi a exigência de escrever. A régua de lastro não cedeu.
+   */
+  it("campo vazio não é apontado: é decisão editorial", () => {
     const r = conferirLinguagemDoLeitor(edicao([materia({ why_it_matters: "", practical_impact: "" })]));
+    expect(r.map((x) => x.motivo)).not.toContain("LOW_READER_RELEVANCE");
+  });
+
+  it("mas relevância escrita pela metade continua sendo apontada", () => {
+    // A tolerância é para o silêncio, não para a tentativa malfeita: quem
+    // escreveu alguma coisa aceitou a régua de quem escreve.
+    const r = conferirLinguagemDoLeitor(
+      edicao([materia({ why_it_matters: "Importa muito.", practical_impact: "" })]),
+    );
     expect(r.map((x) => x.motivo)).toContain("LOW_READER_RELEVANCE");
   });
 });
