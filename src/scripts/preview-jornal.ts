@@ -67,12 +67,32 @@ const peças: Array<{ nome: string; slide: Partial<InstagramSlide>; tipo: string
     slide: { eyebrow: "Boletim de vistos", title: "Boletim de outubro avança para EB-2", bg_image_url: FOTO },
   },
   {
+    // O miolo com CORPO, que é o que a referência mostra: a primeira frase
+    // afirma, o resto explica, no mesmo corpo de tipo.
     nome: "5-miolo",
     tipo: "content",
     variante: "miolo_jornal",
     slide: {
-      eyebrow: "Trabalho nos EUA",
+      eyebrow: "O que é",
       title: "O registro anual é obrigatório e o sorteio decide quem segue para a petição",
+      body:
+        "Quem passa no sorteio tem uma janela para apresentar a petição completa. " +
+        "Ficar de fora não impede tentar de novo no ano seguinte, com um novo registro.",
+      bg_image_url: BOLHA,
+    },
+  },
+  {
+    nome: "5b-miolo-com-lista",
+    tipo: "content",
+    variante: "miolo_jornal",
+    slide: {
+      eyebrow: "Para quem",
+      title: "A mudança alcança três situações",
+      bullet_points: [
+        "Quem já tem o pedido protocolado e aguarda análise",
+        "Quem pretende trocar de status ainda neste ano",
+        "Quem depende da renovação automática para seguir trabalhando",
+      ],
       bg_image_url: BOLHA,
     },
   },

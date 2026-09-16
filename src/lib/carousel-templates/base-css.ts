@@ -398,6 +398,11 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
   font-family:var(--s-font-display);font-size:74px;font-weight:800;line-height:1.1;
   letter-spacing:-0.005em;text-transform:uppercase;color:#fff;}
 .j-manchete > span{display:block;}
+/* Bullet do miolo: uma linha por item, dentro do MESMO bloco que o ajuste
+   mede. Fora dele, o script mediria o titulo e ignoraria a lista, que e
+   justamente o caso em que o texto transborda. */
+.j-manchete i{display:block;font-style:normal;margin-top:0.35em;}
+.j-manchete i::before{content:"· ";}
 
 /* --- chamada da newsletter ------------------------------------------------ */
 /* As cores aqui sao escritas, e nao lidas dos tokens, de proposito.

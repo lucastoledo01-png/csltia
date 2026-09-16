@@ -14,13 +14,19 @@ import type { InstagramSlide, VariantContext } from "./types";
  * nenhuma leitura de código mostraria.
  */
 
-function ctx(total: number): VariantContext {
+/**
+ * `slideIndex` é 1-based, como o que a arte passa (`entrada.posicao ?? 1`).
+ *
+ * Estava fixo em 0 aqui, e o convite de arrastar passou a depender da posição:
+ * com 0 a capa não era capa, e o teste media outra coisa.
+ */
+function ctx(total: number, slideIndex = 1): VariantContext {
   return {
     format: "noticia",
     tokens: DEFAULT_TOKENS,
     eyebrowLabel: "",
     ctaText: "",
-    slideIndex: 0,
+    slideIndex,
     total,
   };
 }
@@ -41,6 +47,7 @@ function slide(campos: Partial<InstagramSlide>): InstagramSlide {
 
 describe("capa de jornal", () => {
   const capa = SLIDE_VARIANTS.cover.capa_jornal;
+  const miolo = SLIDE_VARIANTS.content.miolo_jornal;
 
   /**
    * O script de ajuste encolhe a manchete enquanto ela não couber, e mede
@@ -76,12 +83,41 @@ describe("capa de jornal", () => {
     expect(html).toContain("j-fundo");
   });
 
-  it("a peça de várias telas convida a arrastar, a única não", () => {
+  it("a peça de várias telas convida a arrastar uma vez, na capa", () => {
     const unica = capa.render(slide({ title: "T" }), ctx(1)).body;
-    const carrossel = capa.render(slide({ title: "T" }), ctx(5)).body;
+    const primeira = capa.render(slide({ title: "T" }), ctx(5, 1)).body;
+    const terceira = miolo.render(slide({ title: "T" }), ctx(5, 3)).body;
 
     expect(unica).not.toContain("Arrasta");
-    expect(carrossel).toContain("Arrasta");
+    expect(primeira).toContain("Arrasta");
+    // Quem está no slide 3 já arrastou duas vezes: repetir deixa de informar.
+    expect(terceira).not.toContain("Arrasta");
+  });
+
+  it("o miolo imprime o corpo, e não só o título", () => {
+    // O corpo era escrito pelo modelo, conferido pela guarda e descartado na
+    // arte: o slide saía com uma linha onde a referência tem quatro.
+    const html = miolo.render(
+      slide({ title: "A regra muda em janeiro", body: "Quem já protocolou entra na conta." }),
+      ctx(5, 2),
+    ).body;
+
+    expect(html).toContain("Quem já protocolou entra na conta.");
+    // Título e corpo viram uma corrida só de texto, então o título ganha ponto.
+    expect(html).toContain("A regra muda em janeiro.");
+  });
+
+  it("os bullets viram linhas dentro do MESMO bloco que o ajuste mede", () => {
+    const html = miolo.render(
+      slide({ title: "Três situações", bullet_points: ["Quem protocolou", "Quem vai trocar"] }),
+      ctx(5, 2),
+    ).body;
+
+    // Fora do bloco medido, o script mediria só o título e a lista
+    // transbordaria em silêncio.
+    const bloco = html.slice(html.indexOf("j-manchete"), html.indexOf("</div>", html.indexOf("j-manchete")));
+    expect(bloco).toContain("Quem protocolou");
+    expect(bloco).toContain("Quem vai trocar");
   });
 
   it("o chapéu some quando a redação não soube nomear a editoria", () => {

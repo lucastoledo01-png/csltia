@@ -306,6 +306,32 @@ function jornal(
   const bolha = (slide.inset_image_url ?? "").trim();
   const chapeu = (slide.eyebrow ?? "").trim();
 
+  /*
+   * O miolo imprime o CORPO, e não só o título.
+   *
+   * Ele era descartado: o modelo escrevia até 260 caracteres de explicação, a
+   * guarda conferia a ancoragem deles, e a peça mostrava só o título de 70. O
+   * slide saía com uma linha onde a referência tem quatro, e o que o leitor
+   * deslizava para ver não estava lá.
+   *
+   * Título e corpo ocupam o MESMO bloco, no mesmo corpo de tipo, porque é
+   * assim na referência: a primeira frase afirma e o resto explica, sem troca
+   * de tamanho no meio. Por isso o título ganha ponto final quando não tem: é
+   * o que separa as duas frases quando elas viram uma só corrida de texto.
+   */
+  const corpo = (slide.body ?? "").trim();
+  const itens = (slide.bullet_points ?? []).filter((b) => (b ?? "").trim());
+  const temTexto = Boolean(corpo || itens.length);
+  const titulo = esc(slide.title) + (corpo && !/[.!?:"»]$/.test(slide.title.trim()) ? "." : "");
+
+  /*
+   * Com corpo, o teto do tipo cai, e o piso também.
+   *
+   * O bloco passa a carregar até 330 caracteres em vez de 70, e manter o teto
+   * de 74px só faria o ajuste descer os mesmos passos, mais devagar. O piso
+   * cai junto porque a faixa é a mesma: 330 caracteres a 40px não cabem nela,
+   * e o excesso seria cortado em silêncio pelo `overflow: hidden`.
+   */
   return {
     full: true,
     onDark: true,
@@ -317,16 +343,18 @@ ${foto ? `<div class="j-foto">${photo(foto)}</div>` : ""}
 ${opcoes.comBolha && bolha ? `<div class="j-bolha"><img src="${esc(bolha)}" alt="" /></div>` : ""}
 <div class="j-texto">
   ${chapeu ? `<span class="j-chapeu">${esc(chapeu)}</span>` : ""}
-  <div class="j-manchete lay-texto" data-ajuste="encolher" data-max="74" data-min="40">
-    <span>${esc(slide.title)}</span>
+  <div class="j-manchete lay-texto" data-ajuste="encolher" data-max="${temTexto ? 60 : 74}" data-min="${temTexto ? 30 : 40}">
+    <span>${titulo}${corpo ? ` ${esc(corpo)}` : ""}${itens.map((b) => `<i>${esc(b)}</i>`).join("")}</span>
   </div>
   ${/*
-     O convite de arrastar sai discreto, e sai porque a peça de várias telas
-     precisa dizer que tem várias telas. Os pontos do Instagram são pequenos
-     demais para cumprir isso sozinhos, e a peça única não pode convidar a
-     arrastar para lugar nenhum.
+     O convite de arrastar sai discreto, sai uma vez e sai na CAPA.
+     
+     Ele existe porque a peça de várias telas precisa dizer que tem várias
+     telas, e os pontos do Instagram são pequenos demais para cumprir isso
+     sozinhos. Repetido em todos os slides ele deixa de informar: quem está no
+     slide 4 já arrastou três vezes, e a referência não o usa em tela nenhuma.
   */ ""}
-  ${ctx.total > 1 ? `<span class="j-arrasta">Arrasta que eu te explico →</span>` : ""}
+  ${ctx.total > 1 && ctx.slideIndex === 1 ? `<span class="j-arrasta">Arrasta que eu te explico →</span>` : ""}
 </div>`,
   };
 }
