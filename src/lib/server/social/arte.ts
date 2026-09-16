@@ -138,7 +138,21 @@ export function diagnosticarLayout(
  * Campo que descreve uma decisão sem TOMAR a decisão é campo que mente, e
  * mentiu por vinte minutos de diagnóstico.
  */
-export function varianteDaCapa(comFoto: boolean): string {
+export type GramaticaDaCapa = "jornal" | "recorte";
+
+/**
+ * Qual desenho a capa usa.
+ *
+ * São duas gramáticas, e a diferença entre elas não é de gosto. O JORNAL
+ * afirma: foto sangrando, chapéu de editoria, manchete em caixa alta sobre o
+ * degradê. O RECORTE comenta: fundo branco, autor no topo, texto corrido em
+ * caixa baixa, com a foto como cartão no meio da fala.
+ *
+ * O recorte não tem a versão sem foto separada, e isso é de propósito: ele já
+ * é uma peça de texto, e o que muda sem foto é só o corpo do tipo, que cresce.
+ */
+export function varianteDaCapa(comFoto: boolean, gramatica: GramaticaDaCapa = "jornal"): string {
+  if (gramatica === "recorte") return "recorte_post";
   return comFoto ? "capa_jornal" : "noticia_sem_foto";
 }
 
@@ -165,6 +179,13 @@ export type EntradaDaCapa = {
    * capa é onde o leitor percebe isso antes de ler.
    */
   estiloDaCapa?: "noticia" | "carrossel";
+  /**
+   * Jornal ou recorte de post. Ausente é jornal, que é o desenho padrão.
+   *
+   * Ver {@link varianteDaCapa}: a escolha é de gramática, não de tema. O
+   * recorte serve à pauta que precisa de leitura, e não só de fato.
+   */
+  gramatica?: GramaticaDaCapa;
   /**
    * Moldura discreta: sem colchetes de corte e sem contador no cabeçalho.
    *
@@ -285,7 +306,7 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
    * peca pior.
    */
   const doCarrossel = entrada.estiloDaCapa === "carrossel";
-  const variante = varianteDaCapa(comFoto);
+  const variante = varianteDaCapa(comFoto, entrada.gramatica);
 
   /*
    * A bolha, e as duas condições para ela existir.

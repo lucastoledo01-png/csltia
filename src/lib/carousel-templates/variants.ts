@@ -388,6 +388,126 @@ const mioloJornal: SlideVariant = {
 };
 
 /**
+ * Separa a primeira frase do resto.
+ *
+ * O negrito da referencia cai na TESE, que e sempre a primeira frase do
+ * segundo paragrafo, e o resto segue em peso normal. Sem esta separacao ou o
+ * paragrafo inteiro sai em negrito, que e um bloco preto no meio da peca, ou
+ * nada sai, e o olho nao encontra onde parar.
+ */
+export function primeiraFrase(texto: string): { tese: string; resto: string } {
+  const limpo = texto.trim();
+  if (!limpo) return { tese: "", resto: "" };
+
+  // O ponto que encerra frase, e nao o de sigla ou de numero: exige espaço e
+  // letra maiúscula depois.
+  const corte = limpo.search(/[.!?](?=\s+[A-ZÁÉÍÓÚÂÊÔÃÕÀÇ])/);
+  if (corte < 0) return { tese: limpo, resto: "" };
+
+  return { tese: limpo.slice(0, corte + 1), resto: limpo.slice(corte + 1).trim() };
+}
+
+/**
+ * O recorte de post: a peça que parece alguém comentando a notícia.
+ *
+ * É a segunda gramática de capa, ao lado da capa de jornal, e a diferença
+ * entre as duas não é de gosto. A capa de jornal AFIRMA: foto sangrando,
+ * chapéu de editoria, manchete em caixa alta sobre o degradê. O recorte
+ * COMENTA: fundo branco, autor no topo, texto corrido em caixa baixa, peso na
+ * frase e não na imagem.
+ *
+ * Isso muda o que a peça consegue dizer. A capa de jornal carrega um fato e
+ * uma foto; o recorte carrega um fato, uma imagem de apoio E uma leitura do
+ * fato, porque tem duas áreas de texto separadas pela mídia. É o formato para
+ * o dia em que a notícia sozinha não explica nada, e alguém precisa dizer o
+ * que ela significa.
+ *
+ * O desenho veio de uma referência enviada pelo dono em 16/09/2026 e foi
+ * remedido para 1080 por 1440. O que NÃO foi copiado é o selo de verificado:
+ * o perfil não é verificado, e desenhar o selo seria afirmar que é.
+ */
+function recorteDePost(slide: InstagramSlide, ctx: VariantContext): VariantOutput {
+  const foto = (slide.bg_image_url ?? "").trim();
+  const chapeu = (slide.eyebrow ?? "").trim();
+  const titulo = (slide.title ?? "").trim();
+  const corpo = (slide.body ?? "").trim();
+  const itens = (slide.bullet_points ?? []).filter((b) => (b ?? "").trim());
+
+  /*
+   * O chapéu vira o começo da frase, e não uma linha por cima dela.
+   *
+   * Na capa de jornal ele é uma sobrancelha solta; aqui a referência o usa
+   * dentro do texto, colado em dois-pontos: "Meta One: a Meta acaba de". É o
+   * que faz a peça ler como fala, e não como manchete.
+   */
+  const abertura = chapeu
+    ? `<b>${esc(chapeu)}:</b> ${esc(titulo)}`
+    : `<b>${esc(titulo)}</b>`;
+
+  const { tese, resto } = primeiraFrase(corpo);
+  const segundo = tese
+    ? `<p><b>${esc(tese)}</b>${resto ? ` ${esc(resto)}` : ""}</p>`
+    : "";
+
+  const lista = itens.length
+    ? `<p>${itens.map((b) => esc(b)).join("<br />")}</p>`
+    : "";
+
+  /*
+   * O bloco inteiro encolhe junto, texto e mídia na mesma caixa.
+   *
+   * Poderia ser um bloco por parágrafo, com percentuais fixos para cada um, e
+   * seria pior: o segundo parágrafo é o que mais varia de tamanho, e dar
+   * altura fixa a ele obrigaria a escolher entre desperdiçar espaço no texto
+   * curto ou cortar o longo. Com uma caixa só, o ajuste resolve os dois.
+   */
+  return {
+    full: true,
+    body: `
+<div class="r-pagina">
+  <div class="r-autor">
+    <span class="r-ava">★</span>
+    <span class="r-quem">
+      <span class="r-nome">${esc(MARCA.nome)}</span>
+      <span class="r-arroba">${esc(MARCA.instagramHandle)}</span>
+    </span>
+  </div>
+  ${/*
+     Sem foto, o tipo cresce, e é a mesma regra da capa sem foto: quando não há
+     imagem para ocupar a peça, o texto É a arte e precisa do espaço. Com o teto
+     fixo em 46 a peça de texto puro saía com 45 por cento de branco embaixo,
+     que não é respiro, é sobra.
+  */ ""}
+  <div class="r-texto lay-texto" data-ajuste="encolher" data-max="${foto ? 46 : 60}" data-min="${foto ? 26 : 34}">
+    <span>
+      <p>${abertura}</p>
+      ${foto ? `<div class="r-midia">${photo(foto)}</div>` : ""}
+      ${segundo}
+      ${lista}
+    </span>
+  </div>
+  ${
+    ctx.total > 1 && ctx.slideIndex === 1
+      ? `<span class="r-arrasta">Arrasta que eu te explico →</span>`
+      : `<img class="r-marca" src="${esc(MARCA.logoClaro)}" alt="" />`
+  }
+</div>`,
+  };
+}
+
+const capaRecorte: SlideVariant = {
+  key: "recorte_post",
+  label: "Recorte: post de rede social, fundo claro",
+  render: (slide, ctx): VariantOutput => recorteDePost(slide, ctx),
+};
+
+const mioloRecorte: SlideVariant = {
+  key: "miolo_recorte",
+  label: "Recorte: miolo em post de rede social",
+  render: (slide, ctx): VariantOutput => recorteDePost(slide, ctx),
+};
+
+/**
  * O último slide, que pede a inscrição.
  *
  * Na referência esta peça vende um terminal no WhatsApp, e o desenho inteiro
@@ -873,6 +993,7 @@ export const SLIDE_VARIANTS: Record<InstagramSlideType, Record<string, SlideVari
     noticia_sem_foto: coverNoticiaSemFoto,
     capa_destaque: coverCarrosselDestaque,
     capa_jornal: capaJornal,
+    recorte_post: capaRecorte,
     result_showcase: coverResultShowcase,
     result_fullbleed: coverResultFullbleed,
     editorial_claro: coverEditorialClaro,
@@ -883,6 +1004,7 @@ export const SLIDE_VARIANTS: Record<InstagramSlideType, Record<string, SlideVari
     highlight: contentHighlight,
     conteudo_editorial: conteudoEvergreen,
     miolo_jornal: mioloJornal,
+    miolo_recorte: mioloRecorte,
     comparacao_duas_colunas: comparacaoDuasColunas,
   },
   quote_highlight: { pull_quote: quotePull, ressalva_editorial: ressalvaEvergreen },

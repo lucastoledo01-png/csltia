@@ -195,6 +195,62 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
    da newsletter logo abaixo: os tokens ainda carregam a paleta da vertical
    anterior, creme com acento laranja. Quando eles forem migrados, estas linhas
    voltam a ser var(). */
+/* ====================================================================
+   RECORTE DE POST: a peca que parece alguem comentando a noticia.
+
+   E a segunda gramatica de capa, ao lado da capa de jornal, e a diferenca
+   entre as duas nao e de gosto. A capa de jornal AFIRMA: foto sangrando,
+   chapeu de editoria, manchete em caixa alta. O recorte COMENTA: fundo
+   branco, autor no topo, texto corrido em caixa baixa, com o peso na frase
+   e nao na imagem. Uma serve para o fato do dia, a outra para a leitura do
+   fato.
+
+   As medidas sairam da referencia enviada pelo dono em 16/09/2026, um post
+   do Tallis Gomes, remedidas para a tela de 1080 por 1440: margem lateral
+   de 9 por cento, avatar de 7 por cento da largura, cartao de midia com
+   cantos de 28px, e o bloco de texto ocupando o resto.
+   ==================================================================== */
+.r-pagina{position:absolute;inset:0;background:#fff;z-index:1;
+  display:flex;flex-direction:column;padding:8.5% 9% 7%;}
+
+/* O autor, no topo, como em qualquer post de rede social. Sem selo de
+   verificado: o perfil nao e verificado, e desenhar o selo seria dizer que e. */
+.r-autor{flex:0 0 auto;display:flex;align-items:center;gap:22px;margin-bottom:5.5%;}
+.r-ava{width:76px;height:76px;border-radius:50%;background:#0A3161;color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:38px;line-height:1;
+  box-shadow:0 0 0 3px #E4344A;}
+.r-quem{display:flex;flex-direction:column;gap:2px;}
+.r-nome{font-family:var(--s-font-display);font-size:34px;font-weight:800;color:#0f172a;
+  letter-spacing:-0.01em;}
+.r-arroba{font-size:27px;font-weight:500;color:#64748b;}
+
+/* O bloco que encolhe. A altura e FLEX-BASIS pelo mesmo motivo da capa sem
+   foto: o script de ajuste mede clientHeight ANTES de aplicar o data-max, e
+   contra caixa de altura automatica ele conclui que so cabem duas linhas. */
+.r-texto{flex:0 0 76%;overflow:hidden;display:block;
+  font-family:var(--s-font-body);font-size:46px;font-weight:400;line-height:1.34;
+  color:#0f172a;letter-spacing:-0.005em;}
+.r-texto p{margin:0 0 0.62em;}
+.r-texto p:last-child{margin-bottom:0;}
+.r-texto b{font-weight:800;}
+
+/* O cartao de midia, com altura fixa em pixel de proposito.
+   Se ela fosse em em, o texto longo encolheria a foto junto, e a peca mudaria
+   de desenho conforme o tamanho da manchete. A foto e o elemento estavel. */
+/* position:relative nao e detalhe: .s-photo e position:absolute com inset:0, e
+   sem um pai posicionado ela se ancora na .r-pagina e pinta a peca inteira
+   atras do fundo branco. O cartao saia cinza e vazio. */
+.r-midia{position:relative;margin:0.55em 0 0.7em;border-radius:28px;overflow:hidden;
+  height:430px;background:#e2e8f0;}
+.r-midia .s-photo{width:100%;height:100%;object-fit:cover;}
+
+/* O convite de arrastar fica fora do bloco que encolhe, senao ele encolheria
+   junto e sumiria justamente na peca de texto longo, que e onde ele mais serve. */
+.r-arrasta{flex:0 0 auto;margin-top:auto;font-size:26px;font-weight:700;color:#94a3b8;
+  letter-spacing:0.02em;}
+
+.r-marca{flex:0 0 auto;margin-top:auto;height:46px;width:auto;align-self:flex-start;}
+
 /* A faixa de texto comeca mais alto que na peca com foto (30% contra 58%)
    porque aqui nao ha imagem para ocupar o topo: a manchete e a arte, e ela
    precisa do espaco. O ajuste continua medindo, entao manchete curta nao
