@@ -1,3 +1,9 @@
+/*
+ * A capa com foto passou a ser `capa_jornal`, da gramática de jornal.
+ * A regra vive em `varianteDaCapa`, e estas fixtures representam a peça com
+ * foto: quando o nome muda, elas mudam junto, e é isso que este comentário
+ * existe para lembrar.
+ */
 import { describe, expect, it } from "vitest";
 import { criarSocialPostsStore } from "../social-posts-store";
 import type { PostParaGravar } from "../social-posts-store";
@@ -321,7 +327,7 @@ describe("entradas adversárias na leitura da carga", () => {
       content_json: {
         ...(linha.content_json as object),
         // A linha diz peça com foto de fundo, e o registro visual é capa de texto.
-        arte: { versao: "v2", variante: "fullbleed_portrait", eixo: "processo" },
+        arte: { versao: "v2", variante: "capa_jornal", eixo: "processo" },
       },
     });
     expect(leitura.ok).toBe(false);

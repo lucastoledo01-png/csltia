@@ -126,6 +126,22 @@ export function diagnosticarLayout(
  * um `as`. O que a capa usa é a URL da foto e o crédito da licença; o resto do
  * asset existe para o registro de direito, não para o desenho.
  */
+/**
+ * Qual variante desenha a capa. UMA regra, num lugar só.
+ *
+ * Ela existia duas vezes: aqui, decidindo o desenho, e em
+ * `social-posts-store.ts`, decidindo o que gravar no `content_json`. As duas
+ * envelheceram separadas, e em 16/09/2026 a linha gravada dizia
+ * `fullbleed_portrait` enquanto a peça publicada era `capa_jornal`.
+ *
+ * O campo gravado é o que se olha para saber o que foi ao ar sem baixar o PNG.
+ * Campo que descreve uma decisão sem TOMAR a decisão é campo que mente, e
+ * mentiu por vinte minutos de diagnóstico.
+ */
+export function varianteDaCapa(comFoto: boolean): string {
+  return comFoto ? "capa_jornal" : "noticia_sem_foto";
+}
+
 export type FotoDaCapa = Pick<AssetVisual, "imageUrl" | "attribution">;
 
 export type EntradaDaCapa = {
@@ -266,7 +282,7 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
    * peca pior.
    */
   const doCarrossel = entrada.estiloDaCapa === "carrossel";
-  const variante = comFoto ? "capa_jornal" : "noticia_sem_foto";
+  const variante = varianteDaCapa(comFoto);
 
   /*
    * A bolha, e as duas condições para ela existir.

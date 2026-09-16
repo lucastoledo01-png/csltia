@@ -463,7 +463,7 @@ describe("D. social-v2 sem foto publica o brand card", () => {
       row: linhaV2({ visual_asset_id: "asset-1" }, {
         arte: {
           versao: "v2",
-          variante: "fullbleed_portrait",
+          variante: "capa_jornal",
           eixo: "processo",
           artefato: {
             url: "https://storage.exemplo/imigra-us/2026-09-06/social-v2.png",

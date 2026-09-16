@@ -1,4 +1,5 @@
 import type { FotoDaCapa } from "../arte";
+import { varianteDaCapa } from "../arte";
 
 /**
  * O que o worker precisa achar numa linha do social-v2, e o que ele faz quando
@@ -392,7 +393,19 @@ export function lerCargaV2(linha: LinhaDePost): LeituraDaCarga {
    */
   if (arte) {
     const variante = texto(arte.variante);
-    const esperada = foto ? "fullbleed_portrait" : "noticia_sem_foto";
+    /*
+     * A esperada vem de `varianteDaCapa`, e não escrita aqui.
+     *
+     * Ela estava escrita, e virou a terceira cópia da mesma regra: uma no
+     * desenho, uma no store e esta na conferência. Quando o desenho mudou para
+     * a gramática de jornal, as outras duas continuaram falando de
+     * `fullbleed_portrait`, e a conferência passou a acusar contradição entre
+     * uma peça correta e um campo velho.
+     *
+     * Conferência que guarda a própria cópia da regra não confere a regra:
+     * confere se as duas cópias envelheceram juntas.
+     */
+    const esperada = varianteDaCapa(Boolean(foto));
     if (variante && variante !== esperada) {
       faltando.push(
         `content_json.arte.variante="${variante}" contradiz o registro visual ` +

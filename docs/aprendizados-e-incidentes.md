@@ -336,6 +336,32 @@ Instagram passou a aceitar 3:4 no feed.
 apagar as duas constantes. Deixá-las declaradas e não usadas é o mesmo padrão do
 incidente de `escolherUrlPublicavel`: dá a impressão de que o caso está coberto.
 
+### A mesma regra em três cópias, e a linha gravada mentindo
+
+**Sintoma.** A edição de 16/09 publicou e o post saiu no desenho novo, mas a
+linha em `social_posts` dizia `content_json.arte.variante = "fullbleed_portrait"`,
+que é o desenho antigo. Vinte minutos de diagnóstico foram gastos investigando
+um post que estava correto.
+
+**Causa.** A regra "qual variante desenha a capa" existia em três lugares:
+
+1. `social/arte.ts`, decidindo o desenho de verdade
+2. `social-posts-store.ts`, decidindo o que gravar no `content_json`
+3. `instagram/carga-v2.ts`, conferindo se os dois concordam
+
+Ao trocar o desenho para a gramática de jornal, só a primeira mudou. A segunda
+passou a gravar um nome que não correspondia à peça, e a terceira, que existe
+justamente para pegar linha contraditória, comparava duas cópias velhas entre si
+e não acusava nada.
+
+**Corrigido.** `varianteDaCapa(comFoto)` é a única regra, e os três a chamam. A
+conferência passou a acusar de verdade: ela reprovou as fixtures antigas assim
+que a regra mudou, que é exatamente o comportamento esperado dela.
+
+**Lição.** Campo que descreve uma decisão sem TOMAR a decisão é campo que mente,
+e mente em silêncio. E conferência que guarda a própria cópia da regra não
+confere a regra: confere se as duas cópias envelheceram juntas.
+
 ### A régua lia uma chave e o banco gravava outra
 
 **Sintoma.** Nove posts perenes sobre três assuntos em quatro dias: ajuste de

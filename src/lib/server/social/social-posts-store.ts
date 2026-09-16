@@ -5,6 +5,7 @@ import type { Vaga } from "./agenda";
 import type { ResultadoVisual } from "../visual/tipos";
 import type { ArtefatoDeSlide } from "./artefato";
 import type { FormatoDoPost } from "./carrossel/formato";
+import { varianteDaCapa } from "./arte";
 
 /**
  * Onde um post do social V2 vira linha.
@@ -311,7 +312,7 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
              */
             arte: {
               versao: "v2",
-              variante: asset ? "fullbleed_portrait" : "noticia_sem_foto",
+              variante: varianteDaCapa(Boolean(asset)),
               eixo: p.post.pauta.classificacao.eixo ?? "",
               /*
                * O artefato congelado, que é o que vai ao ar.
