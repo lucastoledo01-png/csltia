@@ -1014,6 +1014,33 @@ separado em `MotivoDeTexto` (o que se apura olhando um texto só) e
 Ele não é etapa de deploy, é o type check do projeto inteiro.
 
 
+### Não existe post cancelado, só rascunho
+
+**O que.** Em 16/09/2026 dois posts agendados precisaram ser cancelados: a arte
+tinha sido congelada no desenho anterior, com a marca `imigra.us`, antes de o
+desenho novo subir. O `PATCH` com `status: "cancelled"` foi recusado:
+
+```
+new row for relation "social_posts" violates check constraint
+"social_posts_status_check"
+```
+
+Os valores que a tabela aceita, medidos em produção, são `scheduled`, `draft`,
+`published` e `failed`. O worker só pega `scheduled`, então `draft` tira o post
+da fila e resolve o problema imediato.
+
+**O que fica torto.** Um post CANCELADO e um rascunho que ninguém terminou
+ficam com o mesmo status. Quem olhar a tabela daqui a um mês não distingue os
+dois, e o único registro do motivo é o `error_message`, que é um campo de
+falha técnica sendo usado como bilhete.
+
+**O que fazer.** Ao cancelar, escreva o motivo em `error_message` começando com
+CANCELADO, que é o que permite separar depois. E quando a tabela for alterada
+por outro motivo, acrescente `cancelled` ao CHECK: `dia-sem-edicao` já usa esse
+valor em `newsroom_runs`, então o vocabulário existe no projeto, só não chegou
+aqui.
+
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta
