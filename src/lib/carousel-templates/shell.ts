@@ -3,6 +3,7 @@ import { tokensToCss, type CarouselTokens } from "./tokens";
 import { cantosEditorial, chromeFooter, chromeHeader, type Affordance } from "./chrome";
 import { fontLinkTag } from "./fonts";
 import { CSS_DO_LAYOUT, SCRIPT_DE_AJUSTE } from "./layout-render";
+import { MARCA } from "@/lib/marca";
 import { esc } from "./util";
 import type { VariantOutput } from "./types";
 
@@ -83,5 +84,5 @@ ${tira}
 
 /** Marca da conta sem contador — usada nas sobreposições das capas. */
 export function overlayBrand(): string {
-  return `<div class="s-header plain"><div class="s-brand"><span class="s-badge">us</span><span class="s-wordmark">imigra.us</span></div></div>`;
+  return `<div class="s-header plain"><div class="s-brand"><span class="s-badge">us</span><span class="s-wordmark">${MARCA.nome}</span></div></div>`;
 }

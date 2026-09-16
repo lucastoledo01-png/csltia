@@ -1,3 +1,4 @@
+import { MARCA } from "@/lib/marca";
 import { pad2 } from "./util";
 
 /**
@@ -16,8 +17,17 @@ import { pad2 } from "./util";
 
 export type ChromeKind = "editorial" | "social";
 
-const HANDLE = "@imigra.us";
-const EDITORIAL_TAGLINE = "IMIGRA.US &middot; EUA SEM RUÍDO";
+/*
+ * A marca vem de `MARCA`, e não escrita aqui.
+ *
+ * Estas três linhas ficaram com o nome anterior depois da troca para
+ * `usa.journal`, e não apareceram em nenhuma revisão porque o carrossel de
+ * jornal desenha o próprio cabeçalho e não passa por aqui. O slide de
+ * comparação passa: ele não é sangrado, usa este chrome, e sairia assinado com
+ * o nome antigo no primeiro dia em que a estrutura pedisse uma comparação.
+ */
+const HANDLE = MARCA.instagramHandle;
+const EDITORIAL_TAGLINE = `${MARCA.nome.toUpperCase()} &middot; EUA SEM RUÍDO`;
 
 /**
  * Ícones em SVG inline. O design de origem usa a biblioteca Iconify por
@@ -64,7 +74,7 @@ export function chromeHeader(kind: ChromeKind, slideIndex: number, total: number
 
   if (kind === "social") {
     return `<div class="c-head social">
-<span class="mark">imigra.us</span>
+<span class="mark">${MARCA.nome}</span>
 ${paginacao ? `<span class="pill">${pad2(slideIndex)}<i>/</i>${pad2(total)}</span>` : ""}
 </div>`;
   }
@@ -99,7 +109,7 @@ export function chromeFooter(
 
   if (kind === "social") {
     return `<div class="c-foot social">
-${avanco ? `<span class="prog"><b>PROGRESSO</b> ${pad2(slideIndex)} / ${pad2(total)}</span>` : `<span class="prog"><b>@imigra.us</b></span>`}
+${avanco ? `<span class="prog"><b>PROGRESSO</b> ${pad2(slideIndex)} / ${pad2(total)}</span>` : `<span class="prog"><b>${HANDLE}</b></span>`}
 ${convite ? `<span class="next">${ICONES.seta}</span>` : ""}
 </div>`;
   }

@@ -112,7 +112,7 @@ ${photo(slide.bg_image_url)}
   <div>
     <div class="s-profile" style="margin-bottom:22px">
       <span class="s-avatar">b.</span>
-      <div><div class="s-pname">imigra.us <span class="s-check">✓</span></div><div class="s-phandle">@imigra.us</div></div>
+      <div><div class="s-pname">${MARCA.nome} <span class="s-check">✓</span></div><div class="s-phandle">${MARCA.instagramHandle}</div></div>
     </div>
     <div class="s-title" style="color:#fff;text-shadow:0 4px 20px rgba(0,0,0,0.7)">${esc(slide.title)}</div>
   </div>
@@ -268,7 +268,7 @@ const coverCarrosselDestaque: SlideVariant = {
       body: `
 ${comFoto ? `<div class="k-foto">${photo(slide.bg_image_url)}</div>` : ""}
 <div class="k-capa${comFoto ? " com-foto" : ""}">
-  <span class="k-handle">@imigra.us</span>
+  <span class="k-handle">${MARCA.instagramHandle}</span>
   ${topo}
   <div class="k-manchete"><span>${marcarDestaque(titulo, slide.highlight_text ?? "")}</span></div>
 </div>`,
@@ -385,8 +385,8 @@ const coverBrandCard: SlideVariant = {
   <div class="s-title">${esc(slide.title)}</div>
   ${slide.body ? `<div class="s-sub">${esc(slide.body)}</div>` : ""}
   <div class="s-card dark" style="min-height:360px;justify-content:flex-end">
-    <div class="s-phandle" style="color:#a1a1aa">@imigra.us</div>
-    <div style="font-family:'Playfair Display',serif;font-size:40px;font-weight:800;color:#fff">${esc(slide.eyebrow || "imigra.us")}</div>
+    <div class="s-phandle" style="color:#a1a1aa">${MARCA.instagramHandle}</div>
+    <div style="font-family:'Playfair Display',serif;font-size:40px;font-weight:800;color:#fff">${esc(slide.eyebrow || MARCA.nome)}</div>
   </div>
 </div>`,
   }),

@@ -8,6 +8,7 @@ import { FORMAT_DEFAULTS } from "./format-defaults";
 import { SLIDE_VARIANTS } from "./variants";
 import type { InstagramSlide } from "./types";
 import { InstagramCarouselSchema } from "@/lib/server/social/instagram/schemas";
+import { MARCA } from "@/lib/marca";
 
 describe("assembleSlide", () => {
   for (const format of CAROUSEL_FORMATS) {
@@ -142,7 +143,13 @@ describe("peça de imagem única não convida a arrastar", () => {
     expect(html).toContain("01 / 05");
   });
 
+  /*
+   * A marca sai de `MARCA`, e o teste compara com `MARCA`.
+   *
+   * Escrever o nome aqui foi o que deixou "imigra.us" passar por uma troca de
+   * marca inteira: o teste afirmava o nome antigo e continuava verde.
+   */
   it("a marca continua na peça única: ela não promete nada", () => {
-    expect(montar(1)).toContain("imigra.us");
+    expect(montar(1)).toContain(MARCA.nome);
   });
 });
