@@ -1,6 +1,6 @@
-import JournalIndex from "@/components/JournalIndex";
-import { articles as artigosDeBase, type Article } from "@/lib/editorial";
-import { getPublishedArticles } from "@/lib/server/articles-service";
+import { PortalHome } from "@/components/PortalHome";
+import { montarHome, pautasRecentes } from "@/lib/server/portal";
+import { DEFAULT_PROJECT_ID } from "@/lib/server/projects";
 
 /**
  * A listagem sai do banco, e o banco muda depois do build.
@@ -16,20 +16,17 @@ import { getPublishedArticles } from "@/lib/server/articles-service";
 export const revalidate = 300;
 
 /**
- * As edições diárias vivem no banco; os artigos de base, no código. A home
- * mostra os dois, com o do banco primeiro, que é o conteúdo do dia.
+ * A home é um jornal, e a unidade dela é a pauta.
  *
- * Banco fora do ar não deixa a página vazia: os de base seguram.
+ * Antes era uma landing de newsletter com um índice de edições. Quem chega
+ * procurando "o que mudou no H1B" não encontrava nada: o assunto estava dentro
+ * de uma edição chamada "edicao-2026-09-12", a quatro cliques de distância.
+ *
+ * Banco fora do ar não deixa a página em branco: sem pauta, o corpo não
+ * renderiza os blocos e o cabeçalho, o rodapé e a inscrição continuam de pé.
  */
 export default async function Home() {
-  const doBanco = await getPublishedArticles().catch(() => [] as Article[]);
+  const pautas = await pautasRecentes(DEFAULT_PROJECT_ID).catch(() => []);
 
-  // Um artigo de base que também exista no banco aparece uma vez só.
-  const slugsDoBanco = new Set(doBanco.map((a) => a.slug));
-  const listaDeArtigos = [
-    ...doBanco,
-    ...artigosDeBase.filter((a) => !slugsDoBanco.has(a.slug)),
-  ];
-
-  return <JournalIndex listaDeArtigos={listaDeArtigos} />;
+  return <PortalHome dados={montarHome(pautas)} />;
 }

@@ -25,6 +25,16 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "azqpdesusdzqndvsqmko.supabase.co" },
       { protocol: "https", hostname: "casaloti.ia.br" },
+      /*
+       * O Commons entrou depois, junto com o resolvedor visual da fase 2.
+       *
+       * Ele é a fonte de foto de pessoa e de lugar com licença verificada, e
+       * é o host que o resolvedor devolve quando a pauta tem entidade real.
+       * Ficou de fora desta lista quando o resolvedor foi ligado, e o efeito
+       * não foi capa ausente: foi a PÁGINA inteira quebrando, porque
+       * `next/image` lança em vez de degradar.
+       */
+      { protocol: "https", hostname: "upload.wikimedia.org" },
     ],
   },
 };

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MARCA } from "@/lib/marca";
+import { logoDoSite, MARCA } from "@/lib/marca";
 
 /**
  * Menu do site.
@@ -14,12 +14,18 @@ export function BrandMark({ dark = false }: { dark?: boolean }) {
   return (
     <Link aria-label={MARCA.nome} className="group flex items-center" href="/">
       {/*
-        Duas versões do arquivo, escolhidas pelo fundo. A clara tem o "imigra"
-        em azul-marinho, que some sobre fundo escuro.
+        O caminho vem da MARCA, e não escrito aqui.
+        Estava fixo em `/marca/imigra-us-claro.png`, então a troca de marca
+        alcançou o e-mail e não alcançou o cabeçalho do site: o `marca.ts`
+        existe justamente para isso não acontecer.
+
+        A versão escura ainda é o arquivo antigo, porque a do usa.journal não
+        existe: o azul-marinho do "usa" e a estrela sumiriam no fundo escuro,
+        então ela precisa ser desenhada, não derivada.
       */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={dark ? "/marca/imigra-us-escuro.png" : "/marca/imigra-us-claro.png"}
+        src={logoDoSite(dark)}
         alt={MARCA.nome}
         className="h-8 w-auto transition-transform group-hover:scale-[1.03]"
       />

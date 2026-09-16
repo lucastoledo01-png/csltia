@@ -20,7 +20,7 @@ export const MARCA = {
   nomeBase: "usa",
   /** Sufixo colorido do logotipo. */
   nomeSufixo: ".journal",
-  handle: "@imigra.us",
+  handle: "@eua.journal",
   tagline: "O que muda para quem vai para os EUA.",
   descricao:
     "Notícias de imigração para os Estados Unidos: vistos, green card, prazos e " +
@@ -53,14 +53,15 @@ export const MARCA = {
    */
   logoClaro: "https://casaloti.ia.br/marca/usa-journal-claro.png",
   /*
-   * Ainda o arquivo antigo, de propósito: `logoEscuro` não é usado por nenhum
-   * código hoje, e a versão do usa.journal para fundo escuro não existe. O
-   * azul-marinho do "usa" e o traço da estrela sumiriam num fundo preto, então
-   * essa versão precisa ser desenhada, não derivada.
+   * A versão escura é a clara com o azul-marinho virado branco.
+   *
+   * Ela foi gerada a partir da clara, e não desenhada: no fundo azul-marinho
+   * do cabeçalho e do rodapé o "usa", a estrela e os traços sumiriam. O
+   * vermelho do ".journal" permanece, porque ele tem contraste nos dois fundos.
    */
-  logoEscuro: "https://casaloti.ia.br/marca/imigra-us-escuro.png",
-  instagram: "https://instagram.com/imigra.us",
-  instagramHandle: "@imigra.us",
+  logoEscuro: "https://casaloti.ia.br/marca/usa-journal-escuro.png",
+  instagram: "https://instagram.com/eua.journal",
+  instagramHandle: "@eua.journal",
 
   /**
    * Paleta da bandeira aplicada à interface.
@@ -78,3 +79,23 @@ export const MARCA = {
 
 /** Título de aba e metadados. */
 export const TITULO_DO_SITE = `${MARCA.nome} | ${MARCA.tagline}`;
+
+/**
+ * O mesmo logotipo, pelo caminho da própria origem.
+ *
+ * `MARCA.logoClaro` e `logoEscuro` são absolutos porque o e-mail precisa
+ * disso: o cliente de e-mail não sabe de qual origem a mensagem veio. No SITE
+ * o absoluto é um defeito, e de dois jeitos: em desenvolvimento ele busca o
+ * arquivo em produção, que pode nem existir ainda, e em produção ele obriga um
+ * salto pela rede para buscar algo que está ao lado.
+ *
+ * Uma fonte só, dois formatos, derivados e não copiados.
+ */
+export function logoDoSite(escuro = false): string {
+  const url = escuro ? MARCA.logoEscuro : MARCA.logoClaro;
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return url;
+  }
+}
