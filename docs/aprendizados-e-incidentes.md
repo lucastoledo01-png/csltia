@@ -538,6 +538,26 @@ alucinação, o suspeito não é a guarda: é a instrução que fabrica o que el
 recusa. E laço de reparo não conserta contradição entre instrução e guarda, só
 a repete com sinônimos.
 
+### O webhook do CORE reinicia em 1 segundo, e isso não é um deploy
+
+**Medido em 16/09/2026**, em três disparos. O processo do worker nasce sempre
+UM segundo depois do POST no webhook, e nenhum segundo processo aparece nos
+cinco minutos seguintes. Um clone mais build não acontece em um segundo: o que
+aquele hook faz é reiniciar o contêiner com a imagem que já estava lá.
+
+O webhook do WEB se comporta como o esperado: o `next-server` nasce de 40 a 50
+segundos depois do disparo, que é o tempo do build.
+
+**Por que não travou nada.** A arte é renderizada no contêiner WEB desde que o
+artefato passou a ser congelado no momento da aprovação (está no cabeçalho do
+`Dockerfile`). O worker baixa o arquivo aprovado e confere o SHA-256. Mudança
+de gramática visual, de manchete e de composição da edição entra pelo WEB.
+
+**O que fazer.** Não use a idade do processo do worker como prova de deploy do
+core: ela prova reinício, não código novo. Para o worker, a prova é
+comportamento observado (uma peça publicada depois da mudança) ou a tela do
+EasyPanel.
+
 ### O build de produção quebrou, e o contêiner antigo continuou no ar
 
 **Sintoma.** Deploy disparado nos dois serviços. O worker reiniciou dois minutos
