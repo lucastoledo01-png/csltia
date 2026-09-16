@@ -318,8 +318,15 @@ describe("a capa de texto é decisão, não fallback quebrado", () => {
   it("nenhuma área reservada para imagem que não existe", () => {
     for (const t of [CURTA, LONGA]) {
       const h = corpo(html(t));
-      expect(h).not.toContain("s-photo");
-      expect(h).not.toContain("background-image");
+      /*
+       * O ELEMENTO, e não o nome da classe.
+       *
+       * O script de ajuste passou a procurar a foto para decidir a versão da
+       * marca, então a string "s-photo" aparece no seletor dele em toda
+       * página. O que esta peça não pode ter é a camada desenhada.
+       */
+      expect(h).not.toContain(`<div class="s-photo`);
+      expect(h).not.toContain("background-image:url");
     }
   });
 

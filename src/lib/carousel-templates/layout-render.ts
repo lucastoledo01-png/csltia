@@ -226,7 +226,134 @@ export const SCRIPT_DE_AJUSTE = `
 
       if (span.scrollHeight > alturaDisponivel + 1) el.style.overflow = 'hidden';
     }
+    escolherMarca(pronto);
+  }
+
+  function pronto() {
     document.documentElement.setAttribute('data-ajuste-pronto', '1');
+  }
+
+  /*
+   * A marca clara ou a escura, decidida pelo brilho da foto ATRAS dela.
+   *
+   * O logotipo do topo tem o "usa" em branco, e em foto de ceu claro ele
+   * sumia: a peca saia com meia marca, so o ".journal" vermelho. Nao da para
+   * resolver isso na hora de escrever o codigo, porque quem decide e a foto
+   * que o resolvedor achou naquele dia.
+   *
+   * Entao a decisao e medida aqui, com a peca ja montada: recorta o pedaco da
+   * foto que fica embaixo do logotipo, reduz para 24 por 12 pixels, tira a
+   * luminancia media e troca o arquivo quando o fundo e claro.
+   *
+   * O recorte respeita o cover da foto, e isso importa: a imagem quase nunca
+   * tem a proporcao da peca, entao o pixel que esta no canto superior esquerdo
+   * do ARQUIVO nao e o que aparece no canto superior esquerdo da PECA.
+   *
+   * Falha silenciosa e proposital. Com foto vinda de URL remota o canvas fica
+   * marcado e getImageData lanca; nesse caso fica a marca escura, que e o
+   * padrao de sempre. Perder o contraste e ruim, nao renderizar e pior.
+   */
+  function escolherMarca(fim) {
+    var marca = document.querySelector('img.j-marca[data-claro]');
+    var foto = document.querySelector('.j-foto .s-photo');
+    if (!marca || !foto) { fim(); return; }
+
+    /*
+     * As barras sao DOBRADAS, e isso nao e zelo.
+     *
+     * Este script inteiro mora dentro de um template literal do TypeScript, e
+     * o literal processa escapes antes de a string existir: escrito com uma
+     * barra so, o \\( chega ao navegador como ( e a expressao deixa de casar
+     * o parentese da funcao url(). O efeito nao e erro, e silencio: a busca
+     * devolve string vazia, a medicao nunca roda e a marca fica sempre escura.
+     */
+    var fundo = window.getComputedStyle(foto).backgroundImage;
+    var achado = fundo && fundo.match(/url\\(["']?(.*?)["']?\\)/);
+    if (!achado || !achado[1]) { fim(); return; }
+
+    /*
+     * Esperar o LOGOTIPO carregar, e nao so a foto.
+     *
+     * A medida recorta o pedaco da foto que fica atras do logotipo, e para
+     * saber qual pedaco e preciso do retangulo dele. Um img que ainda nao
+     * carregou tem altura pelo CSS e largura ZERO, porque a largura e auto e
+     * depende da proporcao do arquivo. Com largura zero o recorte tem zero
+     * pixel, a funcao desiste, e a peca sai com a marca errada.
+     *
+     * Medido: na primeira renderizacao a medicao nao acontecia, e na segunda
+     * acontecia, porque ai o arquivo ja estava em cache. Defeito que so
+     * aparece no render frio e o preview esconde.
+     */
+    quandoCarregar(marca, function () {
+      var img = new Image();
+      img.onload = function () {
+        // O motivo da falha fica gravado na peca. Silencio aqui custou uma
+        // hora de depuracao: sem o atributo, canvas marcado, regex quebrada e
+        // largura zero sao o mesmo sintoma, que e a marca escura de sempre.
+        try { medir(img, marca, foto); } catch (e) { marca.setAttribute('data-erro', String(e && e.message).slice(0, 80)); }
+        fim();
+      };
+      img.onerror = function () { marca.setAttribute('data-erro', 'foto nao carregou'); fim(); };
+      img.src = achado[1];
+    });
+  }
+
+  function quandoCarregar(img, seguir) {
+    if (img.complete && img.naturalWidth > 0) { seguir(); return; }
+    var feito = false;
+    function uma() { if (!feito) { feito = true; seguir(); } }
+    img.addEventListener('load', uma);
+    img.addEventListener('error', uma);
+    // Rede lenta nao pode segurar a peca: passados dois segundos, segue sem a
+    // medida e a marca fica a escura, que e o padrao.
+    setTimeout(uma, 2000);
+  }
+
+  function medir(img, marca, foto) {
+    var caixa = foto.getBoundingClientRect();
+    var alvo = marca.getBoundingClientRect();
+    if (!img.naturalWidth || !img.naturalHeight) return;
+
+    var escala = Math.max(caixa.width / img.naturalWidth, caixa.height / img.naturalHeight);
+    var largura = img.naturalWidth * escala;
+    var altura = img.naturalHeight * escala;
+    var esquerda = caixa.left + (caixa.width - largura) / 2;
+    var topo = caixa.top + (caixa.height - altura) / 2;
+
+    var sx = Math.max(0, (alvo.left - esquerda) / escala);
+    var sy = Math.max(0, (alvo.top - topo) / escala);
+    var sw = Math.min(img.naturalWidth - sx, alvo.width / escala);
+    var sh = Math.min(img.naturalHeight - sy, alvo.height / escala);
+    if (sw <= 1 || sh <= 1) {
+      marca.setAttribute('data-erro', 'recorte vazio: ' + Math.round(sw) + 'x' + Math.round(sh));
+      return;
+    }
+
+    var tela = document.createElement('canvas');
+    tela.width = 24;
+    tela.height = 12;
+    var ctx = tela.getContext('2d');
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, 24, 12);
+
+    var dados = ctx.getImageData(0, 0, 24, 12).data;
+    var soma = 0;
+    for (var i = 0; i < dados.length; i += 4) {
+      soma += 0.2126 * dados[i] + 0.7152 * dados[i + 1] + 0.0722 * dados[i + 2];
+    }
+    var media = soma / (dados.length / 4) / 255;
+
+    // 0.62 e alto de proposito. Errar para o lado da marca escura custa pouco,
+    // porque ela tem sombra e o ".journal" vermelho aguenta fundo medio; errar
+    // para o lado da clara poe azul-marinho sobre foto escura, que some de vez.
+    // O brilho medido fica gravado na peca, e nao so a decisao. Sem ele, quem
+    // for calibrar a regua daqui a seis meses tem uma decisao sem o numero que
+    // a produziu, e vai ter que remedir tudo.
+    marca.setAttribute('data-brilho', media.toFixed(3));
+
+    if (media > 0.62) {
+      marca.src = marca.getAttribute('data-claro');
+      marca.setAttribute('data-sobre', 'claro');
+    }
   }
 
   // Depois das fontes, sempre. Medir com a fonte de fallback da largura errada

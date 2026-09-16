@@ -255,6 +255,44 @@ publicada; ela é que sai, e não a edição. Abaixo do mínimo de pautas a edi�
 continua não saindo, porque aí o problema é do dia. E auditoria que NÃO RODOU
 deixou de bloquear: timeout da OpenAI não é conclusão reprovada.
 
+## A marca do topo escolhe a versão pelo brilho da foto (16/09/2026)
+
+O logotipo tem o "usa" em branco, desenhado para foto escura, e em céu claro
+ele sumia: a peça saía com meia marca, só o ".journal" vermelho.
+
+Não dá para resolver escrevendo código: quem decide é a foto que o resolvedor
+achou naquele dia. Então a decisão é medida no navegador, com a peça montada.
+O script recorta o pedaço da foto que fica ATRÁS do logotipo, respeitando o
+`cover` (a imagem quase nunca tem a proporção da peça, então o canto do arquivo
+não é o canto da peça), reduz para 24 por 12 pixels e tira a luminância média.
+Acima de 0.62, troca para a versão de tinta escura.
+
+Medido em fotos reais, com o mesmo recorte da peça:
+
+```
+Fed, céu de fim de tarde     0.661   marca clara
+Boston, céu branco           0.948   marca clara
+Manhattan à noite            0.093   marca escura
+```
+
+Três defeitos apareceram no caminho, e os três são do tipo que não dá erro:
+
+- **O template literal comeu as barras da expressão regular.** O script mora
+  dentro de crases, e o literal processa escapes antes de a string existir:
+  `\(` chegou ao navegador como `(`, a busca pela URL da foto passou a devolver
+  vazio, e a medição nunca rodou. Sintoma: marca sempre escura.
+- **O logotipo ainda não tinha carregado na hora de medir.** Um `img` sem
+  carregar tem altura pelo CSS e largura ZERO, então o recorte tinha zero
+  pixel. Só aparecia no render frio: no segundo, o arquivo já estava em cache.
+- **A falha era silenciosa.** Passou a gravar `data-brilho` e `data-erro` na
+  peça, porque sem eles canvas marcado, expressão quebrada e largura zero são
+  o mesmo sintoma.
+
+Existe validador: `npx tsx src/scripts/validar-marca-contraste.ts` renderiza as
+três fotos com a foto embutida como data URL, igual à produção, e exige que a
+peça tenha MEDIDO, não só acertado. Acertar por acaso não conta, porque a marca
+escura é o padrão e uma peça que nunca mediu nada acerta toda foto escura.
+
 ## Nenhuma peça convida a arrastar (16/09/2026)
 
 O convite existiu, com um argumento razoável: a peça de várias telas precisa

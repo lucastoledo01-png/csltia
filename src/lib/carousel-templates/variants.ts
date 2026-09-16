@@ -353,7 +353,15 @@ function jornal(
 <div class="j-fundo"></div>
 ${foto ? `<div class="j-foto">${photo(foto)}</div>` : ""}
 <div class="j-grad"></div>
-<img class="j-marca" src="${esc(MARCA.logoEscuro)}" alt="" />
+${/*
+   A marca vai com as DUAS versões, e quem escolhe é o brilho da foto.
+
+   O arquivo padrão tem o "usa" em branco, desenhado para foto escura, e em céu
+   claro ele sumia: a peça saía com meia marca, só o ".journal" vermelho. O
+   `data-claro` carrega a versão de tinta escura, e o script de ajuste mede o
+   pedaço da foto que fica atrás do logotipo para decidir. Ver escolherMarca, no script de ajuste.
+*/ ""}
+<img class="j-marca" src="${esc(MARCA.logoEscuro)}" data-claro="${esc(MARCA.logoClaro)}" alt="" />
 ${opcoes.comBolha && bolha ? `<div class="j-bolha"><img src="${esc(bolha)}" alt="" /></div>` : ""}
 <div class="j-texto">
   ${chapeu ? `<span class="j-chapeu">${esc(chapeu)}</span>` : ""}

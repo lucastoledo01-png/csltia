@@ -17,19 +17,31 @@ import path from "node:path";
 
 const ARQUIVOS = ["base-css.ts", "layout-render.ts", "chrome.ts", "shell.ts", "variants.ts"];
 
-function corpoDosTemplates(fonte: string): Array<{ inicio: number; texto: string }> {
+function corpoDosTemplates(fonte: string): Array<{ nome: string; texto: string }> {
   /*
-   * Só os literais que começam depois de `= ` na abertura de uma constante de
-   * CSS. Interessa o bloco grande de estilo, e não toda interpolação do
-   * arquivo, que usa crase legitimamente para montar HTML.
+   * Só os literais que começam depois de `= ` na abertura de uma constante em
+   * caixa alta. Interessa o bloco grande de estilo ou de script, e não toda
+   * interpolação do arquivo, que usa crase legitimamente para montar HTML.
+   *
+   * O FIM do bloco tem duas formas, e a segunda custou caro. Em 16/09/2026 uma
+   * crase entrou num comentário de `SCRIPT_DE_AJUSTE` e derrubou 27 arquivos
+   * de teste. Esta varredura não pegou, porque procurava só o fechamento em
+   * "\n`;" e aquele bloco fecha em "\n`.trim();": o literal onde o erro
+   * aconteceu simplesmente não era conferido.
+   *
+   * Teste com cobertura furada é pior que teste ausente, porque quem lê o
+   * verde acha que está protegido.
    */
-  const blocos: Array<{ inicio: number; texto: string }> = [];
-  const abre = /export const [A-Z_]+(?:: string)? = `/g;
+  const blocos: Array<{ nome: string; texto: string }> = [];
+  const abre = /export const ([A-Z_]+)(?:: string)? = `/g;
   let m: RegExpExecArray | null;
   while ((m = abre.exec(fonte))) {
     const inicio = m.index + m[0].length;
-    const fim = fonte.indexOf("\n`;", inicio);
-    if (fim > inicio) blocos.push({ inicio, texto: fonte.slice(inicio, fim) });
+    const candidatos = ["\n`;", "\n`.trim();"]
+      .map((fecho) => fonte.indexOf(fecho, inicio))
+      .filter((i) => i > inicio);
+    if (candidatos.length === 0) continue;
+    blocos.push({ nome: m[1], texto: fonte.slice(inicio, Math.min(...candidatos)) });
   }
   return blocos;
 }
@@ -48,7 +60,7 @@ describe("nenhuma crase solta dentro dos literais de CSS", () => {
           .filter(({ l }) => l.includes("`"))
           .map(({ l, i }) => `linha ${i + 1} do bloco: ${l.trim()}`);
 
-        expect(comCrase, `crase dentro do CSS de ${arquivo}`).toEqual([]);
+        expect(comCrase, `crase dentro de ${bloco.nome}, em ${arquivo}`).toEqual([]);
       }
     });
   }
@@ -60,5 +72,39 @@ describe("nenhuma crase solta dentro dos literais de CSS", () => {
     const blocos = corpoDosTemplates(fonteFalsa);
     expect(blocos).toHaveLength(1);
     expect(blocos[0].texto).toContain("`.b`");
+  });
+
+  it("pega também o literal que fecha com trim, que é onde o erro passou", () => {
+    const fonteFalsa = [
+      "export const Y = `",
+      "(function(){ /* comenta a classe `.c` */ })();",
+      "`.trim();",
+    ].join("\n");
+    const blocos = corpoDosTemplates(fonteFalsa);
+    expect(blocos).toHaveLength(1);
+    expect(blocos[0].texto).toContain("`.c`");
+  });
+
+  /**
+   * A cobertura é afirmada por nome, e não deduzida do verde.
+   *
+   * Se alguém renomear o script ou trocar a forma de fechar o literal, este
+   * teste cai, e é isso que se quer: a varredura precisa dizer em voz alta
+   * quando deixa de olhar para o bloco que já causou o problema.
+   */
+  it("confere de fato os blocos grandes que existem hoje", () => {
+    const lidos = new Map<string, string[]>();
+    for (const arquivo of ARQUIVOS) {
+      const caminho = path.join(process.cwd(), "src/lib/carousel-templates", arquivo);
+      if (!fs.existsSync(caminho)) continue;
+      lidos.set(
+        arquivo,
+        corpoDosTemplates(fs.readFileSync(caminho, "utf-8")).map((b) => b.nome),
+      );
+    }
+
+    expect(lidos.get("base-css.ts")).toContain("BASE_CSS");
+    expect(lidos.get("layout-render.ts")).toContain("CSS_DO_LAYOUT");
+    expect(lidos.get("layout-render.ts")).toContain("SCRIPT_DE_AJUSTE");
   });
 });

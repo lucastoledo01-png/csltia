@@ -455,7 +455,15 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
   rgba(0,0,0,0.95) 0%,rgba(0,0,0,0.92) 22%,rgba(0,0,0,0.72) 40%,
   rgba(0,0,0,0.30) 55%,rgba(0,0,0,0) 70%);}
 
-.j-marca{position:absolute;top:7.5%;left:9%;z-index:4;height:52px;width:auto;}
+/* A sombra existe para o caso intermediario, que e o mais comum: foto com ceu
+   claro em cima e predio escuro embaixo, onde a media fica no meio da regua e
+   a troca de arquivo sozinha nao resolve. Ela e suave o bastante para nao
+   aparecer como caixa, e forte o bastante para destacar a letra.
+   Cada versao pede a sombra oposta: a marca branca pede sombra escura, a de
+   tinta escura pede halo claro. */
+.j-marca{position:absolute;top:7.5%;left:9%;z-index:4;height:52px;width:auto;
+  filter:drop-shadow(0 2px 7px rgba(0,0,0,0.45));}
+.j-marca[data-sobre="claro"]{filter:drop-shadow(0 2px 7px rgba(255,255,255,0.75));}
 
 /* A bolha: segunda imagem em circulo, com anel branco, na altura do terco
    superior. Ela existe para a capa dizer duas coisas ao mesmo tempo, o
