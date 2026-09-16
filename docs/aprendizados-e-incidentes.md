@@ -317,6 +317,37 @@ Instagram passou a aceitar 3:4 no feed.
 apagar as duas constantes. Deixá-las declaradas e não usadas é o mesmo padrão do
 incidente de `escolherUrlPublicavel`: dá a impressão de que o caso está coberto.
 
+### O build de produção quebrou, e o contêiner antigo continuou no ar
+
+**Sintoma.** Deploy disparado nos dois serviços. O worker reiniciou dois minutos
+depois do clone; o web não reiniciou nunca. O código novo estava no disco dos
+dois, e o processo do web era mais velho que o clone.
+
+**Por que isso é perigoso.** O EasyPanel mantém o contêiner anterior quando o
+build falha, então o site continua no ar, respondendo 200, servindo o código
+velho. Não há erro visível em lugar nenhum que este projeto alcance: o log do
+build está no contêiner, e o usuário `deploy` não tem docker. O sinal é
+indireto, e é sempre o mesmo: processo mais velho que o clone.
+
+**Causa.** Um campo novo no schema, `inset_image_url`, declarado como
+`z.string().optional().default("")`. O `.default()` torna o campo obrigatório no
+tipo de SAÍDA do schema, e todo literal de slide já existente no repositório
+deixou de compilar.
+
+**O erro de método, que é o maior.** Eu rodei `tsc --noEmit` e **filtrei a saída
+pelos arquivos que eu tinha editado**. O erro estava em `AdminCarouselDesignManager.tsx`
+e em `sample-data.ts`, que eu não tinha tocado e por isso não apareciam no meu
+grep. Verificação cuja saída é filtrada por expectativa não é verificação: ela
+confirma o que já se acredita.
+
+**Corrigido.** O campo perdeu o `.default()`, e quem lê já tratava ausência com
+`?? ""`. E `npm run build` passou a ser parte do fecho, antes do deploy, porque
+o `next build` roda o type check do projeto inteiro e o `vitest` não.
+
+**Lição.** Filtrar a saída de um verificador pelos arquivos que você mexeu é o
+mesmo que não rodar o verificador. E `.default()` num schema não é conveniência:
+ele muda o contrato de saída para todo mundo que constrói o objeto.
+
 ### 14/09, segundo ato: o bloqueio que diz quantas e não diz quais
 
 **O que.** Com a releitura em produção, o ciclo de recuperação viveu 9min19s em

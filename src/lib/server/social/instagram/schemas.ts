@@ -36,8 +36,13 @@ export const InstagramSlideSchema = z.object({
    * Opcional de propósito: a bolha é um reforço, não um requisito. Sem ela a
    * capa continua completa, com foto, chapéu e manchete. Um campo obrigatório
    * aqui transformaria "não achei uma segunda foto boa" em peça que não sai.
+   *
+   * Sem `.default("")`, e a diferença não é cosmética: com o default, o tipo de
+   * SAÍDA do schema passa a exigir o campo, e todo literal de slide que existe
+   * no repositório deixa de compilar. Foi assim que o build de produção quebrou
+   * e o contêiner antigo continuou no ar.
    */
-  inset_image_url: z.string().optional().default(""),
+  inset_image_url: z.string().optional(),
   cta_text: z.string().optional().default(""),
 });
 
