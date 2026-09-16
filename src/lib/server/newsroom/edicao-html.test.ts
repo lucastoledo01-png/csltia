@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderEditionToHtml } from "./newsroom-service";
+import { identidadeDaPauta, renderEditionToHtml } from "./newsroom-service";
 import type { EditionContent } from "./schemas";
 
 /**
@@ -78,13 +78,59 @@ describe("HTML da edição", () => {
     const email = renderEditionToHtml(EDICAO, new Map());
     const portal = renderEditionToHtml(EDICAO, new Map(), true);
 
-    for (const trecho of [
-      "Primeira pauta da edição",
-      "O que muda na prática na primeira pauta.",
-      "Por que a primeira pauta importa.",
-    ]) {
+    for (const trecho of ["Primeira pauta da edição", "Por que a primeira pauta importa."]) {
       expect(email).toContain(trecho);
       expect(portal).toContain(trecho);
     }
+  });
+
+  /**
+   * O quadro "O que muda na prática" saiu das duas versões.
+   *
+   * Ele aparecia em toda pauta, e nem toda pauta tem consequência prática para
+   * declarar. Quando não tinha, o texto preenchia o quadro assim mesmo e saía
+   * hedge com cara de formulário.
+   *
+   * O campo continua sendo gerado, porque o carrossel usa `practical_impact`.
+   * O que saiu foi a renderização. Este teste separa as duas coisas: se o
+   * quadro voltar por descuido, ele acusa; se o campo sumir do schema, o
+   * carrossel quebra em outro lugar.
+   */
+  it("o quadro de impacto prático não aparece em nenhuma das versões", () => {
+    const email = renderEditionToHtml(EDICAO, new Map());
+    const portal = renderEditionToHtml(EDICAO, new Map(), true);
+
+    for (const html of [email, portal]) {
+      expect(html).not.toContain("O que muda na prática");
+      expect(html).not.toContain("O que muda na prática na primeira pauta.");
+    }
+  });
+
+  /**
+   * Foto sempre na mesma proporção.
+   *
+   * Com altura automática, foto em pé ocupava a tela inteira do celular e foto
+   * deitada ocupava um terço. Na mesma edição isso vira rolagem sem fim entre
+   * um título e o próximo, que foi o que o dono relatou.
+   */
+  it("a foto sai recortada na proporção fixa, e não com altura livre", () => {
+    // A chave do mapa é a identidade da pauta, a mesma que o render usa. Montar
+    // a chave à mão aqui faria o teste passar com a imagem ausente.
+    const primeira = EDICAO.stories[0];
+    const imagens = new Map([
+      [
+        identidadeDaPauta(primeira),
+        "https://images.pexels.com/photos/3751006/pexels-photo-3751006.jpeg?auto=compress&h=650&w=940",
+      ],
+    ]);
+
+    const html = renderEditionToHtml(EDICAO, imagens);
+    const img = html.match(/<img[^>]+pexels[^>]*>/)?.[0] ?? "";
+
+    expect(img).not.toContain("height:auto");
+    expect(img).toContain("object-fit:cover");
+    // Corte na origem: é o que o Outlook recebe, já que ele ignora o CSS.
+    expect(img).toContain("fit=crop");
+    expect(img).toContain("h=360");
   });
 });

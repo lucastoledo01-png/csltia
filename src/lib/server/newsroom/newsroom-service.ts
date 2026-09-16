@@ -104,6 +104,60 @@ export function identidadeDaPauta(story: { source_url?: string; title: string })
   return gerarStoryId({ url: story.source_url || undefined, titulo: story.title });
 }
 
+/** Proporção fixa da foto no e-mail. 600 por 360, cinco por três. */
+const FOTO_LARGURA = 600;
+const FOTO_ALTURA = 360;
+
+/**
+ * A foto da pauta sempre na mesma proporção.
+ *
+ * A altura era `auto`. Foto deitada ficava boa e foto em pé ocupava a tela
+ * inteira do celular: a mesma edição tinha uma pauta de 400px e outra de 1200,
+ * e no telefone isso vira rolagem sem fim entre um título e o próximo.
+ *
+ * Três camadas, porque cliente de e-mail não é navegador:
+ *
+ * 1. Corte na origem, quando o provedor aceita. Pexels e Unsplash recortam por
+ *    parâmetro de URL, e é o único jeito de o Outlook receber a imagem já certa,
+ *    já que ele ignora CSS de layout.
+ * 2. `width` e `height` no atributo, que é o que o Outlook respeita.
+ * 3. `object-fit: cover` para os clientes modernos, que assim recortam em vez
+ *    de espremer.
+ *
+ * O Wikimedia não recorta por URL, só redimensiona por largura. Nesse caso a
+ * terceira camada é quem resolve, e o Outlook recebe a foto deitada.
+ */
+function fotoNaProporcao(url: string): string {
+  if (!url) return "";
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+
+    if (host.endsWith("images.pexels.com")) {
+      u.searchParams.set("w", String(FOTO_LARGURA));
+      u.searchParams.set("h", String(FOTO_ALTURA));
+      u.searchParams.set("fit", "crop");
+      return u.toString();
+    }
+
+    if (host.endsWith("images.unsplash.com")) {
+      u.searchParams.set("w", String(FOTO_LARGURA));
+      u.searchParams.set("h", String(FOTO_ALTURA));
+      u.searchParams.set("fit", "crop");
+      u.searchParams.set("crop", "entropy");
+      return u.toString();
+    }
+
+    return url;
+  } catch {
+    return url;
+  }
+}
+
+const ESTILO_DA_FOTO =
+  `width:100%;max-width:${FOTO_LARGURA}px;height:${FOTO_ALTURA}px;` +
+  `object-fit:cover;object-position:center;display:block;border-radius:10px;`;
+
 export function renderEditionToHtml(
   edition: EditionContent,
   imagens: ImagensDaEdicao = new Map(),
@@ -193,7 +247,7 @@ export function renderEditionToHtml(
           Fonte:
           <a href="${escapeHtml(fonteUrl)}" target="_blank" rel="noopener noreferrer" style="color:#71717A;text-decoration:underline;">${escapeHtml(s.source_name)}</a>
           &nbsp;·&nbsp;
-          <a href="https://wa.me/?text=${whatsappText}" target="_blank" style="color:${MARCA.cor};text-decoration:none;font-weight:700;">Compartilhar</a>
+          <a href="https://wa.me/?text=${whatsappText}" target="_blank" style="color:${MARCA.cor};text-decoration:none;font-weight:700;white-space:nowrap;"><img src="${MARCA.site}/marca/whatsapp.png" alt="" width="14" height="14" style="width:14px;height:14px;vertical-align:-2px;border:0;margin-right:5px;" />Compartilhar</a>
         </p>`;
 
       if (!principal) {
@@ -205,13 +259,11 @@ export function renderEditionToHtml(
         </h2>
         ${
           imagem
-            ? `<img src="${escapeHtml(imagem)}" alt="" width="600" style="width:100%;max-width:600px;height:auto;display:block;border-radius:10px;margin:0 0 14px 0;" />${creditoHtml}`
+            ? `<img src="${escapeHtml(fotoNaProporcao(imagem))}" alt="" width="${FOTO_LARGURA}" height="${FOTO_ALTURA}" style="${ESTILO_DA_FOTO}margin:0 0 14px 0;" />${creditoHtml}`
             : ""
         }
         <p style="font-family:${fonte};font-size:16px;line-height:1.62;color:${TINTA_SUAVE};margin:0 0 12px 0;">
-          ${escapeHtml(s.summary)}${
-            s.practical_impact ? ` <strong style="color:${TINTA};">${escapeHtml(s.practical_impact)}</strong>` : ""
-          }
+          ${escapeHtml(s.summary)}
         </p>
         ${linhaDaFonte}
       </td></tr>`;
@@ -227,7 +279,7 @@ export function renderEditionToHtml(
 
         ${
           imagem
-            ? `<img src="${escapeHtml(imagem)}" alt="" width="600" style="width:100%;max-width:600px;height:auto;display:block;border-radius:10px;margin:0 0 18px 0;" />${creditoHtml}`
+            ? `<img src="${escapeHtml(fotoNaProporcao(imagem))}" alt="" width="${FOTO_LARGURA}" height="${FOTO_ALTURA}" style="${ESTILO_DA_FOTO}margin:0 0 18px 0;" />${creditoHtml}`
             : ""
         }
 
@@ -251,21 +303,19 @@ export function renderEditionToHtml(
             : ""
         }
 
-        ${
-          s.practical_impact
-            ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA};margin:0 0 18px 0;">
-          <tr>
-            <td style="background:${MARCA.fundoRealce};border:0;border-left:3px solid ${MARCA.tintaEscura};border-radius:0 8px 8px 0;padding:16px 18px;">
-              ${rotulo("O que muda na prática", MARCA.tintaEscura)}
-              <p style="font-family:${fonte};font-size:16px;line-height:1.6;color:${TINTA};margin:0;">
-                ${escapeHtml(s.practical_impact)}
-              </p>
-            </td>
-          </tr>
-        </table>`
-            : ""
-        }
+        ${/*
+          O quadro "O que muda na prática" saiu.
+          Ele aparecia em TODA pauta, e nem toda pauta tem uma consequência
+          prática para declarar. Quando não tinha, o texto preenchia o quadro
+          assim mesmo, e o que saía era hedge: "quem atua na área deve observar
+          se reúne reconhecimento contínuo; a fonte não informa critérios".
+          Um rótulo fixo pede conteúdo fixo, e conteúdo que não existe vira
+          enchimento com cara de formulário.
 
+          O campo continua sendo gerado: o carrossel usa `practical_impact` na
+          estrutura dos slides. O que saiu foi a renderização no e-mail e no
+          portal, não o dado.
+        */ ""}
         ${linhaDaFonte}
       </td></tr>`;
     })
