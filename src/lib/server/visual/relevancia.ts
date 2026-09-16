@@ -89,7 +89,14 @@ export function pontuarImagem(asset: AssetVisual, entidade: EntidadeVisual): Not
   const origemPontos =
     asset.source === "wikimedia_commons" || asset.source === "fonte_oficial"
       ? PESO.origem
-      : asset.source === "press_kit" || asset.source === "flickr_commons"
+      : asset.source === "press_kit" || asset.source === "flickr_commons" || asset.source === "openverse"
+        /*
+         * O Openverse fica em 7, e não em 10, de propósito. Ele indexa o
+         * Commons e o Flickr, e a mesma foto pode chegar pelos dois caminhos:
+         * empatar o peso faria a cópia indexada ganhar da original só por
+         * ordem de chegada. E fica acima de 3 porque a licença dele é
+         * conferida item a item, ao contrário do banco conceitual.
+         */
         ? 7
         : 3;
 

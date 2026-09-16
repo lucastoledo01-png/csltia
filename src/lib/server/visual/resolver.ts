@@ -10,6 +10,7 @@ import { criarBiblioteca, usadoRecentemente } from "./biblioteca";
 import type { AssetGuardado, Biblioteca } from "./biblioteca";
 import { escolherEntidadeVisual, entidadeConceitual } from "./entidade-visual";
 import { buscarNoCommons, candidatoParaAsset } from "./wikimedia";
+import { buscarNoOpenverse, candidatoParaAsset as candidatoDoOpenverse } from "./openverse";
 import { buscarEmFonteOficial } from "./fonte-oficial";
 import { carregarConfigDeImagem, pisoDeRelevancia, pontuarImagem } from "./relevancia";
 import { avaliarLicenca, montarAtribuicao } from "./licencas";
@@ -267,8 +268,89 @@ export async function resolveVisualAsset(
     novos.push(...oficial.assets);
   }
 
-  // 5. Banco conceitual, e só quando a pauta não é sobre gente.
-  if (novos.length === 0) {
+  /*
+   * 5. Openverse: um endpoint, cinco acervos.
+   *
+   * Entra ao lado do Commons e da fonte oficial, e não depois: ele indexa
+   * Flickr, Wikimedia, Europeana, Smithsonian e NASA, e é onde mora a foto que
+   * o Commons não tem. Quem decide continua sendo a nota.
+   *
+   * Falha dele não derruba a resolução: o índice é de terceiro, tem limite
+   * anônimo de 200 buscas por dia, e um dia sem ele é um dia com as fontes de
+   * sempre.
+   */
+  if (entidade.tipo !== "conceptual") {
+    try {
+      const busca = await buscarNoOpenverse(entidade, { env, fetcher: opcoes.fetcher });
+      let convertidos = 0;
+
+      for (const candidato of busca.candidatos) {
+        const conversao = candidatoDoOpenverse(candidato, entidade, env);
+        if (!conversao.ok) {
+          recusados.push({
+            origem: "openverse",
+            identificacao: candidato.id,
+            motivo: MOTIVOS_DE_RECUSA.LICENCA_DESCONHECIDA,
+            detalhe: conversao.motivo,
+          });
+          continue;
+        }
+        novos.push(conversao.asset);
+        convertidos += 1;
+      }
+
+      fontesConsultadas.push({
+        fonte: "openverse",
+        encontrados: convertidos,
+        nota: busca.caminhos.join(" ; "),
+      });
+    } catch (erro) {
+      fontesConsultadas.push({
+        fonte: "openverse",
+        encontrados: 0,
+        nota: `falhou: ${(erro as Error).message}`,
+      });
+    }
+  }
+
+  /*
+   * 6. Banco conceitual, e agora ele é ÚLTIMO de verdade.
+   *
+   * A condição era `novos.length === 0`, ou seja "nenhuma fonte devolveu nada".
+   * Com isso, um candidato ruim do Commons que fosse recusado na pontuação
+   * impedia o banco de ser consultado, e a pauta saía sem foto nenhuma.
+   *
+   * Agora a pergunta é outra: alguma das fontes de FATO entregou uma foto que
+   * passa na régua? Se passou, o banco não é consultado, que é a regra
+   * editorial de sempre (foto de banco é metáfora, não fato). Se não passou, e
+   * só então, ele entra.
+   *
+   * A pontuação aqui é um ENSAIO: as recusas vão para uma lista descartável,
+   * porque a pontuação de verdade, a que alimenta o relatório, acontece
+   * logo abaixo com a lista completa.
+   */
+  const ensaio: CandidatoRecusado[] = [];
+  const { melhor: jaTemFotoBoa } = melhorPontuado(
+    novos.filter((a) => !usadosAgora.has(a.imageUrl) && !jaSaiu(a.imageUrl)),
+    entidade,
+    piso,
+    ensaio,
+    config.larguraMinima,
+    { titulo: pauta.titulo, resumo: pauta.resumo, atores: pauta.classificacao.atores },
+  );
+
+  /*
+   * As recusas do ensaio são reais e precisam sobreviver a ele.
+   *
+   * Sem esta linha, uma pauta sobre pessoa com foto pequena demais sai por um
+   * `return` lá dentro do bloco do banco conceitual, e o relatório recebe
+   * `recusados` vazio: o motivo de não haver foto some, que é o defeito que
+   * este módulo inteiro existe para não cometer. A pontuação de baixo
+   * desconta o que já está aqui.
+   */
+  recusados.push(...ensaio);
+
+  if (!jaTemFotoBoa) {
     if (ehPessoa(entidade.tipo)) {
       fontesConsultadas.push({
         fonte: "banco_conceitual",
@@ -357,11 +439,26 @@ export async function resolveVisualAsset(
    * conceitual produzia sozinho.
    */
   const disponiveis = novos.filter((a) => !usadosAgora.has(a.imageUrl) && !jaSaiu(a.imageUrl));
-  const { melhor: escolhido, vice } = melhorPontuado(disponiveis, entidade, piso, recusados, config.larguraMinima, {
+  const desta = [] as CandidatoRecusado[];
+  const { melhor: escolhido, vice } = melhorPontuado(disponiveis, entidade, piso, desta, config.larguraMinima, {
     titulo: pauta.titulo,
     resumo: pauta.resumo,
     atores: pauta.classificacao.atores,
   });
+
+  /*
+   * Só o que o ensaio ainda não tinha visto.
+   *
+   * Os mesmos candidatos passam pela pontuação duas vezes, uma no ensaio que
+   * decide se o banco conceitual entra e outra aqui. Empurrar as duas listas
+   * faria cada recusa aparecer em dobro no relatório, e relatório que conta
+   * duas vezes a mesma coisa é relatório que ninguém confere.
+   */
+  for (const r of desta) {
+    if (!recusados.some((x) => x.identificacao === r.identificacao && x.motivo === r.motivo)) {
+      recusados.push(r);
+    }
+  }
 
   if (!escolhido) {
     return semImagem(

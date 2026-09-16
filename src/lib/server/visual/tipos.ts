@@ -81,6 +81,7 @@ export type FonteDeImagem =
   | "fonte_oficial"
   | "press_kit"
   | "flickr_commons"
+  | "openverse"
   | "banco_conceitual"
   | "biblioteca_interna";
 

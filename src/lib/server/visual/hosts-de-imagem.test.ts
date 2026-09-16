@@ -20,6 +20,8 @@ const HOSTS_DO_PIPELINE = [
   "images.pexels.com",
   "images.unsplash.com",
   "upload.wikimedia.org",
+  // Openverse indexa o Flickr e devolve a imagem servida por este host.
+  "live.staticflickr.com",
   "azqpdesusdzqndvsqmko.supabase.co",
 ];
 

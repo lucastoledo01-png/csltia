@@ -35,6 +35,10 @@ const nextConfig: NextConfig = {
        * `next/image` lança em vez de degradar.
        */
       { protocol: "https", hostname: "upload.wikimedia.org" },
+      // O Openverse indexa o Flickr, e a imagem dele é servida por este host.
+      // Host que falta aqui faz `next/image` LANÇAR e derrubar a página
+      // inteira do artigo, não apenas esconder a capa.
+      { protocol: "https", hostname: "live.staticflickr.com" },
     ],
   },
 };
