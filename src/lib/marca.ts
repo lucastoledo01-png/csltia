@@ -15,11 +15,11 @@
 
 export const MARCA = {
   /** Nome exibido. Aparece no site, no e-mail e nos slides. */
-  nome: "imigra.us",
+  nome: "usa.journal",
   /** Parte antes do ponto, para o logotipo em duas cores. */
-  nomeBase: "imigra",
+  nomeBase: "usa",
   /** Sufixo colorido do logotipo. */
-  nomeSufixo: ".us",
+  nomeSufixo: ".journal",
   handle: "@imigra.us",
   tagline: "O que muda para quem vai para os EUA.",
   descricao:
@@ -38,7 +38,7 @@ export const MARCA = {
   corOficialAzul: "#0A3161",
 
   /** Encerramento da edição e do post. */
-  assinatura: "Até amanhã. Equipe imigra.us.",
+  assinatura: "Até amanhã. Equipe usa.journal.",
   /** Palavra que o leitor comenta no post para receber o material. */
   keyword: "VISTO",
 
@@ -51,7 +51,13 @@ export const MARCA = {
    * e-mail o caminho relativo não resolve: o cliente de e-mail não sabe de
    * qual origem a mensagem veio.
    */
-  logoClaro: "https://casaloti.ia.br/marca/imigra-us-claro.png",
+  logoClaro: "https://casaloti.ia.br/marca/usa-journal-claro.png",
+  /*
+   * Ainda o arquivo antigo, de propósito: `logoEscuro` não é usado por nenhum
+   * código hoje, e a versão do usa.journal para fundo escuro não existe. O
+   * azul-marinho do "usa" e o traço da estrela sumiriam num fundo preto, então
+   * essa versão precisa ser desenhada, não derivada.
+   */
   logoEscuro: "https://casaloti.ia.br/marca/imigra-us-escuro.png",
   instagram: "https://instagram.com/imigra.us",
   instagramHandle: "@imigra.us",
