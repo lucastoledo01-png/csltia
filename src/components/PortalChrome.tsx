@@ -20,7 +20,7 @@ import { EDITORIAS } from "@/lib/editorias";
  */
 export function TopoDoPortal() {
   return (
-    <header className="bg-[#0A3161]">
+    <header className="bg-[#0A3161] text-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-4 py-3.5 sm:px-6">
         <Link href="/" aria-label={MARCA.nome} className="shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -32,7 +32,7 @@ export function TopoDoPortal() {
             <a
               key={e.id}
               href={`#editoria-${e.id}`}
-              className="text-[13px] font-medium text-white/80 transition-colors hover:text-white"
+              className="text-[13px] font-medium text-white/75 transition-colors hover:text-white"
             >
               {e.nome}
             </a>
@@ -52,7 +52,7 @@ export function TopoDoPortal() {
 
 export function RodapeDoPortal() {
   return (
-    <footer className="mt-16 bg-[#0A3161] text-white/70">
+    <footer className="mt-16 bg-[#0A3161] text-white/75">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[2fr_1fr_1fr]">
         <div>
           {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -44,16 +44,25 @@ function Data({ valor }: { valor: string }) {
 /** A manchete: foto grande com o título sobreposto. */
 function Manchete({ pauta }: { pauta: PautaDoPortal }) {
   return (
-    <Link href={pauta.href} className="group relative block overflow-hidden">
+    /*
+     * Caixa de proporcao fixa, e nao altura livre.
+     *
+     * Com altura fixa em pixel, a celula do grid esticava ate a coluna de
+     * chamadas e sobrava fundo embaixo da foto. Com `h-full`, o pai nao tinha
+     * altura definida e o `h-full` virou a altura NATURAL da imagem: uma foto
+     * de 3909x5863 produziu uma manchete de 1061px. Proporcao resolve os dois:
+     * a caixa existe antes da imagem, e a imagem a preenche.
+     */
+    <Link href={pauta.href} className="group relative block aspect-[16/10] overflow-hidden">
       {pauta.imagem ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={pauta.imagem}
           alt=""
-          className="h-[320px] w-full object-cover transition-transform duration-500 group-hover:scale-[1.02] sm:h-[420px]"
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
         />
       ) : (
-        <div className="h-[320px] w-full bg-[#0A3161] sm:h-[420px]" />
+        <div className="absolute inset-0 bg-[#0A3161]" />
       )}
 
       {/* O degradê existe para o título ter contraste sobre qualquer foto. */}
@@ -162,7 +171,7 @@ export function PortalHome({ dados }: { dados: DadosDaHome }) {
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         {/* ---- primeira dobra ---- */}
         {destaque ? (
-          <section className="grid gap-6 lg:grid-cols-[1.9fr_1fr]">
+          <section className="grid items-start gap-6 lg:grid-cols-[1.9fr_1fr]">
             <Manchete pauta={destaque} />
             <div className="lg:border-l lg:border-[#E4E4E7] lg:pl-6">
               {chamadas.map((p) => (

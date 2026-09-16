@@ -45,9 +45,23 @@ body {
   color: #E4344A;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/*
+ * Dentro de @layer base, e a diferenca nao e cosmetica.
+ *
+ * Fora de layer, esta regra vencia TODA utilidade de cor do Tailwind em
+ * qualquer link do site, porque estilo sem layer ganha de estilo em layer
+ * independente de especificidade. O efeito foi o menu do portal com texto
+ * preto sobre azul-marinho: `text-white/80` no link nao valia nada, e o link
+ * herdava o preto do body.
+ *
+ * A intencao original continua: link sem classe de cor herda a cor de quem o
+ * contem. O que muda e que agora uma classe de cor consegue dizer outra coisa.
+ */
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 button,
