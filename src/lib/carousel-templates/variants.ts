@@ -150,10 +150,24 @@ ${photo(slide.bg_image_url)}
  * `document.fonts.ready` justamente porque medir com a fonte de fallback dá
  * outro número.
  */
+/**
+ * A capa sem foto, na identidade nova.
+ *
+ * O que MUDOU é a pele: fundo azul-marinho, marca no alto, chapéu espaçado e
+ * manchete em caixa alta, as mesmas quatro coisas da peça com foto. Ela estava
+ * na paleta anterior, creme com serifa e acento laranja, e assinada
+ * `@imigra.us`: no feed, dois posts do mesmo dia pareciam de dois perfis.
+ *
+ * O que NÃO mudou, e é o motivo de esta peça existir em vez de um "fundo azul
+ * com a manchete em cima": ela MEDE o corpo do tipo no navegador
+ * (`data-ajuste`) e impede que "I-765" quebre no meio
+ * (`manterCodigosJuntos`). Trocar isso por um template fixo devolveria os dois
+ * defeitos que ela resolve.
+ */
 const coverNoticiaSemFoto: SlideVariant = {
   key: "noticia_sem_foto",
   label: "Capa de texto: a manchete é a arte",
-  render: (slide): VariantOutput => {
+  render: (slide, ctx): VariantOutput => {
     /*
      * Sem cair em `ctx.eyebrowLabel`, de propósito. Quando o classificador não
      * soube nomear a editoria, `arte.ts` manda o campo vazio; imprimir aqui o
@@ -164,13 +178,15 @@ const coverNoticiaSemFoto: SlideVariant = {
     const titulo = String(slide.title ?? "").trim().replace(/\s+/g, " ");
 
     return {
+      full: true,
+      onDark: true,
       body: `
-<div class="e-wrap n-capa">
-  <div class="n-topo">
-    ${editoria ? `<span class="n-editoria">${esc(editoria)}</span>` : ""}
-    <span class="n-regua"></span>
-  </div>
-  <div class="n-manchete lay-texto" data-ajuste="encolher" data-min="54" data-max="168"><span>${manterCodigosJuntos(esc(titulo))}</span></div>
+<div class="n-fundo"></div>
+<img class="j-marca" src="${esc(MARCA.logoEscuro)}" alt="" />
+<div class="n-texto">
+  ${editoria ? `<span class="j-chapeu">${esc(editoria)}</span>` : ""}
+  <div class="n-manchete lay-texto" data-ajuste="encolher" data-min="44" data-max="150"><span>${manterCodigosJuntos(esc(titulo))}</span></div>
+  ${ctx.total > 1 && ctx.slideIndex === 1 ? `<span class="j-arrasta">Arrasta que eu te explico →</span>` : ""}
 </div>`,
     };
   },

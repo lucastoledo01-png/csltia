@@ -377,7 +377,7 @@ describe("a capa de texto é decisão, não fallback quebrado", () => {
      */
     const h = html(LONGA);
     expect(h).toContain('data-ajuste="encolher"');
-    expect(h).toContain('data-max="168"');
+    expect(h).toContain('data-max="150"');
     expect(h).not.toMatch(/class="n-manchete[^"]*"[^>]*style="[^"]*font-size/);
   });
 
@@ -391,9 +391,17 @@ describe("a capa de texto é decisão, não fallback quebrado", () => {
       total: 1,
       layout: null,
     });
-    expect(corpo(h)).not.toContain("n-editoria");
-    // A régua fica: ela não afirma nada.
-    expect(corpo(h)).toContain("n-regua");
+    /*
+     * O chapéu e a régua mudaram de forma em 16/09/2026, quando a capa sem
+     * foto passou para a identidade nova: onde havia uma editoria em serifa
+     * sobre creme e um filete preto, agora há o mesmo chapéu espaçado da peça
+     * com foto. O que este teste guarda não é o desenho, é a regra: eixo que o
+     * classificador não soube nomear NÃO vira rótulo inventado.
+     */
+    expect(corpo(h)).not.toContain("j-chapeu");
+    // O fundo e a marca ficam: eles não afirmam nada sobre a pauta.
+    expect(corpo(h)).toContain("n-fundo");
+    expect(corpo(h)).toContain("j-marca");
   });
 
   it("o script de ajuste acompanha a peça, mesmo sem layout desenhado", () => {

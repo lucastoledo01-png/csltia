@@ -251,8 +251,20 @@ export async function gerarPostDaPauta(
 
     const motivo =
       veredicto.fatalIssues.length > 0
-        ? `descartada sem reparo: ${veredicto.fatalIssues.map((p) => p.motivo).join(", ")}`
-        : `descartada depois de ${veredicto.attempts} reescrita(s): ${veredicto.issues.map((p) => p.motivo).join(", ")}`;
+        /*
+         * O DETALHE vai junto do motivo, e isso já custou uma tarde.
+         *
+         * "SOCIAL_REJECT_HEADLINE" diz que a manchete foi recusada e não diz
+         * por quê: curta demais, longa demais, pergunta, ou fora do teto de
+         * caracteres. São quatro correções diferentes, e sem o detalhe a
+         * investigação começa do zero toda vez. É o mesmo defeito que o
+         * bloqueio da edição já teve, quando dizia quantas pautas caíram e não
+         * dizia quais.
+         */
+        ? `descartada sem reparo: ${veredicto.fatalIssues.map((p) => `${p.motivo} (${p.detalhe})`).join(", ")}`
+        : `descartada depois de ${veredicto.attempts} reescrita(s): ${veredicto.issues
+            .map((p) => `${p.motivo} (${p.detalhe})`)
+            .join(", ")}`;
 
     return {
       post: null,
@@ -506,7 +518,7 @@ export async function gerarPostsDoDia(
     } else if (descarte) {
       descartadas.push(descarte);
       tokens += descarte.tokens;
-      linhas.push(`[GERADOR] descartada: ${descarte.motivo.slice(0, 90)} :: ${pauta.grupo.primary.title.slice(0, 45)}`);
+      linhas.push(`[GERADOR] descartada: ${descarte.motivo.slice(0, 260)} :: ${pauta.grupo.primary.title.slice(0, 45)}`);
     }
   }
 

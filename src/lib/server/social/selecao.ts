@@ -2,6 +2,7 @@ import type { PautaAvaliada } from "../editorial/guarda";
 import type { Classificacao } from "../editorial/classificador";
 import { dominioDe } from "../editorial/url-canonica";
 import { impressaoDoAcontecimento } from "../editorial/fingerprint";
+import { cosseno } from "../editorial/embeddings";
 import { entidadesDaClassificacao } from "../editorial/classificador";
 
 /**
@@ -35,6 +36,15 @@ export type ConfigSocial = {
   maximoPorPrograma: number;
   maximoPorOrganizacao: number;
   maximoPorEvento: number;
+  /**
+   * Acima disto, duas pautas do mesmo dia contam o mesmo acontecimento.
+   *
+   * Lê a MESMA variável de ambiente da newsletter, e isso é de propósito: o
+   * número foi medido uma vez, sobre os pares de um dia real, e dois canais
+   * com dois limiares para a mesma pergunta dariam duas respostas para o mesmo
+   * par de pautas.
+   */
+  limiarDeAgrupamento: number;
   maximoPorAtor: number;
   maximoPorDominio: number;
   maximoPorTopico: number;
@@ -67,10 +77,39 @@ export function carregarConfigSocial(
     maximoPorPrograma: numeroDoAmbiente("SOCIAL_MAX_POR_PROGRAMA", 2, env),
     maximoPorOrganizacao: numeroDoAmbiente("SOCIAL_MAX_POR_ORGANIZACAO", 2, env),
     maximoPorEvento: numeroDoAmbiente("SOCIAL_MAX_POR_EVENTO", 1, env),
+    limiarDeAgrupamento: numeroDoAmbiente("EDITORIAL_LIMIAR_AGRUPAMENTO", 0.7, env),
     maximoPorAtor: numeroDoAmbiente("SOCIAL_MAX_POR_ATOR", 2, env),
     maximoPorDominio: numeroDoAmbiente("SOCIAL_MAX_POR_DOMINIO", 3, env),
     maximoPorTopico: numeroDoAmbiente("SOCIAL_MAX_POR_TOPICO", 2, env),
   };
+}
+
+/**
+ * A escolhida mais próxima desta pauta, se passar do limiar.
+ *
+ * Sem vetor dos dois lados não há comparação, e aí só vale a impressão do
+ * acontecimento. Isso acontece no dia em que a API de embedding cai, e o feed
+ * sai com os tetos de sempre em vez de não sair.
+ */
+function maisParecidaEntreAsEscolhidas(
+  pauta: PautaAvaliada,
+  escolhidas: Array<{ pauta: PautaAvaliada }>,
+  limiar: number,
+): { titulo: string; score: number } | null {
+  if (!(limiar > 0)) return null;
+  const vetor = pauta.vetor;
+  if (!vetor || vetor.length === 0) return null;
+
+  let melhor: { titulo: string; score: number } | null = null;
+  for (const e of escolhidas) {
+    const outro = e.pauta.vetor;
+    if (!outro || outro.length === 0) continue;
+    const score = cosseno(vetor, outro);
+    if (score >= limiar && (melhor === null || score > melhor.score)) {
+      melhor = { titulo: e.pauta.grupo.primary.title, score };
+    }
+  }
+  return melhor;
 }
 
 function normalizar(texto: string): string {
@@ -303,6 +342,24 @@ export function comporFeedSocial(
     }
     if ((porEvento[evento] ?? 0) >= config.maximoPorEvento) {
       recusar("DUPLICATE_EVENT", "o mesmo acontecimento já entrou hoje");
+      continue;
+    }
+
+    /*
+     * A mesma pergunta, feita ao vetor.
+     *
+     * A impressão acima compara igualdade EXATA de ator, lugar e termo, e dois
+     * escritórios cobrindo a mesma liminar escrevem palavras diferentes: o
+     * feed saía com dois posts sobre a mesma decisão, com manchetes quase
+     * iguais. É o mesmo defeito que a composição da newsletter teve, e a
+     * correção é a mesma medida, com o mesmo número.
+     */
+    const parecida = maisParecidaEntreAsEscolhidas(p, escolhidas, config.limiarDeAgrupamento);
+    if (parecida) {
+      recusar(
+        "DUPLICATE_EVENT",
+        `semelhança ${parecida.score.toFixed(3)} com "${parecida.titulo.slice(0, 50)}", que já entrou hoje`,
+      );
       continue;
     }
     if (ator && (porAtor[ator] ?? 0) >= config.maximoPorAtor) {

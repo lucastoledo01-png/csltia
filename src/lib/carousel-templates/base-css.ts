@@ -190,6 +190,34 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 /* I-765 e H-1B sao o nome da coisa, nao hifenizacao: nao quebram no hifen. */
 .n-junto{white-space:nowrap;}
 
+/* ---- capa sem foto, na identidade nova ----------------------------------- */
+/* As cores sao escritas, e nao lidas dos tokens, pelo mesmo motivo da chamada
+   da newsletter logo abaixo: os tokens ainda carregam a paleta da vertical
+   anterior, creme com acento laranja. Quando eles forem migrados, estas linhas
+   voltam a ser var(). */
+/* A faixa de texto comeca mais alto que na peca com foto (30% contra 58%)
+   porque aqui nao ha imagem para ocupar o topo: a manchete e a arte, e ela
+   precisa do espaco. O ajuste continua medindo, entao manchete curta nao
+   estica e manchete longa nao transborda. */
+.n-fundo{position:absolute;inset:0;background:#0A3161;z-index:1;}
+.n-texto{position:absolute;left:9%;right:9%;top:30%;bottom:9.5%;z-index:4;
+  display:flex;flex-direction:column;justify-content:flex-end;}
+/* A altura e FLEX-BASIS, e nao max-height, e isso nao e preferencia.
+   O SCRIPT_DE_AJUSTE mede el.clientHeight ANTES de aplicar o data-max. Com
+   flex:0 0 auto essa medida e a altura do CONTEUDO no corpo herdado do body,
+   ou seja umas duas linhas de 16px: o script conclui que so cabem 34px e
+   encolhe a manchete ate o piso. Medido: a peca saiu em 44px, o minimo, numa
+   faixa de 871px vazia.
+   Com flex-basis em porcentagem a caixa tem altura definida antes de qualquer
+   fonte ser aplicada, que e o que o script precisa para medir. O font-size
+   declarado igual ao data-max e a segunda garantia, para o caso de alguem
+   trocar a base de novo. */
+.n-manchete{flex:0 0 78%;overflow:hidden;display:block;
+  font-family:var(--s-font-display);font-size:150px;font-weight:800;line-height:1.07;
+  letter-spacing:-0.005em;text-transform:uppercase;color:#fff;
+  display:flex;flex-direction:column;justify-content:flex-end;}
+.n-manchete > span{display:block;}
+
 /* ---- capa de carrossel: a manchete marcada ----
  *
  * A capa da notícia é serifa preta sobre creme, e continua sendo. Esta é a do

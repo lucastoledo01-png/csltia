@@ -178,8 +178,9 @@ ressalva: quase sempre VAZIA. Ela só existe quando calar seria enganoso, e mesm
 
 hashtags: de 4 a 7, específicas DESTA pauta.
 
-VOZ DE REDE SOCIAL: aqui é feed, não é e-mail nem jornal.
-- Frase curta. Uma ideia por linha. Se der para cortar uma palavra, corte.
+VOZ DE REDE SOCIAL (vale para TODO o texto, manchete incluída; onde a manchete pedir o contrário, está dito abaixo):
+aqui é feed, não é e-mail nem jornal.
+- Frase curta. Uma ideia por linha. Se der para cortar uma palavra, corte. NÃO aplique isso à manchete: ela precisa das palavras que o leitor usa para decidir se aquilo é sobre ele.
 - Fale com a pessoa: "se você está com F-1", "quem já protocolou". Isso é endereçamento, e é permitido.
 - Comece pelo que aconteceu, nunca pelo nome de um órgão praticando ato.
 - Palavra comum primeiro, sigla depois e só se ajudar. Nome oficial de norma e de processo em inglês não entra.
@@ -233,6 +234,30 @@ export type ResultadoDaCopy = {
   custoUsd: number;
 };
 
+/**
+ * O feed não tem negrito, então marcação de negrito não entra aqui.
+ *
+ * A newsletter ganhou a instrução de marcar número e prazo com dois
+ * asteriscos, e o template do e-mail converte isso em <strong>. O Instagram
+ * não converte nada: o asterisco vai impresso na arte e na legenda, e o post
+ * sai com "vale por **540 dias**".
+ *
+ * A instrução do negrito mora no prompt da redação, e não no briefing do
+ * projeto, justamente porque o briefing é compartilhado pelos dois canais.
+ * Esta limpeza é a segunda garantia: o briefing é editável pelo dono, e uma
+ * linha sobre negrito escrita lá de novo voltaria a vazar para cá.
+ */
+function semMarcacaoDeNegrito<T>(dado: T): T {
+  if (typeof dado === "string") return dado.replace(/\*\*([^*]*)\*\*/g, "$1").replace(/\*/g, "") as T;
+  if (Array.isArray(dado)) return dado.map((x) => semMarcacaoDeNegrito(x)) as T;
+  if (dado && typeof dado === "object") {
+    const saida: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(dado as Record<string, unknown>)) saida[k] = semMarcacaoDeNegrito(v);
+    return saida as T;
+  }
+  return dado;
+}
+
 export async function gerarCopyDoPost(
   pauta: PautaAvaliada,
   pacote: PacoteFactual | null,
@@ -254,7 +279,7 @@ export async function gerarCopyDoPost(
     fetcher,
   );
 
-  const copy = CopyDoPostSchema.parse(limparVicios(data));
+  const copy = CopyDoPostSchema.parse(semMarcacaoDeNegrito(limparVicios(data)));
 
   /*
    * O CTA é montado aqui, não pedido ao modelo.
@@ -325,7 +350,7 @@ ${instrucao}` },
     fetcher,
   );
 
-  const corrigida = CopyDoPostSchema.parse(limparVicios(data));
+  const corrigida = CopyDoPostSchema.parse(semMarcacaoDeNegrito(limparVicios(data)));
   corrigida.cta = levaCta(posicao) ? ctaDaPosicao(posicao, marca.keyword) : "";
 
   return { copy: corrigida, tokens: usage.totalTokens, custoUsd: usage.estimatedCostUsd };

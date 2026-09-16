@@ -164,8 +164,9 @@ COMO ESCREVER CADA SLIDE:
 
 O SLIDE 1 É O ÚNICO QUE APARECE NO FEED de quem não deslizou. Ele precisa funcionar sozinho: humano, claro, interessante, compreensível para quem não é advogado, e ancorado no pacote. Não é teaser: ele já diz do que se trata, e o "headline" abaixo é o texto dele.
 
-VOZ DE REDE SOCIAL: aqui é feed, não é e-mail nem jornal.
-- Frase curta. Uma ideia por linha. Se der para cortar uma palavra, corte.
+VOZ DE REDE SOCIAL (vale para TODO o texto, manchete incluída; onde a manchete pedir o contrário, está dito abaixo):
+aqui é feed, não é e-mail nem jornal.
+- Frase curta. Uma ideia por linha. Se der para cortar uma palavra, corte. NÃO aplique isso à manchete: ela precisa das palavras que o leitor usa para decidir se aquilo é sobre ele.
 - Fale com a pessoa: "se você está com F-1", "quem já protocolou". Isso é endereçamento, e é permitido.
 - Comece pelo que aconteceu, nunca pelo nome de um órgão praticando ato.
 - Palavra comum primeiro, sigla depois e só se ajudar. Nome oficial de norma e de processo em inglês não entra.
@@ -254,6 +255,30 @@ export function ajustarSlides(slides: SlideDeTexto[], papeis: PapelDeSlide[]): S
   return slides.slice(0, papeisDoModelo(papeis).length);
 }
 
+/**
+ * O feed não tem negrito, então marcação de negrito não entra aqui.
+ *
+ * A newsletter ganhou a instrução de marcar número e prazo com dois
+ * asteriscos, e o template do e-mail converte isso em <strong>. O Instagram
+ * não converte nada: o asterisco vai impresso na arte e na legenda, e o post
+ * sai com "vale por **540 dias**".
+ *
+ * A instrução do negrito mora no prompt da redação, e não no briefing do
+ * projeto, justamente porque o briefing é compartilhado pelos dois canais.
+ * Esta limpeza é a segunda garantia: o briefing é editável pelo dono, e uma
+ * linha sobre negrito escrita lá de novo voltaria a vazar para cá.
+ */
+function semMarcacaoDeNegrito<T>(dado: T): T {
+  if (typeof dado === "string") return dado.replace(/\*\*([^*]*)\*\*/g, "$1").replace(/\*/g, "") as T;
+  if (Array.isArray(dado)) return dado.map((x) => semMarcacaoDeNegrito(x)) as T;
+  if (dado && typeof dado === "object") {
+    const saida: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(dado as Record<string, unknown>)) saida[k] = semMarcacaoDeNegrito(v);
+    return saida as T;
+  }
+  return dado;
+}
+
 export async function gerarCopyDoCarrossel(
   pauta: PautaAvaliada,
   pacote: PacoteFactual | null,
@@ -277,7 +302,7 @@ export async function gerarCopyDoCarrossel(
     fetcher,
   );
 
-  const copy = CopyDoCarrosselSchema.parse(limparVicios(data));
+  const copy = CopyDoCarrosselSchema.parse(semMarcacaoDeNegrito(limparVicios(data)));
   copy.slides = ajustarSlides(copy.slides, papeis);
   encurtarLegenda(copy);
 
@@ -348,7 +373,7 @@ ${instrucao}` },
     fetcher,
   );
 
-  const corrigida = CopyDoCarrosselSchema.parse(limparVicios(data));
+  const corrigida = CopyDoCarrosselSchema.parse(semMarcacaoDeNegrito(limparVicios(data)));
   corrigida.slides = ajustarSlides(corrigida.slides, papeis);
   encurtarLegenda(corrigida);
   corrigida.cta = comCta ? ctaDaPosicao(posicao, marca.keyword) : "";

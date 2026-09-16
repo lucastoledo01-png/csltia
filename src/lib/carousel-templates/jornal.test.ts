@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SLIDE_VARIANTS } from "./variants";
+import { BASE_CSS } from "./base-css";
 import { DEFAULT_TOKENS } from "./tokens";
 import type { InstagramSlide, VariantContext } from "./types";
 
@@ -197,5 +198,45 @@ describe("a vice-campeã do resolvedor vira a bolha", () => {
     // Sem este caso, os dois testes acima passariam com a bolha desligada para
     // sempre, que é o jeito mais fácil de nunca repetir foto.
     expect(capa.slide.inset_image_url).toBe("https://upload.wikimedia.org/bolha.jpg");
+  });
+});
+
+describe("a capa sem foto, na identidade nova", () => {
+  const capa = SLIDE_VARIANTS.cover.noticia_sem_foto;
+
+  it("veste a mesma marca e o mesmo chapéu da peça com foto", () => {
+    const html = capa.render(slide({ title: "Prazo novo", eyebrow: "PROCESSO" }), ctx(1)).body;
+
+    expect(html).toContain("n-fundo");
+    expect(html).toContain("j-marca");
+    expect(html).toContain("j-chapeu");
+    // O creme, a serifa e o acento laranja eram da vertical anterior.
+    expect(html).not.toContain("e-wrap");
+    expect(html).not.toContain("n-editoria");
+  });
+
+  it("continua medindo o tipo e continua sem quebrar código no hífen", () => {
+    const html = capa.render(
+      slide({ title: "O I-765 passa a valer por 540 dias para quem pediu a troca" }),
+      ctx(1),
+    ).body;
+
+    expect(html).toContain('data-ajuste="encolher"');
+    expect(html).toContain("n-junto");
+  });
+
+  /*
+   * O caso que esta asserção guarda apareceu na primeira renderização: a peça
+   * saiu com a manchete em 44px, o mínimo, numa faixa de 871px quase vazia.
+   *
+   * A causa é do SCRIPT_DE_AJUSTE: ele mede a altura da caixa ANTES de aplicar
+   * o data-max. Com flex-basis auto, essa medida é a altura do CONTEÚDO no
+   * corpo herdado do body, umas duas linhas de 16px, e o script conclui que só
+   * cabem 34px. Com flex-basis em porcentagem a caixa tem altura definida
+   * antes de qualquer fonte ser aplicada.
+   */
+  it("a caixa da manchete tem altura que não depende da fonte", () => {
+    expect(BASE_CSS).toMatch(/\.n-manchete\{flex:0 0 \d+%/);
+    expect(BASE_CSS).toMatch(/\.n-manchete\{[^}]*font-size:150px/);
   });
 });

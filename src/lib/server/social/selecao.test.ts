@@ -29,6 +29,7 @@ function pauta(entrada: {
   url?: string;
   texto?: string;
   storyId?: string;
+  vetor?: number[] | null;
 }): PautaAvaliada {
   n += 1;
   return {
@@ -67,7 +68,7 @@ function pauta(entrada: {
     motivoDaAprovacao: "APPROVED_US_OPPORTUNITY" as never,
     veredito: { repetida: false } as never,
     pontuacao: { total: entrada.nota, partes: {}, explicacao: "" } as never,
-    vetor: null,
+    vetor: entrada.vetor ?? null,
   } as unknown as PautaAvaliada;
 }
 
@@ -280,5 +281,66 @@ describe("teste de diversidade", () => {
 
     const r = comporFeedSocial(pool, CONFIG);
     expect(feedMonotematico(r).monotematico).toBe(false);
+  });
+});
+
+describe("o mesmo acontecimento, escrito de outro jeito", () => {
+  /*
+   * O feed saiu com dois posts sobre a mesma liminar em 16/09/2026, com
+   * manchetes quase iguais. O teto por acontecimento existia e não pegou: ele
+   * compara igualdade EXATA de ator, lugar e termo, e dois escritórios
+   * cobrindo a mesma decisão escrevem palavras diferentes.
+   */
+  function vetorDistante(semelhanca: number): number[] {
+    const angulo = Math.acos(semelhanca);
+    return [Math.cos(angulo), Math.sin(angulo)];
+  }
+
+  it("agrupa por semelhança quando a impressão não coincide", () => {
+    const r = comporFeedSocial(
+      [
+        pauta({ titulo: "Corte adia regra de prazo fixo", nota: 90, atores: ["Corte"], vetor: [1, 0] }),
+        pauta({
+          titulo: "Juiz posterga norma que encerrava permanência aberta",
+          nota: 80,
+          atores: ["Juiz federal"],
+          vetor: vetorDistante(0.85),
+        }),
+      ],
+      carregarConfigSocial({}),
+    );
+
+    expect(r.escolhidas).toHaveLength(1);
+    expect(r.cortadas[0].motivo).toBe("DUPLICATE_EVENT");
+    expect(r.cortadas[0].detalhe).toContain("semelhança");
+  });
+
+  it("fatos distintos continuam entrando", () => {
+    const r = comporFeedSocial(
+      [
+        pauta({ titulo: "Corte adia regra de prazo fixo", nota: 90, atores: ["Corte"], vetor: [1, 0] }),
+        pauta({
+          titulo: "Salário mínimo da Califórnia sobe em 2027",
+          nota: 80,
+          atores: ["Califórnia"],
+          vetor: vetorDistante(0.5),
+        }),
+      ],
+      carregarConfigSocial({}),
+    );
+
+    expect(r.escolhidas).toHaveLength(2);
+  });
+
+  it("sem vetor, a composição é a de antes", () => {
+    const r = comporFeedSocial(
+      [
+        pauta({ titulo: "Corte adia regra de prazo fixo", nota: 90, atores: ["Corte"] }),
+        pauta({ titulo: "Juiz posterga norma de permanência", nota: 80, atores: ["Juiz federal"] }),
+      ],
+      carregarConfigSocial({}),
+    );
+
+    expect(r.escolhidas).toHaveLength(2);
   });
 });

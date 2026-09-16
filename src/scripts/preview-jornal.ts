@@ -67,6 +67,16 @@ const peças: Array<{ nome: string; slide: Partial<InstagramSlide>; tipo: string
     slide: { eyebrow: "Boletim de vistos", title: "Boletim de outubro avança para EB-2", bg_image_url: FOTO },
   },
   {
+    // A capa sem foto, que é a peça tipográfica na identidade nova.
+    nome: "4b-capa-sem-foto",
+    tipo: "cover",
+    variante: "noticia_sem_foto",
+    slide: {
+      eyebrow: "Processo",
+      title: "O I-765 passa a valer por 540 dias para quem já pediu a troca de status",
+    },
+  },
+  {
     // O miolo com CORPO, que é o que a referência mostra: a primeira frase
     // afirma, o resto explica, no mesmo corpo de tipo.
     nome: "5-miolo",
