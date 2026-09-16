@@ -243,8 +243,21 @@ export async function resolveVisualAsset(
     }
   }
 
-  // 4. Fonte oficial e press kit, quando o Commons não resolveu.
-  if (novos.length === 0 && entidade.tipo !== "conceptual") {
+  /*
+   * 4. Fonte oficial e press kit.
+   *
+   * A condição era `novos.length === 0`, e ela é a causa provável da foto
+   * genérica que o dono apontou em 16/09/2026. Bastava o Commons devolver UM
+   * candidato convertido, ainda que ele fosse recusado depois na pontuação por
+   * relevância, resolução ou datação, para o site oficial nunca ser consultado.
+   * O resolvedor terminava com um único candidato ruim na mão e devolvia
+   * NO_VALID_IMAGE, como se não houvesse foto no mundo.
+   *
+   * Agora as duas fontes são SOMADAS antes de pontuar: quem escolhe é a nota,
+   * e não a ordem de chegada. O banco conceitual continua atrás de todas, e
+   * continua sendo o último recurso, porque ele é metáfora e não fato.
+   */
+  if (entidade.tipo !== "conceptual") {
     const oficial = await buscarEmFonteOficial(entidade, { env, fetcher: opcoes.fetcher, comPressKit: true });
     fontesConsultadas.push({
       fonte: "fonte_oficial",

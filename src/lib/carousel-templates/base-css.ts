@@ -213,7 +213,7 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
    declarado igual ao data-max e a segunda garantia, para o caso de alguem
    trocar a base de novo. */
 .n-manchete{flex:0 0 78%;overflow:hidden;display:block;
-  font-family:var(--s-font-display);font-size:150px;font-weight:800;line-height:1.07;
+  font-family:var(--s-font-display);font-size:104px;font-weight:800;line-height:1.07;
   letter-spacing:-0.005em;text-transform:uppercase;color:#fff;
   display:flex;flex-direction:column;justify-content:flex-end;}
 .n-manchete > span{display:block;}
@@ -407,12 +407,17 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
    clientHeight e a propria altura do conteudo: a condicao nunca e verdadeira,
    o script nunca encolhe nada, e a manchete longa sobe por cima da bolha.
    Foi o que aconteceu na primeira renderizacao. */
-.j-texto{position:absolute;left:9%;right:9%;top:58%;bottom:9.5%;z-index:4;
+/* A faixa comeca em 64 por cento, e nao em 58, e o corpo do tipo caiu de 74
+   para 54. As duas medidas foram REMEDIDAS nas capas de referencia em
+   16/09/2026, depois que o dono apontou que o nosso texto estava grande demais:
+   la a manchete de tres linhas ocupa cerca de 12 por cento da altura da peca, e
+   aqui ocupava mais de 20. A foto e que manda na peca; o texto e a base dela. */
+.j-texto{position:absolute;left:9%;right:9%;top:64%;bottom:8.5%;z-index:4;
   display:flex;flex-direction:column;justify-content:flex-end;}
 
-.j-chapeu{flex:0 0 auto;display:block;font-family:var(--s-font-display);font-size:26px;
+.j-chapeu{flex:0 0 auto;display:block;font-family:var(--s-font-display);font-size:22px;
   font-weight:700;letter-spacing:0.19em;text-transform:uppercase;color:#fff;
-  margin-bottom:22px;}
+  margin-bottom:16px;}
 
 /* Caixa alta, peso 800, entrelinha curta. O tamanho e um teto: quem decide e o
    navegador, pelo mesmo script que os layouts desenhados usam, porque manchete
@@ -422,8 +427,8 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
    topo dela: manchete curta ficava com um buraco no meio. Com max-height os
    dois se apoiam na base, encostados, e o script de ajuste continua tendo uma
    caixa definida para medir, porque a faixa tem topo e base fixos. */
-.j-manchete{flex:0 0 auto;max-height:78%;overflow:hidden;display:block;
-  font-family:var(--s-font-display);font-size:74px;font-weight:800;line-height:1.1;
+.j-manchete{flex:0 0 auto;max-height:82%;overflow:hidden;display:block;
+  font-family:var(--s-font-display);font-size:54px;font-weight:800;line-height:1.1;
   letter-spacing:-0.005em;text-transform:uppercase;color:#fff;}
 .j-manchete > span{display:block;}
 /* Bullet do miolo: uma linha por item, dentro do MESMO bloco que o ajuste
@@ -443,8 +448,8 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
    um terco de vazio embaixo, que le como peca que nao terminou de carregar.
    Na base, ele segue a mesma regra das outras pecas do carrossel: o texto mora
    embaixo, e o que sobra em cima e respiro sob a marca. */
-.j-arrasta{display:block;margin-top:26px;font-family:var(--s-font-mono);
-  font-size:22px;font-weight:600;letter-spacing:0.04em;color:rgba(255,255,255,0.72);}
+.j-arrasta{display:block;margin-top:20px;font-family:var(--s-font-mono);
+  font-size:19px;font-weight:600;letter-spacing:0.04em;color:rgba(255,255,255,0.72);}
 
 .j-cta{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;
   justify-content:flex-end;padding:0 9% 11% 9%;background:#0A3161;}

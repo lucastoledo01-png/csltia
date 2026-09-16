@@ -377,7 +377,7 @@ describe("a capa de texto é decisão, não fallback quebrado", () => {
      */
     const h = html(LONGA);
     expect(h).toContain('data-ajuste="encolher"');
-    expect(h).toContain('data-max="150"');
+    expect(h).toContain('data-max="104"');
     expect(h).not.toMatch(/class="n-manchete[^"]*"[^>]*style="[^"]*font-size/);
   });
 

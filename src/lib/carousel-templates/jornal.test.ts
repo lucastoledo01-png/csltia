@@ -60,8 +60,16 @@ describe("capa de jornal", () => {
 
     expect(html).toContain('class="j-manchete lay-texto"');
     expect(html).toContain('data-ajuste="encolher"');
-    expect(html).toContain('data-max="74"');
-    expect(html).toContain('data-min="40"');
+    /*
+     * 54 e 36, e não 74 e 40, desde 16/09/2026.
+     *
+     * As medidas foram remedidas nas capas de referência depois que o dono
+     * apontou que o nosso texto estava grande demais: lá a manchete de três
+     * linhas ocupa cerca de 12% da altura da peça, e aqui ocupava mais de 20%.
+     * A foto é que manda; o texto é a base dela.
+     */
+    expect(html).toContain('data-max="54"');
+    expect(html).toContain('data-min="36"');
   });
 
   it("a bolha só aparece quando existe uma segunda imagem", () => {
@@ -237,6 +245,6 @@ describe("a capa sem foto, na identidade nova", () => {
    */
   it("a caixa da manchete tem altura que não depende da fonte", () => {
     expect(BASE_CSS).toMatch(/\.n-manchete\{flex:0 0 \d+%/);
-    expect(BASE_CSS).toMatch(/\.n-manchete\{[^}]*font-size:150px/);
+    expect(BASE_CSS).toMatch(/\.n-manchete\{[^}]*font-size:104px/);
   });
 });

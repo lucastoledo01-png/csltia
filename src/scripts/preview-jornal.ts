@@ -17,8 +17,22 @@ import type { InstagramSlide } from "@/lib/carousel-templates/types";
 const SAIDA = "/private/tmp/claude-501/-Users-lucastoledo-Applications-AI-Projects-Claude/381cd9c6-282d-49ea-b3b1-f4e1c8385248/scratchpad/jornal";
 fs.mkdirSync(SAIDA, { recursive: true });
 
-const FOTO = "https://images.pexels.com/photos/8828687/pexels-photo-8828687.jpeg?auto=compress&cs=tinysrgb&w=1600";
-const BOLHA = "https://images.pexels.com/photos/5668473/pexels-photo-5668473.jpeg?auto=compress&cs=tinysrgb&w=900";
+/*
+ * As fotos do preview são de VERDADE e são DA PAUTA, e isso não é capricho.
+ *
+ * Elas eram duas fotos genéricas de banco de imagem, uma delas um céu
+ * estrelado, embaixo de uma manchete sobre uma decisão judicial em Boston. O
+ * dono olhou a peça e apontou o óbvio: nunca pode ter imagem genérica. Um
+ * preview com foto errada ensina a olhar a tipografia e a ignorar o que mais
+ * importa na peça, que é se a foto é daquilo.
+ *
+ * As duas saem do Wikimedia Commons, que é a primeira fonte do resolvedor: o
+ * prédio onde a decisão foi tomada, e o campus de que a notícia fala.
+ */
+const FOTO =
+  "https://upload.wikimedia.org/wikipedia/commons/4/46/John_Joseph_Moakley_United_States_Courthouse_September_2024.jpg";
+const BOLHA =
+  "https://upload.wikimedia.org/wikipedia/commons/c/c3/Relaxing_at_Harvard_University.JPG";
 
 const peças: Array<{ nome: string; slide: Partial<InstagramSlide>; tipo: string; variante: string }> = [
   {

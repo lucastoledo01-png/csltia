@@ -185,7 +185,7 @@ const coverNoticiaSemFoto: SlideVariant = {
 <img class="j-marca" src="${esc(MARCA.logoEscuro)}" alt="" />
 <div class="n-texto">
   ${editoria ? `<span class="j-chapeu">${esc(editoria)}</span>` : ""}
-  <div class="n-manchete lay-texto" data-ajuste="encolher" data-min="44" data-max="150"><span>${manterCodigosJuntos(esc(titulo))}</span></div>
+  <div class="n-manchete lay-texto" data-ajuste="encolher" data-min="40" data-max="104"><span>${manterCodigosJuntos(esc(titulo))}</span></div>
   ${ctx.total > 1 && ctx.slideIndex === 1 ? `<span class="j-arrasta">Arrasta que eu te explico →</span>` : ""}
 </div>`,
     };
@@ -359,7 +359,7 @@ ${foto ? `<div class="j-foto">${photo(foto)}</div>` : ""}
 ${opcoes.comBolha && bolha ? `<div class="j-bolha"><img src="${esc(bolha)}" alt="" /></div>` : ""}
 <div class="j-texto">
   ${chapeu ? `<span class="j-chapeu">${esc(chapeu)}</span>` : ""}
-  <div class="j-manchete lay-texto" data-ajuste="encolher" data-max="${temTexto ? 60 : 74}" data-min="${temTexto ? 30 : 40}">
+  <div class="j-manchete lay-texto" data-ajuste="encolher" data-max="${temTexto ? 44 : 54}" data-min="${temTexto ? 26 : 36}">
     <span>${titulo}${corpo ? ` ${esc(corpo)}` : ""}${itens.map((b) => `<i>${esc(b)}</i>`).join("")}</span>
   </div>
   ${/*

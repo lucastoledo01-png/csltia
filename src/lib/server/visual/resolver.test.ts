@@ -90,6 +90,30 @@ describe("resolveVisualAsset", () => {
     expect(r.asset?.sourcePageUrl).toContain("commons.wikimedia.org");
   });
 
+  /*
+   * A busca não para na primeira fonte que devolve QUALQUER coisa.
+   *
+   * A condição era `novos.length === 0` antes de consultar o site oficial.
+   * Bastava o Commons devolver um candidato convertido, ainda que ele fosse
+   * recusado depois na pontuação, para a fonte oficial nunca ser consultada: o
+   * resolvedor terminava com um candidato ruim na mão e devolvia
+   * NO_VALID_IMAGE, como se não houvesse foto no mundo. Foi o que produziu, em
+   * 16/09/2026, uma leva inteira de posts sem foto.
+   */
+  it("o Commons devolver algo ruim não impede a fonte oficial de ser consultada", async () => {
+    const r = await resolveVisualAsset(pautaDePessoa, {
+      // Foto pequena demais: converte, entra em `novos`, e cai na pontuação.
+      fetcher: fetcherFalso({ p18: "Retrato.jpg", largura: 300 }),
+      somenteLeitura: true,
+    });
+
+    const commons = r.fontesConsultadas.find((f) => f.fonte === "wikimedia_commons");
+    expect(commons?.encontrados).toBeGreaterThan(0);
+
+    // A prova: a fonte oficial APARECE na lista de consultadas.
+    expect(r.fontesConsultadas.map((f) => f.fonte)).toContain("fonte_oficial");
+  });
+
   it("nunca troca pessoa por foto conceitual: sem foto válida, sai sem imagem", async () => {
     const r = await resolveVisualAsset(pautaDePessoa, {
       // Licença que a allowlist recusa.
