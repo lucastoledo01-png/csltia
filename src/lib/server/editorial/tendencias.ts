@@ -33,28 +33,67 @@ export type FonteDeTendencia =
   | "google_trends_us"
   | "google_trends_br"
   | "wikipedia_us"
-  | "hacker_news";
+  | "hacker_news"
+  | "bluesky";
 
 export type TendenciaBruta = {
   termo: string;
   fonte: FonteDeTendencia;
   /** Sinal de tamanho da fonte: buscas, visualizações ou pontos. Zero quando a fonte não informa. */
   peso: number;
+  /**
+   * Uma frase que diz do que se trata, quando a fonte entrega.
+   *
+   * Existe porque termo solto é ambíguo e a triagem erra com ele. "judge" pode
+   * ser um jogador de beisebol ou uma decisão judicial, e só o contexto
+   * separa os dois. O Google Trends entrega uma manchete associada ao termo, e
+   * o Bluesky entrega uma descrição de uma linha.
+   */
+  contexto?: string;
 };
 
 const AGENTE = "usa.journal/1.0 (+https://casaloti.ia.br)";
 
+/**
+ * Desfaz as entidades HTML do título.
+ *
+ * O Google Trends devolve `what are donald trump&apos;s plans`, e esse termo
+ * ia inteiro, com o `&apos;`, virar consulta de busca. O que volta de uma
+ * busca assim não é o que se procurava.
+ */
+function decodificarEntidades(texto: string): string {
+  return texto
+    .replace(/&apos;|&#39;|&#x27;/gi, "'")
+    .replace(/&quot;|&#34;/gi, '"')
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+}
+
 /** Extrai os títulos de um RSS raso. Sem dependência: o formato é estável. */
-export function titulosDoRss(xml: string): Array<{ titulo: string; trafego: number }> {
+export function titulosDoRss(xml: string): Array<{ titulo: string; trafego: number; manchete: string }> {
   const itens = xml.match(/<item[\s\S]*?<\/item>/gi) ?? [];
 
   return itens
     .map((item) => {
       const t = item.match(/<title[^>]*>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/title>/i);
       const tr = item.match(/<ht:approx_traffic>([\s\S]*?)<\/ht:approx_traffic>/i);
+      /*
+       * A manchete que o Google já associou ao termo.
+       *
+       * É o que desfaz a ambiguidade do termo solto: "judge" sozinho pode ser
+       * um jogador de beisebol ou uma decisão de tribunal, e a triagem erra
+       * nos dois sentidos sem isso.
+       */
+      const m = item.match(
+        /<ht:news_item_title>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/ht:news_item_title>/i,
+      );
       return {
-        titulo: (t?.[1] ?? t?.[2] ?? "").trim(),
+        titulo: decodificarEntidades((t?.[1] ?? t?.[2] ?? "").trim()),
         trafego: Number((tr?.[1] ?? "").replace(/[^0-9]/g, "")) || 0,
+        manchete: decodificarEntidades((m?.[1] ?? m?.[2] ?? "").trim()),
       };
     })
     .filter((x) => x.titulo.length > 0);
@@ -108,12 +147,18 @@ export async function coletarTendencias(
   const cabecalho = { "User-Agent": AGENTE };
 
   const googleTrends = async (geo: "US" | "BR"): Promise<TendenciaBruta[]> => {
-    const r = await fetcher(`https://trends.google.com/trending/rss?geo=${geo}`, { headers: cabecalho });
+    // `hl` não é cosmético: sem ele o feed do Brasil devolve as manchetes
+    // associadas em inglês, e o contexto que serve para triar se perde.
+    const idioma = geo === "BR" ? "&hl=pt-BR" : "&hl=en-US";
+    const r = await fetcher(`https://trends.google.com/trending/rss?geo=${geo}${idioma}`, {
+      headers: cabecalho,
+    });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return titulosDoRss(await r.text()).map((x) => ({
       termo: x.titulo,
       fonte: geo === "US" ? ("google_trends_us" as const) : ("google_trends_br" as const),
       peso: x.trafego,
+      contexto: x.manchete,
     }));
   };
 
@@ -142,11 +187,47 @@ export async function coletarTendencias(
       .map((h) => ({ termo: h.title, fonte: "hacker_news" as const, peso: h.points ?? 0 }));
   };
 
+  /*
+   * O Bluesky é o substituto direto da API paga do Twitter, e entrega MAIS.
+   *
+   * Cada assunto vem com nome legível, uma descrição de uma linha, a
+   * categoria (business, politics, entertainment, sports) e o status (hot ou
+   * cooling). O Google Trends entrega o termo e o volume; aqui vem o assunto
+   * já explicado, que é o que a triagem precisa para não confundir o jogador
+   * de beisebol com a decisão do tribunal.
+   *
+   * Endpoint público, sem chave. Fica marcado como `unspecced` na API deles, o
+   * que quer dizer que pode mudar sem aviso, e é exatamente por isso que a
+   * falha dele é tratada como a de qualquer outra fonte: vira aviso.
+   */
+  const bluesky = async (): Promise<TendenciaBruta[]> => {
+    const r = await fetcher(
+      "https://public.api.bsky.app/xrpc/app.bsky.unspecced.getTrends?limit=15",
+      { headers: cabecalho },
+    );
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const dados = (await r.json()) as {
+      trends?: Array<{ displayName?: string; description?: string; postCount?: number; category?: string }>;
+    };
+    return (dados.trends ?? [])
+      .filter((t) => (t.displayName ?? "").trim().length > 0)
+      // Esporte e entretenimento já saem aqui: o Bluesky classifica sozinho, e
+      // gastar uma linha da triagem com o que ele já nomeou seria desperdício.
+      .filter((t) => t.category !== "sports" && t.category !== "entertainment")
+      .map((t) => ({
+        termo: (t.displayName ?? "").trim(),
+        fonte: "bluesky" as const,
+        peso: t.postCount ?? 0,
+        contexto: [t.description, t.category].filter(Boolean).join(" | "),
+      }));
+  };
+
   const partes = await Promise.all([
     tentar("google_trends_us", () => googleTrends("US"), avisos),
     tentar("google_trends_br", () => googleTrends("BR"), avisos),
     tentar("wikipedia_us", wikipedia, avisos),
     tentar("hacker_news", hackerNews, avisos),
+    tentar("bluesky", bluesky, avisos),
   ]);
 
   return { tendencias: partes.flat().filter((x): x is TendenciaBruta => x !== null), avisos };
@@ -223,7 +304,7 @@ export async function triarTendencias(
   const config = getAIProviderConfig(env);
   const lista = brutas
     .slice(0, 40)
-    .map((t) => `- ${t.termo} (${t.fonte})`)
+    .map((t) => `- ${t.termo} (${t.fonte})${t.contexto ? ` :: ${t.contexto}` : ""}`)
     .join("\n");
 
   try {

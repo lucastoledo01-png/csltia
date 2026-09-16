@@ -7,6 +7,9 @@ describe("a fonte de busca", () => {
 
     expect(f.url).toContain("news.google.com/rss/search");
     expect(f.url).toContain("Black%20Friday%20deals");
+    // O coletor corta em 24h o que vem do Google News: o operador faz o
+    // próprio Google devolver só o que sobreviveria à janela.
+    expect(f.url).toContain("when%3A1d");
     expect(f.url).toContain("hl=en-US");
     expect(f.type).toBe("rss");
   });

@@ -42,11 +42,22 @@ export function fonteDeBusca(
   const parametros =
     idioma === "en" ? "hl=en-US&gl=US&ceid=US:en" : "hl=pt-BR&gl=BR&ceid=BR:pt-419";
 
+  /*
+   * `when:1d` no fim da consulta, e não é economia de banda.
+   *
+   * O coletor já corta em 24h tudo que vem de news.google.com, então sem o
+   * operador a busca baixa cem itens para o filtro descartar noventa. Com ele,
+   * o próprio Google devolve só o que é do dia, e o que chega já é o que vale.
+   * Medido: uma busca sem filtro devolveu 100 itens, com filtro devolveu 48, e
+   * os 48 eram os únicos que sobreviveriam à janela.
+   */
+  const comJanela = `${consulta} when:1d`;
+
   return {
     id: `busca-${origem}-${identificador}`,
     name: `Busca ${origem === "calendario" ? "de calendário" : "de tendência"}: ${consulta}`,
     type: "rss",
-    url: `https://news.google.com/rss/search?q=${encodeURIComponent(consulta)}&${parametros}`,
+    url: `https://news.google.com/rss/search?q=${encodeURIComponent(comJanela)}&${parametros}`,
     enabled: true,
     priority: 2,
     category: idioma === "en" ? "us_media" : "br_media",

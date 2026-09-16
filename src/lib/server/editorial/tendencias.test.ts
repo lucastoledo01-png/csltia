@@ -8,9 +8,9 @@ import {
 } from "./tendencias";
 
 const RSS = `<?xml version="1.0"?><rss><channel>
-<item><title>pete hegseth pentagon speech</title><ht:approx_traffic>500+</ht:approx_traffic></item>
+<item><title>pete hegseth pentagon speech</title><ht:approx_traffic>500+</ht:approx_traffic><ht:news_item_title>Hegseth fala no Pentagono</ht:news_item_title></item>
 <item><title><![CDATA[barca game]]></title><ht:approx_traffic>20000+</ht:approx_traffic></item>
-<item><title>aaron judge</title></item>
+<item><title>what are donald trump&apos;s plans</title></item>
 </channel></rss>`;
 
 function respostas(mapa: Record<string, { status?: number; corpo: string }>) {
@@ -29,9 +29,20 @@ describe("leitura das fontes", () => {
   it("lê título e tráfego do RSS, com e sem CDATA", () => {
     const itens = titulosDoRss(RSS);
     expect(itens).toHaveLength(3);
-    expect(itens[1]).toEqual({ titulo: "barca game", trafego: 20000 });
+    expect(itens[1]).toEqual({ titulo: "barca game", trafego: 20000, manchete: "" });
     // Item sem tráfego declarado vale zero, e não quebra.
-    expect(itens[2]).toEqual({ titulo: "aaron judge", trafego: 0 });
+    /*
+     * Entidade HTML desfeita. O Google devolve `&apos;` no título, e esse
+     * termo ia inteiro virar consulta de busca: o que volta de uma busca
+     * assim não é o que se procurava.
+     */
+    expect(itens[2]).toEqual({ titulo: "what are donald trump's plans", trafego: 0, manchete: "" });
+
+    /*
+     * A manchete associada é o que desfaz a ambiguidade do termo solto:
+     * "judge" pode ser jogador de beisebol ou decisão de tribunal.
+     */
+    expect(itens[0].manchete).toBe("Hegseth fala no Pentagono");
   });
 
   it("transforma nome de artigo da Wikipédia em termo legível", () => {
@@ -55,6 +66,18 @@ describe("coleta", () => {
 
   const hn = JSON.stringify({ hits: [{ title: "Show HN: um compilador", points: 300 }] });
 
+  const bsky = JSON.stringify({
+    trends: [
+      {
+        displayName: "Federal Reserve raises interest rates",
+        description: "Fed sobe juros pela primeira vez em anos",
+        postCount: 1078,
+        category: "business",
+      },
+      { displayName: "um jogo qualquer", description: "final do campeonato", postCount: 99, category: "sports" },
+    ],
+  });
+
   /**
    * Main_Page e Special:Search lideram TODO dia, com milhões de acessos, e não
    * dizem nada sobre o mundo. Sem este corte eles ocupariam duas das vagas de
@@ -67,6 +90,7 @@ describe("coleta", () => {
         "trends.google.com": { corpo: RSS },
         "wikimedia.org": { corpo: paginas },
         "hn.algolia.com": { corpo: hn },
+        "bsky.app": { corpo: bsky },
       }),
     });
 
@@ -81,13 +105,34 @@ describe("coleta", () => {
         "trends.google.com": { corpo: RSS },
         "wikimedia.org": { corpo: paginas },
         "hn.algolia.com": { corpo: hn },
+        "bsky.app": { corpo: bsky },
       }),
     });
 
     expect(avisos).toEqual([]);
     expect(new Set(tendencias.map((t) => t.fonte))).toEqual(
-      new Set(["google_trends_us", "google_trends_br", "wikipedia_us", "hacker_news"]),
+      new Set(["google_trends_us", "google_trends_br", "wikipedia_us", "hacker_news", "bluesky"]),
     );
+  });
+
+  /**
+   * O Bluesky classifica sozinho, e gastar uma linha da triagem com o que ele
+   * já nomeou como esporte seria desperdício de contexto e de dinheiro.
+   */
+  it("descarta esporte e entretenimento do Bluesky na origem", async () => {
+    const { tendencias } = await coletarTendencias({
+      ontem: "2026-09-15",
+      fetcher: respostas({
+        "trends.google.com": { corpo: RSS },
+        "wikimedia.org": { corpo: paginas },
+        "hn.algolia.com": { corpo: hn },
+        "bsky.app": { corpo: bsky },
+      }),
+    });
+
+    const doBsky = tendencias.filter((t) => t.fonte === "bluesky");
+    expect(doBsky.map((t) => t.termo)).toEqual(["Federal Reserve raises interest rates"]);
+    expect(doBsky[0].contexto).toContain("business");
   });
 
   /**
@@ -102,6 +147,7 @@ describe("coleta", () => {
         "trends.google.com": { status: 503, corpo: "" },
         "wikimedia.org": { corpo: paginas },
         "hn.algolia.com": { corpo: hn },
+        "bsky.app": { corpo: bsky },
       }),
     });
 
@@ -112,7 +158,11 @@ describe("coleta", () => {
 
   it("sem data de referência, a Wikipédia é pulada com aviso", async () => {
     const { avisos } = await coletarTendencias({
-      fetcher: respostas({ "trends.google.com": { corpo: RSS }, "hn.algolia.com": { corpo: "{}" } }),
+      fetcher: respostas({
+        "trends.google.com": { corpo: RSS },
+        "hn.algolia.com": { corpo: "{}" },
+        "bsky.app": { corpo: "{}" },
+      }),
     });
 
     expect(avisos.join(" ")).toContain("sem data de referência");
