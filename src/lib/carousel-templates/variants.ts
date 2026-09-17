@@ -1,4 +1,4 @@
-import { esc, manterCodigosJuntos, pad2, safeImageUrl } from "./util";
+import { esc, manterCodigosJuntos, pad2, protegerQuebras, safeImageUrl } from "./util";
 import { overlayBrand } from "./shell";
 import { MARCA } from "@/lib/marca";
 import type {
@@ -184,7 +184,7 @@ const coverNoticiaSemFoto: SlideVariant = {
 <img class="j-marca" src="${esc(MARCA.logoEscuro)}" alt="" />
 <div class="n-texto">
   ${editoria ? `<span class="j-chapeu">${esc(editoria)}</span>` : ""}
-  <div class="n-manchete lay-texto" data-ajuste="encolher" data-min="40" data-max="104"><span>${manterCodigosJuntos(esc(titulo))}</span></div>
+  <div class="n-manchete lay-texto" data-ajuste="encolher" data-min="40" data-max="104"><span>${protegerQuebras(esc(titulo))}</span></div>
 </div>`,
     };
   },
@@ -336,7 +336,7 @@ function jornal(
   const corpo = (slide.body ?? "").trim();
   const itens = (slide.bullet_points ?? []).filter((b) => (b ?? "").trim());
   const temTexto = Boolean(corpo || itens.length);
-  const titulo = esc(slide.title) + (corpo && !/[.!?:"»]$/.test(slide.title.trim()) ? "." : "");
+  const titulo = protegerQuebras(esc(slide.title)) + (corpo && !/[.!?:"»]$/.test(slide.title.trim()) ? "." : "");
 
   /*
    * Com corpo, o teto do tipo cai, e o piso também.

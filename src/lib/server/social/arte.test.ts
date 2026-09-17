@@ -367,19 +367,38 @@ describe("a capa de texto é decisão, não fallback quebrado", () => {
     }
   });
 
-  it("o que não é código fica em paz", () => {
+  it("texto sem hífen fica em paz", () => {
     /*
-     * Intervalo de anos e palavra hifenizada continuam quebráveis. A conferência
-     * é no `corpo`: a REGRA `.n-junto` está na folha de estilo de todo slide, e
-     * procurar a classe no documento inteiro casaria sempre.
+     * A conferência é no `corpo`: a REGRA `.n-junto` está na folha de estilo de
+     * todo slide, e procurar a classe no documento inteiro casaria sempre.
      */
     for (const manchete of [
-      "Regra vale de 2026-2027 segundo o governo",
-      "Programa pós-graduação perde vagas no Texas",
+      "Regra vale de 2026 a 2027 segundo o governo",
       "Taxa sobe de 410 para 520 dólares",
+      "Programa de pos graduacao perde vagas no Texas",
     ]) {
       expect(corpo(html(manchete)), manchete).not.toContain("n-junto");
     }
+  });
+
+  /**
+   * Palavra hifenizada PASSOU a ser protegida em 17/09/2026.
+   *
+   * Antes ela era quebrável de propósito, e o post publicado no dia anterior
+   * mostrou o custo: saiu IMPEDI- no fim de uma linha e LA no começo da outra.
+   * Numa manchete em caixa alta, quem lê de relance vê palavra cortada.
+   *
+   * Intervalo de anos com hífen continua quebrável, porque ali a quebra não
+   * engana ninguém: 2026- e 2027 são dois números, não meia palavra.
+   */
+  it("palavra hifenizada não se parte, e intervalo de anos ainda se parte", () => {
+    expect(corpo(html("Coalizão busca impedi-la na Justiça"))).toContain(
+      '<span class="n-junto">impedi-la</span>',
+    );
+    expect(corpo(html("Estados querem mantê-lo suspenso"))).toContain(
+      '<span class="n-junto">mantê-lo</span>',
+    );
+    expect(corpo(html("Regra vale de 2026-2027 segundo o governo"))).not.toContain("n-junto");
   });
 
   it("o corpo do tipo é medido pelo navegador, não fixado no HTML", () => {

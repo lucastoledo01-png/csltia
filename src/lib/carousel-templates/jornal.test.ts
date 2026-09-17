@@ -260,3 +260,47 @@ describe("a capa sem foto, na identidade nova", () => {
     expect(BASE_CSS).toMatch(/\.n-manchete\{[^}]*font-size:104px/);
   });
 });
+
+describe("palavra com hífen não se parte na virada da linha", () => {
+  /**
+   * O post publicado em 16/09/2026 saiu com IMPEDI- no fim de uma linha e LA
+   * no começo da outra. O navegador trata o hífen como oportunidade de quebra,
+   * e numa manchete em caixa alta quem lê de relance vê palavra cortada, não
+   * ênclise.
+   */
+  it("mantém a ênclise inteira na capa de texto", async () => {
+    const { SLIDE_VARIANTS } = await import("./variants");
+    const html = SLIDE_VARIANTS.cover.noticia_sem_foto.render(
+      slide({ title: "Coalizão busca impedi-la na Justiça" }),
+      ctx(1),
+    ).body;
+
+    expect(html).toContain('<span class="n-junto">impedi-la</span>');
+  });
+
+  it("mantém na capa com foto também", async () => {
+    const { SLIDE_VARIANTS } = await import("./variants");
+    const html = SLIDE_VARIANTS.cover.capa_jornal.render(
+      slide({ title: "Estados querem mantê-lo suspenso", bg_image_url: "https://upload.wikimedia.org/a.jpg" }),
+      ctx(1),
+    ).body;
+
+    expect(html).toContain('<span class="n-junto">mantê-lo</span>');
+  });
+
+  /**
+   * Sigla com número continua protegida pelo padrão antigo, e os dois não se
+   * atropelam: sigla exige dígito depois do hífen, palavra exige duas letras
+   * antes dele.
+   */
+  it("não atrapalha a proteção de sigla com número", async () => {
+    const { SLIDE_VARIANTS } = await import("./variants");
+    const html = SLIDE_VARIANTS.cover.noticia_sem_foto.render(
+      slide({ title: "Regra do H-1B muda para quem quer renová-lo" }),
+      ctx(1),
+    ).body;
+
+    expect(html).toContain('<span class="n-junto">H-1B</span>');
+    expect(html).toContain('<span class="n-junto">renová-lo</span>');
+  });
+});
