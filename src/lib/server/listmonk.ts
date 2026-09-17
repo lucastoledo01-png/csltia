@@ -170,6 +170,50 @@ export function createListmonkClient(env: EnvLike = process.env, fetcher: typeof
     ];
   }
 
+  /**
+   * Quem ja existe no Listmonk entra nas listas pedidas.
+   *
+   * Dois passos, os dois conferidos contra o servidor real em 17/09/2026:
+   * a busca por e-mail devolve o id, e `PUT /api/subscribers/lists` com
+   * `action: "add"` acrescenta sem tocar no que ja estava.
+   *
+   * `status: "confirmed"` porque quem preencheu o formulario do site declarou a
+   * intencao ali. Para lista de dupla confirmacao o Listmonk manda o e-mail de
+   * confirmacao mesmo assim, entao isto nao atropela opt-in de ninguem.
+   */
+  async function inscreverQuemJaExiste(
+    email: string,
+    listIds: number[],
+    authHeader: string,
+  ): Promise<{ ok: true; id: number | undefined } | { ok: false; motivo: string }> {
+    if (!config.enabled) return { ok: false, motivo: "listmonk_not_configured" };
+    if (listIds.length === 0) return { ok: false, motivo: "listmonk_sem_lista_alvo" };
+
+    // Aspas simples dobradas: o `query` do Listmonk e um fragmento SQL.
+    const alvo = email.trim().toLowerCase().replace(/'/g, "''");
+    const busca = new URL(`${config.url}/api/subscribers`);
+    busca.searchParams.set("query", `subscribers.email='${alvo}'`);
+    busca.searchParams.set("per_page", "1");
+
+    const achar = await fetcher(busca, { headers: { Authorization: authHeader } });
+    if (!achar.ok) return { ok: false, motivo: `listmonk_busca_falhou_${achar.status}` };
+
+    const corpo = (await achar.json().catch(() => ({}))) as {
+      data?: { results?: Array<{ id?: number }> };
+    };
+    const id = corpo.data?.results?.[0]?.id;
+    if (!id) return { ok: false, motivo: "listmonk_409_sem_assinante_correspondente" };
+
+    const juntar = await fetcher(`${config.url}/api/subscribers/lists`, {
+      method: "PUT",
+      headers: { Authorization: authHeader, "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [id], action: "add", target_list_ids: listIds, status: "confirmed" }),
+    });
+    if (!juntar.ok) return { ok: false, motivo: `listmonk_adicionar_lista_falhou_${juntar.status}` };
+
+    return { ok: true, id };
+  }
+
   return {
     async upsertSubscriber(lead: NewsletterLead) {
       if (!config.enabled) {
@@ -204,9 +248,33 @@ export function createListmonkClient(env: EnvLike = process.env, fetcher: typeof
             body: JSON.stringify(buildListmonkSubscriberPayload(lead, config.listIds, true)),
           });
 
-          if (response.ok || response.status === 409) {
+          if (response.ok) {
             const body = (await response.json().catch(() => ({}))) as { data?: { id?: number } };
             return { ok: true as const, id: body.data?.id };
+          }
+
+          /*
+           * 409 NAO e sucesso, e tratar como sucesso era o defeito.
+           *
+           * O Listmonk responde 409 "E-mail ja existe" e, nesse caso, NAO
+           * acrescenta o assinante as listas do payload. Medido contra o
+           * servidor real: um assinante criado na lista 1, reenviado pedindo a
+           * lista 4, recebe 409 e continua so na lista 1.
+           *
+           * Isso nao mordia enquanto o modo form governava, porque o endpoint
+           * de formulario acrescenta a lista a quem ja existe. Passou a morder
+           * no instante em que a API virou o caminho padrao, e atinge
+           * exatamente quem ja e conhecido: os assinantes atuais, quem se
+           * descadastrou e quer voltar, e quem entrou pelos ultraprompts.
+           *
+           * O conserto e fazer o que o formulario fazia: achar quem ja existe e
+           * acrescentar as listas. Sao duas chamadas a mais, e so no 409.
+           */
+          if (response.status === 409) {
+            const recuperado = await inscreverQuemJaExiste(lead.email, config.listIds, authHeader);
+            if (recuperado.ok) return recuperado;
+            lastErr = recuperado.motivo;
+            continue;
           }
 
           lastErr = await response.text().catch(() => "");

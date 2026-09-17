@@ -82,6 +82,83 @@ describe("listmonk integration", () => {
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain(`l=${encodeURIComponent(homesiteListUuid)}`);
   });
 
+  /**
+   * 409 era contado como sucesso, e nao e.
+   *
+   * O Listmonk responde 409 "E-mail ja existe" e NAO acrescenta o assinante as
+   * listas do payload. Medido contra o servidor real: criado na lista 1,
+   * reenviado pedindo a lista 4, o assinante continua so na lista 1.
+   *
+   * Nao mordia no modo form, porque o endpoint de formulario acrescenta a lista
+   * a quem ja existe. Passou a morder quando a API virou o caminho padrao, e
+   * atinge justamente quem ja e conhecido: assinante atual, quem se
+   * descadastrou e quer voltar, quem entrou pelos ultraprompts.
+   */
+  it("409 nao vira sucesso: busca quem ja existe e acrescenta as listas", async () => {
+    const chamadas: string[] = [];
+    const fetchMock = vi.fn(async (url: unknown, init?: { method?: string; body?: unknown }) => {
+      const alvo = String(url);
+      chamadas.push(`${init?.method ?? "GET"} ${alvo.split("?")[0]}`);
+
+      if (alvo.endsWith("/api/subscribers") && init?.method === "POST") {
+        return new Response(JSON.stringify({ message: "E-mail já existe." }), { status: 409 });
+      }
+      if (alvo.includes("/api/subscribers?")) {
+        return new Response(JSON.stringify({ data: { results: [{ id: 77 }] } }), { status: 200 });
+      }
+      if (alvo.endsWith("/api/subscribers/lists")) {
+        const corpo = JSON.parse(String(init?.body));
+        expect(corpo).toMatchObject({ ids: [77], action: "add", target_list_ids: [7] });
+        return new Response(JSON.stringify({ data: true }), { status: 200 });
+      }
+      return new Response("", { status: 404 });
+    });
+
+    const client = createListmonkClient(
+      {
+        LISTMONK_URL: "https://listmonk.casaloti.ia.br",
+        LISTMONK_API_TOKEN: "token-de-teste",
+        LISTMONK_DEFAULT_LIST_ID: "7",
+      },
+      fetchMock as unknown as typeof fetch,
+    );
+
+    const result = await client.upsertSubscriber({ email: "ja@existe.com", source: "newsletter" });
+
+    expect(result).toEqual({ ok: true, id: 77 });
+    expect(chamadas).toEqual([
+      "POST https://listmonk.casaloti.ia.br/api/subscribers",
+      "GET https://listmonk.casaloti.ia.br/api/subscribers",
+      "PUT https://listmonk.casaloti.ia.br/api/subscribers/lists",
+    ]);
+  });
+
+  /** Se a recuperacao falhar, isso e falha, e nao um sucesso de consolacao. */
+  it("409 com recuperacao falhando devolve ok:false", async () => {
+    const fetchMock = vi.fn(async (url: unknown, init?: { method?: string }) => {
+      const alvo = String(url);
+      if (alvo.endsWith("/api/subscribers") && init?.method === "POST") {
+        return new Response("{}", { status: 409 });
+      }
+      if (alvo.includes("/api/subscribers?")) {
+        return new Response(JSON.stringify({ data: { results: [] } }), { status: 200 });
+      }
+      return new Response("", { status: 500 });
+    });
+
+    const client = createListmonkClient(
+      {
+        LISTMONK_URL: "https://listmonk.casaloti.ia.br",
+        LISTMONK_API_TOKEN: "token-de-teste",
+        LISTMONK_DEFAULT_LIST_ID: "7",
+      },
+      fetchMock as unknown as typeof fetch,
+    );
+
+    const result = await client.upsertSubscriber({ email: "ja@existe.com", source: "newsletter" });
+    expect(result).toMatchObject({ ok: false });
+  });
+
   /** A volta deliberada ao formulario, para quem quiser o comportamento antigo. */
   it("LISTMONK_FORCE_FORM devolve a precedencia ao formulario publico", () => {
     const config = getListmonkConfig({
