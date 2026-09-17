@@ -135,7 +135,7 @@ ESTRUTURA DO JSON DE SAÍDA:
     "headline": "Primeira linha da legenda, que continua a manchete",
     "intro_summary": "Duas ou três frases dizendo o que mudou e para quem",
     "key_takeaways": ["Ponto 1", "Ponto 2", "Ponto 3"],
-    "cta_call": "👇 Comente ${marca.keyword} e receba a avaliação de perfil no Direct",
+    "cta_call": "👇 Comente ${marca.keyword} e receba no Direct o link da nossa newsletter diária sobre os Estados Unidos",
     "hashtags": ["4 a 7 hashtags desta pauta, nao do perfil"],
     "full_caption": "Legenda completa: gancho, notícia, contexto, CTA e, na última linha, as mesmas hashtags"
   }
