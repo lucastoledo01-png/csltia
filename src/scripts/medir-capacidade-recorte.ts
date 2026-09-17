@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
-import { assembleSlide } from "/Users/lucastoledo/Applications/AI Projects/Claude/csltia/src/lib/carousel-templates/assemble";
-import { DEFAULT_TOKENS } from "/Users/lucastoledo/Applications/AI Projects/Claude/csltia/src/lib/carousel-templates/tokens";
-import type { InstagramSlide } from "/Users/lucastoledo/Applications/AI Projects/Claude/csltia/src/lib/carousel-templates/types";
+import { assembleSlide } from "@/lib/carousel-templates/assemble";
+import { DEFAULT_TOKENS } from "@/lib/carousel-templates/tokens";
+import type { InstagramSlide } from "@/lib/carousel-templates/types";
 
 const FOTO = "https://upload.wikimedia.org/wikipedia/commons/8/8d/Marriner_S._Eccles_Federal_Reserve_Board_Building.jpg";
 

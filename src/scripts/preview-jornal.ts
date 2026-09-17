@@ -10,11 +10,20 @@
  */
 import { chromium } from "playwright";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { assembleSlide } from "@/lib/carousel-templates/assemble";
 import { DEFAULT_TOKENS } from "@/lib/carousel-templates/tokens";
 import type { InstagramSlide } from "@/lib/carousel-templates/types";
 
-const SAIDA = "/private/tmp/claude-501/-Users-lucastoledo-Applications-AI-Projects-Claude/381cd9c6-282d-49ea-b3b1-f4e1c8385248/scratchpad/jornal";
+/*
+ * O destino sai do ambiente, e nao do caminho de quem escreveu.
+ *
+ * Estava cravado no scratchpad de uma sessao, o que faz o script
+ * funcionar numa maquina so. `PREVIEW_SAIDA` manda quando existe, e o
+ * padrao e a pasta temporaria do proprio sistema.
+ */
+const SAIDA = path.join(process.env.PREVIEW_SAIDA || os.tmpdir(), "usa-journal", "jornal");
 fs.mkdirSync(SAIDA, { recursive: true });
 
 /*

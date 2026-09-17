@@ -256,8 +256,8 @@ describe("a peça que não cabe sai de jornal", () => {
   it("o corpo só é impresso na gramática que sabe desenhá-lo", async () => {
     const { montarCapaDoPost } = await import("@/lib/server/social/arte");
 
-    const recorte = montarCapaDoPost({ headline: "Curto.", corpo: "Uma leitura curta:", gramatica: "recorte" });
-    const jornal = montarCapaDoPost({ headline: "Curto.", corpo: "Uma leitura curta:", gramatica: "jornal" });
+    const recorte = montarCapaDoPost({ headline: "Curto.", corpo: "Uma leitura curta:", gramatica: "recorte", asset: null });
+    const jornal = montarCapaDoPost({ headline: "Curto.", corpo: "Uma leitura curta:", gramatica: "jornal", asset: null });
 
     expect(recorte.slide.body).toBe("Uma leitura curta:");
     // Na capa de jornal o parágrafo entraria na MESMA caixa da manchete, com o
