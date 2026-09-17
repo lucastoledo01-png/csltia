@@ -326,6 +326,57 @@ A bolha é o círculo com a segunda foto. Duas regras novas, pedidas pelo dono:
   segunda foto exista. O estado vem do feed, não da leva, senão duas capas com
   bolha se encostam na virada do dia.
 
+## Nenhuma imagem vai ao ar sem alguém ter olhado para ela (17/09/2026)
+
+Decidido pelo dono depois de dois posts agendados com imagem incoerente: "é uma
+automação 100%, então um erro vai para o ar". A régua de imagem passou a ter
+quatro camadas, e a quarta é de natureza diferente das outras três.
+
+**As três primeiras leem texto.** Relevância compara nome de entidade com nome
+de arquivo, temporalidade compara data, e o detector de polaridade compara
+palavra com palavra. Todas perguntam "há indício de que esteja errado?" e
+**aprovam no silêncio**.
+
+**A quarta abre a imagem.** Uma chamada de modelo recebe a foto e a manchete,
+descreve o que vê e decide. Ela pergunta "o que você vê, e isso sustenta esta
+manchete?" e **recusa no silêncio**.
+
+A inversão é o ponto. Não adianta somar barreiras que aprovam por omissão: três
+delas de olhos fechados continuam sendo zero conferência sobre o conteúdo da
+foto.
+
+**O que isso NÃO custa.** Não custa post. Nenhum guard do Instagram lê essas
+notas, e o número de posts do dia vem de `SOCIAL_POSTS_MAX_PER_DAY` com o
+evergreen preenchendo o que a notícia deixou. Recusar imagem errada troca a foto
+pela bandeira, que é peça publicável. O que cai é a fração de posts ilustrados
+pelo próprio assunto, e o bloco de foto da newsletter, que exige status
+aprovado.
+
+**O piso de confiança é 70, e é assimétrico de propósito.** Recusar imagem boa
+custa uma bandeira. Aprovar imagem errada custa um post no ar afirmando
+visualmente algo que não aconteceu, num perfil que publica sozinho. Os dois
+erros não têm o mesmo preço.
+
+**Falha de conferência é recusa, nunca passe livre.** Sem chave, com a rede fora
+ou com resposta ilegível, a saída é a bandeira. O motivo gravado separa
+"recusada porque estava errada" de "recusada porque não deu para conferir", que
+pedem providências diferentes.
+
+**Sigla de PROGRAMA não vira entidade visual; sigla de ÓRGÃO vira.** "PERM",
+"EB-2 NIW" e "I-485" nomeiam procedimento, e procedimento não se fotografa: no
+Wikidata eles encontram homônimo. "ICE", "USCIS" e "DOL" são instituições com
+fachada e acervo. A diferença está no formato, e há teste com os 27 códigos do
+catálogo de um lado e as siglas de órgão do outro.
+
+**País fora da cobertura é VETO, não desconto.** A penalidade de pontos existia
+para desempatar dois candidatos; quando o homônimo estrangeiro é o único, ela
+vira pedágio que ele paga e segue. Foi assim que a cidade de Perm ganhou por
+cinco pontos de um limiar.
+
+**Os gatilhos do banco conceitual vêm nos dois idiomas.** O casamento roda sobre
+o título da FONTE, e fonte americana escreve em inglês. E o casamento é por
+INÍCIO DE PALAVRA, não substring: "ice" casava dentro de "justice" e "police".
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

@@ -419,6 +419,17 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
                   assetDate: asset.assetDate ?? null,
                   temporalRelevanceScore: asset.temporalRelevanceScore ?? null,
                   semanticContextFit: asset.semanticContextFit ?? null,
+                  /*
+                   * O que a conferência visual VIU, e não só uma nota.
+                   *
+                   * `semanticContextFit` vale 100 quando o detector de
+                   * polaridade fica calado, e foi assim que um prédio russo
+                   * saiu com nota máxima numa pauta americana. Este campo só
+                   * existe quando alguém abriu a imagem, e guarda a descrição
+                   * para o relatório poder ser conferido sem abrir a foto de
+                   * novo.
+                   */
+                  conferenciaVisual: asset.conferenciaVisual ?? null,
                 }
               : {
                   // Sem foto não é falha registrada como falha: é a decisão de

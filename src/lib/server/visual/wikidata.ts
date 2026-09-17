@@ -185,6 +185,19 @@ const LIMIAR_DE_ACEITE = 55;
 /** Os dois países que esta publicação cobre. */
 const PAISES_DA_PUBLICACAO = ["Q30", "Q155"];
 
+/**
+ * A entidade declara um país, e ele não é nenhum dos dois que cobrimos.
+ *
+ * Só vale para quem DECLARA: `P17` ausente devolve `false` e o candidato
+ * segue na disputa, porque a ausência do campo é comum e não é evidência
+ * contra. O que este veto mata é o caso em que o Wikidata afirma, com todas as
+ * letras, que a coisa fica em outro lugar.
+ */
+export function foraDaCobertura(c: { pais: string[] }): boolean {
+  if (c.pais.length === 0) return false;
+  return !c.pais.some((q) => PAISES_DA_PUBLICACAO.includes(q));
+}
+
 type Candidato = {
   id: string;
   label: string;
@@ -357,7 +370,43 @@ export async function resolverEntidadeNoWikidata(
       };
     });
 
-    const ranqueados = candidatos
+    /*
+     * País errado é veto, não desconto.
+     *
+     * A penalidade de pontos foi desenhada para DESEMPATAR quando existem dois
+     * candidatos. Quando o homônimo estrangeiro é o único, não há empate para
+     * desfazer, e a penalidade vira um pedágio que ele paga e segue.
+     *
+     * Foi o que aconteceu em 17/09/2026 com a sigla PERM, do programa de
+     * certificação de trabalho do Departamento do Trabalho. O Wikidata devolveu
+     * a cidade de Perm, na Rússia, e a conta fechou assim:
+     *
+     *     tipo reconhecido (cidade)            +70
+     *     país declarado diferente             -40
+     *     tem imagem (P18)                     +10
+     *     tem categoria no Commons (P373)      +10
+     *     rótulo idêntico ao termo             +10
+     *                                          ---
+     *                                           60   contra limiar 55
+     *
+     * O bônus de rótulo idêntico é o detalhe perverso: é um prêmio que TODO
+     * homônimo ganha de graça, porque ser escrito igual é exatamente o que o
+     * torna homônimo. A guarda de país funcionou na força máxima e perdeu por
+     * cinco pontos.
+     *
+     * Um post sobre o Departamento do Trabalho americano foi para a fila
+     * ilustrado com a Escola Superior de Economia de Perm, com letreiro em
+     * cirílico. Por isso agora o candidato de fora sai da lista antes de
+     * pontuar, e não há soma que o traga de volta.
+     *
+     * Entidade SEM P17 continua na disputa: boa parte das organizações não
+     * declara país no Wikidata, e exigir o campo recusaria material legítimo.
+     * Quem filtra esse caso é a conferência visual, adiante no resolvedor.
+     */
+    const daCobertura = candidatos.filter((c) => !foraDaCobertura(c));
+    const vetadosPorPais = candidatos.length - daCobertura.length;
+
+    const ranqueados = daCobertura
       .map((c) => ({ c, nota: pontuarCandidato(c, nome, paisEsperado) }))
       .sort((a, b) => b.nota - a.nota);
 
@@ -370,7 +419,8 @@ export async function resolverEntidadeNoWikidata(
         entidade: null,
         nota:
           `nenhum candidato utilizável para "${nome}" ` +
-          `(melhor: ${melhor?.c.id ?? "nenhum"} "${melhor?.c.descricao.slice(0, 40) ?? ""}", nota ${melhor?.nota ?? 0})`,
+          `(melhor: ${melhor?.c.id ?? "nenhum"} "${melhor?.c.descricao.slice(0, 40) ?? ""}", nota ${melhor?.nota ?? 0}` +
+          `${vetadosPorPais > 0 ? `, ${vetadosPorPais} vetado(s) por país fora da cobertura` : ""})`,
       };
     }
 

@@ -80,6 +80,89 @@ export type OpcoesDeAmostragem = {
   seed?: number;
 };
 
+/**
+ * Uma mensagem que carrega imagem, e não só texto.
+ *
+ * O formato é o da API de chat: `content` vira uma lista de partes, e a parte
+ * de imagem aponta para a URL pública do arquivo. Nenhuma outra chamada deste
+ * arquivo precisa disso, então o tipo fica separado em vez de afrouxar a
+ * assinatura de `callOpenAIJSON`, que hoje só aceita texto e é o que garante
+ * que ninguém mande imagem por engano para um prompt de redação.
+ */
+export type ParteDaMensagem =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+export type MensagemComImagem = {
+  role: "system" | "user";
+  content: string | ParteDaMensagem[];
+};
+
+/**
+ * Mesma chamada de JSON estruturado, aceitando imagem na entrada.
+ *
+ * Existe separada de `callOpenAIJSON` porque o corpo da requisição é o mesmo,
+ * mas o tipo de `messages` não: unificar as duas obrigaria todo chamador de
+ * texto a conviver com um tipo que aceita imagem. O custo de duplicar vinte
+ * linhas é menor que o de afrouxar a porta de entrada da redação.
+ */
+export async function callOpenAIVisionJSON<T>(
+  messages: MensagemComImagem[],
+  model: string,
+  env: Record<string, string | undefined> = process.env,
+  fetcher: typeof fetch = fetch,
+  amostragem: OpcoesDeAmostragem = {},
+  tempoLimiteMs: number = REQUEST_TIMEOUT_MS
+): Promise<{ data: T; usage: AITokenUsage }> {
+  const apiKey = getOpenAIKey(env);
+
+  const response = await fetcher("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      response_format: { type: "json_object" },
+      ...(amostragem.temperature !== undefined ? { temperature: amostragem.temperature } : {}),
+      ...(amostragem.seed !== undefined ? { seed: amostragem.seed } : {}),
+    }),
+    signal: AbortSignal.timeout(tempoLimiteMs),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
+  }
+
+  const json = (await response.json()) as OpenAIResponse;
+  const contentStr = json.choices?.[0]?.message?.content;
+  if (!contentStr) throw new Error("OpenAI devolveu resposta sem conteúdo utilizável.");
+
+  let parsedData: T;
+  try {
+    parsedData = JSON.parse(contentStr) as T;
+  } catch {
+    throw new Error("OpenAI devolveu conteúdo que não é JSON válido.");
+  }
+
+  const promptTokens = json.usage?.prompt_tokens ?? 0;
+  const completionTokens = json.usage?.completion_tokens ?? 0;
+  const totalTokens = json.usage?.total_tokens ?? (promptTokens + completionTokens);
+
+  return {
+    data: parsedData,
+    usage: {
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      estimatedCostUsd: calculateCost(model, promptTokens, completionTokens),
+    },
+  };
+}
+
 export async function callOpenAIJSON<T>(
   messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
   model: string,

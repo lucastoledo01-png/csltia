@@ -23,6 +23,9 @@ import {
 import { avaliarLicenca, montarAtribuicao } from "./licencas";
 import { bancoConfigurado, buscarFotoDeBanco, identidadeDaFoto } from "../prompt-system/stock";
 import { consultaConceitual } from "./conceitual";
+import { conferirImagem } from "./conferencia-visual";
+import type { VeredictoVisual } from "./conferencia-visual";
+import { getAIProviderConfig } from "../newsroom/ai-provider";
 import { analisarTemporalidade, figuraNaoCentralNaImagem, retratoNaoCentral } from "./temporalidade";
 
 /**
@@ -71,7 +74,25 @@ export type OpcoesDeResolucao = {
   jaUsadasRecentemente?: Iterable<string>;
   /** Não grava nada. O dry-run usa isto. */
   somenteLeitura?: boolean;
+  /**
+   * Quem abre a imagem e diz se ela sustenta a manchete.
+   *
+   * Injetável para o teste poder decidir o veredicto sem rede. `false` desliga
+   * a conferência, e só o dry-run e a medição de capacidade usam isso.
+   *
+   * Quando não vem nada, o resolvedor usa a conferência de verdade SE houver
+   * credencial de modelo configurada. Sem credencial ele pula, e isso não é
+   * brecha: o pipeline inteiro morre antes, em `callOpenAIJSON`, porque
+   * conteúdo fabricado nunca é resultado aceitável. Em produção a chave existe
+   * sempre; em teste não existe nunca.
+   */
+  conferenciaVisual?: Conferente | false;
 };
+
+export type Conferente = (
+  asset: AssetVisual,
+  pauta: { titulo: string; resumo?: string; eixo?: string },
+) => Promise<VeredictoVisual>;
 
 export async function resolveVisualAsset(
   pauta: PautaParaImagem,
@@ -477,11 +498,34 @@ export async function resolveVisualAsset(
    */
   const disponiveis = novos.filter((a) => !usadosAgora.has(a.imageUrl) && !jaSaiu(a.imageUrl));
   const desta = [] as CandidatoRecusado[];
-  const { melhor: escolhido, vice } = melhorPontuado(disponiveis, entidade, piso, desta, config.larguraMinima, {
+  const { aprovadas } = melhorPontuado(disponiveis, entidade, piso, desta, config.larguraMinima, {
     titulo: pauta.titulo,
     resumo: pauta.resumo,
     atores: pauta.classificacao.atores,
   });
+
+  /*
+   * 6.1. Alguém abre a imagem antes de ela virar peça.
+   *
+   * Até aqui nenhuma barreira olhou a foto: todas comparam texto com texto. É o
+   * que deixou passar, em 17/09/2026, a Escola Superior de Economia de Perm, na
+   * Rússia, numa pauta sobre o programa PERM do Departamento do Trabalho
+   * americano, com `semanticContextFit` 100.
+   *
+   * Por isso a escolha virou LAÇO e não carimbo: a primeira colocada é
+   * conferida, e se reprovar a vez passa para a seguinte. A recusa é barata,
+   * porque existe a bandeira como reserva; a aprovação errada é cara, porque o
+   * perfil publica sozinho.
+   */
+  const conferir = conferenteDe(opcoes);
+  const escolhido = await primeiraAprovada(aprovadas.map((x) => x.item), conferir, pauta, desta, TETO_DE_CONFERENCIAS);
+  const vice = await primeiraAprovada(
+    escolherVice(aprovadas, escolhido).map((x) => x.item),
+    conferir,
+    pauta,
+    desta,
+    TETO_DE_CONFERENCIAS_DA_BOLHA,
+  );
 
   /*
    * Só o que o ensaio ainda não tinha visto.
@@ -527,6 +571,78 @@ export async function resolveVisualAsset(
 }
 
 /**
+ * Quantas imagens chegam a ser abertas por pauta.
+ *
+ * O teto existe por custo e por latência, não por confiança: uma pauta cuja
+ * quarta colocada ainda é incoerente não tem foto boa, tem lista ruim, e a
+ * resposta certa para ela é a bandeira. A bolha ganha teto menor porque ela é
+ * opcional: capa sem bolha é peça publicável, capa com bolha errada não é.
+ */
+const TETO_DE_CONFERENCIAS = 4;
+const TETO_DE_CONFERENCIAS_DA_BOLHA = 2;
+
+/**
+ * Quem confere, considerando o que foi injetado e o que existe no ambiente.
+ *
+ * `false` desliga. Função injetada manda. Sem nada, usa a conferência de
+ * verdade se houver credencial, e pula se não houver: em teste não há chave, e
+ * em produção o pipeline já teria morrido antes sem ela.
+ */
+function conferenteDe(opcoes: OpcoesDeResolucao): Conferente | null {
+  if (opcoes.conferenciaVisual === false) return null;
+  if (typeof opcoes.conferenciaVisual === "function") return opcoes.conferenciaVisual;
+  const env = opcoes.env ?? process.env;
+  if (!getAIProviderConfig(env).isConfigured) return null;
+  return (asset, contexto) => conferirImagem(asset, contexto, { env, fetcher: opcoes.fetcher });
+}
+
+/**
+ * A primeira da fila que passa na conferência visual.
+ *
+ * Sem conferente, devolve a primeira da fila: é o comportamento antigo, e é o
+ * que o dry-run e o teste querem.
+ */
+async function primeiraAprovada<T extends AssetVisual>(
+  candidatas: T[],
+  conferir: Conferente | null,
+  pauta: PautaParaImagem,
+  recusados: CandidatoRecusado[],
+  teto: number,
+): Promise<T | null> {
+  if (candidatas.length === 0) return null;
+  if (!conferir) return candidatas[0] ?? null;
+
+  const contexto = { titulo: pauta.titulo, resumo: pauta.resumo, eixo: pauta.categoria };
+
+  for (const candidata of candidatas.slice(0, teto)) {
+    const veredicto = await conferir(candidata, contexto);
+
+    if (veredicto.aprovada) {
+      candidata.conferenciaVisual = {
+        descricao: veredicto.descricao,
+        motivo: veredicto.motivo,
+        paisAparente: veredicto.paisAparente,
+        confianca: veredicto.confianca,
+      };
+      return candidata;
+    }
+
+    recusados.push({
+      origem: candidata.source,
+      identificacao: candidata.sourceAssetId,
+      motivo: veredicto.falhou
+        ? MOTIVOS_DE_RECUSA.CONFERENCIA_VISUAL_INDISPONIVEL
+        : MOTIVOS_DE_RECUSA.CONFERENCIA_VISUAL_REPROVOU,
+      detalhe: veredicto.descricao
+        ? `viu "${veredicto.descricao}": ${veredicto.motivo}`
+        : veredicto.motivo,
+    });
+  }
+
+  return null;
+}
+
+/**
  * O melhor candidato acima do piso, ou nada.
  *
  * Recusa por resolução vem antes da pontuação porque é objetiva: foto de 300px
@@ -539,7 +655,7 @@ function melhorPontuado<T extends AssetVisual>(
   recusados: CandidatoRecusado[],
   larguraMinima: number,
   pauta?: { titulo: string; resumo?: string; atores?: string[] }
-): { melhor: T | null; vice: T | null } {
+): { melhor: T | null; vice: T | null; aprovadas: Array<{ item: T; nota: NotaDaImagem }> } {
   /*
    * A vice existe porque a capa quer DUAS imagens.
    *
@@ -692,5 +808,27 @@ function melhorPontuado<T extends AssetVisual>(
         a.item.imageContextType !== "conceptual",
     )?.item ?? null;
 
-  return { melhor, vice };
+  return { melhor, vice, aprovadas };
+}
+
+/**
+ * A vice para uma vencedora que pode não ser a primeira da lista.
+ *
+ * Quando a conferência visual reprova a primeira colocada, a vencedora passa a
+ * ser outra, e a vice tem que ser recalculada contra ELA: senão a bolha pode
+ * repetir a mesma foto do fundo, que é o defeito que a régua original já
+ * existia para evitar.
+ */
+function escolherVice<T extends AssetVisual>(
+  aprovadas: Array<{ item: T; nota: NotaDaImagem }>,
+  vencedora: T | null,
+): Array<{ item: T; nota: NotaDaImagem }> {
+  return aprovadas.filter(
+    (a) =>
+      a.item !== vencedora &&
+      identidadeDaFoto(a.item.imageUrl) !== identidadeDaFoto(vencedora?.imageUrl ?? "") &&
+      temIdentidade(a.nota) &&
+      a.item.source !== "banco_conceitual" &&
+      a.item.imageContextType !== "conceptual",
+  );
 }

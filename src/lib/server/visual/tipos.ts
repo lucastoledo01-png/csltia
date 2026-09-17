@@ -119,6 +119,19 @@ export type AssetVisual = {
   assetAgeYears?: number | null;
   temporalRelevanceScore?: number;
   semanticContextFit?: number;
+  /**
+   * O que a conferência visual VIU na imagem, e o quanto confiou.
+   *
+   * Fica separado do `semanticContextFit` de propósito: aquele mede ausência de
+   * contradição de polaridade entre dois textos, e vale 100 no silêncio. Este
+   * só existe quando alguém abriu a imagem.
+   */
+  conferenciaVisual?: {
+    descricao: string;
+    motivo: string;
+    paisAparente: string | null;
+    confianca: number;
+  };
   archiveImage?: boolean;
   historicalEventSpecific?: boolean;
   /** O que a imagem representa. Nunca `exact_event` sem prova, e não temos. */
@@ -148,6 +161,10 @@ export const MOTIVOS_DE_RECUSA = {
   DESATUALIZADA: "TEMPORAL_MISMATCH",
   /** Retrato de figura pública que aparece na pauta e não é o assunto dela. */
   FIGURA_NAO_CENTRAL: "NON_CENTRAL_PUBLIC_FIGURE",
+  /** Alguém olhou a foto e ela não sustenta a manchete. */
+  CONFERENCIA_VISUAL_REPROVOU: "VISUAL_CHECK_FAILED",
+  /** A conferência visual não pôde ser feita, e sem ela não se aprova. */
+  CONFERENCIA_VISUAL_INDISPONIVEL: "VISUAL_CHECK_UNAVAILABLE",
   SEM_IMAGEM_VALIDA: "NO_VALID_IMAGE",
 } as const;
 

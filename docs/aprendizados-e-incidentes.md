@@ -1041,6 +1041,96 @@ valor em `newsroom_runs`, então o vocabulário existe no projeto, só não cheg
 aqui.
 
 
+### A sigla PERM virou uma cidade russa, e a nota máxima dizia que estava tudo bem
+
+**Sintoma.** Dois posts ficaram agendados em 17/09/2026 com imagem incoerente, e
+o dono os retirou da fila antes de publicar. Um post sobre o programa PERM, do
+Departamento do Trabalho americano, saiu com a Escola Superior de Economia da
+cidade de **Perm, na Rússia**, com letreiro em cirílico. Outro, sobre audiência
+de fiança depois de a Suprema Corte não ouvir um caso, saiu com um skyline
+genérico de Manhattan.
+
+Os dois registraram `semanticContextFit: 100`, a nota máxima.
+
+**Causa 1, o homônimo.** `ehNomeProprio` manda para o Wikidata tudo que começa
+com maiúscula. O adaptador do evergreen injeta o código do programa como ator
+(`atores: [item.topico.programa]`), então "PERM" virou busca de entidade. A
+conta do candidato russo, medida:
+
+```
+tipo reconhecido (cidade)            +70
+país declarado diferente             -40
+tem imagem (P18)                     +10
+tem categoria no Commons (P373)      +10
+rótulo idêntico ao termo             +10
+                                     ---
+                                      60   contra limiar 55
+```
+
+A penalidade de país foi desenhada para DESEMPATAR dois candidatos. Sem empate,
+ela virou pedágio. E o bônus de rótulo idêntico é um prêmio que todo homônimo
+ganha de graça, porque ser escrito igual é o que o torna homônimo.
+
+**O erro de análise, que quase virou conserto errado.** A primeira leitura
+culpou o ramo de sigla do `ehNomeProprio` (`/^[A-Z]{2,6}$/`). Medido no catálogo
+inteiro: os 27 códigos de programa começam com maiúscula, então **todos passavam
+pelo primeiro ramo** e nenhum dependia do segundo. Mexer só no ramo de sigla não
+consertaria um único caso.
+
+**Causa 2, o gatilho só em português.** O banco conceitual casa o tema pelo
+título da FONTE, e fonte americana escreve em inglês. O tema de tribunal tinha
+"corte" e não tinha "court", então a pauta da Vox não casou com nenhum dos 16
+temas e caiu no padrão, que é `city skyline architecture daylight`. A consulta
+certa, testada contra o Pexels, devolve o prédio da Suprema Corte nas primeiras
+posições.
+
+**Causa 3, a nota que não media nada.** `semanticContextFit` é
+`conflito ? 0 : eventoEspecifico ? 30 : 100`. O `conflito` vem de um detector de
+POLARIDADE em cinco eixos (alta x queda, aprovação x rejeição...) que compara
+texto com texto: título da pauta contra nome do arquivo. 100 não é aprovação, é
+silêncio. E nenhuma barreira do caminho abria a imagem.
+
+**Corrigido, em quatro partes.**
+
+1. `foraDaCobertura` em `wikidata.ts`: país declarado fora de EUA e Brasil sai da
+   lista ANTES de pontuar. Veto, não desconto. Entidade sem P17 continua, porque
+   ausência do campo é comum e não é evidência.
+2. `ehCodigoDeProgramaOuFormulario` em `entidade-visual.ts`: código de visto e de
+   formulário não vira entidade visual. Reconhece pelo FORMATO (letra colada em
+   número) mais uma lista curta de siglas sem dígito. Sigla de ÓRGÃO continua
+   passando: ICE, USCIS e DOL têm fachada e acervo de foto.
+3. Termos em inglês nos 16 temas de `conceitual.ts`, e o casamento passou de
+   substring pura para INÍCIO DE PALAVRA. A substring pura já era defeito: "ice"
+   casava dentro de "justice", "police" e "service".
+4. `conferencia-visual.ts`: uma chamada de modelo que ABRE a imagem e decide se
+   ela sustenta a manchete. A escolha virou laço, e não carimbo: reprovou, passa
+   para a seguinte; todas reprovaram, cai na bandeira.
+
+**Medido contra a API real, com as imagens de produção:**
+
+```
+universidade em Perm, Rússia      RECUSADA  100   "texto em cirílico"
+skyline de Manhattan              RECUSADA   98   "sem relação reconhecível"
+sede do Census Bureau             APROVADA   99   "o órgão dos dados citados"
+fachada da Suprema Corte dos EUA  APROVADA   99   "o órgão da decisão"
+```
+
+**A armadilha que só a medição real pegou.** O modelo de produção
+(`gpt-5.6-luna`) responde 400 a `temperature: 0`: "only the default (1) value is
+supported". Na primeira medição, quatro de quatro foram recusadas por isso,
+inclusive as boas. O portão fez a coisa certa, e o resultado seria uma leva
+inteira de bandeira por causa de um parâmetro de amostragem. A chamada agora é
+refeita sem o parâmetro quando o erro cita `temperature`, e há teste dos dois
+lados.
+
+**Lição.** Nota que vale 100 no silêncio não é portão, é decoração: ela dá
+confiança sem ter conferido nada, e foi o que fez três barreiras parecerem
+quatro. E quando a régua é sobre o CONTEÚDO de uma imagem, nenhuma comparação de
+texto substitui abrir o arquivo. Corolário de método: teste com stub prova a
+lógica e não prova a integração. Rodar contra a API de verdade, com as imagens
+que falharam, achou em um minuto um 400 que 1614 testes não achariam nunca.
+
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

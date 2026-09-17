@@ -30,6 +30,70 @@ const PISTAS_DE_PAIS: Array<{ padrao: RegExp; pais: string }> = [
   { padrao: /brasil|bras[íi]lia|s[ãa]o paulo|rio de janeiro|minas gerais|congresso nacional/i, pais: "Brasil" },
 ];
 
+/**
+ * Códigos de visto, formulário e programa não são coisa que se fotografe.
+ *
+ * "EB-2 NIW", "I-485" e "PERM" nomeiam um procedimento, não um prédio, uma
+ * pessoa ou um lugar. Buscados no Wikidata, eles encontram homônimo: em
+ * 17/09/2026 "PERM" devolveu a cidade de Perm, na Rússia, e um post sobre o
+ * Departamento do Trabalho americano foi para a fila com a foto de uma
+ * universidade russa.
+ *
+ * Testado no catálogo inteiro, o problema não era o ramo de sigla do
+ * `ehNomeProprio`: os 27 códigos do catálogo começam com maiúscula, então TODOS
+ * passavam pelo primeiro ramo. Mexer só no `/^[A-Z]{2,6}$/` não consertaria um
+ * único caso. O que resolve é reconhecer o formato do código.
+ *
+ * O que o Wikidata devolve hoje para os mais curtos, conferido em 17/09/2026:
+ *
+ *     TN     Tunísia, Tennessee, uma cepa de bactéria da hanseníase
+ *     EAD    uma divisão da Nintendo, o fotógrafo Eadweard Muybridge
+ *     EB     estrela binária eclipsante, Universidade de Tübingen
+ *     PERM   Perm Krai, cidade de Perm, submarino nuclear russo
+ *
+ * A sigla de ÓRGÃO continua passando, e é de propósito: ICE, USCIS, DOL e FBI
+ * são instituições com sede, fachada e acervo de foto. A lista abaixo é só de
+ * programa e formulário, que é o que não tem o que mostrar.
+ *
+ * Sem entidade, a pauta cai no banco conceitual e é ilustrada pelo TEMA, que é
+ * para isso que ele existe.
+ */
+const CODIGOS_SEM_DIGITO = new Set([
+  "perm",
+  "ead",
+  "eb",
+  "tn",
+  "opt",
+  "cpt",
+  "niw",
+  "rfe",
+  "noid",
+  "aos",
+  "ead/ap",
+]);
+
+export function ehCodigoDeProgramaOuFormulario(termo: string): boolean {
+  const t = termo.trim().toLowerCase();
+  if (t.length === 0) return false;
+
+  /*
+   * Comparação de dois códigos ainda é código: o catálogo guarda coisas como
+   * "EB-1A x EB-2 NIW" e "F-1 OPT x H-1B". Basta uma das partes ser código
+   * para a busca de entidade não fazer sentido.
+   */
+  const partes = t.split(/\s+x\s+|\//).map((x) => x.trim()).filter(Boolean);
+  if (partes.length > 1) return partes.some((parte) => ehCodigoDeProgramaOuFormulario(parte));
+
+  if (CODIGOS_SEM_DIGITO.has(t)) return true;
+
+  /*
+   * Letra e número colados são o formato de todo código de visto e formulário
+   * americano: I-485, H-1B, EB-2, O-1A, N-400, F-1, J-1, L-1, E-2, IR5.
+   * O sufixo opcional cobre "EB-2 NIW" e "F-1 OPT".
+   */
+  return /^[a-z]{1,3}[- ]?\d[a-z0-9-]*( [a-z]{2,4})?$/.test(t);
+}
+
 export function inferirPais(lugares: string[], atores: string[]): string | undefined {
   const texto = [...lugares, ...atores].join(" ");
   return PISTAS_DE_PAIS.find((p) => p.padrao.test(texto))?.pais;
@@ -92,9 +156,17 @@ export async function escolherEntidadeVisual(
 
   const atores = classificacao.atores
     .map((a) => a.trim())
-    .filter((a) => a.length > 2 && ehNomeProprio(a) && !NAO_SAO_ENTIDADE.has(normalizarEntidade(a)));
+    .filter(
+      (a) =>
+        a.length > 2 &&
+        ehNomeProprio(a) &&
+        !ehCodigoDeProgramaOuFormulario(a) &&
+        !NAO_SAO_ENTIDADE.has(normalizarEntidade(a)),
+    );
 
-  const lugares = classificacao.lugares.map((l) => l.trim()).filter((l) => l.length > 2 && ehNomeProprio(l));
+  const lugares = classificacao.lugares
+    .map((l) => l.trim())
+    .filter((l) => l.length > 2 && ehNomeProprio(l) && !ehCodigoDeProgramaOuFormulario(l));
 
   /*
    * Nome específico antes de sigla.
