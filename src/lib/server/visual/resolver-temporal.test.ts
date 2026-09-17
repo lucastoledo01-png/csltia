@@ -135,7 +135,12 @@ describe("a foto de 1937 não sai mais", () => {
     const r = await resolveVisualAsset(PAUTA_DE_EMPREGO, { env: ENV, fetcher });
 
     expect(r.status).toBe("NO_VALID_IMAGE");
-    expect(r.asset).toBeNull();
+    /*
+     * A foto de 1937 não sai. Desde 17/09/2026 a peça não fica vazia: entra a
+     * bandeira da publicação, que não finge ser do fato narrado. O que este
+     * teste guarda é que a foto histórica foi RECUSADA, e isso não mudou.
+     */
+    expect(r.asset?.sourceAssetId ?? "").not.toContain("1937");
 
     const recusa = r.recusados.find((x) =>
       ["HISTORICAL_EVENT_MISMATCH", "SEMANTIC_CONTEXT_MISMATCH"].includes(x.motivo),
@@ -156,7 +161,9 @@ describe("a foto de 1937 não sai mais", () => {
     // A entidade foi resolvida como a agência correta e a imagem ainda assim
     // não passou: a barreira é anterior à pontuação.
     expect(r.entidade?.nome.toLowerCase()).toContain("labor");
-    expect(r.asset).toBeNull();
+    // A foto da entidade não entrou; o que entrou foi a bandeira.
+    expect(r.asset?.sourceAssetId ?? "").not.toContain("Isador");
+    expect(r.status).toBe("NO_VALID_IMAGE");
   });
 });
 

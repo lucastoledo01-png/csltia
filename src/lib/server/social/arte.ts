@@ -258,6 +258,7 @@ const ROTULO_DO_EIXO: Record<string, string> = {
   politica: "POLÍTICA",
   tecnologia: "TECNOLOGIA",
   cultura: "CULTURA",
+  seguranca: "SEGURANÇA",
   imigracao: "IMIGRAÇÃO",
   brasil: "BRASIL",
   // "outro" não tem rótulo: nomear o que a classificação não soube nomear

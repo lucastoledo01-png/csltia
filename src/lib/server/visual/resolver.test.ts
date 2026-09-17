@@ -344,7 +344,21 @@ describe("saber desistir", () => {
     return new Response(JSON.stringify({ entities: {} }), { status: 200 });
   }) as unknown as typeof fetch;
 
-  it("pessoa sem foto válida sai sem imagem, e não com foto conceitual", async () => {
+  /**
+   * A regra mudou em 17/09/2026, e a intenção deste teste não.
+   *
+   * O que ele sempre protegeu é que pauta sobre PESSOA nunca ganhe foto
+   * conceitual: matéria sobre Trump ilustrada com uma imagem de banco sugere
+   * que a imagem é dele. Isso continua valendo.
+   *
+   * O que mudou é o desfecho: em vez de sair sem imagem nenhuma, a peça recebe
+   * a bandeira da publicação. Ela não finge ser ninguém, e o `status` continua
+   * NO_VALID_IMAGE, então o relatório segue contando este dia como dia sem
+   * foto da pauta.
+   */
+  it("pessoa sem foto válida não recebe foto conceitual, e sim a bandeira", async () => {
+    const { ehUltimoRecurso } = await import("./bandeira");
+
     const r = await resolveVisualAsset(pautaDePessoa, {
       fetcher: fetcherFalso({ licenca: "All rights reserved" }),
       env: { PEXELS_API_KEY: "chave" },
@@ -352,7 +366,9 @@ describe("saber desistir", () => {
     });
 
     expect(r.status).toBe("NO_VALID_IMAGE");
-    expect(r.asset).toBeNull();
+    expect(ehUltimoRecurso(r.asset)).toBe(true);
+    expect(r.asset?.imageContextType).not.toBe("conceptual");
+    expect(r.asset?.source).not.toBe("banco_conceitual");
   });
 
   it("sem entidade e sem banco configurado, sai sem imagem", async () => {

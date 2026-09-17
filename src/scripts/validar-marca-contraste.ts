@@ -45,6 +45,21 @@ const FOTOS: Array<{ nome: string; url: string; esperado: "claro" | "escuro" }> 
     esperado: "claro",
   },
   {
+    nome: "4-bandeira-main-street",
+    // O último recurso da publicação, que entra quando a pauta não tem foto.
+    // Aqui ele serve a dois testes: a peça nunca fica sem imagem, e a marca do
+    // topo precisa virar tinta escura contra o céu azul.
+    url: "https://upload.wikimedia.org/wikipedia/commons/c/c5/American_Flag_on_Main_Street%2C_Starbuck%2C_Minnesota_%2837151128064%29.jpg",
+    esperado: "claro",
+  },
+  {
+    nome: "5-bandeira-wall-street",
+    // Medido 0.744: a fachada de pedra clara atras do logotipo pede tinta
+    // escura, mesmo a foto parecendo escura no conjunto. A medida manda.
+    url: "https://upload.wikimedia.org/wikipedia/commons/d/db/New_York_City_%28New_York%2C_USA%29%2C_Wall_Street_--_2012_--_6614.jpg",
+    esperado: "claro",
+  },
+  {
     nome: "3-noite",
     // O outro extremo: Manhattan à noite. Sem um caso escuro, o validador
     // provaria só metade da régua, e a metade que já é o padrão.
@@ -74,7 +89,9 @@ async function main() {
         index: 1,
         type: "cover",
         eyebrow: "Economia",
-        title: "O Federal Reserve cortou os juros e sinalizou mais dois cortes até o fim do ano",
+        title: foto.nome.startsWith("4") || foto.nome.startsWith("5")
+          ? "Estados e governos locais levam a nova regra de permanência para a Justiça federal"
+          : "O Federal Reserve cortou os juros e sinalizou mais dois cortes até o fim do ano",
         body: "",
         bullet_points: [],
         bg_image_url: await comoDataUrl(foto.url),

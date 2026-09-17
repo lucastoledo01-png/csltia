@@ -112,6 +112,14 @@ export const ClassificacaoSchema = z.object({
     "politica",
     "tecnologia",
     "cultura",
+    /*
+     * Segurança entrou em 17/09/2026, por pedido do dono, e não é detalhe de
+     * taxonomia. O contraste de segurança é um dos motivos pelos quais o
+     * leitor pensa em morar nos EUA, e sem editoria própria essa pauta caía em
+     * "cultura", onde disputava o mesmo teto de três com comportamento e
+     * esporte, e quase sempre perdia.
+     */
+    "seguranca",
     "imigracao",
     "brasil",
     "outro",

@@ -12,6 +12,7 @@ import { escolherEntidadeVisual, entidadeConceitual } from "./entidade-visual";
 import { buscarNoCommons, candidatoParaAsset } from "./wikimedia";
 import { buscarNoOpenverse, candidatoParaAsset as candidatoDoOpenverse } from "./openverse";
 import { buscarEmFonteOficial } from "./fonte-oficial";
+import { escolherBandeira } from "./bandeira";
 import {
   carregarConfigDeImagem,
   pisoDeRelevancia,
@@ -88,17 +89,47 @@ export async function resolveVisualAsset(
   const fontesConsultadas: ResultadoVisual["fontesConsultadas"] = [];
   const recusados: CandidatoRecusado[] = [];
 
-  const semImagem = (entidade: EntidadeVisual | null, motivo: ResultadoVisual["motivo"]): ResultadoVisual => ({
-    storyId: pauta.storyId,
-    entidade,
-    asset: null,
-    assetSecundario: null,
-    status: "NO_VALID_IMAGE",
-    motivo,
-    fontesConsultadas,
-    recusados,
-    legenda: "",
-  });
+  /*
+   * Sem foto DA PAUTA, mas nunca sem foto.
+   *
+   * A regra é do dono, de 17/09/2026, depois de um post sair como peça de
+   * texto puro: nenhuma peça fica sem imagem. Quando a entidade não tem foto e
+   * nem o banco conceitual entrega, entra a bandeira da publicação.
+   *
+   * O `status` e o `motivo` continuam dizendo a verdade: NO_VALID_IMAGE com a
+   * razão real. Isso é deliberado, e tem consequência prática: a newsletter
+   * pergunta por `status === "SELECTED"` antes de usar a imagem, então ela
+   * segue sem foto neste caso, e só a peça do Instagram recebe a bandeira. O
+   * relatório também continua contando este dia como dia sem foto da pauta,
+   * que é o número que interessa para melhorar a busca.
+   */
+  const semFotoDaPauta = (
+    entidade: EntidadeVisual | null,
+    motivo: ResultadoVisual["motivo"],
+  ): ResultadoVisual => {
+    const bandeira = escolherBandeira({
+      eixo: pauta.categoria,
+      evitar: new Set([...usadosAgora, ...(opcoes.jaUsadasRecentemente ?? [])]),
+    });
+
+    fontesConsultadas.push({
+      fonte: "ultimo_recurso",
+      encontrados: 1,
+      nota: String(bandeira.metadata?.descricao ?? "bandeira da publicação"),
+    });
+
+    return {
+      storyId: pauta.storyId,
+      entidade,
+      asset: bandeira,
+      assetSecundario: null,
+      status: "NO_VALID_IMAGE",
+      motivo,
+      fontesConsultadas,
+      recusados,
+      legenda: "",
+    };
+  };
 
   // 1. Quem é o assunto visual.
   const escolha = await escolherEntidadeVisual(
@@ -124,7 +155,7 @@ export async function resolveVisualAsset(
       encontrados: 0,
       nota: escolha.tentativas.map((t) => t.resultado).join(" ; "),
     });
-    return semImagem(null, MOTIVOS_DE_RECUSA.ENTIDADE_AMBIGUA);
+    return semFotoDaPauta(null, MOTIVOS_DE_RECUSA.ENTIDADE_AMBIGUA);
   }
 
   const entidade =
@@ -363,12 +394,12 @@ export async function resolveVisualAsset(
         encontrados: 0,
         nota: "bloqueado por regra: pauta sobre pessoa não aceita foto conceitual no lugar",
       });
-      return semImagem(entidade, MOTIVOS_DE_RECUSA.SEM_IMAGEM_DA_ENTIDADE);
+      return semFotoDaPauta(entidade, MOTIVOS_DE_RECUSA.SEM_IMAGEM_DA_ENTIDADE);
     }
 
     if (!bancoConfigurado(env)) {
       fontesConsultadas.push({ fonte: "banco_conceitual", encontrados: 0, nota: "sem chave configurada" });
-      return semImagem(entidade, MOTIVOS_DE_RECUSA.SEM_IMAGEM_VALIDA);
+      return semFotoDaPauta(entidade, MOTIVOS_DE_RECUSA.SEM_IMAGEM_VALIDA);
     }
 
     try {
@@ -467,7 +498,7 @@ export async function resolveVisualAsset(
   }
 
   if (!escolhido) {
-    return semImagem(
+    return semFotoDaPauta(
       entidade,
       recusados.length > 0 ? MOTIVOS_DE_RECUSA.RELEVANCIA_BAIXA : MOTIVOS_DE_RECUSA.SEM_IMAGEM_DA_ENTIDADE
     );

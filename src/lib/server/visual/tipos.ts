@@ -83,7 +83,9 @@ export type FonteDeImagem =
   | "flickr_commons"
   | "openverse"
   | "banco_conceitual"
-  | "biblioteca_interna";
+  | "biblioteca_interna"
+  /** A bandeira da publicação, quando nem o banco conceitual entregou nada. */
+  | "ultimo_recurso";
 
 export type StatusDeDireitos = "verified" | "unknown" | "revoked" | "needs_review";
 
