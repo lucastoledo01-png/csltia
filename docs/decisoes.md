@@ -68,6 +68,34 @@ busca.
 **Uma newsletter por dia.** Não é fio contínuo por e-mail: dezenas de disparos
 queimariam a lista, e nem a referência faz isso.
 
+**O CTA do Instagram oferece a NEWSLETTER; o do e-mail oferece a ANÁLISE DE
+PERFIL. A divergência é deliberada**, decidida pelo dono em 17/09/2026, e não é
+descuido de alguém que esqueceu de alinhar os dois.
+
+O que muda entre os dois canais é quem está do outro lado. No Instagram a pessoa
+ainda não assina, e o produto que se oferece a ela é a newsletter: até 17/09 as
+quatro formas de CTA prometiam avaliação de perfil de imigração, o que
+transformava um jornal em captação de lead em todo post. No e-mail a pessoa já
+assinou, então pedir que ela assine não é oferta: a análise é a única coisa ali
+que responde à pergunta que a levou a assinar, que é "eu consigo?".
+
+Quem for alinhar os dois "por consistência" está desfazendo uma decisão, não
+corrigindo um esquecimento.
+
+**A mensagem que a pessoa recebe depois de comentar NÃO mora no repositório.**
+Ela está na automação do OpenReply, e `garantirFunilPermanente` só fala com o
+OpenReply quando `openreply_automation_id` é nulo: a automação é criada UMA vez e
+nunca mais atualizada de cá. O cliente em `openreply-client.ts` tem GET de
+disponibilidade e POST de criação, e nada mais.
+
+Consequência prática, que já mordeu: mudar `prompt_campaigns.dm_message` no banco
+não muda a DM. O registro no banco é a cópia intencionada; o que a pessoa recebe
+é o que está no painel do OpenReply. Os dois só coincidem se alguém editar lá.
+
+E NÃO tente forçar a recriação apagando `openreply_automation_id`: o OpenReply
+recusa a segunda automação com a mesma palavra, e o resultado seria o funil
+quebrado em vez de atualizado.
+
 **O Instagram tem agenda própria** e não depende da edição passar. Ele roda
 sobre o pool aprovado, ANTES da decisão da newsletter, e é por isso que os posts
 continuam saindo em dias em que a edição é barrada.
