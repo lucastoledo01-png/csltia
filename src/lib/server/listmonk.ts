@@ -46,11 +46,36 @@ export function getListmonkConfig(env: EnvLike = process.env): ListmonkConfig {
   const formListUuid = env.LISTMONK_FORM_LIST_UUID || homesiteListUuid;
   const token = env.LISTMONK_API_TOKEN || env.LISTMONK_PASSWORD;
   const user = env.LISTMONK_API_USER || env.LISTMONK_KEY_ID || env.LISTMONK_USERNAME || "apiuser";
+  /*
+   * `LISTMONK_DEFAULT_LIST_ID` sao IDs NUMERICOS, e o valor errado sumia calado.
+   *
+   * Em producao a variavel esta preenchida com um UUID de lista. `Number()` de
+   * um UUID e NaN, o filtro descarta, a lista fica vazia e o codigo cai no
+   * fallback fixo `[4, 1]` sem dizer nada. Quem le a configuracao acredita que
+   * a campanha vai para a lista daquele UUID; ela vai para as listas 4 e 1.
+   *
+   * Hoje isso nao causa dano, por coincidencia: o UUID configurado E o da lista
+   * 4. Mas e coincidencia, e a configuracao esta mentindo. Se alguem trocar o
+   * valor esperando efeito, nao acontece nada.
+   *
+   * O conserto aqui NAO e adivinhar a intencao: e parar de sumir. O fallback
+   * continua, porque sem lista nenhuma nao ha envio, e agora ele grita no log.
+   * Resolver UUID para ID exigiria uma chamada de rede dentro de uma funcao
+   * sincrona que todo mundo chama, e isso e conserto pior que o defeito.
+   */
   const rawListIds = env.LISTMONK_DEFAULT_LIST_ID ?? "4,1";
   const listIds = String(rawListIds)
     .split(",")
     .map((item) => Number(item.trim()))
     .filter((item) => Number.isInteger(item) && item > 0);
+
+  if (String(rawListIds).trim().length > 0 && listIds.length === 0) {
+    console.warn(
+      "[LISTMONK] LISTMONK_DEFAULT_LIST_ID nao contem ID numerico utilizavel " +
+        "(um UUID nao serve aqui). Usando o padrao [4, 1]. Campanha e inscricao " +
+        "vao para essas listas, e nao para o que esta configurado.",
+    );
+  }
 
   /*
    * Com credencial, a API. O formulario publico e o plano B.

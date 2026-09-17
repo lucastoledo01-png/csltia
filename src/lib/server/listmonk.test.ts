@@ -94,6 +94,52 @@ describe("listmonk integration", () => {
   });
 
   /**
+   * O valor errado nao pode sumir calado.
+   *
+   * Em producao LISTMONK_DEFAULT_LIST_ID esta com um UUID. `Number()` de UUID e
+   * NaN, o filtro descarta, e o codigo caia no fallback fixo sem dizer nada:
+   * a configuracao afirmava uma coisa e o envio fazia outra. Nao causava dano
+   * por coincidencia, porque o UUID configurado e o da lista 4.
+   */
+  it("avisa quando LISTMONK_DEFAULT_LIST_ID nao tem ID numerico", () => {
+    const avisos: string[] = [];
+    const original = console.warn;
+    console.warn = (msg: unknown) => void avisos.push(String(msg));
+
+    try {
+      const config = getListmonkConfig({
+        LISTMONK_URL: "https://listmonk.casaloti.ia.br",
+        LISTMONK_API_TOKEN: "token-de-teste",
+        LISTMONK_DEFAULT_LIST_ID: "7c3535ab-988f-4c98-88c0-b73be3b9a90b",
+      });
+      expect(config).toMatchObject({ enabled: true, mode: "api", listIds: [4, 1] });
+    } finally {
+      console.warn = original;
+    }
+
+    expect(avisos.join(" ")).toContain("LISTMONK_DEFAULT_LIST_ID");
+  });
+
+  it("aceita ID numerico normalmente, sem avisar", () => {
+    const avisos: string[] = [];
+    const original = console.warn;
+    console.warn = (msg: unknown) => void avisos.push(String(msg));
+
+    try {
+      const config = getListmonkConfig({
+        LISTMONK_URL: "https://listmonk.casaloti.ia.br",
+        LISTMONK_API_TOKEN: "token-de-teste",
+        LISTMONK_DEFAULT_LIST_ID: "4",
+      });
+      expect(config).toMatchObject({ listIds: [4] });
+    } finally {
+      console.warn = original;
+    }
+
+    expect(avisos).toHaveLength(0);
+  });
+
+  /**
    * O que tornou o estrago invisivel: com o Listmonk recusando, o cliente
    * devolve `ok: false`, e a rota `/api/newsletter` responde `ok: true` assim
    * mesmo. O visitante le "inscrito" e nunca recebe edicao nenhuma.
