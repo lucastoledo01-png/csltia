@@ -60,5 +60,34 @@ export async function POST(request: Request) {
     },
   });
 
+  /*
+   * Recusa do Listmonk nao pode responder "pronto, seu email entrou na lista".
+   *
+   * Esta linha devolvia `ok: true` em qualquer caso, e a tela olha o STATUS
+   * HTTP, nao o corpo. Em 17/09/2026 a lista `homesite` virou privada, o
+   * Listmonk passou a recusar o cadastro com HTTP 400, e o efeito seria: o
+   * visitante lendo "pronto, seu email entrou na lista", o lead gravado no
+   * nosso banco, e a pessoa nunca recebendo edicao nenhuma, porque quem envia
+   * e o Listmonk. O unico rastro era `listmonk_sync_logs` com `failed`, que
+   * ninguem abre sem motivo.
+   *
+   * Ninguem chegou a passar por isso: o log de sincronizacao estava vazio
+   * quando o defeito foi encontrado. O conserto e para a proxima vez.
+   *
+   * O lead permanece gravado nos dois casos, entao nada se perde e da para
+   * recuperar depois. O que muda e a frase que a pessoa le: "tenta de novo"
+   * e verdade, "entrou na lista" nao era.
+   *
+   * `skipped` continua sendo sucesso: significa integracao desligada de
+   * proposito, e nao servidor recusando.
+   */
+  const naoSincronizou = !listmonk.ok && !("skipped" in listmonk && listmonk.skipped);
+  if (naoSincronizou) {
+    return NextResponse.json(
+      { ok: false, reason: "listmonk_sync_failed", leadSalvo: true },
+      { status: 502 },
+    );
+  }
+
   return NextResponse.json({ ok: true, listmonk: { synced: listmonk.ok, skipped: "skipped" in listmonk && listmonk.skipped } });
 }

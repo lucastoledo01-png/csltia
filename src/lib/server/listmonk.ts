@@ -52,6 +52,34 @@ export function getListmonkConfig(env: EnvLike = process.env): ListmonkConfig {
     .map((item) => Number(item.trim()))
     .filter((item) => Number.isInteger(item) && item > 0);
 
+  /*
+   * Com credencial, a API. O formulario publico e o plano B.
+   *
+   * Era o contrario: bastava `LISTMONK_FORM_LIST_UUID` existir para o site
+   * postar no formulario PUBLICO do Listmonk, mesmo havendo token de API. Isso
+   * amarrava a inscricao do site a uma propriedade da lista que nao tem nada a
+   * ver com inscricao: ser publica.
+   *
+   * Em 17/09/2026 o dono tornou a `homesite` privada, para que ela sumisse da
+   * pagina publica de inscricao, que e um pedido legitimo de produto. O
+   * Listmonk passou a recusar o POST com HTTP 400 "UUID invalido", porque o
+   * endpoint de formulario so aceita lista publica. Reproduzido contra o
+   * servidor real antes de escrever esta linha.
+   *
+   * E a falha era SILENCIOSA: `/api/newsletter` devolve `ok: true` mesmo quando
+   * o Listmonk recusa. O visitante via "inscrito", o lead era gravado no nosso
+   * banco, e a pessoa nunca receberia edicao nenhuma, porque quem envia e o
+   * Listmonk. So o `listmonk_sync_logs` registrava `failed`.
+   *
+   * A API nao tem essa restricao: ela inscreve em lista privada sem reclamar.
+   * Entao a ordem certa e token primeiro. `LISTMONK_FORCE_FORM` existe para
+   * voltar ao formulario de proposito, e `LISTMONK_FORCE_API` continua aceito
+   * para nao quebrar quem ja o tinha ligado.
+   */
+  if (token && env.LISTMONK_FORCE_FORM !== "true") {
+    return { enabled: true, mode: "api", url, token, user, listIds: listIds.length > 0 ? listIds : [4, 1] };
+  }
+
   if (Boolean(env.LISTMONK_FORM_LIST_UUID) && env.LISTMONK_FORCE_API !== "true") {
     return {
       enabled: true,
