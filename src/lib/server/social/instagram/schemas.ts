@@ -242,7 +242,7 @@ export function legendaDeEmergencia(
 
   if (!titulo) return bruto;
 
-  const cta = `Comente ${keyword} e receba a análise de perfil no Direct.`;
+  const cta = `Comente ${keyword} e receba no Direct o link da nossa newsletter diária sobre os Estados Unidos.`;
   const resumo = corpo || titulo;
 
   console.warn("[INSTAGRAM] Modelo não devolveu legenda; montada a partir da capa.");

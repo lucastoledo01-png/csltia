@@ -96,6 +96,34 @@ ruim   Liminar impede regra sobre duration of status
 bom    Regra de prazo fixo segue suspensa e o prazo aberto continua valendo para estudantes
 ```
 
+## O segundo levantamento, de 17/09/2026
+
+O dono leu a capa de um post que tinha acabado de sair e perguntou duas coisas
+que são a mesma:
+
+> "Isso se refere ao Brasil ou aos EUA? Não dá pra entender, parece que está
+> falando negativamente dos EUA!"
+
+A manchete era **"Quem ganha menos quase não participou do recorde de renda
+familiar em 2025"**. Ela tem os dois defeitos de uma vez, e um causa o outro.
+
+**Nenhuma palavra situa o leitor.** A frase serve para o Brasil e para os
+Estados Unidos, idêntica. E quem lê está no Brasil, então assume o Brasil, que é
+onde ele está.
+
+**A ressalva abriu a frase.** O fato é que a renda familiar americana bateu
+recorde; o porém é que o ganho se concentrou no topo. O título começou pelo
+porém, então o fato virou detalhe de uma frase que começa com quem ficou de
+fora. Quando o leitor enfim entende que é sobre os EUA, o que sobrou foi a
+metade ruim.
+
+Reescrita, sem trocar um fato: **"Renda familiar nos EUA bate recorde, e o
+avanço se concentrou no topo."** Situa, entrega o fato, mantém o porém.
+
+Isso não é licença para enfeitar. O porém continua no título, com as palavras da
+fonte, e notícia ruim de ponta a ponta continua ruim no título. O que muda é a
+ordem, e a ordem é o que decide o sentido que fica.
+
 ## As regras que entraram no código
 
 1. **Destinatário obrigatório.** Todo título nomeia quem sente a mudança, com o
@@ -108,6 +136,20 @@ bom    Regra de prazo fixo segue suspensa e o prazo aberto continua valendo para
 5. **Sigla nunca sozinha.**
 6. **Dois-pontos é opção, não padrão.** Só 2 das 25 manchetes de referência usam.
 7. **Retomada carrega o dado novo.**
+
+8. **De que país é a notícia, e isso cabe no título.** Não precisa ser a palavra
+   "EUA": serve o órgão, a cidade, o estado, a moeda, a figura pública ou o
+   termo que só existe lá. Quando a pauta é sobre o Brasil, o Brasil aparece
+   pelo mesmo motivo, porque o defeito é a AMBIGUIDADE e não a ausência de um
+   país específico.
+9. **O fato primeiro, a ressalva depois.** Acontecimento positivo com porém abre
+   pelo que aconteceu e fecha pelo porém.
+
+A regra 8 tem conferência determinista em `leitor.ts` (`paisNaoIdentificavel`,
+motivo `COUNTRY_UNCLEAR`), espelhada no `social-guard.ts` como `PAIS_AMBIGUO`
+porque a régua do slide é a mesma do e-mail. A regra 9 é só instrução de prompt:
+decidir qual metade é o fato exige o pacote factual na mão, e nenhuma lista de
+palavras faz isso.
 
 A regra 2 tem conferência determinista em `leitor.ts`, com lista de gentílicos,
 e ela é APONTAMENTO de reparo, nunca bloqueio: quando o país é o objeto da

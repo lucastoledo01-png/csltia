@@ -60,6 +60,14 @@ export const MOTIVOS_DO_SOCIAL_GUARD = {
    */
   PROTAGONISTA_ESTRANGEIRO: "FOREIGN_SUBJECT",
   /*
+   * De que país é esta notícia, e ele vale nos dois canais pelo mesmo motivo.
+   *
+   * A manchete que motivou a regra também era de um POST: "Quem ganha menos
+   * quase não participou do recorde de renda familiar em 2025". O dono leu na
+   * capa do Instagram e perguntou se era sobre o Brasil ou sobre os EUA.
+   */
+  PAIS_AMBIGUO: "COUNTRY_UNCLEAR",
+  /*
    * Claim qualitativa: a afirmação que não tem número, data nem nome próprio.
    *
    * A conferência determinística não tem o que conferir nela, e ela pode ser

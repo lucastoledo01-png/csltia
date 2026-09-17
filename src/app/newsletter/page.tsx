@@ -13,9 +13,9 @@ export default function NewsletterPage() {
             <Link className="font-medium hover:text-[#E4344A]" href="/artigos">Artigos</Link>
           </div>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#E4344A]">Newsletter</p>
-          <h1 className="mt-4 text-[clamp(3.5rem,9vw,6rem)] font-black leading-[0.9] tracking-[-0.08em] text-black">a news de IA para criar rotina</h1>
+          <h1 className="mt-4 text-[clamp(3.5rem,9vw,6rem)] font-black leading-[0.9] tracking-[-0.08em] text-black">os Estados Unidos todo dia, em português</h1>
           <p className="mx-auto mt-8 max-w-2xl text-xl leading-8 text-[#667085]">
-            Notícias de IA, prompts e ideias para abrir todo dia. Leitura rápida, tom humano e zero enrolação de robô.
+            O que muda na economia, no trabalho, no custo de vida e nas regras de quem vive ou quer viver nos EUA. Toda manhã, de graça, com a fonte ao lado.
           </p>
         </header>
 

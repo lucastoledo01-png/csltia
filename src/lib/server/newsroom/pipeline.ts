@@ -165,6 +165,19 @@ NACIONALIDADE DE TERCEIRO PAÍS NÃO ENTRA NO TÍTULO. Se a pessoa da história 
   Certo: "Cirurgião aprovado no EB-2 NIW, a via para quem tem qualificação reconhecida"
 Um país que não é o Brasil nem os Estados Unidos só fica quando é o OBJETO da regra, como no TPS de El Salvador, e mesmo aí a outra metade diz o que muda para quem lê.
 
+DE QUE PAÍS É ESTA NOTÍCIA, e isto tem que caber NO TÍTULO.
+O leitor está no Brasil e assume o Brasil por padrão, porque é onde ele está. Um título que serve para os dois países com as mesmas palavras é um título que ele vai ler errado.
+  Errado, porque serve para os dois: "Quem ganha menos quase não participou do recorde de renda familiar em 2025"
+  Certo: "Renda familiar nos EUA bate recorde, e o avanço se concentrou no topo"
+Não precisa ser a palavra "EUA": serve o órgão, a cidade, o estado, a moeda, a figura pública ou o termo que só existe lá. E quando a pauta É sobre o Brasil, o Brasil aparece pelo mesmo motivo.
+
+O FATO PRIMEIRO, A RESSALVA DEPOIS.
+Quando o acontecimento é positivo e tem um porém, o título abre pelo que ACONTECEU e fecha pelo porém. Abrir pela falta inverte a notícia: o leitor recebe como se a má notícia fosse o fato, e o fato virasse detalhe.
+  Errado: "Quem ganha menos quase não participou do recorde de renda familiar"
+  Certo: "Renda familiar nos EUA bate recorde, e o avanço se concentrou no topo"
+Isto NÃO é licença para enfeitar. O porém continua no título, com as palavras da fonte. O que muda é a ordem, e a ordem é o que decide o sentido que fica.
+Quando a notícia é ruim de ponta a ponta, ela é ruim no título também: não invente lado bom que o pacote não sustenta.
+
 JURISDIÇÃO NO FIM. Estado, cidade, corte ou distrito vão para a última posição, nunca antes do sujeito.
   Errado: "Na Califórnia, acordos nupciais geralmente não encerram o I-864"
   Certo: "Quem assinou o compromisso de sustentar um imigrante costuma seguir responsável depois do divórcio, na Califórnia"
@@ -288,7 +301,7 @@ ESTRUTURA DO JSON DE SAÍDA (retorne exclusivamente este JSON estrito):
     {
       "rank": 1,
       "category": "Categoria curta da pauta, coerente com o nicho da publicação",
-      "title": "O QUE MUDOU + PARA QUEM IMPORTA. Máximo 95 caracteres. Sem jargão sozinho, sem órgão praticando ato burocrático.",
+      "title": "O QUE MUDOU + PARA QUEM IMPORTA. Máximo 95 caracteres. Sem jargão sozinho, sem órgão praticando ato burocrático. Tem que dar para saber de que país é a notícia lendo só o título. Fato positivo com porém abre pelo fato.",
       "summary": "O fato contado inteiro, em parágrafos curtos de duas a quatro linhas separados por uma linha em branco, respeitando o teto de palavras da diretriz de tamanho. Começa pelo que aconteceu, não pelo nome do órgão. Não repete o title. Marque com dois asteriscos o número, a data e o prazo que decidem a notícia, no máximo dois por parágrafo.",
       "context": "Contexto do mercado ou da ferramenta.",
       "why_it_matters": "Por que isso importa para quem quer morar, trabalhar ou estudar nos EUA. Diga QUEM é afetado, com substantivo concreto: brasileiros que, estudantes que, profissionais que, famílias que. Descreva o EFEITO da regra sobre essas pessoas. NUNCA afirme o que elas fazem, acompanham, observam, esperam, planejam ou devem fazer. Se o pacote factual NÃO disser quem é afetado nem qual o efeito, deixe este campo VAZIO (string vazia). Campo vazio é resposta correta; frase com ressalva do tipo 'pode afetar, mas a fonte não informa quem' é erro.",
@@ -745,6 +758,7 @@ COMO CORRIGIR:
 - LEGAL_JARGON_OVERLOAD: o caminho preferido é TIRAR o termo, e não explicá-lo. "Quem assinou o compromisso de sustento continua responsável" resolve sem citar formulário nenhum. Quando o termo precisar ficar, explique em fala, numa frase à parte e curta: "o I-864 é a carta em que alguém se compromete a sustentar o imigrante." Não invente o que o termo significa: se o pacote não diz, descreva o tipo de documento e siga.
 - LOW_READER_RELEVANCE: escreva quem é afetado e qual o efeito da regra sobre essa pessoa, com o que o pacote afirma. O público é pessoa comum que quer morar, trabalhar ou estudar nos EUA, não advogado. Se o pacote NÃO sustenta quem é afetado nem qual o efeito, esvazie o campo em vez de escrever ressalva: "a fonte não detalhou" não é relevância, é confissão dentro do texto, e será reprovada por falta de lastro.
 - HEADLINE_TOO_LONG: reescreva o título mais curto, mantendo o fato. Corte a qualificação jurídica e mantenha o que mudou e para quem.
+- COUNTRY_UNCLEAR: o título serve para o Brasil e para os EUA com as mesmas palavras. Ponha no título a marca que a fonte já traz: o país, a cidade, o estado, o órgão, a moeda ou a figura pública. "Quem ganha menos quase não participou do recorde de renda familiar em 2025" vira "Renda familiar nos EUA bate recorde, e o avanço se concentrou no topo". Repare que a correção resolve duas coisas de uma vez: situa o país e põe o fato antes da ressalva.
 - FOREIGN_SUBJECT: tire o gentílico do título e ponha no lugar a profissão, a área ou a etapa do processo. "Cirurgião mexicano tem aprovação em caso de EB-2 NIW" vira "Cirurgião aprovado no EB-2 NIW, a via para quem tem qualificação reconhecida". Se o país for o OBJETO da regra, e não a ficha do personagem, mantenha o país e use a outra metade do título para dizer o que aquilo muda para quem lê daqui.
 - REDUNDANT_SUBHEAD: NÃO mexa na linha de cima. Reescreva a de baixo com a informação que ela não trouxe: quem é afetado, o prazo, o número, o que muda a partir de quando, sempre com o que o pacote afirma. Se depois de tirar a repetição não sobrar informação nova no pacote, a linha de baixo pode ficar mais curta.
 - Afirmação que o pacote não sustenta: remova a afirmação ou troque pelo que o pacote diz. Se depois disso faltar informação, o texto fica mais curto, e está certo. NÃO escreva que a fonte não informou: isso fala da reportagem, e o leitor quer o fato.

@@ -92,18 +92,31 @@ export type MarcaSocial = {
 };
 
 /**
- * O CTA varia, a ação não.
+ * O CTA varia, a ação não. E a ação é ASSINAR A NEWSLETTER.
  *
- * Todo post terminando com a mesma frase transforma o perfil em gravação. As
- * variações pedem a mesma coisa e prometem a mesma coisa: avaliação de perfil
- * e quais caminhos combinam. Nenhuma promete aprovação, elegibilidade, prazo
- * ou custo, porque isso só um advogado diz depois de ver o caso.
+ * Todo post terminando com a mesma frase transforma o perfil em gravação, daí
+ * as quatro formas. O que elas pedem é sempre a mesma coisa, e o que prometem
+ * é sempre a mesma coisa.
+ *
+ * Até 17/09/2026 elas prometiam uma avaliação de perfil de imigração. O dono
+ * corrigiu o rumo: o produto é a newsletter diária sobre os Estados Unidos, e
+ * era isso que o CTA tinha que oferecer. A avaliação de perfil é outro funil,
+ * e pendurá-la em todo post transformava um jornal em captação de lead.
+ *
+ * Nenhuma forma promete aprovação, elegibilidade, prazo ou custo de visto:
+ * isso só um advogado diz depois de ver o caso, e não é o que se entrega aqui.
+ *
+ * ATENÇÃO ao mexer: a frase precisa conter "comente" e a palavra-chave, porque
+ * é assim que `frasesDeCta` em `legenda.ts` reconhece e separa o CTA do corpo.
+ * E a mensagem que a pessoa recebe DEPOIS de comentar não mora aqui: ela está
+ * na automação do OpenReply, criada uma única vez. Mudar só este arquivo faz o
+ * post prometer uma coisa e o Direct entregar outra.
  */
 export const FORMAS_DE_CTA = [
-  'Comente {K} para receber no Direct uma avaliação de perfil e descobrir quais caminhos de imigração combinam com sua formação, profissão, experiência e família.',
-  'Quer entender quais caminhos podem fazer sentido para o seu perfil? Comente {K} e receba a avaliação no Direct.',
-  'Se você quer avaliar seu perfil antes de decidir, comente {K} e receba a análise no Direct.',
-  'Comente {K} e receba no Direct uma leitura do seu perfil: formação, profissão, experiência e família.',
+  'Comente {K} e receba no Direct o link da nossa newsletter: os Estados Unidos todo dia, em português, de graça.',
+  'Quer acompanhar o que muda nos Estados Unidos sem depender do feed? Comente {K} e o link da newsletter chega no seu Direct.',
+  'Toda manhã a gente conta o que aconteceu nos Estados Unidos, em português. Comente {K} para receber no Direct.',
+  'Comente {K} e receba no Direct o link para assinar: economia, trabalho, custo de vida e política dos Estados Unidos, todo dia.',
 ];
 
 /**

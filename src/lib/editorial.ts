@@ -178,9 +178,17 @@ export function getArticle(slug: string) {
   return articles.find((article) => article.slug === slug);
 }
 
+/**
+ * O que a edição entrega, na ordem em que o leitor se importa.
+ *
+ * A lista anterior descrevia a newsletter de IA da fase `desbuguei.ia`, duas
+ * marcas atrás, e ficou no ar até 17/09/2026 numa página cujo cabeçalho já
+ * dizia `usa.journal`: a página se contradizia sozinha, e é onde a pessoa
+ * decide assinar.
+ */
 export const newsletterBenefits = [
-  "Radar de IA em português, com cara de conversa boa",
-  "Prompts copiáveis para usar no mesmo dia",
-  "Fonte, leitura honesta e um jeito prático de aplicar",
-  "Ganchos para post, carrossel, artigo e ideia de produto",
+  "Economia, trabalho e custo de vida nos EUA explicados em português",
+  "O que muda nas regras de visto e de permanência, e a partir de quando",
+  "Tecnologia, política e cultura americana sem jargão e sem tradução literal",
+  "Fonte ao lado de cada informação, para você conferir",
 ];

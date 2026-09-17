@@ -187,7 +187,8 @@ export type MotivoDeTexto =
   | "LEGAL_JARGON_OVERLOAD"
   | "LOW_READER_RELEVANCE"
   | "HEADLINE_TOO_LONG"
-  | "FOREIGN_SUBJECT";
+  | "FOREIGN_SUBJECT"
+  | "COUNTRY_UNCLEAR";
 export type MotivoDeLeitor = MotivoDeTexto | "REDUNDANT_SUBHEAD";
 
 export type AchadoDeLeitor = {
@@ -260,6 +261,54 @@ export function gentilicoDeTerceiroPais(titulo: string): string | null {
     if (limpo.includes(` ${g} `)) return g;
   }
   return null;
+}
+
+/**
+ * O título não diz de que país ele fala.
+ *
+ * Em 17/09/2026 saiu um post com a manchete "Quem ganha menos quase não
+ * participou do recorde de renda familiar em 2025". O dono leu e perguntou se
+ * aquilo era sobre o Brasil ou sobre os Estados Unidos, e a pergunta é
+ * legítima: a frase serve para os dois países, palavra por palavra.
+ *
+ * Para esta publicação isso é defeito grave por dois motivos. O leitor brasileiro
+ * assume o Brasil por padrão, porque é onde ele está. E a mesma frase lida como
+ * notícia do Brasil vira notícia dos EUA soando mal, que é o contrário da linha
+ * editorial.
+ *
+ * A régua não exige a palavra "EUA": exige QUALQUER marca que situe o leitor, e
+ * o Brasil serve igual, porque o problema é a ambiguidade e não a ausência de um
+ * país específico. Instituição, cidade, estado, moeda local, figura pública e
+ * termo que só existe num dos dois já bastam.
+ *
+ * É APONTAMENTO de reparo, nunca bloqueio: existe manchete legítima sem marca
+ * geográfica, e quem decide com o pacote na mão é a reescrita.
+ */
+const MARCAS_DE_PAIS = [
+  // Estados Unidos, o país da publicação
+  "eua", "estados unidos", "americano", "americana", "americanos", "americanas",
+  "norte-americano", "norte-americana",
+  "washington", "casa branca", "wall street", "vale do silicio", "silicon valley",
+  "nova york", "new york", "california", "texas", "florida", "chicago", "boston",
+  "miami", "los angeles", "seattle", "atlanta", "houston", "dallas", "filadelfia",
+  "nevada", "arizona", "ohio", "michigan", "illinois", "virginia", "maryland",
+  "massachusetts", "colorado", "oregon", "utah", "minnesota", "wisconsin",
+  "missouri", "tennessee", "kentucky", "alabama", "louisiana", "oklahoma",
+  "kansas", "nebraska", "connecticut", "nova jersey", "new jersey", "pensilvania",
+  "uscis", "dhs", "cbp", "fed", "federal reserve", "capitolio", "pentagono",
+  "departamento de estado", "departamento do trabalho", "suprema corte",
+  "census", "irs", "fbi", "medicare", "medicaid", "green card",
+  "trump", "biden", "powell",
+  // Brasil, que é o outro lado da comparação e situa igual
+  "brasil", "brasileiro", "brasileira", "brasileiros", "brasileiras",
+  "sao paulo", "rio de janeiro", "brasilia", "minas gerais",
+  "stf", "supremo", "congresso nacional", "banco central", "selic", "ibge",
+  "lula", "bolsonaro", "reais",
+];
+
+export function paisNaoIdentificavel(titulo: string): boolean {
+  const limpo = ` ${semAcento(titulo).replace(/[^a-z0-9]+/g, " ")} `;
+  return !MARCAS_DE_PAIS.some((m) => limpo.includes(` ${semAcento(m).replace(/[^a-z0-9]+/g, " ")} `));
 }
 
 export type AchadoSemIndice = { motivo: MotivoDeTexto; descricao: string };
@@ -394,6 +443,18 @@ export function conferirLinguagemDeUmTexto(entrada: {
         `Troque pela profissão, pela área ou pela etapa do processo. Se o país for o OBJETO da ` +
         `regra, e não a ficha do personagem, mantenha e diga na outra metade o que aquilo muda ` +
         `para quem lê.`,
+    });
+  }
+
+  if (paisNaoIdentificavel(entrada.titulo)) {
+    achados.push({
+      motivo: "COUNTRY_UNCLEAR",
+      descricao:
+        `o título não diz de que país ele fala, e serve para o Brasil e para os Estados Unidos ` +
+        `com as mesmas palavras. Quem lê está no Brasil e assume o Brasil por padrão. Situe o ` +
+        `leitor com o que a fonte já traz: o país, a cidade, o estado, o órgão, a moeda ou a ` +
+        `figura pública. E quando o fato for americano e bom, o título diz o FATO primeiro; a ` +
+        `ressalva vem na segunda metade, nunca abrindo a frase.`,
     });
   }
 
