@@ -405,6 +405,44 @@ cinco pontos de um limiar.
 o título da FONTE, e fonte americana escreve em inglês. E o casamento é por
 INÍCIO DE PALAVRA, não substring: "ice" casava dentro de "justice" e "police".
 
+## O recorte entra no feed, e quem decide é o eixo (18/09/2026)
+
+O `recorte_post` estava pronto, testado e renderizável desde 16/09, e **nunca
+desenhou uma peça**. Nenhum ponto da produção passava a gramática, o padrão era
+`"jornal"`, e o único chamador era o script de preview. Faltava a decisão de
+quando ele entra, que é de produto e não de código.
+
+**O eixo decide.** Custo de vida, trabalho, cultura e tecnologia chegam como
+leitura da realidade, e o recorte serve isso porque ele é uma fala. Política,
+segurança, imigração e economia afirmam um fato com data e efeito, e pedem a
+peça que afirma. Sem eixo reconhecido, jornal.
+
+**A alternância é a rede, e não há sorteio.** Teto de dois recortes seguidos,
+contado a partir do fim do FEED e não do começo da leva, senão três se
+encostariam na virada do dia. Sorteio foi recusado pelo mesmo motivo que em
+todo o resto do projeto: um dia com seis recortes seguidos seria
+indistinguível de defeito.
+
+**O recorte EXIGE foto**, e isso foi descoberto renderizando, não lendo. O
+`.r-texto` é faixa fixa de 76% da altura com o tipo travado em 46px, e nada faz
+o texto crescer: um gancho de 65 caracteres sem foto deixa dois terços da peça
+em branco. Havia um comentário afirmando que sem foto "o corpo do tipo cresce".
+Não cresce, e o comentário foi corrigido. Sem foto quem desenha é a capa
+tipográfica do jornal, que MEDE o texto no navegador e enche o canvas.
+
+**O corpo do recorte é o `gancho` da copy.** Medido em 25 peças reais: 24 cabem
+no orçamento com foto. `fato_principal` não serve, estoura.
+
+**A gramática é gravada, nunca deduzida.** `content_json.arte.gramatica` guarda
+a decisão e `arte.variante` guarda o desenho, e a conferência da publicação
+compara os dois. Deduzir do eixo na hora de conferir recusaria exatamente a
+peça que caiu para jornal por não caber, que é a peça que fez a coisa certa.
+
+Quem calcula a gramática efetiva é `gramaticaEfetiva`, em `social/arte.ts`, e
+ela é UMA função com três chamadores: o desenho, o store e o ritmo. Já houve
+a versão com três cópias da mesma regra, e custou vinte minutos de diagnóstico
+num post que estava correto.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

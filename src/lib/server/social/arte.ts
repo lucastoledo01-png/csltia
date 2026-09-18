@@ -149,8 +149,11 @@ export type GramaticaDaCapa = "jornal" | "recorte";
  * degradê. O RECORTE comenta: fundo branco, autor no topo, texto corrido em
  * caixa baixa, com a foto como cartão no meio da fala.
  *
- * O recorte não tem a versão sem foto separada, e isso é de propósito: ele já
- * é uma peça de texto, e o que muda sem foto é só o corpo do tipo, que cresce.
+ * O recorte não tem versão sem foto, e o ritmo só o pede quando há foto. Este
+ * comentário já afirmou que sem foto "o corpo do tipo cresce": não cresce. O
+ * `.r-texto` é faixa fixa de 76% com o tipo travado em 46px, e um gancho curto
+ * deixa dois terços da peça em branco. Descoberto renderizando, em 18/09/2026.
+ * Sem foto quem desenha é a capa tipográfica do jornal, que mede e enche.
  */
 export function varianteDaCapa(comFoto: boolean, gramatica: GramaticaDaCapa = "jornal"): string {
   if (gramatica === "recorte") return "recorte_post";
@@ -269,6 +272,46 @@ function sobrancelha(eixo: string | undefined): string {
   return ROTULO_DO_EIXO[(eixo ?? "").trim()] ?? "";
 }
 
+/**
+ * A gramática que a peça VAI usar, que nem sempre é a pedida.
+ *
+ * Existe uma regra só, e ela mora aqui, porque três lugares precisam da mesma
+ * resposta: o desenho, que renderiza; o store, que grava `arte.variante`; e a
+ * conferência da publicação, que recusa o post quando os dois discordam.
+ *
+ * Já houve o caso de a regra existir em três cópias. Quando o desenho mudou
+ * para a gramática de jornal, as outras duas continuaram falando de
+ * `fullbleed_portrait`, e a conferência passou a acusar contradição entre uma
+ * peça correta e um campo velho. Vinte minutos de diagnóstico num post que
+ * estava certo.
+ *
+ * O recorte tem o corpo do tipo travado em 46px, porque carrossel com um
+ * tamanho por slide denuncia peça de máquina. O preço é um orçamento de
+ * caracteres, e quando o texto o estoura só existem três saídas: encolher o
+ * tipo, que desfaz a regra; cortar a frase, que foi o defeito da primeira
+ * renderização; ou desenhar na gramática de jornal, que se vira com texto de
+ * qualquer tamanho. A terceira é a única sem mentira, e é a que está aqui.
+ */
+export function gramaticaEfetiva(entrada: {
+  pedida?: GramaticaDaCapa;
+  eixo?: string;
+  headline?: string;
+  corpo?: string;
+  comFoto: boolean;
+}): GramaticaDaCapa {
+  const pedida = entrada.pedida ?? "jornal";
+  if (pedida !== "recorte") return "jornal";
+
+  return cabeNoRecorte({
+    chapeu: sobrancelha(entrada.eixo),
+    titulo: entrada.headline,
+    corpo: entrada.corpo,
+    temFoto: entrada.comFoto,
+  })
+    ? "recorte"
+    : "jornal";
+}
+
 export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
   /*
    * Slide pronto passa direto, sem foto e sem crédito.
@@ -330,17 +373,13 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
    *
    * A terceira é a única sem mentira, e é a que está aqui.
    */
-  const gramaticaPedida = entrada.gramatica ?? "jornal";
-  const gramatica: GramaticaDaCapa =
-    gramaticaPedida === "recorte" &&
-    !cabeNoRecorte({
-      chapeu: sobrancelha(entrada.eixo),
-      titulo: entrada.headline,
-      corpo: entrada.corpo,
-      temFoto: comFoto,
-    })
-      ? "jornal"
-      : gramaticaPedida;
+  const gramatica = gramaticaEfetiva({
+    pedida: entrada.gramatica,
+    eixo: entrada.eixo,
+    headline: entrada.headline,
+    corpo: entrada.corpo,
+    comFoto,
+  });
 
   const variante = varianteDaCapa(comFoto, gramatica);
 

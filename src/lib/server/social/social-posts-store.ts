@@ -6,6 +6,7 @@ import type { ResultadoVisual } from "../visual/tipos";
 import type { ArtefatoDeSlide } from "./artefato";
 import type { FormatoDoPost } from "./carrossel/formato";
 import { varianteDaCapa } from "./arte";
+import type { GramaticaDaCapa } from "./arte";
 
 /**
  * Onde um post do social V2 vira linha.
@@ -119,6 +120,18 @@ export type PostParaGravar = {
    * outro faria a alternância enxergar bolha onde a peça não tem nenhuma.
    */
   bolha: boolean;
+  /**
+   * Qual gramática esta capa usou, jornal ou recorte.
+   *
+   * Gravado, e não deduzido, pela mesma razão do campo acima: a gramática
+   * PEDIDA pode não ser a usada, porque o recorte tem orçamento de caracteres
+   * e cai para jornal quando o texto estoura. Quem alterna o ritmo lê este
+   * campo, e a conferência da publicação compara `arte.variante` com ele.
+   *
+   * Deduzir do eixo faria a conferência recusar toda peça que caiu para
+   * jornal, que é justamente a peça que funcionou.
+   */
+  gramatica: GramaticaDaCapa;
 };
 
 /** O artefato como a linha o registra. Um formato, usado pela capa e por slide. */
@@ -159,7 +172,10 @@ export type SocialPostsStore = {
    * ritmo precisa saber. Atravessa dias de propósito: o feed não zera à
    * meia-noite.
    */
-  ultimasCapas(projectId: string, limite: number): Promise<Array<{ bolha: boolean }>>;
+  ultimasCapas(
+    projectId: string,
+    limite: number,
+  ): Promise<Array<{ bolha: boolean; gramatica: string }>>;
   gravar(posts: PostParaGravar[]): Promise<ResultadoDaGravacaoSocial>;
 };
 
@@ -197,8 +213,17 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
        * permite que a próxima leve, que é o comportamento neutro.
        */
       return (data ?? []).map((linha) => {
-        const conteudo = (linha as { content_json?: { arte?: { bolha?: boolean } } }).content_json;
-        return { bolha: conteudo?.arte?.bolha === true };
+        const conteudo = (linha as {
+          content_json?: { arte?: { bolha?: boolean; gramatica?: string } };
+        }).content_json;
+        return {
+          bolha: conteudo?.arte?.bolha === true,
+          /*
+           * Peça anterior a 18/09/2026 não tem o campo, e a resposta certa para
+           * ela é "jornal": era a única gramática que existia na prática.
+           */
+          gramatica: conteudo?.arte?.gramatica ?? "jornal",
+        };
       });
     },
 
@@ -352,7 +377,17 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
              */
             arte: {
               versao: "v2",
-              variante: varianteDaCapa(Boolean(asset)),
+              variante: varianteDaCapa(Boolean(asset), p.gramatica),
+              /*
+               * A gramática ao lado da variante, e não no lugar dela.
+               *
+               * A variante é o nome do desenho e é o que a conferência compara;
+               * a gramática é a decisão que o produziu, e é o que o ritmo lê no
+               * feed. Guardar só a variante obrigaria o ritmo a traduzir nome de
+               * template de volta para decisão, que é a mesma regra em dois
+               * lugares outra vez.
+               */
+              gramatica: p.gramatica,
               eixo: p.post.pauta.classificacao.eixo ?? "",
               /*
                * O artefato congelado, que é o que vai ao ar.

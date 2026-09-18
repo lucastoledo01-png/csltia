@@ -12,7 +12,7 @@
  */
 
 import type { InstagramSlide } from "../../../carousel-templates/types";
-import type { EntradaDaCapa, FotoDaCapa } from "../arte";
+import type { EntradaDaCapa, FotoDaCapa, GramaticaDaCapa } from "../arte";
 import type { CopyDoCarrossel, SlideDeTexto } from "./copy";
 import { papeisDoModelo, type PapelDeSlide } from "./estrutura";
 import { destaqueEhTrechoDaManchete } from "./guarda";
@@ -143,6 +143,16 @@ export function entradasDoCarrossel(
     /** A vice-campeã do resolvedor, que a capa desenha em círculo. */
     assetSecundario?: FotoDaCapa | null;
     motivoSemFoto: string;
+    /**
+     * A gramática da CAPA, decidida pelo ritmo e não aqui.
+     *
+     * Vale só para o slide de capa: o miolo tem desenho próprio por papel, e
+     * trocar a gramática do miolo no meio do carrossel faria a peça mudar de
+     * identidade entre as telas.
+     */
+    gramatica?: GramaticaDaCapa;
+    /** O corpo do recorte, quando a capa sai nessa gramática. */
+    corpo?: string;
   },
 ): EntradasDoCarrossel {
   const doModelo = papeisDoModelo(papeis);
@@ -181,6 +191,8 @@ export function entradasDoCarrossel(
         estiloDaCapa: "carrossel",
         destaque: copy.destaque ?? "",
         molduraDiscreta: true,
+        gramatica: opcoes.gramatica,
+        corpo: opcoes.corpo,
       });
       return;
     }

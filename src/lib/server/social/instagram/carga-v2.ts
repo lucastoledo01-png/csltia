@@ -405,7 +405,19 @@ export function lerCargaV2(linha: LinhaDePost): LeituraDaCarga {
      * Conferência que guarda a própria cópia da regra não confere a regra:
      * confere se as duas cópias envelheceram juntas.
      */
-    const esperada = varianteDaCapa(Boolean(foto));
+    /*
+     * A gramática vem do REGISTRO, e não do eixo.
+     *
+     * A capa pode ter sido pedida em recorte e desenhada em jornal, porque o
+     * recorte tem orçamento de caracteres e cai para jornal quando o texto
+     * estoura. Deduzir a gramática aqui recusaria exatamente a peça que fez a
+     * coisa certa ao cair.
+     *
+     * Registro ausente é "jornal", que é o que toda peça anterior a 18/09/2026
+     * usou.
+     */
+    const gramatica = texto(arte.gramatica) === "recorte" ? "recorte" : "jornal";
+    const esperada = varianteDaCapa(Boolean(foto), gramatica);
     if (variante && variante !== esperada) {
       faltando.push(
         `content_json.arte.variante="${variante}" contradiz o registro visual ` +

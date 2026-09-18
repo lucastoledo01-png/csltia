@@ -15,6 +15,9 @@ import type { ResumoVisualDoDia } from "./modo";
 import type { DiagnosticoSocial, ModoSocial } from "./modo";
 import { chaveDeIdempotencia, resolverOrigem } from "./social-posts-store";
 import { alternarBolha, ultimaTeveBolha } from "./ritmo-da-bolha";
+import { alternarGramatica, recortesSeguidosNoFim, TETO_DE_RECORTES_SEGUIDOS } from "./ritmo-do-recorte";
+import { gramaticaEfetiva } from "./arte";
+import type { GramaticaDaCapa } from "./arte";
 import type { PostParaGravar, SocialPostsStore } from "./social-posts-store";
 import { mesmaKeyword, resolverKeywordCanonica } from "./keyword-canonica";
 import type { ResolucaoDaKeyword } from "./keyword-canonica";
@@ -503,13 +506,23 @@ export async function rodarCicloSocial(
    * bolha, que é o lado seguro do erro.
    */
   let ultimaComBolha = false;
+  let recortesNoFim = TETO_DE_RECORTES_SEGUIDOS;
   try {
-    ultimaComBolha = ultimaTeveBolha(await opcoes.store.ultimasCapas(opcoes.projectId, 1));
+    /*
+     * Uma leitura só para os dois ritmos.
+     *
+     * A bolha precisa da última peça; o recorte precisa saber quantas peças
+     * seguidas no fim do feed já são recorte, e isso exige o teto mais uma.
+     */
+    const capas = await opcoes.store.ultimasCapas(opcoes.projectId, TETO_DE_RECORTES_SEGUIDOS + 1);
+    ultimaComBolha = ultimaTeveBolha(capas);
+    recortesNoFim = recortesSeguidosNoFim(capas);
   } catch (erro) {
     linhas.push(
-      `[SOCIAL V2] não consegui ler o ritmo da bolha, a leva começa sem ela: ${(erro as Error).message}`,
+      `[SOCIAL V2] não consegui ler o ritmo do feed, a leva começa conservadora: ${(erro as Error).message}`,
     );
     ultimaComBolha = true;
+    recortesNoFim = TETO_DE_RECORTES_SEGUIDOS;
   }
 
   const bolhas = alternarBolha(
@@ -521,7 +534,50 @@ export async function rodarCicloSocial(
       `(a peça anterior do feed ${ultimaComBolha ? "tinha" : "não tinha"} bolha)`,
   );
 
+  /*
+   * A gramática de cada capa, decidida antes de qualquer render.
+   *
+   * O eixo decide e a alternância é a rede, conforme a decisão de 17/09/2026.
+   * O `cabeNoRecorte` entra aqui dentro de `gramaticaEfetiva`, que é a mesma
+   * função que o desenho usa: assim o que este laço promete é exatamente o que
+   * a peça vai ser, e o campo gravado não mente.
+   *
+   * O corpo do recorte é o `gancho` da copy. Medido em 25 peças reais: 24
+   * cabem no orçamento com foto e 25 sem, então o recorte de fato acontece em
+   * vez de cair sempre para jornal.
+   */
+  const gramaticas = alternarGramatica(
+    previews.map((p) => ({
+      eixo: p.post.pauta.classificacao.eixo,
+      temFoto: Boolean(p.visual?.asset),
+      cabeNoRecorte:
+        gramaticaEfetiva({
+          pedida: "recorte",
+          eixo: p.post.pauta.classificacao.eixo ?? "",
+          headline: p.post.copy.headline,
+          corpo: p.post.copy.gancho,
+          comFoto: Boolean(p.visual?.asset),
+        }) === "recorte",
+    })),
+    recortesNoFim,
+  );
+  linhas.push(
+    `[SOCIAL V2] gramática das capas: ${gramaticas.join(", ")} ` +
+      `(o feed terminava com ${recortesNoFim} recorte(s) seguido(s), teto ${TETO_DE_RECORTES_SEGUIDOS})`,
+  );
+
   for (const [indice, p] of previews.entries()) {
+    /*
+     * A gramática desta peça, já decidida pelo ritmo acima.
+     *
+     * Ela vai para o desenho E para a gravação. O desenho reconfere com a
+     * mesma função e chega ao mesmo lugar; a gravação precisa dela porque a
+     * conferência da publicação compara `arte.variante` com ela, e post cuja
+     * variante contradiz o registro é recusado.
+     */
+    const gramatica: GramaticaDaCapa = gramaticas[indice] ?? "jornal";
+    const corpoDoRecorte = gramatica === "recorte" ? p.post.copy.gancho : undefined;
+
     /*
      * A bolha desta peça, já decidida pelo ritmo.
      *
@@ -559,6 +615,8 @@ export async function rodarCicloSocial(
               asset: p.visual?.asset ?? null,
               assetSecundario: secundarioDaCapa,
               motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
+              gramatica,
+              corpo: corpoDoRecorte,
             },
           ).entradas,
           path,
@@ -571,6 +629,8 @@ export async function rodarCicloSocial(
             asset: p.visual?.asset ?? null,
             assetSecundario: secundarioDaCapa,
             motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
+            gramatica,
+            corpo: corpoDoRecorte,
           },
           path,
           fetcher: opcoes.fetcher,
@@ -610,6 +670,7 @@ export async function rodarCicloSocial(
       formato: carrossel ? "carousel" : "static",
       artefatos,
       bolha: Boolean(secundarioDaCapa),
+      gramatica,
     });
   }
 
