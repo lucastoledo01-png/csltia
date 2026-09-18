@@ -734,3 +734,47 @@ export function garantirLegendaSocial(
   const { caption, problemas, reparos } = repararLegendaSocial(carousel.caption, contexto);
   return { carousel: { ...carousel, caption }, problemas, reparos };
 }
+
+/**
+ * O crédito da foto, para o fim da legenda do post.
+ *
+ * Até 18/09/2026 ele era queimado na imagem, numa tira sobre o rodapé da peça.
+ * O dono pediu para tirar da arte, e a licença continua sendo cumprida: CC BY e
+ * CC BY-SA exigem atribuição "de maneira razoável", e crédito na legenda do
+ * post é a prática corrente de quem publica em rede social. O que mudou foi
+ * onde ele aparece, nunca se aparece.
+ *
+ * A régua de QUANDO creditar não mora aqui: ela é do módulo de licenças, que
+ * já devolve `attribution` vazio quando a licença não exige nada. Pexels,
+ * Unsplash, domínio público e CC0 caem nesse caso, e foram 18 das 23 últimas
+ * peças medidas. Repetir a régua aqui criaria a segunda cópia de uma decisão
+ * que só pode ter uma.
+ */
+export function creditoParaLegenda(atribuicao: string | null | undefined): string {
+  const texto = (atribuicao ?? "").trim();
+  return texto ? texto : "";
+}
+
+/**
+ * A legenda com o crédito no fim, depois das hashtags.
+ *
+ * Depois, e não antes, porque o crédito é obrigação e não conteúdo: ele não
+ * disputa as primeiras linhas, que é o que o leitor vê sem tocar em "mais".
+ *
+ * Se não couber no limite do campo, o crédito entra e o corpo cede, que é o
+ * contrário da regra das hashtags. Atribuição cortada não cumpre licença;
+ * parágrafo cortado custa uma frase.
+ */
+export function legendaComCredito(legenda: string, atribuicao: string | null | undefined): string {
+  const credito = creditoParaLegenda(atribuicao);
+  if (!credito) return legenda;
+  if (legenda.includes(credito)) return legenda;
+
+  const linha = `· ${credito}`;
+  const corpo = (legenda ?? "").trim();
+  const total = `${corpo}\n\n${linha}`;
+  if (total.length <= LIMITE_DA_LEGENDA) return total;
+
+  const espaco = LIMITE_DA_LEGENDA - linha.length - 2;
+  return `${corpo.slice(0, Math.max(0, espaco)).trimEnd()}\n\n${linha}`;
+}

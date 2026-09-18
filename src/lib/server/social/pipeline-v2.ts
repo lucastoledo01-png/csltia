@@ -25,6 +25,7 @@ import { congelarArtefato, congelarCarrossel } from "./artefato";
 import type { EntradaDoCarrossel, ResultadoDoCarrossel } from "./artefato";
 import { entradasDoCarrossel } from "./carrossel/arte";
 import { alternarFormatos } from "./carrossel/formato";
+import { legendaComCredito } from "./legenda";
 import { comporFeedDoDia } from "./evergreen/compositor";
 import type { DecisaoDeFormato } from "./carrossel/formato";
 import type { EntradaDoCongelamento, ResultadoDoCongelamento } from "./artefato";
@@ -671,6 +672,22 @@ export async function rodarCicloSocial(
       artefatos,
       bolha: Boolean(secundarioDaCapa),
       gramatica,
+      /*
+       * O crédito da foto entra na legenda, e não na imagem.
+       *
+       * A tira sobre a peça saiu em 18/09/2026, a pedido do dono. A obrigação
+       * de creditar não saiu junto: CC BY e CC BY-SA continuam exigindo
+       * atribuição, e ela passa a viver no fim da legenda, depois das
+       * hashtags, que é onde não disputa as primeiras linhas.
+       *
+       * Quando a licença não exige nada, `attribution` já vem vazio do módulo
+       * de licenças e a legenda sai intacta. Foi o caso de 18 das 23 últimas
+       * peças: Pexels, Unsplash, domínio público e CC0.
+       */
+      legendaFinal: legendaComCredito(
+        p.post.veredicto.legendaFinal,
+        p.visual?.asset?.attribution,
+      ),
     });
   }
 

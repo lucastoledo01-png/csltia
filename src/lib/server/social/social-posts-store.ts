@@ -132,6 +132,15 @@ export type PostParaGravar = {
    * jornal, que é justamente a peça que funcionou.
    */
   gramatica: GramaticaDaCapa;
+  /**
+   * A legenda como ela vai ao ar, já com o crédito da foto no fim.
+   *
+   * Vem pronta de quem monta o post, e não é recalculada aqui: o crédito
+   * depende do asset escolhido, e o store não é o lugar de repetir essa
+   * decisão. Ausente, vale a legenda do veredicto, que é o comportamento de
+   * antes de 18/09/2026.
+   */
+  legendaFinal?: string;
 };
 
 /** O artefato como a linha o registra. Um formato, usado pela capa e por slide. */
@@ -292,7 +301,7 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
 
           // A manchete da arte e a legenda usam as colunas que já existem.
           title: p.post.copy.headline.slice(0, 300),
-          caption: p.post.veredicto.legendaFinal,
+          caption: p.legendaFinal ?? p.post.veredicto.legendaFinal,
 
           /*
            * As mesmas colunas que o caminho legado usa para o manifesto.

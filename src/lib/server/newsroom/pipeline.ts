@@ -349,8 +349,27 @@ export async function runNewsroomPipeline(
    */
   pacotes: Map<string, PacoteFactual> = new Map(),
   maxTentativasDeReparo: number = MAX_TENTATIVAS_DE_REPARO,
-  /** Nota mínima do auditor. Abaixo dela a edição não sai. */
-  notaMinimaDeQA: number = 85,
+  /**
+   * Nota mínima do auditor. `0` desliga o corte por nota.
+   *
+   * Era 85, e bloqueava. Isso contradizia a decisão já registrada em
+   * `docs/decisoes.md`, tomada depois do incidente em que a edição do dia
+   * inteiro ficava retida por tom, gramática ou nota baixa: o portão deveria
+   * olhar só o risco de alucinação, porque fato inventado não se desfaz com
+   * errata e vírgula errada se desfaz.
+   *
+   * O piso sobreviveu à decisão e ninguém percebeu, até 18/09/2026, quando a
+   * redação rodou três vezes com notas 80, 76 e 93 sobre material do mesmo dia.
+   * Um corte duro sobre um juízo graduado de modelo é uma trava que abre e
+   * fecha sozinha, e a medição do classificador, em `classificador.ts:40-70`,
+   * já mostrou que nem `seed` nem `temperature` estabilizam isso neste modelo.
+   *
+   * Desligado por decisão do dono em 18/09/2026. O que NÃO mudou, e é o ponto:
+   * `hallucination_risk` continua bloqueando, e as duas ancoragens duras
+   * também. A régua de fato inventado está intacta; o que saiu foi a nota de
+   * qualidade percebida, que é opinião graduada e não detecção de invenção.
+   */
+  notaMinimaDeQA: number = 0,
 ): Promise<PipelineResult> {
   const config = getAIProviderConfig(env);
 
@@ -722,7 +741,7 @@ Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
       motivos.push(`UNGROUNDED_EDITORIAL_CLAIM em ${sem.naoSustentadas.length} conclusão(ões)`);
     }
     if (qa.hallucination_risk) motivos.push("REJECT_EDITORIAL_QA: hallucination_risk");
-    if (qa.score < notaMinimaDeQA) {
+    if (notaMinimaDeQA > 0 && qa.score < notaMinimaDeQA) {
       motivos.push(`REJECT_EDITORIAL_QA: nota ${qa.score} abaixo do piso ${notaMinimaDeQA}`);
     }
     /*

@@ -7,8 +7,7 @@ import {
   removerFechamentoDeNewsletter,
   repararLegendaSocial,
   separarHashtags,
-  validarLegendaSocial,
-} from "./legenda";
+  validarLegendaSocial, legendaComCredito } from "./legenda";
 
 /**
  * O que separa a legenda do Instagram da copy da newsletter.
@@ -381,5 +380,58 @@ describe("separarHashtags", () => {
     expect(r.noMeio).toBe(false);
     expect(r.tags).toEqual(["#Uma", "#Duas", "#Tres"]);
     expect(r.corpo).toBe("Texto da legenda.");
+  });
+});
+
+/**
+ * O crédito saiu da imagem e foi para a legenda, em 18/09/2026.
+ *
+ * A tira sobre a foto entrou em 06/09 porque a licença não estava sendo
+ * cumprida em lugar nenhum: o autor era gravado numa coluna do banco e
+ * ninguém desenhava nada. Coluna de banco não cumpre licença.
+ *
+ * O dono pediu a peça limpa. A obrigação não sai junto: CC BY e CC BY-SA
+ * exigem atribuição "de maneira razoável", e crédito na legenda do post é a
+ * prática corrente de quem publica em rede social.
+ */
+describe("o crédito da foto na legenda", () => {
+  it("entra no fim, depois das hashtags", () => {
+    const saida = legendaComCredito(
+      "O texto da pauta.\n\nComente NEWS\n\n#EconomiaEUA #Census",
+      "Foto: Tony Webster / Wikimedia Commons / CC BY-SA 2.0",
+    );
+
+    expect(saida.endsWith("· Foto: Tony Webster / Wikimedia Commons / CC BY-SA 2.0")).toBe(true);
+    expect(saida.indexOf("#EconomiaEUA")).toBeLessThan(saida.indexOf("Tony Webster"));
+  });
+
+  /**
+   * Foram 18 das 23 últimas peças medidas: Pexels, Unsplash, domínio público e
+   * CC0 não exigem nada, e o módulo de licenças já devolve atribuição vazia.
+   */
+  it("licença que não exige atribuição deixa a legenda intacta", () => {
+    const original = "O texto da pauta.\n\n#EconomiaEUA";
+    expect(legendaComCredito(original, "")).toBe(original);
+    expect(legendaComCredito(original, null)).toBe(original);
+    expect(legendaComCredito(original, undefined)).toBe(original);
+  });
+
+  it("não duplica quando o crédito já está lá", () => {
+    const credito = "Foto: Dietmar Rabich / Wikimedia Commons / CC BY-SA 4.0";
+    const uma = legendaComCredito("Texto.", credito);
+    expect(legendaComCredito(uma, credito)).toBe(uma);
+  });
+
+  /**
+   * Ao contrário das hashtags, aqui quem cede é o corpo: atribuição cortada
+   * não cumpre licença, e parágrafo cortado custa uma frase.
+   */
+  it("no limite do campo, o corpo cede e o crédito entra inteiro", () => {
+    const credito = "Foto: Autor Longo / Wikimedia Commons / CC BY-SA 4.0";
+    const gigante = "a".repeat(2100);
+    const saida = legendaComCredito(gigante, credito);
+
+    expect(saida.length).toBeLessThanOrEqual(2000);
+    expect(saida.endsWith(credito)).toBe(true);
   });
 });

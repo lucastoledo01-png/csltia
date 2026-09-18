@@ -447,7 +447,24 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
     slide,
     variante,
     comFoto,
-    credito: comFoto ? (asset!.attribution || "").trim() : "",
+    /*
+     * O crédito NÃO é queimado na imagem. Ele vai para a legenda do post.
+     *
+     * CC BY e CC BY-SA exigem atribuição junto da obra, e isso continua sendo
+     * cumprido: a licença pede atribuição "de maneira razoável", e crédito na
+     * legenda do post é a prática corrente de quem publica em rede social.
+     * O que muda é onde ele aparece, nunca se aparece.
+     *
+     * A tira ficava por cima da foto, no rodapé da peça, e foi o dono quem
+     * pediu para tirar, em 18/09/2026. Ela entrou em 06/09 por um motivo
+     * legítimo, que era a licença não estar sendo cumprida em lugar nenhum: o
+     * autor era gravado numa coluna do banco e ninguém desenhava nada. Coluna
+     * de banco não cumpre licença; legenda de post cumpre.
+     *
+     * Quem monta a legenda é `creditoParaLegenda`, e ele lê o MESMO
+     * `asset.attribution` que esta linha lia. Uma origem só para o texto.
+     */
+    credito: "",
     motivoSemFoto: comFoto ? "" : (entrada.motivoSemFoto || "NO_VALID_VISUAL_ASSET").trim(),
   };
 }

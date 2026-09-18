@@ -97,35 +97,40 @@ describe("capa do post do feed", () => {
     expect(html).toContain("Título qualquer que serve");
   });
 
-  it("a atribuição exigida pela licença é impressa na arte", () => {
-    const capa = montarCapaDoPost({ headline: "Ordem suspende política do Diversity Visa", asset: asset() });
-    const html = montar(capa);
-
-    expect(html).toContain(`<div class="s-credito">`);
-    expect(html).toContain("Ser Amantio di Nicolao");
-    expect(html).toContain("CC BY-SA 3.0");
-  });
-
-  it("licença que não exige atribuição não imprime tira de crédito", () => {
-    const capa = montarCapaDoPost({
+  /**
+   * A tira de crédito saiu da arte em 18/09/2026, a pedido do dono.
+   *
+   * A obrigação de creditar NÃO saiu junto: CC BY e CC BY-SA continuam
+   * exigindo atribuição, e ela passou a viver no fim da legenda do post, que é
+   * prática corrente de quem publica em rede social e cumpre o "de maneira
+   * razoável" da licença. Quem garante isso agora é `legendaComCredito`, com
+   * teste próprio em `legenda.test.ts`.
+   *
+   * Este teste ficou para prender o lado da ARTE: a peça sai limpa, com
+   * qualquer licença.
+   */
+  it("a arte não carrega tira de crédito, nem com licença que exige atribuição", () => {
+    const comCC = montarCapaDoPost({ headline: "Ordem suspende política do Diversity Visa", asset: asset() });
+    const comPD = montarCapaDoPost({
       headline: "Ordem suspende política do Diversity Visa",
       asset: asset({ license: "PD-USGov", attribution: "" }),
     });
-    const html = montar(capa);
 
-    expect(capa.credito).toBe("");
-    expect(html).not.toContain(`<div class="s-credito">`);
+    expect(comCC.credito).toBe("");
+    expect(comPD.credito).toBe("");
+    expect(montar(comCC)).not.toContain(`<div class="s-credito">`);
+    expect(montar(comPD)).not.toContain(`<div class="s-credito">`);
   });
 
-  it("o crédito é escapado, não injetado", () => {
-    const capa = montarCapaDoPost({
-      headline: "Título qualquer que serve",
-      asset: asset({ attribution: 'Foto: <script>alert("x")</script>' }),
-    });
-    const html = montar(capa);
-
-    expect(html).not.toContain("<script>alert");
-    expect(html).toContain("&lt;script&gt;");
+  /**
+   * O dado do autor continua vivo e completo no registro, e é de lá que a
+   * legenda o tira. Perder isso seria perder a capacidade de creditar.
+   */
+  it("a atribuição continua disponível no asset, para a legenda usar", () => {
+    const capa = montarCapaDoPost({ headline: "Ordem suspende política do Diversity Visa", asset: asset() });
+    expect(capa.slide.bg_image_url).toBeTruthy();
+    expect(asset().attribution).toContain("Ser Amantio di Nicolao");
+    expect(asset().attribution).toContain("CC BY-SA 3.0");
   });
 });
 
