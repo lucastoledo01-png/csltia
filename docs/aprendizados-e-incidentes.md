@@ -1131,6 +1131,102 @@ lógica e não prova a integração. Rodar contra a API de verdade, com as image
 que falharam, achou em um minuto um 400 que 1614 testes não achariam nunca.
 
 
+### O prompt mandava escrever o que o auditor chamava de alucinação
+
+**Sintoma.** Em 18/09/2026 a redação rodou três vezes: QA 80 reprovou, QA 76
+reprovou, QA 93 passou. O dono perguntou por que duas de três, depois de
+semanas de "um dia sim, outro não".
+
+**Causa, e ela está dentro do mesmo arquivo.**
+
+`pipeline.ts:159`, instrução ao redator:
+
+> "Quem, entre as pessoas que leem, sente a mudança? Esse grupo TEM QUE
+> APARECER no título"
+
+`pipeline.ts:578`, instrução ao auditor de QA:
+
+> "Marque hallucination_risk como true quando o texto ACRESCENTAR informação
+> que o pacote não tem: um fato, um nome, um número, uma data, uma
+> **consequência**, um **efeito**, uma comparação ou uma previsão"
+
+Uma manda afirmar o efeito sobre pessoas. A outra chama isso de alucinação
+quando a fonte não afirma. Os apontamentos reais do dia são exatamente esse
+par: "usuários de robotáxi em Nevada são afetados pela expiração do limite",
+quando o pacote informa o limite e não informa afetado nenhum.
+
+**E a saída existia em um campo só.** `why_it_matters` autorizava silêncio com
+todas as letras; `practical_impact`, o campo irmão no mesmo objeto JSON, não; e
+o título não pode ficar vazio, então para ele não havia saída física. Pior: o
+`decisoes.md` já registrava "Silêncio é resultado válido, e agora em todos os
+campos", e o código nunca implementou isso. A decisão estava escrita e o prompt
+seguia no estado anterior a ela.
+
+**Havia ainda uma cota implícita.** O prompt dizia "se você deixou vazio em
+mais de uma pauta da edição, reveja, porque quase sempre há efeito declarado na
+fonte". Numa edição de quatro pautas isso admite silêncio em uma, e empurra
+invenção nas outras três. A premissa é falsa em dias como o de 18/09, em que as
+fontes só traziam regra e prazo.
+
+**Corrigido.** O título ganhou a saída explícita, com os dois casos reais do dia
+como exemplo do errado e do certo, e a regra de que entre título sem
+destinatário e título com destinatário inventado o certo é o primeiro.
+`practical_impact` ganhou a mesma autorização de silêncio do campo irmão. E a
+cota virou o oposto: silêncio em várias pautas NÃO é erro, e forçar efeito para
+cumprir cota é o que reprova a edição.
+
+**O que NÃO foi feito, e por quê.** A primeira proposta era estabilizar a nota
+do auditor com `temperature: 0` e `seed`. O projeto já mediu isso para o
+classificador e registrou em `classificador.ts:40-70`: `temperature: 0` derruba
+a chamada neste modelo, e `seed` foi testado e não resolveu, com três rodadas
+aprovando 8, 5 e 19. A proposta foi descartada por medição própria, antes de
+virar código.
+
+O piso de 85 continua bloqueando, embora o `decisoes.md` afirme que o portão
+passou a olhar só o risco de alucinação. Fica registrado como divergência: ou o
+piso sai, ou o documento é corrigido. Não foi mexido porque afrouxar portão é
+decisão do dono, não efeito colateral de um conserto.
+
+**Lição.** É a de 16/09 outra vez, e por isso ela está aqui de novo: quando uma
+guarda reprova todo dia, o suspeito não é a guarda, é a instrução que fabrica o
+que ela recusa. O detalhe novo é que as duas moravam no MESMO arquivo, a 419
+linhas de distância, e nenhuma das duas está errada sozinha.
+
+### A edição inteira sem foto, por duas correções minhas se encontrando
+
+**Sintoma.** A newsletter de 18/09/2026 chegou sem uma única foto de pauta. Só
+logotipo, ícones de WhatsApp e do Instagram.
+
+**Causa, em duas camadas, e as duas são minhas, do dia anterior.**
+
+De manhã em 17/09, a bandeira virou último recurso: sem foto da pauta, o
+resolvedor devolve uma bandeira americana do Commons, com licença e crédito, e
+mantém `status: NO_VALID_IMAGE` de propósito, para o relatório não chamar de
+sucesso o dia em que a busca falhou. Ficou registrado na hora que a newsletter
+seguiria sem foto nesse caso, porque ela pergunta pelo status. Era caso raro.
+
+À tarde em 17/09, entrou a conferência visual, que abre a imagem e recusa a que
+não tem relação reconhecível com o assunto. Ela passou a derrubar a foto
+genérica do banco conceitual, que é justamente o material das pautas sem
+entidade. O caso raro virou o caso comum.
+
+Reproduzido com o código de produção nas quatro pautas do dia: duas voltaram
+`VISUAL_CHECK_FAILED`, com o modelo descrevendo "um conjunto de edifícios altos
+em um centro urbano" numa pauta sobre controlador de voo.
+
+**Corrigido.** A newsletter passa a usar a bandeira quando ela é o que existe.
+O status continua `NO_VALID_IMAGE` e `noValidImage` continua subindo, então o
+relatório segue dizendo em quantos dias a busca de foto da pauta falhou; entrou
+um contador separado, `ultimoRecurso`, que é subconjunto e nunca substituto.
+
+**Lição.** Duas correções boas, feitas no mesmo dia, em camadas diferentes, se
+encontraram e produziram um defeito que nenhuma das duas tem sozinha. A
+primeira criou um estado novo (imagem existe, status recusado) e a segunda
+tornou esse estado frequente. Ao criar um estado que antes não existia, procure
+quem lê o campo antigo: a newsletter lia `status` e não `asset`, e continuou
+lendo certo uma coisa que tinha mudado de significado.
+
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

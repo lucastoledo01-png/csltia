@@ -40,6 +40,7 @@ import { paraRenderizacao, resolverImagens } from "../editorial/imagens";
 import { descreverModoVisual, diagnosticoVazio, modoDoResolvedorVisual } from "../visual/modo";
 import type { DiagnosticoVisual } from "../visual/modo";
 import { resolveVisualAsset } from "../visual/resolver";
+import { ehUltimoRecurso } from "../visual/bandeira";
 import { criarBiblioteca } from "../visual/biblioteca";
 import type { ResultadoVisual } from "../visual/tipos";
 import { extrairEntidades } from "../editorial/classificador";
@@ -1656,6 +1657,35 @@ async function executarRedacaoDoDia(
       } else {
         diagnosticoVisual.noValidImage += 1;
         if (resultado.motivo === "AMBIGUOUS_ENTITY") diagnosticoVisual.ambiguousEntity += 1;
+
+        /*
+         * Sem foto da pauta, a bandeira. O número continua contando a verdade.
+         *
+         * O resolvedor devolve uma bandeira americana do Commons, com licença e
+         * crédito, quando não acha foto da pauta, e mantém `status` em
+         * NO_VALID_IMAGE de propósito, para o relatório não chamar de sucesso o
+         * dia em que a busca falhou. A newsletter perguntava pelo status e por
+         * isso saía com o bloco vazio.
+         *
+         * Em 18/09/2026 a edição inteira saiu sem uma foto sequer. Duas coisas
+         * minhas se encontraram: a bandeira, que nasceu com status recusado, e a
+         * conferência visual, que passou a derrubar a foto genérica de banco. O
+         * caso raro virou o caso comum.
+         *
+         * A separação é esta: `noValidImage` continua subindo, então o relatório
+         * segue dizendo quantos dias a busca de foto da pauta falhou; e a peça
+         * recebe uma imagem real, licenciada, que diz Estados Unidos, que é o
+         * assunto de toda edição. Contar como sucesso seria perder o número que
+         * mostra quando a busca precisa melhorar; deixar o bloco vazio é entregar
+         * menos do que existe na mão.
+         */
+        if (resultado.asset && ehUltimoRecurso(resultado.asset)) {
+          diagnosticoVisual.ultimoRecurso = (diagnosticoVisual.ultimoRecurso ?? 0) + 1;
+          imagensV2.set(identidadeDaPauta(story), resultado.asset.imageUrl);
+          if (resultado.asset.attribution) {
+            legendasV2.set(identidadeDaPauta(story), resultado.asset.attribution);
+          }
+        }
       }
 
       console.log(

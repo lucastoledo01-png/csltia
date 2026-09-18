@@ -41,6 +41,16 @@ export type DiagnosticoVisual = {
   storiesProcessed: number;
   assetsSelected: number;
   noValidImage: number;
+  /**
+   * Quantas pautas saíram com a bandeira no lugar da foto da pauta.
+   *
+   * É um subconjunto de `noValidImage`, nunca um substituto: a busca falhou
+   * nas duas contagens. A diferença é que aqui a peça saiu com uma imagem real
+   * e licenciada, e não com o bloco vazio. Separar os dois é o que permite
+   * perguntar depois "em quantos dias a busca falhou" sem perder "em quantos
+   * deles o leitor viu alguma coisa".
+   */
+  ultimoRecurso?: number;
   ambiguousEntity: number;
   sourcesUsed: Record<string, number>;
 };
@@ -50,6 +60,7 @@ export function diagnosticoVazio(): DiagnosticoVisual {
     storiesProcessed: 0,
     assetsSelected: 0,
     noValidImage: 0,
+    ultimoRecurso: 0,
     ambiguousEntity: 0,
     sourcesUsed: {},
   };
