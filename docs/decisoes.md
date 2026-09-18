@@ -443,6 +443,57 @@ ela é UMA função com três chamadores: o desenho, o store e o ritmo. Já houv
 a versão com três cópias da mesma regra, e custou vinte minutos de diagnóstico
 num post que estava correto.
 
+## A cena da foto sai do CONTEÚDO, e não de uma lista (18/09/2026)
+
+São dois caminhos, e a diferença é do dono, que a nomeou melhor do que o código
+nomeava.
+
+**Com entidade nomeada** (Trump, a USCIS, o Fed, a Suprema Corte), o sistema
+resolve a entidade no Wikidata e busca a foto DAQUELA coisa no Commons. Isso
+estava certo e não mudou.
+
+**Sem entidade nomeada**, o sistema desistia de olhar a matéria e caía numa
+lista de 16 temas escritos à mão, casados por radical de palavra, na ordem,
+primeiro que casar vence. A frase do dono é o diagnóstico:
+
+> "compradores de imóvel ganham margem não tem entidade fotografável, isso está
+> errado, porque existe um objeto que contextualiza com o conteúdo"
+
+Tinha casas. Tinha imóveis. A lista é que não sabia.
+
+**Três defeitos, medidos, e os três são do MÉTODO:**
+
+- Um radical errado derruba tudo. O tema de moradia tinha `imovel`, a manchete
+  dizia `imóveis`, e `imovel` não é prefixo de `imoveis`: o L quebra.
+- A ordem rouba. Moradia é o penúltimo dos 16. "Aluguel pesa mais no orçamento
+  e pressiona a economia" foi para notas de dólar, porque `economia` vem antes.
+- São 16 gavetas para o mundo inteiro. Robotáxi, controlador de voo e dado do
+  Census não têm gaveta, e caíam todos no mesmo skyline genérico.
+
+**Agora o sistema pergunta.** Ele já fazia uma chamada de modelo para CONFERIR
+a imagem; passou a fazer uma para DESCREVER o que fotografar. Medido nas pautas
+reais do dia:
+
+```
+controlador de voo   antes: city skyline      agora: airport control tower exterior
+robotáxi em Nevada   antes: city skyline      agora: autonomous vehicle city street Nevada
+imóveis              antes: city skyline      agora: suburban houses for sale street
+renda desigual       antes: banknotes         agora: mixed income neighborhood houses
+```
+
+**Os 16 temas continuam, como rede.** Chamada que falha cai neles, que é o
+comportamento de antes, e não no vazio.
+
+**Duas proibições, do dono, com essas palavras: "nunca pessoa identificável nem
+texto na imagem".** Elas moram em três lugares de propósito: na instrução, numa
+lista que filtra a resposta do modelo, e na conferência visual que abre a
+imagem. Pedido não é garantia, e a régua tem que estar dos dois lados.
+
+Pessoa anônima ilustrando "compradores de imóveis" é escolher alguém para
+representar um grupo, e em "brasileiros nos EUA" seria inferir nacionalidade
+por aparência. Texto na foto compete com a manchete, que já é o texto da peça.
+Gente pequena ao fundo compondo uma rua não é recusa; rosto reconhecível é.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

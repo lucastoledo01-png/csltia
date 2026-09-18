@@ -168,7 +168,15 @@ export async function callOpenAIJSON<T>(
   model: string,
   env: Record<string, string | undefined> = process.env,
   fetcher: typeof fetch = fetch,
-  amostragem: OpcoesDeAmostragem = {}
+  amostragem: OpcoesDeAmostragem = {},
+  /**
+   * Tempo limite desta chamada. O padrão é o do arquivo, dois minutos.
+   *
+   * Quem tem rede embaixo pede menos: a derivação da cena da foto cai num tema
+   * fixo quando falha, e esperar dois minutos por ela atrasaria a leva inteira
+   * numa manhã de fila do provedor.
+   */
+  tempoLimiteMs: number = REQUEST_TIMEOUT_MS
 ): Promise<{ data: T; usage: AITokenUsage }> {
   const apiKey = getOpenAIKey(env);
 
@@ -185,7 +193,7 @@ export async function callOpenAIJSON<T>(
       ...(amostragem.temperature !== undefined ? { temperature: amostragem.temperature } : {}),
       ...(amostragem.seed !== undefined ? { seed: amostragem.seed } : {}),
     }),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    signal: AbortSignal.timeout(tempoLimiteMs),
   });
 
   if (!response.ok) {

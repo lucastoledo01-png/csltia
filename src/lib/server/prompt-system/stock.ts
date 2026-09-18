@@ -360,3 +360,41 @@ export async function buscarFotoDeBanco(
   if (!consulta.trim()) return null;
   return (await buscarNoPexels(consulta, opts)) ?? (await buscarNoUnsplash(consulta, opts));
 }
+
+/**
+ * Várias candidatas da mesma busca, e não uma só.
+ *
+ * A busca já pedia 15 ao Pexels e devolvia a PRIMEIRA que ainda não tinha
+ * saído, jogando as outras 14 fora. Isso bastava enquanto ninguém conferia a
+ * foto. Com a conferência visual, que abre a imagem e recusa, uma única
+ * candidata significa que a primeira recusa manda a pauta direto para a
+ * bandeira.
+ *
+ * Medido em 18/09/2026: a cena pediu "casas à venda numa rua residencial", o
+ * Pexels devolveu uma casa com placa FOR SALE legível, a conferência recusou
+ * pela regra de não ter texto na imagem, e a peça saiu com bandeira. A foto
+ * seguinte da mesma busca era uma rua residencial sem placa nenhuma.
+ *
+ * Reusa `buscarFotoDeBanco` acrescentando cada escolhida ao conjunto de
+ * evitadas, em vez de duplicar o parse das duas APIs. Custa uma chamada por
+ * candidata, e por isso o teto é baixo: três.
+ */
+export async function buscarFotosDeBanco(
+  consulta: string,
+  quantas: number,
+  opts: Opts = {},
+): Promise<FotoDeBanco[]> {
+  if (!consulta.trim() || quantas < 1) return [];
+
+  const achadas: FotoDeBanco[] = [];
+  const evitar = new Set<string>([...(opts.evitar ?? [])]);
+
+  for (let i = 0; i < quantas; i += 1) {
+    const foto = await buscarFotoDeBanco(consulta, { ...opts, evitar });
+    if (!foto) break;
+    achadas.push(foto);
+    evitar.add(foto.imagemUrl);
+  }
+
+  return achadas;
+}

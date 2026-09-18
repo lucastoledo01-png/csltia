@@ -78,7 +78,13 @@ RECUSE quando:
   cirílico, árabe, chinês ou em qualquer língua que não seja inglês ou português
   é recusa direta em pauta americana.
 - A foto registra um acontecimento específico que não é o desta pauta.
-- A foto mostra uma pessoa identificável que não é citada na manchete.
+- A foto mostra uma pessoa identificável que não é citada na manchete. Rosto
+  reconhecível, retrato, close de alguém: recusa. Gente pequena, de costas ou
+  ao fundo, compondo a cena de uma rua ou de um prédio, pode ficar.
+- A foto tem TEXTO legível como assunto: placa, cartaz, faixa, manchete de
+  jornal, tela com texto, letreiro de loja. A peça já leva a manchete escrita
+  por cima, e duas camadas de texto brigam. Letra pequena e incidental na
+  paisagem, que ninguém lê, não é motivo de recusa.
 - A foto é de um assunto homônimo: o nome bate, a coisa não. Uma cidade chamada
   como um programa de governo, uma empresa com a sigla de uma agência.
 - A imagem não tem relação reconhecível com o assunto, mesmo sendo bonita.

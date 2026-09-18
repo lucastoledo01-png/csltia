@@ -53,7 +53,7 @@ const TEMAS: Tema[] = [
   { termos: ["dolar", "cambio", "juros", "economia", "salario", "imposto", "tributaria", "dollar", "interest rate", "economy", "wage", "wages", "salary", "tax", "income", "inflation"], consulta: "banknotes currency close up" },
   { termos: ["emprego", "trabalho", "contrata", "vagas", "payroll", "desemprego", "job", "jobs", "employment", "hiring", "labor market", "unemployment", "workers"], consulta: "construction site crane skyline" },
   { termos: ["fabrica", "investimento", "industria", "expansao", "factory", "plant", "investment", "industry", "manufacturing"], consulta: "factory warehouse industrial exterior" },
-  { termos: ["moradia", "imovel", "aluguel", "casa", "housing", "rent", "mortgage", "home prices", "real estate"], consulta: "suburban houses street neighborhood" },
+  { termos: ["moradia", "imov", "aluguel", "casa", "condominio", "hipotec", "housing", "home", "rent", "mortgage", "real estate", "homebuyer", "buyer"], consulta: "suburban houses street neighborhood" },
   { termos: ["stf", "congresso", "senado", "camara", "politica", "governo", "congress", "senate", "house of representatives", "lawmakers", "white house", "government", "administration"], consulta: "government palace building architecture" },
 ];
 

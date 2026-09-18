@@ -21,8 +21,9 @@ import {
   type NotaDaImagem,
 } from "./relevancia";
 import { avaliarLicenca, montarAtribuicao } from "./licencas";
-import { bancoConfigurado, buscarFotoDeBanco, identidadeDaFoto } from "../prompt-system/stock";
+import { bancoConfigurado, buscarFotosDeBanco, identidadeDaFoto } from "../prompt-system/stock";
 import { consultaConceitual } from "./conceitual";
+import { cenaDaPauta } from "./cena-da-pauta";
 import { conferirImagem } from "./conferencia-visual";
 import type { VeredictoVisual } from "./conferencia-visual";
 import { getAIProviderConfig } from "../newsroom/ai-provider";
@@ -432,19 +433,59 @@ export async function resolveVisualAsset(
        * e isso é inferir nacionalidade por aparência. O caminho não é acertar
        * melhor, é não fazer.
        */
-      const consulta = consultaConceitual(pauta.titulo, pauta.categoria, pauta.classificacao.pais);
-      const foto = await buscarFotoDeBanco(consulta, {
+      /*
+       * Primeiro perguntar o que fotografar, e só depois cair no tema fixo.
+       *
+       * O tema fixo é uma lista de 16 gavetas casadas por radical de palavra,
+       * na ordem, primeiro que casar vence. Ela erra de três jeitos medidos em
+       * 18/09/2026: radical que não cobre a flexão ("imovel" não casa com
+       * "imóveis"), tema anterior que rouba o assunto ("economia" levando uma
+       * pauta de aluguel para notas de dólar) e assunto que não tem gaveta
+       * nenhuma, caindo no skyline genérico.
+       *
+       * A pergunta olha a matéria. A lista continua embaixo, como rede: quando
+       * a chamada falha, o comportamento é o de antes, e não o vazio.
+       */
+      const cena = await cenaDaPauta(
+        {
+          titulo: pauta.titulo,
+          resumo: pauta.resumo,
+          categoria: pauta.categoria,
+          pais: pauta.classificacao.pais,
+        },
+        { env, fetcher: opcoes.fetcher },
+      );
+      const consulta = cena.falhou
+        ? consultaConceitual(pauta.titulo, pauta.categoria, pauta.classificacao.pais)
+        : cena.consulta;
+
+      /*
+       * Várias candidatas, e não uma só, porque agora alguém confere a foto.
+       *
+       * Com uma candidata, a primeira recusa da conferência visual manda a
+       * pauta direto para a bandeira. Medido em 18/09/2026: a cena pediu
+       * "casas à venda numa rua residencial", o Pexels devolveu uma casa com
+       * placa FOR SALE legível, a conferência recusou pela regra de não ter
+       * texto na imagem, e a peça saiu com bandeira. A foto seguinte da mesma
+       * busca era uma rua residencial limpa.
+       *
+       * Três é teto de custo: cada candidata é uma chamada ao banco, e a
+       * conferência abre no máximo quatro imagens por pauta de qualquer jeito.
+       */
+      const fotos = await buscarFotosDeBanco(consulta, CANDIDATAS_DO_BANCO, {
         env,
         fetcher: opcoes.fetcher,
         evitar: usadasAntes,
       });
       fontesConsultadas.push({
         fonte: "banco_conceitual",
-        encontrados: foto ? 1 : 0,
-        nota: `consulta "${consulta}"`,
+        encontrados: fotos.length,
+        nota: cena.falhou
+          ? `tema fixo, consulta "${consulta}" (a cena não veio: ${cena.motivo})`
+          : `cena da pauta "${cena.objeto}", consulta "${consulta}"`,
       });
 
-      if (foto) {
+      for (const foto of fotos) {
         const veredicto = avaliarLicenca(
           foto.credito.provedor === "pexels" ? "Pexels License" : "Unsplash License",
           env
@@ -578,6 +619,16 @@ export async function resolveVisualAsset(
  * resposta certa para ela é a bandeira. A bolha ganha teto menor porque ela é
  * opcional: capa sem bolha é peça publicável, capa com bolha errada não é.
  */
+/**
+ * Quantas fotos o banco conceitual entrega por pauta.
+ *
+ * Elas existem para a conferência visual ter o que percorrer: com uma só, a
+ * primeira recusa manda a pauta para a bandeira. Três é teto de custo, porque
+ * cada candidata é uma chamada ao banco e a conferência abre no máximo quatro
+ * imagens por pauta de qualquer jeito.
+ */
+const CANDIDATAS_DO_BANCO = 3;
+
 const TETO_DE_CONFERENCIAS = 4;
 const TETO_DE_CONFERENCIAS_DA_BOLHA = 2;
 
