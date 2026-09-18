@@ -43,6 +43,15 @@ export type CenaDaPauta = {
   /** A chamada não pôde ser feita, e quem chama deve usar o tema fixo. */
   falhou: boolean;
   motivo: string;
+  /**
+   * O que esta pergunta custou, em dólar.
+   *
+   * O ramo visual inteiro jogava `usage` fora, então o relatório somava
+   * classificação, pacote factual e edição, e nada do visual. Dobrar as
+   * chamadas deste ramo não mudava um centavo no número que alguém lê, e quem
+   * fosse medir o efeito da mudança não teria com o que comparar.
+   */
+  custoUsd: number;
 };
 
 export type PautaParaCena = {
@@ -132,8 +141,8 @@ function texto(valor: unknown): string {
   return typeof valor === "string" ? valor.trim() : "";
 }
 
-function naoDeuParaPerguntar(motivo: string): CenaDaPauta {
-  return { consulta: "", objeto: "", falhou: true, motivo };
+function naoDeuParaPerguntar(motivo: string, custoUsd = 0): CenaDaPauta {
+  return { consulta: "", objeto: "", falhou: true, motivo, custoUsd };
 }
 
 /**
@@ -158,7 +167,8 @@ const PROIBIDAS = [
    */
   "person", "persons", "people", "peoples", "family", "families",
   "portrait", "portraits", "faces", "crowd", "crowds", "human", "humans",
-  "businessman", "businesswoman", "child", "children", "student", "students",
+  "businessman", "businessmen", "businesswoman", "businesswomen",
+  "child", "children", "student", "students", "men", "women",
   "worker", "workers", "sign", "signs", "signage", "banner", "banners",
   "poster", "posters", "billboard", "billboards", "newspaper", "newspapers",
   "headline", "headlines", "lettering", "typography", "logo", "logos",
@@ -202,8 +212,9 @@ export async function cenaDaPauta(
     .join("\n");
 
   let resposta: RespostaDoModelo;
+  let custoUsd = 0;
   try {
-    const { data } = await callOpenAIJSON<RespostaDoModelo>(
+    const { data, usage } = await callOpenAIJSON<RespostaDoModelo>(
       [
         { role: "system", content: SISTEMA },
         { role: "user", content: entrada },
@@ -230,6 +241,7 @@ export async function cenaDaPauta(
       TEMPO_LIMITE_MS,
     );
     resposta = data;
+    custoUsd = usage.estimatedCostUsd;
   } catch (erro) {
     return naoDeuParaPerguntar(`chamada falhou: ${(erro as Error).message}`);
   }
@@ -238,13 +250,13 @@ export async function cenaDaPauta(
   const objeto = texto(resposta.objeto).slice(0, 120);
 
   if (consulta.split(/\s+/).filter(Boolean).length < 2) {
-    return naoDeuParaPerguntar("consulta devolvida curta demais para buscar");
+    return naoDeuParaPerguntar("consulta devolvida curta demais para buscar", custoUsd);
   }
 
   const proibida = consultaProibida(consulta);
   if (proibida) {
-    return naoDeuParaPerguntar(`consulta pedia "${proibida}", que a regra proíbe`);
+    return naoDeuParaPerguntar(`consulta pedia "${proibida}", que a regra proíbe`, custoUsd);
   }
 
-  return { consulta, objeto, falhou: false, motivo: "" };
+  return { consulta, objeto, falhou: false, motivo: "", custoUsd };
 }

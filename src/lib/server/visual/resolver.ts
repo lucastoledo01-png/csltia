@@ -192,6 +192,17 @@ export async function resolveVisualAsset(
   });
 
   const piso = pisoDeRelevancia(entidade, config);
+
+  /*
+   * Quem confere as imagens, decidido uma vez e usado em dois lugares.
+   *
+   * Ele governa as DUAS chamadas de modelo deste módulo: a pergunta sobre o
+   * que fotografar, lá no banco conceitual, e a conferência que abre a imagem,
+   * aqui embaixo. Ficava declarado só antes da segunda, e a primeira nasceu
+   * sem interruptor nenhum: o `dry-run-imagens`, que roda sobre até 40 pautas
+   * reais para medir sem custo, passaria a gastar 40 chamadas invisíveis.
+   */
+  const conferir = conferenteDe(opcoes);
   const aprovar = (asset: AssetVisual, id?: string, segundo?: AssetVisual | null): ResultadoVisual => ({
     storyId: pauta.storyId,
     entidade,
@@ -446,15 +457,31 @@ export async function resolveVisualAsset(
        * A pergunta olha a matéria. A lista continua embaixo, como rede: quando
        * a chamada falha, o comportamento é o de antes, e não o vazio.
        */
-      const cena = await cenaDaPauta(
-        {
-          titulo: pauta.titulo,
-          resumo: pauta.resumo,
-          categoria: pauta.categoria,
-          pais: pauta.classificacao.pais,
-        },
-        { env, fetcher: opcoes.fetcher },
-      );
+      /*
+       * O mesmo interruptor das duas chamadas de modelo deste módulo.
+       *
+       * `conferenciaVisual: false` desliga a conferência, e o comentário do
+       * tipo diz para que serve: dry-run e medição de capacidade, que rodam
+       * sobre dezenas de pautas reais e não devem gastar chamada cobrada.
+       * A pergunta da cena nasceu sem interruptor, e o `dry-run-imagens` roda
+       * sobre até 40 pautas: seriam 40 chamadas a mais, invisíveis, num script
+       * feito justamente para medir sem custo.
+       *
+       * Reusar o interruptor que existe é melhor que inventar o segundo: quem
+       * desliga as chamadas de modelo do visual desliga as duas, e não fica
+       * uma ligada por descuido.
+       */
+      const cena = conferir
+        ? await cenaDaPauta(
+            {
+              titulo: pauta.titulo,
+              resumo: pauta.resumo,
+              categoria: pauta.categoria,
+              pais: pauta.classificacao.pais,
+            },
+            { env, fetcher: opcoes.fetcher },
+          )
+        : { consulta: "", objeto: "", falhou: true, motivo: "chamadas de modelo desligadas", custoUsd: 0 };
       const consulta = cena.falhou
         ? consultaConceitual(pauta.titulo, pauta.categoria, pauta.classificacao.pais)
         : cena.consulta;
@@ -482,7 +509,8 @@ export async function resolveVisualAsset(
         encontrados: fotos.length,
         nota: cena.falhou
           ? `tema fixo, consulta "${consulta}" (a cena não veio: ${cena.motivo})`
-          : `cena da pauta "${cena.objeto}", consulta "${consulta}"`,
+          : `cena da pauta "${cena.objeto}", consulta "${consulta}" ` +
+            `(custo ${cena.custoUsd.toFixed(5)} USD)`,
       });
 
       for (const foto of fotos) {
@@ -558,7 +586,6 @@ export async function resolveVisualAsset(
    * porque existe a bandeira como reserva; a aprovação errada é cara, porque o
    * perfil publica sozinho.
    */
-  const conferir = conferenteDe(opcoes);
   const escolhido = await primeiraAprovada(aprovadas.map((x) => x.item), conferir, pauta, desta, TETO_DE_CONFERENCIAS);
   const vice = await primeiraAprovada(
     escolherVice(aprovadas, escolhido).map((x) => x.item),

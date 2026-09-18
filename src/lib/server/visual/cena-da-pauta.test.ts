@@ -195,3 +195,41 @@ describe("falhar cai no tema fixo, nunca no vazio", () => {
     expect(cena.falhou).toBe(true);
   });
 });
+
+/**
+ * Achados da revisão adversarial desta mudança, antes de publicar.
+ *
+ * Os dois custam dinheiro em silêncio, que é o tipo de defeito que só aparece
+ * na fatura: o `dry-run-imagens` roda sobre até 40 pautas reais para medir SEM
+ * custo, e o relatório de custo do dia somava classificação, pacote factual e
+ * edição, e nada do ramo visual.
+ */
+describe("o que a revisão adversarial pegou", () => {
+  it("devolve o custo da chamada, para o relatório poder somar", async () => {
+    const fetcher = (async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify({ objeto: "rua", consulta: "american residential street houses" }) } }],
+        usage: { prompt_tokens: 900, completion_tokens: 40, total_tokens: 940 },
+      }),
+      text: async () => "",
+    })) as unknown as typeof fetch;
+
+    const cena = await cenaDaPauta(PAUTA, { env: ENV, fetcher });
+    expect(cena.falhou).toBe(false);
+    expect(cena.custoUsd).toBeGreaterThan(0);
+  });
+
+  it("falha sem chamada custa zero", async () => {
+    const cena = await cenaDaPauta(PAUTA, { env: {} });
+    expect(cena.custoUsd).toBe(0);
+  });
+
+  /** Plural irregular, que o sufixo simples não cobre. */
+  it("pega plural irregular de pessoa", () => {
+    for (const q of ["businessmen shaking hands", "men walking downtown", "women in an office"]) {
+      expect(consultaProibida(q), q).not.toBeNull();
+    }
+  });
+});
