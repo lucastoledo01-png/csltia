@@ -1,4 +1,5 @@
 import type { GramaticaDaCapa } from "./arte";
+import { TODOS_OS_MOLDES, type MoldesLigados } from "./moldes-do-feed";
 
 /**
  * Qual das duas gramáticas de capa cada peça usa.
@@ -86,22 +87,56 @@ export type PedidoDeGramatica = {
 export function alternarGramatica(
   pedidos: PedidoDeGramatica[],
   recortesNoFimDoFeed: number,
-): GramaticaDaCapa[] {
-  const decisoes: GramaticaDaCapa[] = [];
+  ligados: MoldesLigados = TODOS_OS_MOLDES,
+): Array<GramaticaDaCapa | null> {
+  const decisoes: Array<GramaticaDaCapa | null> = [];
   let seguidos = Math.max(0, recortesNoFimDoFeed);
 
   for (const pedido of pedidos) {
+    /*
+     * O molde de jornal desta peça depende de ela ter foto: com foto é a capa
+     * de jornal, sem foto é a capa tipográfica. São dois interruptores no
+     * painel porque são duas peças diferentes na tela, e quem desliga uma
+     * raramente quer desligar a outra.
+     */
+    const jornalDisponivel = pedido.temFoto ? ligados.jornal : ligados.sem_foto;
+    const recorteDisponivel = ligados.recorte && pedido.temFoto && pedido.cabeNoRecorte;
     const querRecorte = gramaticaDoEixo(pedido.eixo) === "recorte";
-    const podeRecorte =
-      querRecorte && pedido.temFoto && pedido.cabeNoRecorte && seguidos < TETO_DE_RECORTES_SEGUIDOS;
 
-    if (podeRecorte) {
+    if (querRecorte && recorteDisponivel && seguidos < TETO_DE_RECORTES_SEGUIDOS) {
       decisoes.push("recorte");
       seguidos += 1;
-    } else {
+      continue;
+    }
+
+    if (jornalDisponivel) {
       decisoes.push("jornal");
       seguidos = 0;
+      continue;
     }
+
+    /*
+     * Sem jornal, o teto de recortes seguidos deixa de valer.
+     *
+     * Ele é ritmo, e ritmo existe para o feed não parecer indeciso. Quando o
+     * operador desliga o jornal, não há para onde alternar, e obedecer ao teto
+     * aqui significaria não publicar a peça por causa de uma regra de
+     * variedade. Publicar em recorte é o que o painel pediu.
+     */
+    if (recorteDisponivel) {
+      decisoes.push("recorte");
+      seguidos += 1;
+      continue;
+    }
+
+    /*
+     * Nenhum molde ligado serve para esta peça, e ela não vira post.
+     *
+     * `null` em vez de cair no jornal: silenciar o desligamento seria publicar
+     * exatamente o que o operador mandou parar de publicar. O contador não
+     * anda, porque peça que não sai não entra no ritmo do feed.
+     */
+    decisoes.push(null);
   }
 
   return decisoes;

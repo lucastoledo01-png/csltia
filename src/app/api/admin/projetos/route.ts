@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/server/api-auth";
 import { listProjects } from "@/lib/server/projects";
 import { capacidadesDeclaradas, CAPACIDADES } from "@/lib/server/capacidades";
+import { MOLDES_DO_FEED, moldesDeclarados } from "@/lib/server/social/moldes-do-feed";
 
 /**
  * Os projetos da plataforma, com o que cada um liga.
@@ -28,6 +29,8 @@ export async function GET(req: NextRequest) {
       ok: true,
       /** O cardápio, para o painel desenhar os interruptores sem repetir a lista. */
       capacidades: CAPACIDADES,
+      /** O cardápio de moldes, pela mesma razão do de capacidades. */
+      moldesDoFeed: MOLDES_DO_FEED,
       projetos: projetos.map((p) => ({
         id: p.id,
         slug: p.slug,
@@ -48,6 +51,12 @@ export async function GET(req: NextRequest) {
          * mostrar um valor na tela e outro valendo.
          */
         capacidades: capacidadesDeclaradas(p),
+        /*
+         * Só o declarado, de novo. Molde ausente está ligado, e a tela precisa
+         * saber a diferença entre "ligado porque ninguém mexeu" e "ligado
+         * porque alguém ligou".
+         */
+        moldes: moldesDeclarados(p),
       })),
     });
   } catch (err) {

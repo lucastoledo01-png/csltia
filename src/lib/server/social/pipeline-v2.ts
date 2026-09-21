@@ -15,6 +15,7 @@ import type { ResumoVisualDoDia } from "./modo";
 import type { DiagnosticoSocial, ModoSocial } from "./modo";
 import { chaveDeIdempotencia, resolverOrigem } from "./social-posts-store";
 import { alternarBolha, ultimaTeveBolha } from "./ritmo-da-bolha";
+import { TODOS_OS_MOLDES, type MoldesLigados } from "./moldes-do-feed";
 import { alternarGramatica, recortesSeguidosNoFim, TETO_DE_RECORTES_SEGUIDOS } from "./ritmo-do-recorte";
 import { gramaticaEfetiva } from "./arte";
 import type { GramaticaDaCapa } from "./arte";
@@ -85,6 +86,14 @@ export type ResultadoDoCicloSocial = {
 
 export type OpcoesDoCiclo = {
   projectId: string;
+  /**
+   * Quais moldes de arte o feed pode usar.
+   *
+   * Ausente quer dizer todos, que é o comportamento anterior a esta opção
+   * existir. Ver `moldes-do-feed.ts`: molde desligado não vira peça, e a peça
+   * que não tem molde ligado não vira post.
+   */
+  moldes?: MoldesLigados;
   editionDate: string;
   marca: MarcaSocial;
   historico: RegistroHistorico[];
@@ -526,9 +535,18 @@ export async function rodarCicloSocial(
     recortesNoFim = TETO_DE_RECORTES_SEGUIDOS;
   }
 
+  const moldes = opcoes.moldes ?? TODOS_OS_MOLDES;
+  const desligados = Object.entries(moldes)
+    .filter(([, ligado]) => !ligado)
+    .map(([nome]) => nome);
+  if (desligados.length > 0) {
+    linhas.push(`[SOCIAL V2] moldes desligados no painel: ${desligados.join(", ")}`);
+  }
+
   const bolhas = alternarBolha(
     previews.map((p) => ({ temSegundaFoto: Boolean(p.visual?.assetSecundario) })),
     ultimaComBolha,
+    moldes.jornal_bolha,
   );
   linhas.push(
     `[SOCIAL V2] ritmo da bolha: ${bolhas.map((b) => (b ? "com" : "sem")).join(", ")} ` +
@@ -561,6 +579,7 @@ export async function rodarCicloSocial(
         }) === "recorte",
     })),
     recortesNoFim,
+    moldes,
   );
   linhas.push(
     `[SOCIAL V2] gramática das capas: ${gramaticas.join(", ")} ` +
@@ -576,6 +595,22 @@ export async function rodarCicloSocial(
      * conferência da publicação compara `arte.variante` com ela, e post cuja
      * variante contradiz o registro é recusado.
      */
+    /*
+     * `null` aqui não é ausência de decisão: é a decisão de não publicar.
+     *
+     * Ela vem de `alternarGramatica`, quando nenhum molde ligado serve para
+     * esta peça. Cair no jornal por segurança publicaria justamente o molde
+     * que o painel mandou desligar, então a peça sai da leva e o motivo fica
+     * no log da rodada.
+     */
+    if (gramaticas[indice] === null) {
+      linhas.push(
+        `[SOCIAL V2] ${p.post.pauta.storyId} sem molde ligado que sirva ` +
+          `(${p.visual?.asset ? "com foto" : "sem foto"}): não vira post`,
+      );
+      continue;
+    }
+
     const gramatica: GramaticaDaCapa = gramaticas[indice] ?? "jornal";
     const corpoDoRecorte = gramatica === "recorte" ? p.post.copy.gancho : undefined;
 

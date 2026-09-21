@@ -14,6 +14,7 @@ import { modoDoPipelineSocial } from "./modo";
 import type { ModoSocial, ResumoVisualDoDia } from "./modo";
 import type { ProjetoComCapacidades } from "../capacidades";
 import { rodarCicloSocial } from "./pipeline-v2";
+import { moldesLigados } from "./moldes-do-feed";
 import {
   decisorDeFormato,
   historicoDoEvergreen,
@@ -372,6 +373,12 @@ export async function rodarSocialDoDia(
 
   const ciclo = await rodarCicloSocial(conferencia.confirmadas, {
     projectId: opcoes.projectId,
+    /*
+     * Os moldes saem do projeto, do mesmo `settings` de onde saem as
+     * capacidades, e por isso nenhum chamador precisou mudar. Projeto ausente
+     * devolve todos ligados, que é como a esteira se comportava antes.
+     */
+    moldes: moldesLigados(opcoes.projeto),
     slugDoProjeto: opcoes.projectSlug,
     editionDate: opcoes.editionDate,
     marca: opcoes.marca,

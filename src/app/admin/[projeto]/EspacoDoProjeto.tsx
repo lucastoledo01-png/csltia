@@ -225,7 +225,12 @@ function AreaDoProjeto({ slug }: { slug: string }) {
 
         <main className="flex-1 space-y-8 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {secao === "publicacoes" ? <AdminSocialPostsManager /> : null}
-          {secao === "layout" ? <LayoutDosPosts /> : null}
+          {secao === "layout" ? (
+            <LayoutDosPosts
+              projeto={projeto}
+              aoTrocarMoldes={(moldes) => setProjeto({ ...projeto, moldes })}
+            />
+          ) : null}
           {secao === "newsletter" ? <AdminNewsroomManager /> : null}
           {secao === "fontes" ? <AdminNewsSourcesManager /> : null}
           {secao === "blog" ? (
