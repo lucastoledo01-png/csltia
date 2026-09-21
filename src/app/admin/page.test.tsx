@@ -1,65 +1,83 @@
-import { render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminPage from "./page";
 import { MARCA } from "@/lib/marca";
 
-const ABAS = [
-  "Redação",
-  "Publicações",
-  "Carrossel",
-  "Layout",
-  "Sistema PROMPT",
-  "Fontes",
-  "CMS Artigos",
-  "Analytics",
-  "Logs",
-  "Comentários",
-];
+/**
+ * A home do painel deixou de ser a operação e virou a escolha do projeto.
+ *
+ * O que estes testes prendem é a mudança de porta: a sessão passa a ser
+ * perguntada ao servidor, e não lembrada no `sessionStorage`. A diferença
+ * aparecia como painel aberto e vazio, com toda chamada por trás devolvendo 401
+ * sem que nada na tela dissesse que era preciso entrar de novo.
+ */
 
-describe("Admin dashboard", () => {
+const PROJETOS = {
+  ok: true,
+  capacidades: ["coleta", "newsletter", "social"],
+  projetos: [
+    {
+      id: "00000000-0000-4000-8000-000000000001",
+      slug: "desbuguei",
+      nome: "usa.journal",
+      status: "active",
+      nicho: "imigração",
+      timezone: "America/Sao_Paulo",
+      siteUrl: "https://casaloti.ia.br",
+      marca: { nome: "usa.journal", cor: "#000", logoUrl: null },
+      capacidades: { coleta: "enforce", newsletter: "enforce", social: "dry_run" },
+    },
+  ],
+};
+
+function responderPor(sessaoOk: boolean) {
+  return vi.fn(async (url: string) => {
+    if (String(url).includes("/api/admin/sessao")) {
+      return new Response(JSON.stringify(sessaoOk ? { ok: true } : { error: "Não autorizado" }), {
+        status: sessaoOk ? 200 : 401,
+      });
+    }
+    return new Response(JSON.stringify(PROJETOS), { status: 200 });
+  });
+}
+
+describe("home do painel", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     sessionStorage.clear();
   });
 
-  it("exibe formulário de login quando não estiver autenticado", () => {
+  it("pede senha quando o servidor não reconhece a sessão", async () => {
+    vi.stubGlobal("fetch", responderPor(false));
+
     render(<AdminPage />);
 
-    expect(screen.getByRole("heading", { name: new RegExp(MARCA.nome, "i") })).toBeInTheDocument();
-    expect(screen.getByLabelText(/Senha/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Entrar/i })).toBeInTheDocument();
-  });
-
-  it("libera o painel de gestão quando a sessão estiver autenticada", () => {
-    sessionStorage.setItem("casaloti_admin_authed", "true");
-    render(<AdminPage />);
-
-    // Dentro da navegação, e não na página inteira: "Redação" também é o nome
-    // do botão de teste no topo, e a busca solta casava com os dois.
-    const nav = within(screen.getByRole("navigation"));
-    for (const aba of ABAS) {
-      expect(nav.getByRole("button", { name: new RegExp(aba, "i") })).toBeInTheDocument();
-    }
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: new RegExp(MARCA.nome, "i") })).toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText(/senha/i)).toBeInTheDocument();
   });
 
   /**
-   * O painel é mesa de controle, não peça de marca.
-   *
-   * A navegação usava emoji como sistema de ícones. Emoji muda de desenho por
-   * sistema operacional, não tem peso nem alinhamento previsível, e ali era
-   * decoração: "Fontes" e "Logs" já dizem o que são.
-   *
-   * Este teste existe porque decoração volta sozinha. Ela entra num commit
-   * pequeno, parece simpática, e em três meses o painel está colorido de novo.
+   * O caso que o `sessionStorage` deixava passar: a marca local existe, o
+   * cookie não vale mais. Antes isto abria o painel inteiro.
    */
-  it("a navegação não usa emoji como ícone", () => {
+  it("marca antiga no navegador não abre o painel sozinha", async () => {
     sessionStorage.setItem("casaloti_admin_authed", "true");
+    vi.stubGlobal("fetch", responderPor(false));
+
     render(<AdminPage />);
 
-    const emoji = /\p{Extended_Pictographic}/u;
-    const nav = within(screen.getByRole("navigation"));
-    for (const aba of ABAS) {
-      const botao = nav.getByRole("button", { name: new RegExp(aba, "i") });
-      expect(botao.textContent ?? "").not.toMatch(emoji);
-    }
+    await waitFor(() => expect(screen.getByLabelText(/senha/i)).toBeInTheDocument());
+    expect(screen.queryByText(/nenhum projeto cadastrado/i)).not.toBeInTheDocument();
+  });
+
+  it("com sessão válida, lista os projetos e leva para a área de cada um", async () => {
+    vi.stubGlobal("fetch", responderPor(true));
+
+    render(<AdminPage />);
+
+    const card = await screen.findByRole("link", { name: /usa\.journal/i });
+    expect(card).toHaveAttribute("href", "/admin/desbuguei");
   });
 });
