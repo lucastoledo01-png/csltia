@@ -31,12 +31,20 @@ export type PedidoDeBolha = {
 export function alternarBolha(
   pedidos: PedidoDeBolha[],
   ultimaPecaTeveBolha: boolean,
+  /**
+   * O molde da bolha está ligado no painel?
+   *
+   * Desligado, nenhuma peça leva bolha, e o ritmo nem é consultado: não há o
+   * que alternar. A segunda foto continua sendo resolvida, porque ela também
+   * serve de reserva quando a primeira falha no congelamento.
+   */
+  moldeLigado = true,
 ): boolean[] {
   const decisoes: boolean[] = [];
   let anteriorTeveBolha = ultimaPecaTeveBolha;
 
   for (const pedido of pedidos) {
-    const leva = pedido.temSegundaFoto && !anteriorTeveBolha;
+    const leva = moldeLigado && pedido.temSegundaFoto && !anteriorTeveBolha;
     decisoes.push(leva);
     anteriorTeveBolha = leva;
   }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { assembleSlide, resolveFormatConfig } from "@/lib/carousel-templates/assemble";
 import { DEFAULT_TOKENS, mergeTokens, type CarouselTokens } from "@/lib/carousel-templates/tokens";
 import { MOLDES, slideDeExemplo, type MoldeDePost } from "./moldes-de-post";
+import type { ProjetoDoPainel } from "./tipos";
 
 /**
  * O layout dos posts: qual molde o feed usa e com que cores.
@@ -23,7 +24,13 @@ import { MOLDES, slideDeExemplo, type MoldeDePost } from "./moldes-de-post";
 const ESCALA_CARTAO = 0.13;
 const ESCALA_GRANDE = 0.42;
 
-export function LayoutDosPosts() {
+export function LayoutDosPosts({
+  projeto,
+  aoTrocarMoldes,
+}: {
+  projeto: ProjetoDoPainel;
+  aoTrocarMoldes: (moldes: ProjetoDoPainel["moldes"]) => void;
+}) {
   const [tokens, setTokens] = useState<CarouselTokens>(DEFAULT_TOKENS);
   const [salvos, setSalvos] = useState<CarouselTokens>(DEFAULT_TOKENS);
   const [molde, setMolde] = useState<MoldeDePost>(MOLDES[0]);
@@ -31,6 +38,30 @@ export function LayoutDosPosts() {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
   const [aviso, setAviso] = useState("");
+  const [trocando, setTrocando] = useState("");
+
+  /* Molde ausente está ligado. Ver `moldes-do-feed.ts`, do lado do servidor. */
+  const ligado = (id: string) => projeto.moldes?.[id] !== false;
+  const nenhumLigado = MOLDES.every((m) => !ligado(m.id));
+
+  async function alternarMolde(id: string, novo: boolean) {
+    setTrocando(id);
+    setErro("");
+    try {
+      const r = await fetch(`/api/admin/projetos/${projeto.id}/moldes`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ molde: id, ligado: novo }),
+      });
+      const corpo = await r.json();
+      if (!r.ok || !corpo.ok) throw new Error(corpo.error ?? `HTTP ${r.status}`);
+      aoTrocarMoldes(corpo.moldes);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Falha ao mudar o molde.");
+    } finally {
+      setTrocando("");
+    }
+  }
 
   useEffect(() => {
     let ativo = true;
@@ -109,21 +140,55 @@ export function LayoutDosPosts() {
 
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {MOLDES.map((m) => (
-            <button
+            <div
               key={m.id}
-              type="button"
-              onClick={() => setMolde(m)}
-              className={`rounded-lg border p-2 text-left transition-colors ${
-                molde.id === m.id
-                  ? "border-slate-900 bg-slate-50"
-                  : "border-slate-200 hover:bg-slate-50"
+              className={`rounded-lg border p-2 transition-colors ${
+                molde.id === m.id ? "border-slate-900 bg-slate-50" : "border-slate-200"
               }`}
             >
-              <PecaDesenhada molde={m} tokens={tokens} escala={ESCALA_CARTAO} />
-              <span className="mt-2 block text-[12px] font-medium text-slate-900">{m.nome}</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setMolde(m)}
+                className="block w-full text-left"
+              >
+                {/*
+                  Molde desligado continua desenhado, e apagado. Esconder a peça
+                  faria o painel perder a única tela onde se vê o que ela é, e
+                  religar viraria escolha às cegas.
+                */}
+                <span className={ligado(m.id) ? "" : "block opacity-35 grayscale"}>
+                  <PecaDesenhada molde={m} tokens={tokens} escala={ESCALA_CARTAO} />
+                </span>
+                <span className="mt-2 block text-[12px] font-medium text-slate-900">{m.nome}</span>
+              </button>
+
+              <label className="mt-1.5 flex cursor-pointer items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={ligado(m.id)}
+                  disabled={trocando === m.id}
+                  onChange={(e) => alternarMolde(m.id, e.target.checked)}
+                  className="h-3.5 w-3.5 accent-slate-900"
+                />
+                <span className="text-[11px] text-slate-500">
+                  {ligado(m.id) ? "Em uso" : "Desligado"}
+                </span>
+              </label>
+            </div>
           ))}
         </div>
+
+        {!ligado("sem_foto") ? (
+          <p className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-[12px] text-rose-700">
+            Com o molde <strong>Sem foto</strong> desligado, o dia em que nenhuma foto passa pelas
+            barreiras fica sem post. Em 18/09 isso foi a edição inteira.
+          </p>
+        ) : null}
+        {nenhumLigado ? (
+          <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-[12px] text-rose-700">
+            Nenhum molde em uso: a esteira não vai produzir post nenhum.
+          </p>
+        ) : null}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[auto_1fr]">
           <PecaDesenhada molde={molde} tokens={tokens} escala={ESCALA_GRANDE} />
@@ -134,7 +199,8 @@ export function LayoutDosPosts() {
             </span>
             <p className="mt-2 text-[13px] text-slate-700">{molde.explica}</p>
             <p className="mt-3 text-[12px] text-slate-500">
-              <strong className="font-medium text-slate-600">Quando entra:</strong> {molde.quando}
+              <strong className="font-medium text-slate-600">Quando entra:</strong>{" "}
+              {ligado(molde.id) ? molde.quando : "Nunca: este molde está desligado."}
             </p>
             <p className="mt-3 text-[12px] text-slate-400">
               Variante no código: <code className="text-slate-500">{molde.variante}</code>. A foto

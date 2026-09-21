@@ -27,6 +27,7 @@ const FORA_DO_MENU = ["Sistema PROMPT", "Carrossel", "CMS", "Design"];
 const PROJETOS = {
   ok: true,
   capacidades: ["coleta", "newsletter", "social"],
+  moldesDoFeed: ["jornal", "jornal_bolha", "recorte", "sem_foto"],
   projetos: [
     {
       id: "00000000-0000-4000-8000-000000000001",
@@ -38,6 +39,7 @@ const PROJETOS = {
       siteUrl: "https://casaloti.ia.br",
       marca: { nome: "usa.journal", cor: "#000", logoUrl: null },
       capacidades: { coleta: "enforce" },
+      moldes: {},
     },
   ],
 };

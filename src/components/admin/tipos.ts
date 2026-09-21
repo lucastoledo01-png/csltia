@@ -20,12 +20,15 @@ export type ProjetoDoPainel = {
   marca: { nome: string; cor: string; logoUrl: string | null };
   /** Só o que o projeto declara. Ausente quer dizer "herda do servidor". */
   capacidades: Partial<Record<string, EstadoDeCapacidade>>;
+  /** Só o que o projeto declara. Molde ausente está ligado. */
+  moldes: Partial<Record<string, boolean>>;
 };
 
 export type RespostaDeProjetos = {
   ok: boolean;
   error?: string;
   capacidades?: string[];
+  moldesDoFeed?: string[];
   projetos?: ProjetoDoPainel[];
 };
 
