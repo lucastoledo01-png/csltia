@@ -114,7 +114,7 @@ function CardDoProjeto({ projeto }: { projeto: ProjetoDoPainel }) {
             {projeto.marca.nome || projeto.nome}
           </div>
           {/*
-            O nicho do usa.journal é um parágrafo editorial inteiro, e impresso
+            O nicho do eua.journal é um parágrafo editorial inteiro, e impresso
             solto ele tomava quatro linhas do card. Aqui ele é uma linha, com o
             resto no título do elemento para quem quiser ler.
           */}

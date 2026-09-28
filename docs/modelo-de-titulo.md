@@ -1,4 +1,4 @@
-# O modelo de título do usa.journal
+# O modelo de título do eua.journal
 
 Levantado em 16/09/2026, depois de o dono ler a manchete "O-1B para designer de
 cenários do México: USCIS aprova com processamento premium" e perguntar o que o

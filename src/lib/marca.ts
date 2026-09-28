@@ -15,12 +15,12 @@
 
 export const MARCA = {
   /** Nome exibido. Aparece no site, no e-mail e nos slides. */
-  nome: "usa.journal",
+  nome: "eua.journal",
   /** Parte antes do ponto, para o logotipo em duas cores. */
-  nomeBase: "usa",
+  nomeBase: "eua",
   /** Sufixo colorido do logotipo. */
   nomeSufixo: ".journal",
-  handle: "@usa.journal.ai",
+  handle: "@eua.journal",
   /*
    * A publicação deixou de ser sobre imigração em 16/09/2026.
    *
@@ -47,7 +47,7 @@ export const MARCA = {
   corOficialAzul: "#0A3161",
 
   /** Encerramento da edição e do post. */
-  assinatura: "Até amanhã. Equipe usa.journal.",
+  assinatura: "Até amanhã. Equipe eua.journal.",
   /**
    * Palavra que o leitor comenta no post.
    *
@@ -69,40 +69,51 @@ export const MARCA = {
    * e-mail o caminho relativo não resolve: o cliente de e-mail não sabe de
    * qual origem a mensagem veio.
    */
-  logoClaro: "https://casaloti.ia.br/marca/usa-journal-claro.png",
+  logoClaro: "https://casaloti.ia.br/marca/eua-journal-claro.png",
   /*
    * A versão escura é a clara com o azul-marinho virado branco.
    *
    * Ela foi gerada a partir da clara, e não desenhada: no fundo azul-marinho
-   * do cabeçalho e do rodapé o "usa", a estrela e os traços sumiriam. O
+   * do cabeçalho e do rodapé o "eua", a estrela e os traços sumiriam. O
    * vermelho do ".journal" permanece, porque ele tem contraste nos dois fundos.
    */
-  logoEscuro: "https://casaloti.ia.br/marca/usa-journal-escuro.png",
+  logoEscuro: "https://casaloti.ia.br/marca/eua-journal-escuro.png",
   /**
    * A marca em círculo, que é a foto de perfil.
    *
    * O logotipo é uma assinatura horizontal e não cabe num círculo de 76px sem
-   * virar borrão. Esta é a versão de avatar, com o ponto vermelho, o "usa" em
+   * virar borrão. Esta é a versão de avatar, com o ponto vermelho, o "eua" em
    * branco e a Estátua da Liberdade em marca-d'água sobre o azul-marinho. É
    * ela que aparece no recorte de post, onde a peça inteira imita a gramática
    * de uma rede social e o perfil está no topo.
    */
-  avatar: "https://casaloti.ia.br/marca/usa-journal-avatar.png",
+  avatar: "https://casaloti.ia.br/marca/eua-journal-avatar.png",
   /*
-   * O perfil, conferido na Graph API em 16/09/2026, não suposto.
+   * O perfil, perguntado à Graph API em 28/09/2026, não suposto.
    *
-   * O handle já foi `@desbuguei.ia`, depois `@imigra.us`, depois
-   * `@eua.journal`, e hoje é `@usa.journal.ai`. O `.ai` no fim não é engano:
-   * `usa.journal` sem sufixo é OUTRA conta, e mandar o leitor para lá é mandar
-   * para o perfil de outra pessoa.
+   * ```
+   * username: eua.journal
+   * name:     EUA Journal
+   * ```
+   *
+   * Estes três campos estavam errados, e não de um jeito silencioso: o handle
+   * é IMPRESSO na arte de todo post (capa de jornal e recorte), no rodapé da
+   * newsletter e no portal, e o link levava a `instagram.com/usa.journal.ai`,
+   * que não é esta conta. O comentário anterior afirmava com todas as letras
+   * que `@eua.journal` era o passado e `@usa.journal.ai` o presente, ou seja,
+   * o inverso do que a API responde. Comentário errado é pior que comentário
+   * ausente, porque ele encerra a investigação de quem for olhar depois.
+   *
+   * Se a conta for renomeada de novo, estes três campos mudam JUNTOS, e a
+   * conferência é uma chamada à Graph API, não a memória de ninguém.
    *
    * `instagramNome` é o nome de EXIBIÇÃO do perfil, que é o que o rodapé do
-   * e-mail imprime ao lado do ícone. Arroba com sufixo técnico ao lado de um
-   * ícone é ruído; o nome as pessoas reconhecem.
+   * e-mail imprime ao lado do ícone. Arroba ao lado de um ícone é ruído; o
+   * nome as pessoas reconhecem.
    */
-  instagram: "https://instagram.com/usa.journal.ai",
-  instagramHandle: "@usa.journal.ai",
-  instagramNome: "USA Journal",
+  instagram: "https://instagram.com/eua.journal",
+  instagramHandle: "@eua.journal",
+  instagramNome: "EUA Journal",
 
   /**
    * Paleta da bandeira aplicada à interface.

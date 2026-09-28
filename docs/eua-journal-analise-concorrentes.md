@@ -1,4 +1,4 @@
-# USA Journal: auditoria de concorrentes e plano de implementação
+# EUA Journal: auditoria de concorrentes e plano de implementação
 
 Análise de Brazil Journal e Not Journal, e o que fazer com ela dentro da
 arquitetura que já existe neste repositório.
@@ -201,7 +201,7 @@ tradicional.
 credibilidade do Brazil Journal. O primeiro é replicável com o que você já tem
 construído. O segundo é o que evita que o produto vire mais um agregador.
 
-## 5. Onde o USA Journal se encaixa
+## 5. Onde o EUA Journal se encaixa
 
 ### O espaço real
 
@@ -219,15 +219,15 @@ São dois produtos com públicos concêntricos, e isso é uma vantagem, não um
 conflito:
 
 - **imigra.us**: quem está decidindo ir. Conteúdo de processo, visto, prazo.
-- **USA Journal**: quem quer entender os EUA. Economia, política, decisão
+- **EUA Journal**: quem quer entender os EUA. Economia, política, decisão
   judicial, mercado, que afetam quem está indo ou já está lá.
 
-O USA Journal alimenta o imigra.us com audiência de topo de funil, e o imigra.us
+O EUA Journal alimenta o imigra.us com audiência de topo de funil, e o imigra.us
 converte. Um mesmo sistema, duas marcas, dois Instagram, duas listas.
 
 ### Sobre o nome
 
-"USA Journal" tem dois problemas práticos: é genérico demais para registrar como
+"EUA Journal" tem dois problemas práticos: é genérico demais para registrar como
 marca, e o domínio `usajournal.com` quase certamente não está livre. O padrão
 "[lugar] Journal" também é o que amarra você visualmente aos dois concorrentes.
 Vale conversar sobre alternativas antes de comprar domínio e abrir perfil.
@@ -248,14 +248,14 @@ templates travados para isso.
 
 ## 6. O que já existe no repositório e serve
 
-A boa notícia é que a maior parte do USA Journal já está construída. O sistema
+A boa notícia é que a maior parte do EUA Journal já está construída. O sistema
 atual faz, todo dia e sem operador: coleta, classificação, redação com LLM,
 auditoria antialucinação, publicação no portal, campanha de newsletter e posts de
 Instagram com arte gerada.
 
 Aproveitamento direto:
 
-| Peça do USA Journal | O que já existe |
+| Peça do EUA Journal | O que já existe |
 |---|---|
 | Coleta de fontes | `project_news_sources` por projeto, janela por fonte |
 | Seleção de pauta | guarda editorial com regras duras e antirrepetição |
@@ -306,7 +306,7 @@ o portão de alucinação vai barrar matérias individuais com frequência. Hoje
 para o dia inteiro. No fio contínuo, para só aquela matéria, e as outras seguem.
 O fio é mais robusto que a edição, além de mais rápido.
 
-### 7.3 Design do USA Journal
+### 7.3 Design do EUA Journal
 
 Uma variante nova de capa no formato `noticia`, com a gramática descrita na seção
 3 e identidade própria. Trabalho de template, não de arquitetura: é onde o
@@ -326,7 +326,7 @@ sistema de templates travados já foi feito para absorver mudança.
 
 1. Fechar nome, domínio e identidade do novo jornal
 2. Terminar o multiprojeto (7.1), com a única migração necessária
-3. Cadastrar o USA Journal como segundo projeto, com fontes e capacidades
+3. Cadastrar o EUA Journal como segundo projeto, com fontes e capacidades
 4. Desenhar a variante de capa e travar o template
 5. Ligar em `dry_run` e rodar uma semana sem publicar, conferindo pauta e arte
 6. Ligar o Instagram, depois o portal, depois a newsletter

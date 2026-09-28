@@ -22,7 +22,7 @@ import type { InstagramSlide } from "@/lib/carousel-templates/types";
  * funcionar numa maquina so. `PREVIEW_SAIDA` manda quando existe, e o
  * padrao e a pasta temporaria do proprio sistema.
  */
-const SAIDA = path.join(process.env.PREVIEW_SAIDA || os.tmpdir(), "usa-journal", "recorte");
+const SAIDA = path.join(process.env.PREVIEW_SAIDA || os.tmpdir(), "eua-journal", "recorte");
 fs.mkdirSync(SAIDA, { recursive: true });
 
 // Foto real e da pauta, pela mesma regra do preview do jornal: preview com

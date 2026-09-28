@@ -72,8 +72,8 @@ describe("o recorte de post", () => {
 
   it("imprime o autor com o handle real do perfil", () => {
     const html = montar({ title: "Uma manchete qualquer" });
-    expect(html).toContain("usa.journal");
-    expect(html).toContain("@usa.journal.ai");
+    expect(html).toContain("eua.journal");
+    expect(html).toContain("@eua.journal");
   });
 
   /**
