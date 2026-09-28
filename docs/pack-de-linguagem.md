@@ -44,7 +44,7 @@ social."
 |---|---|
 | quando falta um dado que o leitor precisa | dizer com naturalidade, sem citar a fonte: "ainda não há data nova". Só quando a falta muda alguma coisa, nunca em todo bloco |
 | até onde vai o tom | conversa informada, sem emoji no corpo, sem gíria, sem jargão. Lê rápido e continua sério |
-| Instagram no e-mail | ícone discreto mais o nome **USA Journal**, sem arroba |
+| Instagram no e-mail | ícone discreto mais o nome **EUA Journal**, sem arroba |
 | sigla e termo técnico | português primeiro, menos sigla. A dinâmica de escrita segue a referência |
 
 ## 3. A evidência, na edição publicada hoje
@@ -155,14 +155,13 @@ projects.brand_display_name      imigra.us
 projects.newsletter_from_name    imigra.us
 ```
 
-O segundo é o **nome do remetente na caixa de entrada**. E o handle do
-Instagram no código é `@eua.journal`, que é o nome anterior. Verificado agora na
-Graph API, o perfil real é:
+O segundo é o **nome do remetente na caixa de entrada**.
 
-```
-username  usa.journal.ai
-nome      USA Journal
-```
+> **Correção de 28/09/2026.** O parágrafo original dizia que o perfil real era
+> `usa.journal.ai` e que `@eua.journal` era o nome anterior. É o inverso.
+> Perguntado à Graph API nesta data, o perfil é `eua.journal`, nome de exibição
+> "EUA Journal". A conclusão errada deste documento foi copiada para o
+> `marca.ts`, e o handle errado saiu impresso em cada post até ser corrigido.
 
 Também divergem: `MARCA.keyword` é "VISTO" e `projects.settings.instagram_keyword`
 é "VISA". O CTA dos posts pede para comentar a palavra que vier daí.
@@ -235,9 +234,9 @@ referência.
 
 **Marca.** `projects.brand_display_name` e `projects.newsletter_from_name`
 estavam em `imigra.us` no banco, e o segundo é o nome do remetente na caixa de
-entrada. O handle foi conferido na Graph API: o perfil é `usa.journal.ai`, nome
-de exibição "USA Journal". O código apontava para `@eua.journal`, que é conta
-de outra pessoa.
+entrada. O handle registrado aqui na época, `usa.journal.ai`, estava errado:
+em 28/09/2026 a Graph API responde `eua.journal`, nome de exibição
+"EUA Journal". Ver a correção na seção anterior.
 
 **Voz.** Nove instruções de lacuna removidas ou invertidas, as duas isenções de
 auditor trocadas, o laço de reparo reescrito, o apontamento de relevância do

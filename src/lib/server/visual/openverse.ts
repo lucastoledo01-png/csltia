@@ -156,7 +156,7 @@ export async function buscarNoOpenverse(
   url.searchParams.set("source", "flickr,wikimedia");
 
   const resposta = await fetcher(url.toString(), {
-    headers: { "User-Agent": "usa.journal/1.0 (https://casaloti.ia.br)" },
+    headers: { "User-Agent": "eua.journal/1.0 (https://casaloti.ia.br)" },
     signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
   });
 

@@ -20,12 +20,12 @@ const PROJETOS = {
     {
       id: "00000000-0000-4000-8000-000000000001",
       slug: "desbuguei",
-      nome: "usa.journal",
+      nome: "eua.journal",
       status: "active",
       nicho: "imigração",
       timezone: "America/Sao_Paulo",
       siteUrl: "https://casaloti.ia.br",
-      marca: { nome: "usa.journal", cor: "#000", logoUrl: null },
+      marca: { nome: "eua.journal", cor: "#000", logoUrl: null },
       capacidades: { coleta: "enforce", newsletter: "enforce", social: "dry_run" },
       moldes: {},
     },
@@ -79,7 +79,7 @@ describe("home do painel", () => {
 
     render(<AdminPage />);
 
-    const card = await screen.findByRole("link", { name: /usa\.journal/i });
+    const card = await screen.findByRole("link", { name: /eua\.journal/i });
     expect(card).toHaveAttribute("href", "/admin/desbuguei");
   });
 });

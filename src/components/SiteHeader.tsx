@@ -19,8 +19,8 @@ export function BrandMark({ dark = false }: { dark?: boolean }) {
         alcançou o e-mail e não alcançou o cabeçalho do site: o `marca.ts`
         existe justamente para isso não acontecer.
 
-        A versão escura ainda é o arquivo antigo, porque a do usa.journal não
-        existe: o azul-marinho do "usa" e a estrela sumiriam no fundo escuro,
+        A versão escura ainda é o arquivo antigo, porque a do eua.journal não
+        existe: o azul-marinho do "eua" e a estrela sumiriam no fundo escuro,
         então ela precisa ser desenhada, não derivada.
       */}
       {/* eslint-disable-next-line @next/next/no-img-element */}

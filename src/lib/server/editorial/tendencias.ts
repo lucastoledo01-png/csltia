@@ -52,7 +52,7 @@ export type TendenciaBruta = {
   contexto?: string;
 };
 
-const AGENTE = "usa.journal/1.0 (+https://casaloti.ia.br)";
+const AGENTE = "eua.journal/1.0 (+https://casaloti.ia.br)";
 
 /**
  * Desfaz as entidades HTML do título.

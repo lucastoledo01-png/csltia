@@ -1,4 +1,4 @@
-# Decisões do usa.journal
+# Decisões do eua.journal
 
 O que já foi decidido, por quê, e o que **não** refazer.
 
@@ -30,13 +30,28 @@ preferência que ranqueava visto em primeiro lugar. **Não reverta uma dessas
 partes sozinha:** com as fontes antigas de volta, nenhuma regra de texto segura
 a pauta técnica, porque o sistema não escreve sobre o que não coleta.
 
-**A marca é `usa.journal`.** Era `imigra.us`, e antes disso `desbuguei.ia`. A
-troca é de nome e de logotipo, não de linha editorial: continua sendo notícia
-dos EUA para brasileiros.
+**A marca é `eua.journal`**, desde 28/09/2026. A linhagem é `desbuguei.ia` →
+`imigra.us` → `usa.journal` → `eua.journal`. A troca é de nome e de logotipo,
+não de linha editorial: continua sendo notícia dos EUA para brasileiros.
 
-**O Instagram é `@eua.journal`**, e não `usa.journal`. Foi verificado na Graph
-API, não suposto. Se a conta for renomeada, três campos do `marca.ts` mudam
-juntos: `handle`, `instagram`, `instagramHandle`.
+**O Instagram é `@eua.journal`, nome de exibição "EUA Journal".** Perguntado à
+Graph API em 28/09/2026:
+
+```
+username  eua.journal
+name      EUA Journal
+```
+
+Isto já esteve escrito ao contrário em dois lugares, e o erro saiu publicado: o
+`marca.ts` apontava para `@usa.journal.ai` e o `pack-de-linguagem.md` afirmava
+que esse era o perfil verdadeiro. O handle é IMPRESSO na arte de todo post, no
+rodapé da newsletter e no portal, então o valor errado foi ao ar em cada peça
+até esta data.
+
+Se a conta for renomeada de novo, três campos do `marca.ts` mudam juntos:
+`instagram`, `instagramHandle` e `instagramNome`, mais o `handle`. E a
+conferência é uma chamada à Graph API, nunca a memória de ninguém nem um
+documento antigo.
 
 **O domínio continua `casaloti.ia.br`**, por decisão do dono. É ele que serve o
 site, as imagens do e-mail e o alvo do cron.
