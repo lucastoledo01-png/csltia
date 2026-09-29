@@ -175,9 +175,17 @@ export function hashDaVerificacao(entrada: {
   fonte: string;
   contexto: string;
   classificacao?: { pais: string; leitura: string; eixo: string; relevancia: number } | null;
+  /**
+   * Impressão da instrução do verificador. Sem ela, a régua mudava e o veredito
+   * dado pela régua anterior continuava sendo reaproveitado até o prazo vencer,
+   * que foi o que aconteceu com as recusas da régua de imigração em 29/09. É o
+   * mesmo papel do `promptHash` na assinatura do classificador.
+   */
+  regua?: string;
 }): string {
   const c = entrada.classificacao;
   const material = JSON.stringify({
+    r: entrada.regua ?? null,
     t: entrada.titulo.trim(),
     f: entrada.fonte.trim(),
     // O texto inteiro, porque enriquecer no fim da matéria também muda o que

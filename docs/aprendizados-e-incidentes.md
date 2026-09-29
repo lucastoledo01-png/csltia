@@ -1227,6 +1227,59 @@ quem lê o campo antigo: a newsletter lia `status` e não `asset`, e continuou
 lendo certo uma coisa que tinha mudado de significado.
 
 
+### O pivô mudou o classificador e esqueceu o verificador: quatro dias sem post
+
+**Sintoma.** Em 23, 24, 26 e 28/09/2026 o Instagram saiu sem nenhum post de
+notícia, com 41 e 30 pautas aprovadas nos dois primeiros dias. A newsletter saiu
+normalmente. O evergreen, que deveria completar o feed, não produziu nada depois
+de 22/09.
+
+**Causa.** A publicação deixou de ser sobre imigração em 16/09, e o pivô
+reescreveu o eixo e a régua de relevância do CLASSIFICADOR. O VERIFICADOR de
+finalistas, que é a segunda leitura e só roda no Instagram, ganhou a lista nova
+de eixos e manteve o resto: "o leitor quer se mudar legalmente", relevância como
+"o quanto muda a vida de quem planeja a mudança". Ele recusou todas as pautas
+daqueles dias com motivos como "notícia de tecnologia sem conexão com a decisão
+de imigrar". A newsletter não sentia porque não passa por ele.
+
+O próprio classificador também ficou pela metade: a abertura e a `leitura`
+continuavam falando do projeto de mudança, e a editoria `seguranca`, que entrou
+no schema em 16/09, nunca entrou em prompt nenhum.
+
+**Por que demorou.** O diagnóstico do social do dia, com as recusas e os
+descartes, ia para a resposta HTTP que o cron não guarda e para o log do
+contêiner. A única marca no banco era o veredito espalhado em `news_candidates`.
+
+**Corrigido.**
+
+1. `editorial/linha-editorial.ts` é o único lugar da linha editorial, e os dois
+   prompts a importam. `linha-editorial.test.ts` falha se um deles voltar a ter
+   cópia própria, ou se uma frase da régua de imigração voltar, e prova que a
+   conferência acusaria o cabeçalho antigo.
+2. A impressão da régua do verificador entrou na chave de reúso da verificação.
+   Sem isso, o veredito dado pela régua velha continuaria valendo até o prazo de
+   24h vencer. É a lição do guardrail de PI: veredito persistido precisa de
+   caminho de invalidação.
+3. O diagnóstico do social vai para `platform_events`, tipo
+   `social_cycle_diagnostic`, com os motivos das recusas e dos descartes.
+
+**Medido contra a API real**, com as 40 pautas mais recentes que o verificador
+tinha recusado: 24 confirmadas, 4 em conflito, 12 recusadas. As recusas que
+sobraram são do tipo certo: texto curto demais, fato negativo sobre os EUA,
+terceiro país.
+
+**Efeito colateral esperado.** O `promptHash` do classificador mudou, então toda
+classificação persistida deixa de ser reaproveitada e o pool é reclassificado
+uma vez. A contagem de aprovadas pode mudar nesse dia.
+
+**O que continua aberto.** Por que o evergreen parou em 22/09: o motivo não foi
+gravado. A partir de agora ele fica em `payload.diagnostico.evergreen`.
+
+**Lição.** Um pivô de produto é uma mudança de regra, e regra copiada em dois
+prompts muda em um. Quando duas leituras existem para se conferir, elas precisam
+ler a mesma régua de um lugar só, ou a conferência passa a medir a distância
+entre a régua nova e a velha.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

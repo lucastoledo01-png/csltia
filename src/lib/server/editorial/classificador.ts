@@ -2,6 +2,7 @@ import { z } from "zod";
 import { callOpenAIJSON } from "../newsroom/ai-provider";
 import type { ConfigEditorial } from "./config";
 import { MOTIVOS } from "./config";
+import { LEITOR, REGRA_EIXO, REGRA_LEITURA, REGRA_PAIS, REGRA_RELEVANCIA } from "./linha-editorial";
 import type { Motivo } from "./config";
 import type { Entidades } from "./fingerprint";
 
@@ -157,38 +158,21 @@ export type PautaClassificavel = {
 
 export function montarSystemDoClassificador(): string {
   return `
-Você classifica notícias para uma publicação brasileira sobre imigração para os Estados Unidos.
-O leitor é brasileiro e quer se mudar para os EUA legalmente.
+Você classifica notícias.
+
+${LEITOR}
 
 Para cada notícia, devolva:
 
-pais: "EUA" se o fato acontece nos Estados Unidos ou é decidido por autoridade americana. "Brasil" se acontece no Brasil ou é decidido por autoridade brasileira. "outro" nos demais casos.
+${REGRA_PAIS}
 
 imigracao: true quando a notícia trata de visto, green card, cidadania, asilo, fronteira, USCIS, consulado, status migratório, trabalho de estrangeiro ou vida de imigrante nos EUA.
 
-leitura: como o FATO afeta o projeto de mudança do leitor, não o tom do texto.
-- "oportunidade": abre, amplia, acelera, barateia ou protege um caminho. Exemplos: prazo estendido, nova categoria de visto, decisão que impede deportação, mais vagas, processo mais rápido.
-- "neutra": informa sem mudar o caminho em nenhuma direção. Consulta pública, nomeação, dado estatístico, mudança de formulário.
-- "desfavoravel": fecha, encarece, atrasa ou ameaça um caminho, ou retrata os EUA como lugar hostil, perigoso ou arbitrário. Exemplos: taxa maior, prazo maior, batida policial, prisão de imigrante, agente acusado de crime, corte de cota.
+${REGRA_LEITURA}
 
-eixo: a editoria da pauta. São oito, e imigração é UMA delas, não o eixo da publicação.
-- "economia": juros, inflação, emprego, mercado, câmbio, empresa que contrata ou demite em massa, decisão do Fed.
-- "trabalho": salário, carreira, profissão em alta, jornada, sindicato, o que muda para quem trabalha.
-- "custo_de_vida": o que muda o bolso. Moradia, aluguel, energia, combustível, mercado, plano de saúde, imposto sobre renda ou consumo. NÃO entra preço de commodity nem balanço de empresa: só entra se a matéria disser o efeito no preço que a pessoa paga.
-- "politica": governo, Congresso, eleição, decisão de corte com efeito prático, medida do Executivo. O fato, nunca a disputa partidária pela disputa.
-- "tecnologia": produto, empresa de tecnologia, inteligência artificial, plataforma, o que muda no que a pessoa usa.
-- "cultura": comportamento, sociedade, cidade, educação, esporte, o que a vida americana tem de diferente.
-- "imigracao": visto, status, processo migratório, fronteira, cidadania. É uma editoria como as outras, e não a régua do dia.
-- "brasil": fato brasileiro com efeito prático sobre patrimônio, empresa, carreira ou segurança, que pesa na comparação com os EUA.
-- "outro": o que não couber acima.
+${REGRA_EIXO}
 
-relevancia: 0 a 10, e a régua depende do país.
-
-Para notícia dos EUA: quanto o fato interessa a um brasileiro que acompanha os Estados Unidos, seja porque pensa em morar lá, seja porque aquilo mexe no bolso, no trabalho ou no mundo dele daqui.
-Nomeação de cargo sem efeito prático é 1. Nota de rodapé de mercado é 2. Decisão do Fed sobre juros é 7, porque mexe no câmbio e no preço aqui. Mudança de prazo de um formulário que milhares usam é 8. Lei que muda o que se paga de imposto, empresa grande demitindo em massa, cidade que virou destino de brasileiros, tecnologia que troca o jeito de trabalhar: 7 a 9.
-NÃO confunda relevância com imigração. Uma pauta de economia americana pode valer 9 sem citar visto nenhum, e uma mudança de formulário obscuro pode valer 3.
-
-Para notícia do Brasil: quanto existe ali um PROBLEMA FACTUAL CONCRETO que afeta quem tem patrimônio, empresa ou carreira, e que pesa na decisão de ficar ou sair. Notícia setorial, disputa comercial, safra, exportação e balanço de empresa não pesam nessa decisão: valem 1 a 3, por maior que seja o número envolvido. Vale de 6 a 9 quando há fato verificável com alcance: mudança de alíquota, decisão que muda regra do jogo, número de inflação, câmbio, juros, dado de violência, decisão institucional com efeito prático. Fofoca de bastidor, disputa de cargo, declaração de político e pesquisa eleitoral isolada valem 1 a 3.
+${REGRA_RELEVANCIA}
 
 O que decide a nota é o fato, não a conclusão. Não force leitura negativa: se a notícia brasileira traz um dado bom ou neutro, classifique como está. A publicação compara Brasil e Estados Unidos com números, não com adjetivos, e não adota lado partidário: nenhum partido, nenhum político e nenhuma corrente são o assunto. O assunto é o efeito prático sobre a vida de quem decide ficar ou sair.
 
@@ -198,8 +182,6 @@ natureza: o que a notícia registra.
 - "outro": o que não for nem um nem outro.
 
 Um anúncio oficial do presidente sobre uma medida do próprio governo é "official_action". Um candidato criticando essa medida é "political_statement". A mesma história contada pelo lado do ato ("Senado aprova fim da cobrança de 20%") é ato; contada pelo lado da fala ("Fulano critica o fim da cobrança") é fala.
-
-Para notícia de terceiro país: só interessa se afetar brasileiro que emigra. Caso contrário, 0.
 
 atores: órgãos, empresas, tribunais e pessoas citados. Nomes curtos, como aparecem ("USCIS", "ICE", "Suprema Corte", "STF").
 lugares: cidades, estados e países citados.

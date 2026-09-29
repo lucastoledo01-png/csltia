@@ -2,7 +2,7 @@ import type { ConfigEditorial } from "./config";
 import type { PautaAvaliada } from "./guarda";
 import type { CandidatosStore, VerificacaoPersistida } from "./candidatos-store";
 import { hashDaVerificacao, paraPersistir, verificacaoAindaVale } from "./candidatos-store";
-import { verificarFinalistas } from "./verificador";
+import { impressaoDaReguaDoVerificador, verificarFinalistas } from "./verificador";
 import type { FinalistaParaVerificar, Verificacao } from "./verificador";
 
 /**
@@ -81,6 +81,7 @@ export function hashDaPauta(p: PautaAvaliada): string {
       eixo: p.classificacao.eixo,
       relevancia: p.classificacao.relevancia,
     },
+    regua: impressaoDaReguaDoVerificador(),
   });
 }
 
