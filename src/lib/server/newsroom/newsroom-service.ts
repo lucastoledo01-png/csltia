@@ -35,6 +35,7 @@ import { avaliarPautas, registroDaPauta } from "../editorial/guarda";
 import { formatarNumerosDaEdicao } from "./numeros-editoriais";
 import { rodarSocialDoDia, diagnosticoSocialAusente } from "../social/ciclo-do-dia";
 import type { DiagnosticoSocialDoDia } from "../social/ciclo-do-dia";
+import { gravarDiagnosticoDoSocial, montarRegistroDoSocial } from "../social/diagnostico-gravado";
 import { descreverModo, modoDaGuarda } from "../editorial/modo";
 import { paraRenderizacao, resolverImagens } from "../editorial/imagens";
 import { descreverModoVisual, diagnosticoVazio, modoDoResolvedorVisual } from "../visual/modo";
@@ -1219,6 +1220,7 @@ async function executarRedacaoDoDia(
     rastro.funil = { ...rastro.funil, approvedCount: resultado.approvedEditorialPool.length };
 
     const modoSocialDoEnsaio = modoSocialParaOEnsaio(dryRun, env, project);
+    let resultadoSocial: Awaited<ReturnType<typeof rodarSocialDoDia>> | null = null;
 
     try {
       const social = await rodarSocialDoDia(resultado.approvedEditorialPool, {
@@ -1244,6 +1246,7 @@ async function executarRedacaoDoDia(
 
       rastro.social = social.diagnostico;
       for (const l of social.ciclo?.linhasDeLog ?? []) console.log(l);
+      resultadoSocial = social;
 
       if (social.diagnostico.mode !== "off") {
         console.log(
@@ -1263,6 +1266,17 @@ async function executarRedacaoDoDia(
         `A edição de ${todayStr} segue pelo caminho normal.\n${motivo}`,
       );
     }
+
+    /* O porquê do feed do dia vai para o banco. Ver `diagnostico-gravado.ts`. */
+    const naoGravado = await gravarDiagnosticoDoSocial(
+      getSupabaseAdminClient(),
+      project.id,
+      montarRegistroDoSocial(
+        resultadoSocial ?? { diagnostico: rastro.social, ciclo: null, conferencia: null },
+        { editionDate: todayStr, dryRun },
+      ),
+    );
+    if (naoGravado) console.warn(`[NEWSROOM] diagnóstico do social não gravado: ${naoGravado}`);
 
     const daGuarda: RankedCandidate[] = resultado.selecionadas.map((p) => ({
       group: p.grupo,

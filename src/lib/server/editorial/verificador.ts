@@ -1,8 +1,10 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { callOpenAIJSON, getAIProviderConfig } from "../newsroom/ai-provider";
 import type { Classificacao } from "./classificador";
 import type { ConfigEditorial } from "./config";
 import { MOTIVOS } from "./config";
+import { LEITOR, REGRA_EIXO, REGRA_LEITURA, REGRA_PAIS, REGRA_RELEVANCIA } from "./linha-editorial";
 
 /**
  * A segunda leitura, só de quem está disputando vaga.
@@ -26,7 +28,7 @@ import { MOTIVOS } from "./config";
 const VerificacaoSchema = z.object({
   id: z.string(),
   pais: z.enum(["EUA", "Brasil", "outro"]),
-  /** O FATO deixa os EUA em posição desfavorável para quem quer se mudar? */
+  /** O FATO é desfavorável aos EUA? Mesma régua de `leitura`, em `linha-editorial.ts`. */
   eua_desfavoravel: z.boolean(),
   leitura: z.enum(["oportunidade", "neutra", "desfavoravel"]),
   eixo: z.string(),
@@ -72,25 +74,27 @@ export type FinalistaParaVerificar = {
 
 export function montarSystemDoVerificador(): string {
   return `
-Você confere a classificação de uma notícia para uma publicação brasileira sobre imigração para os Estados Unidos. O leitor é brasileiro e quer se mudar legalmente.
+Você confere a classificação de uma notícia.
+
+${LEITOR}
 
 Isto NÃO é uma reclassificação. Outra leitura já foi feita e você vai vê-la. Sua função é dizer se ela se sustenta diante do texto, não repetir o trabalho.
 
-Responda só o que muda a admissibilidade:
+Responda só o que muda a admissibilidade, com a MESMA régua da leitura anterior:
 
-pais: "EUA" se o fato acontece nos Estados Unidos ou é decidido por autoridade americana. "Brasil" se acontece no Brasil ou é decidido por autoridade brasileira. "outro" nos demais casos.
+${REGRA_PAIS}
 
-eua_desfavoravel: true quando o FATO deixa os Estados Unidos em posição pior para quem planeja se mudar. Restrição, endurecimento, corte, fila maior, custo maior, porta que fecha. É sobre o fato, não sobre o tom do texto. Para pauta do Brasil, false.
+${REGRA_LEITURA}
 
-leitura: como o FATO chega a quem quer se mudar. "oportunidade", "neutra" ou "desfavoravel".
+eua_desfavoravel: true exatamente quando pais é "EUA" e leitura é "desfavoravel". É a mesma régua da leitura, repetida como campo próprio porque é a regra mais dura da linha editorial.
 
-eixo: um entre economia, trabalho, custo_de_vida, politica, tecnologia, cultura, imigracao, brasil, outro.
+${REGRA_EIXO}
 
-relevancia: 0 a 10, o quanto muda a vida de quem planeja a mudança. Seja severo: 8 ou mais é pauta que altera decisão de alguém esta semana.
+${REGRA_RELEVANCIA}
 
 fato_principal: uma frase dizendo o que aconteceu, tirada do texto. Se o texto não permitir escrever essa frase, devolva string vazia.
 
-adequada: true se esta notícia deve ser publicada por esta marca. false quando o fato é negativo sobre os EUA, quando não há fato apurável, ou quando é só repercussão de declaração.
+adequada: true se esta notícia deve ser publicada por esta marca. false quando o fato é negativo sobre os EUA, quando não há fato apurável, ou quando é só repercussão de declaração. Assunto fora de imigração NUNCA torna uma notícia inadequada: tecnologia, economia, custo de vida e cultura são editorias da publicação.
 
 motivo: uma frase curta explicando o "adequada".
 
@@ -101,6 +105,11 @@ Regras:
 
 Devolva JSON: {"pautas": [{"id": "...", "pais": "...", "eua_desfavoravel": false, "leitura": "...", "eixo": "...", "relevancia": 0, "fato_principal": "...", "adequada": true, "motivo": "..."}]}
 `;
+}
+
+/** Impressão da régua, para uma verificação antiga não sobreviver a uma régua nova. */
+export function impressaoDaReguaDoVerificador(): string {
+  return createHash("sha1").update(montarSystemDoVerificador()).digest("hex").slice(0, 12);
 }
 
 function montarUser(lote: FinalistaParaVerificar[]): string {
