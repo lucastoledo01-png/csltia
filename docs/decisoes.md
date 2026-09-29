@@ -509,6 +509,89 @@ representar um grupo, e em "brasileiros nos EUA" seria inferir nacionalidade
 por aparência. Texto na foto compete com a manchete, que já é o texto da peça.
 Gente pequena ao fundo compondo uma rua não é recusa; rosto reconhecível é.
 
+## O banco de imagens próprio (29/09/2026)
+
+A decisão do dono: o acervo passa a ser **nosso**, e é a primeira fonte que a IA
+consulta. Banco de terceiro vira exceção, não padrão. O motivo é controle: com
+acervo próprio, a IA não encontra imagem que a gente não queira.
+
+**A ordem de busca, e ela tem uma inversão que importa:**
+
+| situação | de onde vem a imagem |
+|---|---|
+| Entidade nomeada e o acervo tem | acervo |
+| Entidade nomeada e o acervo **não** tem | fontes externas |
+| Sem entidade nomeada | acervo, pela tag de cena |
+| Sem entidade e a cena também vazia | fontes externas |
+| Nada em lugar nenhum | capa tipográfica |
+
+**A cena só é consultada depois de a entidade falhar nos dois lados.** Se
+invertesse, uma pauta sobre um produto novo acharia uma foto genérica de
+"tecnologia" no acervo, ganharia ali, e nunca sairia para buscar a foto do
+produto. O genérico mascararia a falta do específico, e é justamente em
+lançamento e novidade que o acervo não vai ter.
+
+**A busca é por TAG, não por vetor.** A primeira proposta foi vetor sobre a
+descrição da imagem; o dono apontou que tag é mais simples, e está certo: é
+exata, é de graça e dá para depurar olhando a linha. O vetor fica para quando
+o acervo for grande o bastante para precisar distinguir duas fotos dentro da
+mesma tag.
+
+O que torna a tag confiável aqui, e não tornava nos 16 temas conceituais, é
+QUEM escolhe: `cena-da-pauta.ts` já chama um modelo que lê a matéria, e ele
+passa a devolver também a tag, escolhida de uma lista fechada. Modelo
+escolhendo de cardápio é confiável; lista de palavras adivinhando pelo título
+não é, e foi assim que `ice` casou dentro de `justice` e `imovel` não casou com
+`imoveis`.
+
+**A conferência visual continua valendo só para o que vem de fora.** Imagem do
+acervo foi conferida na entrada e não é reaberta a cada uso. É o que faz o dia
+comum não gastar chamada de modelo nenhuma no ramo visual, e mantém a barreira
+exatamente onde ela é necessária, que é quando entra imagem desconhecida.
+
+**As travas de licença saem, o registro fica.** Decisão do dono: `rights_status`
+deixa de barrar publicação. O campo continua sendo gravado, porque anotar de
+onde a imagem veio custa zero e é o que permite responder se alguém perguntar.
+
+**Onde o arquivo mora:** o derivado de 2160x2880 fica no Storage do Supabase,
+em bucket próprio, separado do `public_assets` das artes publicadas, que são
+descartáveis e o acervo não. O original em resolução cheia fica no Drive e o
+sistema nunca o lê. A linha grava em qual repositório o arquivo está, para a
+mudança de casa lá na frente ser uma cópia mais um update, e não uma reescrita
+do resolvedor. O ponto de virada é por volta de 2.500 imagens, quando o
+derivado passa de 3,5 GB.
+
+**O nome do arquivo é o metadado.** `grupo-pais-assunto-detalhe-numero.jpg`. A
+ingestão lê e grava a tag e o país sem ninguém preencher formulário. O que NÃO
+entra no nome é tom (claro ou escuro) e orientação: os dois são medidos nos
+pixels com precisão maior que a do olho, e escrever à mão cria contradição
+entre o nome e o arquivo.
+
+**A régua de país vale para cena e lugar, não para pessoa.** Retrato é da
+pessoa, onde quer que tenha sido feito. Cena de terceiro país é recusada.
+
+**O que falta no acervo vira lista de compras.** Toda tag pedida e não atendida
+é gravada. Em uma semana isso é a lista de produção ordenada por frequência, e
+não um chute sobre o que fotografar.
+
+### Os números que dimensionam o acervo
+
+Medidos em 29/09/2026, no banco de produção:
+
+```
+consumo          3,3 posts/dia no Instagram mais as pautas da newsletter,
+                 algo em torno de 6 imagens distintas por dia
+janela           30 dias (EDITORIAL_JANELA_IMAGEM_DIAS)
+minimo           6 x 30 = 180 imagens para nunca repetir dentro do mes
+```
+
+Distribuição das 396 pautas aprovadas em 45 dias: tecnologia 31%, economia 16%,
+política 16%, custo de vida 14%, Brasil 10%. Por isso a profundidade do acervo
+é proporcional, e não uniforme: tecnologia precisa de duas a três fotos por
+cena, e `religiao` ou `militar` precisam de uma.
+
+A lista de produção tem 746 cenas em 40 grupos, e está no guia do designer.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.
