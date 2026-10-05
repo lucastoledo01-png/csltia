@@ -42,4 +42,12 @@ describe("home sem repetição", () => {
     );
     expect(lista).toBe(pautas);
   });
+
+  it("a mesma notícia em duas edições aparece uma vez", () => {
+    const repetida = { ...pautas[5], id: "outra-edicao", titulo: "Pauta 5" };
+    const h = montarHome([...pautas, repetida]);
+    const todas = [h.destaque!, ...h.chamadas, ...h.secundarias, ...h.ultimas, ...h.maisNovaPorEditoria.map((m) => m.pauta)];
+    expect(todas.filter((p) => p.titulo === "Pauta 5")).toHaveLength(1);
+  });
 });
+
