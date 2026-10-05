@@ -11,6 +11,8 @@ type SubstackArticleRendererProps = {
   category?: string;
   readTime?: string;
   coverImage?: string | null;
+  /** O crédito da foto da capa, que a licença CC BY exige visível junto da obra. */
+  coverCredit?: string | null;
   contentHtml?: string;
   sections?: Array<{ heading: string; paragraphs: string[] }>;
   quote?: string;
@@ -25,6 +27,7 @@ export function SubstackArticleRenderer({
   category = "Notícias",
   readTime,
   coverImage,
+  coverCredit,
   contentHtml,
   sections,
   quote,
@@ -97,6 +100,7 @@ export function SubstackArticleRenderer({
               className="object-cover"
             />
           </div>
+          {coverCredit ? <figcaption className="mt-2 text-xs text-[#71717A]">{coverCredit}</figcaption> : null}
         </figure>
       ) : null}
 
@@ -134,7 +138,7 @@ export function SubstackArticleRenderer({
       {/* 5. Módulo de Interação de Leitura */}
       <div className="my-10 border-t border-b border-[#f3f4f6] py-6 text-center">
         <p className="text-xs font-semibold uppercase tracking-wider text-[#6b7280]">
-          O que você achou desta edição?
+          O que você achou desta matéria?
         </p>
 
         {pollVoted ? (

@@ -52,8 +52,13 @@ function carregarEnv(): void {
 
 const STATUS_FORA_DA_LISTA = ["archived", "draft"] as const;
 
-function linhaDoArtigo(a: ArtigoDaPauta, agoraIso: string): Record<string, unknown> {
-  return { ...a, updated_at: agoraIso };
+/*
+ * A linha vai como o plano a montou, com `updated_at` igual ao `published_at`
+ * (05/10/2026): o texto é o que foi ao ar naquele dia, e o `dateModified` da
+ * página sai desse campo.
+ */
+function linhaDoArtigo(a: ArtigoDaPauta): Record<string, unknown> {
+  return { ...a };
 }
 
 function imprimirPlano(p: PlanoDaEdicao, existentes: Map<string, { status: string; origem: boolean }>, detalhe: boolean): void {
@@ -132,7 +137,7 @@ async function main(): Promise<void> {
   for (const { plano } of planos) {
     let falhou = false;
     for (const a of plano.artigos) {
-      const { error: e3 } = await client.from("articles").upsert(linhaDoArtigo(a, agoraIso), { onConflict: "project_id,slug" });
+      const { error: e3 } = await client.from("articles").upsert(linhaDoArtigo(a), { onConflict: "project_id,slug" });
       if (e3) {
         falhou = true;
         console.error(`  ERRO ${a.slug}: ${e3.message}`);

@@ -1,5 +1,6 @@
 import { MARCA } from "@/lib/marca";
 import { editoriaDaPauta, nomeDaEditoria } from "@/lib/editorias";
+import { semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
 import { escapeHtml, safeHttpUrl } from "./html";
 import { renderizarArtigoHtml, type Artigo } from "./ramos/artigo";
 import { slugDoArtigo } from "./ramos/portal";
@@ -65,6 +66,7 @@ export type ArtigoDaPauta = {
   category: string;
   cover_image: string | null;
   published_at: string;
+  updated_at: string;
   status: "published";
   manual_review_status: "approved";
   author: string;
@@ -165,13 +167,32 @@ function normalizar(s: string): string {
  * não é achado num cabeçalho fica sem foto, e a peça tipográfica aparece.
  */
 export function fotosPorPauta(html: string | null, titulos: string[]): Array<string | null> {
+  return fotosECreditosPorPauta(html, titulos).map((f) => f?.src ?? null);
+}
+
+/** O parágrafo de crédito colado logo depois da foto, com cara de licença ou de banco de imagem. */
+const CREDITO_DA_FOTO = /^\s*<p\b[^>]*>([^<]{3,220})<\/p>/i;
+const CARA_DE_CREDITO = /\b(cc[ -]|cc0|wikimedia|pexels|unsplash|flickr|foto:|dom[ií]nio p[uú]blico|public domain)/i;
+
+/**
+ * A foto de cada pauta e o crédito dela (05/10/2026).
+ *
+ * O e-mail imprime o crédito logo abaixo da foto ("Dietmar Rabich, CC BY-SA
+ * 4.0, via Wikimedia Commons"), e a licença CC BY exige esse crédito visível
+ * junto da obra. A matéria nova leva a foto como capa, então leva o crédito
+ * junto, para a página imprimir embaixo da capa.
+ */
+export function fotosECreditosPorPauta(
+  html: string | null,
+  titulos: string[],
+): Array<{ src: string; credito: string | null } | null> {
   if (!html) return titulos.map(() => null);
   const cabecalhos = [...html.matchAll(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/gi)].map((m) => ({
     pos: m.index ?? 0,
     texto: normalizar(m[1]),
   }));
-  const imagens = [...html.matchAll(/<img[^>]+src="([^"]+)"/gi)]
-    .map((m) => ({ pos: m.index ?? 0, src: m[1] }))
+  const imagens = [...html.matchAll(/<img[^>]+src="([^"]+)"[^>]*>/gi)]
+    .map((m) => ({ pos: m.index ?? 0, fim: (m.index ?? 0) + m[0].length, src: m[1] }))
     .filter((i) => !i.src.includes("/marca/"));
 
   let aPartirDe = -1;
@@ -187,7 +208,10 @@ export function fotosPorPauta(html: string | null, titulos: string[]): Array<str
     if (pos === null) return null;
     const fim = posicoes.slice(i + 1).find((p): p is number => p !== null) ?? Number.POSITIVE_INFINITY;
     const img = imagens.find((im) => im.pos > pos && im.pos < fim);
-    return img ? desfazerEntidades(img.src) : null;
+    if (!img) return null;
+    const depois = CREDITO_DA_FOTO.exec(html.slice(img.fim, img.fim + 600))?.[1];
+    const credito = depois ? desfazerEntidades(depois).replace(/\s+/g, " ").trim() : "";
+    return { src: desfazerEntidades(img.src), credito: credito && CARA_DE_CREDITO.test(credito) ? credito : null };
   });
 }
 
@@ -296,7 +320,8 @@ export function planejarEdicao(edicao: EdicaoComoArtigo): PlanoDaEdicao | null {
   const historias = historiasDe(edicao.content);
   const titulos = historias.map((h) => texto(h.title));
   const slugs = slugsDaEdicao(titulos, data);
-  const fotos = fotosPorPauta(edicao.content_html, titulos);
+  const fotosComCredito = fotosECreditosPorPauta(edicao.content_html, titulos);
+  const fotos = fotosComCredito.map((f) => f?.src ?? null);
   const algumaFoto = fotos.some(Boolean);
   const base = Date.parse(edicao.published_at ?? `${data}T09:00:00.000Z`);
 
@@ -315,7 +340,7 @@ export function planejarEdicao(edicao: EdicaoComoArtigo): PlanoDaEdicao | null {
       return;
     }
 
-    const { artigo, html } = corpoDaPauta(h);
+    const { artigo, html: corpo } = corpoDaPauta(h);
     const categoria = nomeDaEditoria(editoriaDaPauta(categoriaDaEdicao, titulo));
     /*
      * Sem nenhuma foto recuperável por posição, a capa da edição vai só para a
@@ -324,7 +349,18 @@ export function planejarEdicao(edicao: EdicaoComoArtigo): PlanoDaEdicao | null {
      */
     const capa = fotos[i] ?? (!algumaFoto && i === 0 ? edicao.cover_image : null);
     if (!capa) plano.semFoto.push(slugs[i]);
+    /*
+     * A capa NUNCA entra no corpo (05/10/2026): o dono viu a capa e a mesma
+     * foto logo abaixo dela. O corpo daqui não tem foto, e a guarda existe
+     * para continuar assim se alguém puser uma. O crédito da foto vai no
+     * começo do corpo, marcado, e a página o imprime embaixo da capa.
+     */
+    const credito = capa && fotos[i] === capa ? fotosComCredito[i]?.credito : null;
+    const html =
+      (credito ? `<p class="credito-da-foto">${escapeHtml(credito)}</p>` : "") +
+      semImagemDaCapaNoCorpo(corpo, capa).html;
     const palavras = html.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
+    const publicadaEm = new Date(base + (historias.length - i) * 60_000).toISOString();
     const fonte = texto(h.source_url);
     const fontes = [fonte, ...(h.secondary_urls ?? []).map(texto)].filter((u, j, todos) => u && todos.indexOf(u) === j);
 
@@ -340,7 +376,13 @@ export function planejarEdicao(edicao: EdicaoComoArtigo): PlanoDaEdicao | null {
       content: artigo.secoes.map((s) => ({ heading: s.intertitulo, paragraphs: s.paragrafos })),
       category: categoria,
       cover_image: capa,
-      published_at: new Date(base + (historias.length - i) * 60_000).toISOString(),
+      published_at: publicadaEm,
+      /*
+       * `updated_at` é o da publicação, e não o da gravação: o texto é o que
+       * foi ao ar naquele dia, e o `dateModified` da página sai daqui. Gravar
+       * "agora" diria à busca que 62 matérias mudaram hoje sem mudar nada.
+       */
+      updated_at: publicadaEm,
       status: "published",
       manual_review_status: "approved",
       author: MARCA.nome,

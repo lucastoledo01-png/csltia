@@ -47,6 +47,7 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: [...ROBOS_DE_BUSCA_DE_IA], allow: "/", disallow: FORA_DO_RASTREIO },
       { userAgent: [...ROBOS_DE_TREINO_DE_IA], allow: "/", disallow: FORA_DO_RASTREIO },
     ],
-    sitemap: `${MARCA.site}/sitemap.xml`,
+    // O de notícias (05/10/2026) traz só as últimas 48 horas, no formato do Google News.
+    sitemap: [`${MARCA.site}/sitemap.xml`, `${MARCA.site}/sitemap-noticias.xml`],
   };
 }

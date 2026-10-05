@@ -905,6 +905,43 @@ do Google, e um portal construindo audiência ganha mais sendo conhecido pelo
 modelo do que protegendo notícia, que perde valor em dias. Rever se surgir
 licenciamento ou conteúdo exclusivo. A lista está em `src/app/robots.ts`.
 
+## A matéria na busca: auditoria, molde e correção (05/10/2026)
+
+**A auditoria é determinística e mede a página servida.** `auditar-artigos.ts`
+só lê: confere título de busca, descrição, lide, intertítulos, parágrafos,
+fonte, perguntas, JSON-LD, canônico e capa, com peso por conferência
+(`auditoria-de-artigo.ts`). O JSON-LD de quem está no ar vem do HTML que a
+produção serviu, não do código; a página e a auditoria usam a MESMA função
+(`dados-estruturados-do-artigo.ts`) para não haver duas cópias da regra.
+
+**Onde as skills de SEO divergem, vale o projeto.** Não se exige
+palavra-chave no começo do título (`modelo-de-titulo.md`); a moeda conta
+como marca de país (regra 8), e por isso "US$" e "R$" situam o título.
+
+**O molde:** JSON-LD num `@graph` (NewsArticle, Organization, BreadcrumbList
+pela página da editoria e, só com pergunta VISÍVEL, FAQPage), `<` escapado,
+autor "Redação eua.journal" como Organization, `dateModified` vindo de
+`updated_at` só quando ele passa da publicação por mais de dez minutos. As
+perguntas gravadas em `aeo_questions` aparecem como "Perguntas e respostas"
+antes do crédito da fonte. A capa nunca se repete no corpo, comparada por
+identidade da foto (sem tamanho, sem `&amp;`), e o crédito colado nela passa
+para baixo da capa, porque a licença CC BY pede crédito junto da obra. A linha
+fina some quando repete o começo do lide.
+
+**A correção é piloto primeiro.** `corrigir-artigos.ts` corrige título,
+descrição e editoria por regra, sem inventar palavra (o que não cabe vai para
+a mão, nunca com reticências), e faz UMA chamada barata por matéria que lê só
+o corpo e propõe perguntas e intertítulos; cada uma passa pela ancoragem de
+`pacote-factual.ts` contra o corpo, e o que não se sustenta cai. O texto dos
+parágrafos nunca é reescrito e a capa não é trocada (o dono decidiu manter as
+fotos por ora). O lote só roda depois de o dono aprovar a matéria-modelo em
+`docs/design/artigo-modelo-2026-10-05/`.
+
+**Sitemap de notícias e `/llms.txt`** são rotas por requisição que leem o
+banco direto, e não `getAllArticlesForAdmin`: aquela cai nos artigos estáticos
+com `published_at` de agora quando o banco falha, e o sitemap de notícias
+anunciaria matéria velha como de um minuto atrás.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

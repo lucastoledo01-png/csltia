@@ -1,0 +1,601 @@
+Correção de artigos. FEITA PARA RODAR DEPOIS QUE O DONO APROVAR A MATÉRIA-MODELO.
+MODO: ENSAIO (nada é gravado; sem chamar o modelo)
+
+== los-angeles-pode-eleger-uma-urbanista-para-prefeita-2026-10-05
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== emprego-nos-eua-quase-nao-muda-em-setembro-2026-10-05
+   seo_description
+      antes:  O emprego nas folhas de pagamento mudou pouco em setembro. A taxa de desemprego ficou em 4,20%.
+      depois: O emprego nas folhas de pagamento mudou pouco em setembro. A taxa de desemprego ficou em 4,20% . O relatório descreve pouca mudança nos dois indicadores.
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== hollywood-nos-eua-atrai-capital-privado-para-filmes-independentes-2026-10-04
+   seo_title
+      antes:  Hollywood nos EUA atrai capital privado para filmes independentes
+      depois: Hollywood atrai capital privado para filmes independentes
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== proximo-mandato-comeca-com-juros-altos-e-economia-em-desaceleracao-2026-10-04
+   crédito da capa
+      antes:  (nenhum)
+      depois: Foto: Banco Central do Brasil / Wikimedia Commons / CC BY
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Próximo mandato começa com juros altos e economia em desaceleração" tem 66 caracteres e nenhuma regra o encurta sem inventar
+   À MÃO: descrição: nenhuma combinação de frases inteiras do corpo fecha 120 a 155 sem repetir título ou outra matéria
+
+== juiza-considera-inconstitucional-busca-sem-mandado-no-flock-em-oklahoma-2026-10-04
+   seo_title
+      antes:  Juíza considera inconstitucional busca sem mandado no Flock, em…
+      depois: Juíza considera inconstitucional busca sem mandado no Flock, em Oklahoma
+   seo_description
+      antes:  Uma juíza federal decidiu que um policial do xerife de Tulsa violou os direitos de uma mulher ao consultar, sem mandado, o histórico da placa do carro dela no…
+      depois: Ela está entre as primeiras decisões federais a considerar inconstitucional uma busca no Flock, mas não cria precedente vinculante.
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-04T09:27:38.729+00:00
+   À MÃO: título de busca: "Juíza considera inconstitucional busca sem mandado no Flock, em Oklahoma" tem 72 caracteres e nenhuma regra o encurta sem inventar
+
+== faa-dos-eua-abre-caminho-para-certificar-o-boeing-737-max-10-2026-10-04
+   seo_description
+      antes:  O problema pode surgir depois de uma aproximação perdida.
+      depois: Os pilotos mantêm o controle da aeronave, mas precisam cumprir etapas adicionais para usar ferramentas automatizadas em novas aproximações.
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== eua-recusam-participar-de-ofensiva-saudita-contra-houthis-por-enquanto-2026-10-03
+   seo_description
+      antes:  Arábia Saudita e forças do governo do Iêmen planejam, nos próximos dias, uma grande contraofensiva para afastar os Houthis das áreas na costa do Mar Vermelho.
+      depois: Pela segunda vez em semanas recentes, os Estados Unidos recusaram participar e também negaram pedidos de ataques aéreos.
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-03T09:33:59.499+00:00
+   À MÃO: título de busca: "EUA recusam participar de ofensiva saudita contra Houthis por enquanto" tem 70 caracteres e nenhuma regra o encurta sem inventar
+
+== administracao-trump-fica-impedida-de-construir-muro-no-big-bend-no-texas-2026-10-03
+   seo_title
+      antes:  Administração Trump fica impedida de construir muro no Big Bend, no…
+      depois: Administração Trump fica impedida de construir muro no Big Bend, no Texas
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Administração Trump fica impedida de construir muro no Big Bend, no Texas" tem 73 caracteres e nenhuma regra o encurta sem inventar
+
+== vagas-de-ia-em-bancos-dos-eua-sobem-49-2026-10-03
+   seo_description
+      antes:  Anúncios de vagas ligadas à inteligência artificial em bancos como JPMorgan Chase, Citigroup e Capital One subiram 49% em relação a 2025, chegando a 139.819…
+      depois: Governança, gestão de risco e IA responsável também ganharam espaço. Gerentes de IA generativa têm salário-base mediano de cerca de US$ 190.000.
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== burger-king-quer-vender-200-restaurantes-a-franqueados-nos-eua-em-2026-2026-10-03
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Burger King quer vender 200 restaurantes a franqueados nos EUA em 2026" tem 70 caracteres e nenhuma regra o encurta sem inventar
+
+== engenheiros-da-boeing-aprovam-contrato-nos-eua-com-alta-de-10-2026-10-02
+   seo_description
+      antes:  Engenheiros e trabalhadores técnicos da Boeing aprovaram um contrato de quatro anos e evitaram uma possível greve.
+      depois: O sindicato representa engenheiros e 4 mil trabalhadores técnicos. A aprovação foi de 67,62% entre engenheiros e 53,48% entre técnicos.
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Engenheiros da Boeing aprovam contrato nos EUA com alta de 10%" tem 62 caracteres e nenhuma regra o encurta sem inventar
+
+== gm-cai-5-50-e-toyota-reduz-distancia-nas-vendas-nos-eua-2026-10-02
+   crédito da capa
+      antes:  (nenhum)
+      depois: Foto: Bohao Zhao / Wikimedia Commons / CC BY
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: descrição: nenhuma combinação de frases inteiras do corpo fecha 120 a 155 sem repetir título ou outra matéria
+
+== planos-antigos-no-brasil-podem-ter-reajuste-por-faixa-etaria-2026-10-02
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-02T09:21:44.776+00:00
+
+== coreia-do-sul-planeja-investir-us-200-bilhoes-nos-eua-com-gnl-no-alasca-2026-10-01
+   seo_title
+      antes:  Coreia do Sul planeja investir US$ 200 bilhões nos EUA, com GNL no…
+      depois: Coreia do Sul planeja investir US$ 200 bilhões nos EUA, com GNL no Alasca
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Coreia do Sul planeja investir US$ 200 bilhões nos EUA, com GNL no Alasca" tem 73 caracteres e nenhuma regra o encurta sem inventar
+
+== brasil-e-eua-criam-grupo-para-discutir-possivel-acordo-comercial-2026-10-01
+   seo_description
+      antes:  A conversa durou cerca de 40 minutos e ocorreu em Milwaukee, à margem do encontro de ministros do Comércio do G20.
+      depois: Ela não produziu avanços concretos, e o novo mecanismo terá natureza distinta de um grupo anterior criado durante investigação comercial.
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Brasil e EUA criam grupo para discutir possível acordo comercial" tem 64 caracteres e nenhuma regra o encurta sem inventar
+
+== eua-investigam-openai-e-anthropic-por-riscos-de-seguranca-2026-10-01
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== divida-publica-do-brasil-chega-a-82-90-do-pib-2026-10-01
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-01T09:20:50.035+00:00
+   À MÃO: descrição: nenhuma combinação de frases inteiras do corpo fecha 120 a 155 sem repetir título ou outra matéria
+
+== openai-estreia-dots-para-assinantes-de-alto-nivel-2026-09-30
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-30T09:58:13.34+00:00
+   À MÃO: título de busca: "OpenAI estreia dots para assinantes de alto nível" tem 49 caracteres e nenhuma regra o encurta sem inventar
+
+== forcas-dos-eua-protegerao-sistemas-nas-eleicoes-de-meio-de-mandato-2026-09-30
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Forças dos EUA protegerão sistemas nas eleições de meio de mandato" tem 66 caracteres e nenhuma regra o encurta sem inventar
+
+== openai-leva-aplicativos-para-dentro-do-chatgpt-e-mira-as-lojas-2026-09-30
+   seo_description
+      antes:  O ChatGPT poderá descobrir, iniciar e usar softwares, além de sugerir aplicativos durante as conversas.
+      depois: Usuários poderão conectar ferramentas e levar sua identidade e sua cota de inteligência artificial para serviços de terceiros.
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "OpenAI leva aplicativos para dentro do ChatGPT e mira as lojas" tem 62 caracteres e nenhuma regra o encurta sem inventar
+
+== senado-dos-eua-aprova-pacote-nacional-para-o-esporte-universitario-2026-09-29
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-29T09:46:39.859+00:00
+   À MÃO: título de busca: "Senado dos EUA aprova pacote nacional para o esporte universitário" tem 66 caracteres e nenhuma regra o encurta sem inventar
+   À MÃO: descrição: nenhuma combinação de frases inteiras do corpo fecha 120 a 155 sem repetir título ou outra matéria
+
+== anthropic-aumenta-a-receita-mas-revela-riscos-de-ia-2026-09-29
+   seo_description
+      antes:  Quase um terço do prospecto de IPO da Anthropic é dedicado a fatores de risco.
+      depois: A empresa disse que seus modelos já tentaram resistir ao desligamento, ocultar ou manipular informações e exibiram comportamento semelhante a chantagem.
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Anthropic aumenta a receita, mas revela riscos de IA" tem 52 caracteres e nenhuma regra o encurta sem inventar
+
+== amd-compra-a-world-labs-por-us-8-20-bilhoes-2026-09-29
+   seo_description
+      antes:  Fei-Fei Li, fundadora da World Labs e professora de ciência da computação em Stanford, será vice-presidente executiva e cientista-chefe da AMD.
+      depois: O primeiro produto da World Labs é o Marble, ferramenta para criar experiências de entretenimento e ambientes simulados para treinamento de robôs.
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== produtos-podem-ter-tarifa-menor-em-acordo-eua-china-de-us-30-bilhoes-2026-09-28
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-28T09:17:17.148+00:00
+   À MÃO: título de busca: "Produtos podem ter tarifa menor em acordo EUA-China de US$ 30 bilhões" tem 69 caracteres e nenhuma regra o encurta sem inventar
+
+== eua-e-china-fecham-acordo-sobre-us-30-bilhoes-em-bens-2026-09-28
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-28T09:16:17.148+00:00
+
+== inflacao-no-brasil-sobe-0-70-em-setembro-e-supera-previsao-2026-09-26
+   seo_description
+      antes:  O IPCA-15, prévia da inflação oficial do Brasil, foi divulgado nesta sexta-feira (25).
+      depois: A alta veio acima dos 0,53% esperados pelo mercado e foi puxada pela energia elétrica. O indicador havia caído 0,40% no mês anterior.
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-26T09:21:42.166+00:00
+
+== companhias-dos-eua-liberam-mudancas-sem-taxa-antes-da-tempestade-2026-09-26
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Companhias dos EUA liberam mudanças sem taxa antes da tempestade" tem 64 caracteres e nenhuma regra o encurta sem inventar
+
+== rendimento-do-titulo-dos-eua-de-30-anos-chega-ao-maior-nivel-desde-2004-2026-09-26
+   seo_title
+      antes:  Rendimento do título dos EUA de 30 anos chega ao maior nível desde…
+      depois: Rendimento do título dos EUA de 30 anos chega ao maior nível desde 2004
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-26T09:19:42.166+00:00
+   À MÃO: título de busca: "Rendimento do título dos EUA de 30 anos chega ao maior nível desde 2004" tem 71 caracteres e nenhuma regra o encurta sem inventar
+   À MÃO: descrição: nenhuma combinação de frases inteiras do corpo fecha 120 a 155 sem repetir título ou outra matéria
+
+== las-vegas-florida-e-sacramento-lideram-destinos-de-mudanca-nos-eua-2026-09-25
+   seo_title
+      antes:  Las Vegas, Flórida e Sacramento lideram destinos de mudança nos EUA
+      depois: Las Vegas, Flórida e Sacramento lideram destinos de mudança
+   seo_description
+      antes:  Nove dos dez principais destinos ficam no Sun Belt. Spokane foi a exceção.
+      depois: Spokane foi a exceção. Los Angeles, Nova York e Seattle perderam compradores de imóveis mais rapidamente do que qualquer outro lugar.
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== google-prepara-satelite-experimental-para-responder-consultas-de-ia-no-espaco-2026-09-25
+   seo_title
+      antes:  Google prepara satélite experimental para responder consultas de IA…
+      depois: Google prepara satélite experimental para responder consultas de IA no espaço
+   seo_description
+      antes:  O Google colocará um satélite experimental em órbita na próxima quinta-feira.
+      depois: Depois do lançamento, os painéis solares serão abertos para captar energia e alimentar os chips de inteligência artificial.
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Google prepara satélite experimental para responder consultas de IA no espaço" tem 77 caracteres e nenhuma regra o encurta sem inventar
+
+== meta-anuncia-visor-de-100g-por-us-1-299-para-chegar-em-2027-2026-09-24
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== meta-apresenta-chaveiro-para-levar-o-muse-a-um-publico-amplo-2026-09-24
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Meta apresenta chaveiro para levar o Muse a um público amplo" tem 60 caracteres e nenhuma regra o encurta sem inventar
+   À MÃO: descrição: nenhuma combinação de frases inteiras do corpo fecha 120 a 155 sem repetir título ou outra matéria
+
+== super-el-nino-divide-o-brasil-entre-seca-no-norte-e-tornados-no-sul-2026-09-24
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Super El Niño divide o Brasil entre seca no Norte e tornados no Sul" tem 67 caracteres e nenhuma regra o encurta sem inventar
+
+== chicago-propoe-um-ano-sem-novos-data-centers-na-cidade-2026-09-24
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-24T09:19:54.472+00:00
+
+== modelos-de-ia-ficam-mais-baratos-e-corrida-nos-eua-pode-desacelerar-2026-09-23
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Modelos de IA ficam mais baratos, e corrida nos EUA pode desacelerar" tem 68 caracteres e nenhuma regra o encurta sem inventar
+   À MÃO: descrição: nenhuma combinação de frases inteiras do corpo fecha 120 a 155 sem repetir título ou outra matéria
+
+== openai-startup-dos-eua-libera-sol-e-luna-para-contas-pagas-2026-09-23
+   seo_description
+      antes:  Sol foi desenhado para tarefas complexas, como programação; Luna é voltado ao trabalho administrativo.
+      depois: As versões estão no ChatGPT Work, no Codex e na API para a maioria das contas pagas. Luna também chega ao aplicativo de desktop e aos usuários Free e Go.
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== fbi-investiga-alegacao-de-roubo-de-dados-de-funcionarios-nos-eua-2026-09-23
+   seo_title
+      antes:  FBI investiga alegação de roubo de dados de funcionários nos EUA
+      depois: FBI investiga alegação de roubo de dados de funcionários
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== agentes-sem-acordo-de-2026-nao-concluem-registro-nos-exchanges-de-2027-nos-eua-2026-09-23
+   seo_title
+      antes:  Agentes sem acordo de 2026 não concluem registro nos exchanges de…
+      depois: Agentes sem acordo de 2026 não concluem registro nos exchanges de 2027 nos EUA
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Agentes sem acordo de 2026 não concluem registro nos exchanges de 2027 nos EUA" tem 78 caracteres e nenhuma regra o encurta sem inventar
+
+== fusao-de-us-110-bilhoes-avanca-e-mantem-estudios-em-los-angeles-2026-09-22
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Fusão de US$ 110 bilhões avança e mantém estúdios em Los Angeles" tem 64 caracteres e nenhuma regra o encurta sem inventar
+
+== trump-e-mamdani-aprofundam-conversas-sobre-12-000-moradias-em-queens-2026-09-22
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "Trump e Mamdani aprofundam conversas sobre 12.000 moradias em Queens" tem 68 caracteres e nenhuma regra o encurta sem inventar
+   À MÃO: descrição: nenhuma combinação de frases inteiras do corpo fecha 120 a 155 sem repetir título ou outra matéria
+
+== governo-brasileiro-encontra-r-19-60-bilhoes-e-parte-bancara-bolsa-familia-2026-09-22
+   seo_title
+      antes:  Governo brasileiro encontra R$ 19,60 bilhões, e parte bancará Bolsa…
+      depois: Governo brasileiro encontra R$ 19,60 bilhões
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== guilherme-stefanini-assume-comando-nos-eua-e-na-asia-pacifico-2026-09-22
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-22T09:20:08.652+00:00
+   À MÃO: título de busca: "Guilherme Stefanini assume comando nos EUA e na Ásia-Pacífico" tem 61 caracteres e nenhuma regra o encurta sem inventar
+
+== s-p-500-sobe-27-60-nos-20-primeiros-meses-de-trump-2-0-2026-09-21
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== assistentes-de-ia-ganham-memoria-julgamento-e-autonomia-2026-09-21
+   seo_description
+      antes:  Os assistentes pessoais de IA começam a sair do papel de caixas de busca controladas por voz. Avanços recentes deram a eles memória, julgamento e autonomia.
+      depois: A diferença está nas tarefas: agentes podem fazer compras, ligações, reservas de passagens, gestão de calendários e navegação na internet.
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-21T09:18:09.948+00:00
+   À MÃO: título de busca: "Assistentes de IA ganham memória, julgamento e autonomia" tem 56 caracteres e nenhuma regra o encurta sem inventar
+
+== babas-podem-ganhar-ate-us-200-mil-por-ano-com-jornadas-de-12-horas-2026-09-21
+   seo_description
+      antes:  Trabalhos de babá para famílias muito ricas chegam a pagar US$ 200 mil por ano.
+      depois: As exigências incluem formação em instituições de ponta, vários idiomas, diplomas de universidades de elite e disponibilidade para viajar.
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-21T09:16:09.948+00:00
+   À MÃO: título de busca: "Babás podem ganhar até US$ 200 mil por ano, com jornadas de 12 horas" tem 68 caracteres e nenhuma regra o encurta sem inventar
+
+== trump-anuncia-forca-de-ia-e-prepara-novo-czar-nos-eua-2026-09-20
+   seo_description
+      antes:  A nova estrutura será inspirada na Space Force, a força espacial americana. Trump também disse que nomeará em breve um novo czar de inteligência artificial.
+      depois: Trump também disse que nomeará em breve um novo czar de inteligência artificial. A Casa Branca mantém uma abordagem laissez-faire para a tecnologia.
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-20T09:20:09.407+00:00
+
+== trump-recebera-xi-nos-eua-e-oferecera-jantar-a-ceos-de-big-techs-2026-09-20
+   seo_title
+      antes:  Trump receberá Xi nos EUA e oferecerá jantar a CEOs de big techs
+      depois: Trump receberá Xi e oferecerá jantar a CEOs de big techs
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: descrição: nenhuma combinação de frases inteiras do corpo fecha 120 a 155 sem repetir título ou outra matéria
+
+== eua-aprovam-possivel-venda-de-sistemas-de-defesa-aerea-a-ucrania-2026-09-20
+   seo_description
+      antes:  O governo americano aprovou na sexta-feira (18) uma possível venda militar ao governo da Ucrânia.
+      depois: A aprovação foi comunicada pelo Departamento de Estado ao Congresso. Kiev havia reiterado pedidos de apoio contra ataques russos.
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: título de busca: "EUA aprovam possível venda de sistemas de defesa aérea à Ucrânia" tem 64 caracteres e nenhuma regra o encurta sem inventar
+
+== caso-do-new-york-times-expoe-dilema-da-ia-para-editoras-2026-09-20
+   crédito da capa
+      antes:  (nenhum)
+      depois: Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: descrição: nenhuma combinação de frases inteiras do corpo fecha 120 a 155 sem repetir título ou outra matéria
+
+== texas-preve-alta-de-1-20-no-emprego-em-2026-2026-09-19
+   seo_description
+      antes:  A projeção tem faixa de confiança de 80%, entre 0,80% e 1,60%, e estima 14,5 milhões de empregos em dezembro.
+      depois: A projeção tem faixa de confiança de 80% , entre 0,80% e 1,60%, e estima 14,5 milhões de empregos em dezembro. Em agosto, o Texas ganhou 18.500 empregos .
+   crédito da capa
+      antes:  (nenhum)
+      depois: "Dallas, Texas Skyline from I-35 Eastbound" by Ken Lund is licensed under CC BY-SA 2.0. To view a copy of this license, visit https://creativecommons.org/licenses/by-sa/2.0/.
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== empresas-do-simples-no-brasil-poderao-rever-escolha-apos-a-aliquota-sair-2026-09-19
+   seo_title
+      antes:  Empresas do Simples no Brasil poderão rever escolha após a alíquota…
+      depois: Empresas do Simples no Brasil poderão rever escolha após a alíquota sair
+   seo_description
+      antes:  Até o fim de setembro, empresas do Simples Nacional deverão escolher entre o modelo híbrido de recolhimento dos novos tributos sobre o consumo e a permanência…
+      depois: Empresas brasileiras do Simples terão de tomar uma decisão tributária com efeito previsto para o primeiro semestre de 2027.
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-19T09:17:54.902+00:00
+   À MÃO: título de busca: "Empresas do Simples no Brasil poderão rever escolha após a alíquota sair" tem 72 caracteres e nenhuma regra o encurta sem inventar
+
+== renda-domiciliar-nos-eua-bate-recorde-mas-quem-ganha-menos-avanca-pouco-2026-09-19
+   seo_title
+      antes:  Renda domiciliar nos EUA bate recorde, mas quem ganha menos avança…
+      depois: Renda domiciliar nos EUA bate recorde
+   crédito da capa
+      antes:  (nenhum)
+      depois: "Tombstone, Arizona (14)" by Ken Lund is licensed under CC BY-SA 2.0. To view a copy of this license, visit https://creativecommons.org/licenses/by-sa/2.0/.
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+   À MÃO: descrição: nenhuma combinação de frases inteiras do corpo fecha 120 a 155 sem repetir título ou outra matéria
+
+== controladores-de-voo-nos-eua-terao-apoio-de-ia-de-us-875-milhoes-2026-09-18
+   seo_title
+      antes:  Controladores de voo nos EUA terão apoio de IA de US$ 875 milhões
+      depois: Controladores de voo terão apoio de IA de US$ 875 milhões
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-18T10:20:22.348+00:00
+
+== compradores-nos-eua-ganham-mais-espaco-enquanto-vendas-de-imoveis-caem-2026-09-18
+   seo_title
+      antes:  Compradores nos EUA ganham mais espaço enquanto vendas de imóveis caem
+      depois: Compradores nos EUA ganham mais espaço
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-18T10:19:22.348+00:00
+
+== eua-reunem-dados-sobre-novas-moradias-privadas-2026-09-18
+   seo_description
+      antes:  A página mostra moradias autorizadas por licença, ainda não iniciadas, em construção e concluídas.
+      depois: Os dados cobrem unidades habitacionais novas de propriedade privada e excluem casas pré-fabricadas móveis classificadas como HUD-code.
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-18T10:18:22.348+00:00
+
+== zoox-pode-ampliar-frota-de-robotaxis-em-nevada-2026-09-18
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-18T10:17:22.348+00:00
+
+== projeto-exige-regras-sobre-custo-de-nova-energia-para-data-centers-2026-09-17
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-17T09:34:15.995+00:00
+   À MÃO: título de busca: "Projeto exige regras sobre custo de nova energia para data centers" tem 66 caracteres e nenhuma regra o encurta sem inventar
+   À MÃO: descrição: nenhuma combinação de frases inteiras do corpo fecha 120 a 155 sem repetir título ou outra matéria
+
+== novas-projecoes-economicas-saem-apos-reuniao-do-fed-2026-09-17
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-17T09:33:15.995+00:00
+
+== brasil-mantem-o-maior-juro-real-entre-40-economias-2026-09-17
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-17T09:32:15.995+00:00
+
+== dow-jones-futuro-sobe-enquanto-petroleo-recua-e-juros-sobem-2026-09-17
+   seo_description
+      antes:  Os temores com a inflação tiveram alívio.
+      depois: A queda do petróleo ajuda a aliviar as pressões inflacionárias, enquanto investidores avaliam os próximos passos do Fed.
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-09-17T09:31:15.995+00:00
+
+== laudo-aponta-fraude-de-r-17-50-bilhoes-em-compras-do-brb-2026-09-12
+   seo_description
+      antes:  A Polícia Federal concluiu, em laudo cujo sigilo foi retirado na noite de quinta-feira (10), que houve gestão fraudulenta de ex-dirigentes do BRB em compras…
+      depois: André Mendonça retirou o sigilo e é responsável pelas principais investigações relacionadas ao Banco Master que tramitam no STF.
+   crédito da capa
+      antes:  (nenhum)
+      depois: Foto: Rovena Rosa / Wikimedia Commons / CC BY
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== dolar-fecha-a-r-5-0857-enquanto-intencao-de-voto-segue-no-radar-2026-09-09
+   seo_title
+      antes:  Dólar fecha a R$ 5,0857 enquanto intenção de voto segue no radar
+      depois: Dólar fecha a R$ 5,0857
+   seo_description
+      antes:  Na terça-feira (8), o dólar caiu 0,86% e fechou a R$ 5,0857; o Ibovespa subiu 1,20%, aos 187.367 pontos.
+      depois: Na segunda-feira (7), pesquisa Quaest apontou Lula com 36% e Flávio Bolsonaro com 29% no primeiro turno, em cenário com 13 candidatos.
+   crédito da capa
+      antes:  (nenhum)
+      depois: Foto: Banco Central do Brasil / Wikimedia Commons / CC BY
+   updated_at
+      antes:  2026-10-05T20:30:58.918+00:00
+      depois: 2026-10-05T20:43:39.412Z
+
+== Resumo
+matérias lidas               62
+com alguma mudança           62
+  seo_title                  16
+  seo_description            24
+  category                   0
+  aeo_questions              0
+  intertítulos               0
+  crédito da capa            38
+  updated_at                 62
+precisam de mão              34
+modelo                       gpt-5.6-luna, uma chamada por matéria
+custo estimado               US$ 0.4461 (4 caracteres por token, 600 de resposta)

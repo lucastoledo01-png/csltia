@@ -143,6 +143,22 @@ describe("o plano de uma edição", () => {
     expect(sem.artigos.map((a) => a.cover_image)).toEqual(["https://x/capa-da-edicao.jpg", null]);
   });
 
+  it("a capa nunca entra no corpo, e o crédito dela vai marcado para a página imprimir embaixo da capa", () => {
+    const comCredito =
+      `<h2>Fed corta juros</h2><img src="https://x/fed.jpg?w=600" /><p style="font-size:12px">Fulano, CC BY-SA 4.0, via Wikimedia Commons</p><p>texto</p>`;
+    const [fed] = planejarEdicao(edicao([historia("Fed corta juros")], comCredito))!.artigos;
+    expect(fed.cover_image).toBe("https://x/fed.jpg?w=600");
+    expect(fed.content_html).not.toContain("<img");
+    expect(fed.content_html.startsWith('<p class="credito-da-foto">Fulano, CC BY-SA 4.0, via Wikimedia Commons</p>')).toBe(true);
+    // Parágrafo comum depois da foto não é crédito.
+    const [semCredito] = planejarEdicao(edicao([historia("Fed corta juros")], bloco("Fed corta juros", "https://x/fed.jpg")))!.artigos;
+    expect(semCredito.content_html).not.toContain("credito-da-foto");
+  });
+
+  it("updated_at é o da publicação: desmontar não é modificar o texto", () => {
+    for (const a of plano.artigos) expect(a.updated_at).toBe(a.published_at);
+  });
+
   it("é determinístico: o mesmo plano duas vezes, para o upsert não duplicar", () => {
     expect(planejarEdicao(edicao(historias, html))).toEqual(plano);
   });

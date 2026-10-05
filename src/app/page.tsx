@@ -1,5 +1,5 @@
 import { PortalHome } from "@/components/PortalHome";
-import { montarHome, pautasRecentes } from "@/lib/server/portal";
+import { comDestaqueFixado, montarHome, pautasRecentes } from "@/lib/server/portal";
 import { DEFAULT_PROJECT_ID, getProjectById } from "@/lib/server/projects";
 import { modoDosRamos } from "@/lib/server/ramos/modo";
 
@@ -44,5 +44,5 @@ export default async function Home() {
     timezone: projeto?.timezone,
   }).catch(() => []);
 
-  return <PortalHome dados={montarHome(pautas)} />;
+  return <PortalHome dados={montarHome(await comDestaqueFixado(pautas, projeto))} />;
 }

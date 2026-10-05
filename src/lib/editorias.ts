@@ -70,6 +70,16 @@ export function editoriaPeloId(id: string): (typeof EDITORIAS)[number] | null {
   return EDITORIAS.find((e) => e.id === id) ?? null;
 }
 
+/**
+ * A editoria pelo NOME gravado em `articles.category`, ou `null` quando o
+ * nome não é de editoria nenhuma. O ramo e o desmonte das edições gravam o
+ * nome ("Custo de vida"), e o JSON-LD e o caminho de navegação precisam do id.
+ */
+export function editoriaPeloNome(nome: string | null | undefined): (typeof EDITORIAS)[number] | null {
+  const alvo = (nome ?? "").trim().toLowerCase();
+  return EDITORIAS.find((e) => e.nome.toLowerCase() === alvo) ?? null;
+}
+
 /** O endereço da página da editoria. */
 export function hrefDaEditoria(id: EditoriaId): string {
   return `/editoria/${id}`;

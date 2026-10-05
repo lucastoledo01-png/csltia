@@ -16,6 +16,8 @@ export type AdminArticleRecord = {
   view_count: number;
   published_at?: string | null;
   created_at?: string;
+  /** Para o `dateModified` honesto da página (05/10/2026). */
+  updated_at?: string | null;
   content: Array<{ heading: string; paragraphs: string[] }>;
   content_html?: string;
   tags?: string[];
@@ -25,6 +27,8 @@ export type AdminArticleRecord = {
   age_summary?: string;
   editorial_score?: number;
   manual_review_status?: string;
+  /** Perguntas e respostas: a página as mostra e só então as marca como FAQPage. */
+  aeo_questions?: unknown;
 };
 
 function sectionsToHtml(title: string, sections: Array<{ heading: string; paragraphs: string[] }>): string {
@@ -74,6 +78,7 @@ export async function getAllArticlesForAdmin(): Promise<AdminArticleRecord[]> {
           view_count: Number(row.view_count || 0),
           published_at: row.published_at,
           created_at: row.created_at,
+          updated_at: row.updated_at ?? null,
           content: sections,
           content_html: html,
           tags: row.tags || [],
@@ -83,6 +88,7 @@ export async function getAllArticlesForAdmin(): Promise<AdminArticleRecord[]> {
           age_summary: row.age_summary || "",
           editorial_score: row.editorial_score || 85,
           manual_review_status: row.manual_review_status || "approved",
+          aeo_questions: row.aeo_questions ?? [],
         };
       });
     }
