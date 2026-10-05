@@ -603,6 +603,29 @@ cena, e `religiao` ou `militar` precisam de uma.
 
 A lista de produção tem 746 cenas em 40 grupos, e está no guia do designer.
 
+### Como entrou no código (05/10/2026)
+
+**Atrás da capacidade `acervo`**, em `settings.capacidades` do projeto: não
+declarada é `off` e o resolvedor nem sabe que o acervo existe; `dry_run`
+consulta, anota o que escolheria e grava a lista de compras sem decidir a foto;
+`enforce` manda. O código mora em `src/lib/server/visual/acervo/`.
+
+**O cardápio é provisório.** O guia do designer não está no repositório, então
+`catalogo-de-cenas.ts` foi derivado das editorias e da distribuição das pautas:
+42 grupos, cerca de 190 cenas. Quando o guia chegar, é esse arquivo que muda. A
+tag é `grupo/assunto`, os dois primeiros campos de conteúdo do nome do arquivo.
+Retrato (`pessoas`) fica fora do cardápio: pessoa só sai do acervo pela
+entidade, com o nome no campo `assunto`.
+
+**A última linha da tabela ainda é a bandeira**, não a capa tipográfica. O
+resolvedor continua devolvendo a bandeira com `NO_VALID_IMAGE` (regra de
+17/09/2026, "nenhuma peça sem imagem"), e trocar isso é decisão de arte e de
+newsletter, que lê o mesmo campo. Fica em aberto para o dono.
+
+**Imagem resolvida uma vez por pauta**: `imagemDaPauta`, com memória no
+processo e a tabela `imagem_da_pauta` para o worker reusar o que o web
+resolveu. Só com `enforce`.
+
 ## Imigração sai da pauta (05/10/2026)
 
 A decisão do dono: o eua.journal não fala de imigração. O leitor é o

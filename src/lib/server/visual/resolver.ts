@@ -23,11 +23,21 @@ import {
 import { avaliarLicenca, montarAtribuicao } from "./licencas";
 import { bancoConfigurado, buscarFotosDeBanco, identidadeDaFoto } from "../prompt-system/stock";
 import { consultaConceitual } from "./conceitual";
-import { cenaDaPauta } from "./cena-da-pauta";
+import { cenaDaPauta, type CenaDaPauta } from "./cena-da-pauta";
 import { conferirImagem } from "./conferencia-visual";
 import type { VeredictoVisual } from "./conferencia-visual";
 import { getAIProviderConfig } from "../newsroom/ai-provider";
 import { analisarTemporalidade, figuraNaoCentralNaImagem, retratoNaoCentral } from "./temporalidade";
+import type { Acervo } from "./acervo/acervo";
+import { paisDoAcervo } from "./acervo/catalogo-de-cenas";
+import {
+  anotarFalta,
+  assetDoAcervo,
+  assuntosDaEntidade,
+  escolherDoAcervo,
+  marcarUso,
+  type ContextoDaBusca,
+} from "./acervo/na-resolucao";
 
 /**
  * A imagem de uma pauta, resolvida pela entidade.
@@ -88,6 +98,14 @@ export type OpcoesDeResolucao = {
    * sempre; em teste não existe nunca.
    */
   conferenciaVisual?: Conferente | false;
+  /**
+   * O acervo próprio (decisão de 29/09/2026), ou nada.
+   *
+   * Ausente ou `null` é o caminho de antes, byte a byte: nenhuma consulta a
+   * mais, e a pergunta da cena sai com o prompt de sempre. Quem decide se ele
+   * vem é a capacidade `acervo` do projeto, em `acervo/acervo.ts`.
+   */
+  acervo?: Acervo | null;
 };
 
 export type Conferente = (
@@ -219,6 +237,71 @@ export async function resolveVisualAsset(
     recusados,
     legenda: asset.attribution,
   });
+
+  /*
+   * 1.5. O acervo próprio, pela ENTIDADE (decisão de 29/09/2026).
+   *
+   * Entidade nomeada e o acervo tem: sai daqui, sem conferência visual, porque
+   * a foto foi conferida na entrada. Entidade nomeada e o acervo não tem: a
+   * falta vai para a lista de compras e a resolução segue para as fontes de
+   * sempre. A CENA não é consultada aqui de propósito: ela só entra depois de a
+   * entidade falhar nos dois lados, senão uma foto genérica de "tecnologia"
+   * mascararia a falta da foto do produto que a pauta cita.
+   */
+  const acervo = opcoes.acervo ?? null;
+  const buscaNoAcervo: ContextoDaBusca = {
+    storyId: pauta.storyId,
+    titulo: pauta.titulo,
+    janelaEmDias: config.janelaEmDias,
+    usadosAgora,
+    jaSaiu,
+  };
+  const daPrateleira = async (
+    candidatas: Awaited<ReturnType<Acervo["porTag"]>>,
+    tipo: "cena" | "entidade",
+    chave: string,
+    pais: string,
+  ): Promise<ResultadoVisual | null> => {
+    const busca = escolherDoAcervo(candidatas, buscaNoAcervo);
+    const notas = [`${tipo} "${chave}": ${busca.nota}`];
+
+    if (!busca.escolhida) {
+      const anotada = await anotarFalta(acervo!, tipo, chave, pais, busca.falta ?? "vazio", buscaNoAcervo);
+      if (anotada) notas.push(anotada);
+      fontesConsultadas.push({ fonte: "acervo_proprio", encontrados: busca.encontradas, nota: notas.join(" ; ") });
+      return null;
+    }
+
+    if (acervo!.modo !== "enforce") {
+      fontesConsultadas.push({
+        fonte: "acervo_proprio",
+        encontrados: busca.encontradas,
+        nota: `${notas.join(" ; ")} ; ENSAIO (dry_run): escolheria esta, e a cadeia externa segue decidindo`,
+      });
+      return null;
+    }
+
+    const uso = await marcarUso(acervo!, busca.escolhida);
+    if (uso) notas.push(uso);
+    fontesConsultadas.push({ fonte: "acervo_proprio", encontrados: busca.encontradas, nota: notas.join(" ; ") });
+    usadosAgora.add(busca.escolhida.urlPublica);
+    return aprovar(assetDoAcervo(busca.escolhida, entidade.tipo === "conceptual" ? null : entidade));
+  };
+
+  if (acervo && entidade.tipo !== "conceptual") {
+    const chaves = assuntosDaEntidade(entidade);
+    try {
+      const candidatas = await acervo.porAssunto(chaves);
+      const doAcervo = await daPrateleira(candidatas, "entidade", chaves[0] ?? entidade.normalizado, "");
+      if (doAcervo) return doAcervo;
+    } catch (erro) {
+      fontesConsultadas.push({
+        fonte: "acervo_proprio",
+        encontrados: 0,
+        nota: `acervo indisponível: ${(erro as Error).message}`,
+      });
+    }
+  }
 
   // 2. A biblioteca primeiro. O que já foi validado não precisa de busca nova.
   if (biblioteca && entidade.tipo !== "conceptual") {
@@ -420,6 +503,7 @@ export async function resolveVisualAsset(
    */
   recusados.push(...ensaio);
 
+  let cenaPerguntada: CenaDaPauta | null = null;
   if (!jaTemFotoBoa) {
     if (ehPessoa(entidade.tipo)) {
       fontesConsultadas.push({
@@ -428,6 +512,63 @@ export async function resolveVisualAsset(
         nota: "bloqueado por regra: pauta sobre pessoa não aceita foto conceitual no lugar",
       });
       return semFotoDaPauta(entidade, MOTIVOS_DE_RECUSA.SEM_IMAGEM_DA_ENTIDADE);
+    }
+
+    /*
+     * 5.5. O acervo próprio, pela CENA (decisão de 29/09/2026).
+     *
+     * Chega aqui a pauta sem entidade, ou com entidade que falhou no acervo E
+     * nas fontes externas: é exatamente a ordem da decisão, em que a cena só
+     * é consultada depois de a entidade falhar nos dois lados.
+     *
+     * A pergunta da cena é feita AQUI quando há acervo, antes do teste de
+     * chave do banco de terceiro: o acervo não depende do Pexels, e sem esta
+     * antecipação um deploy sem `PEXELS_API_KEY` nunca consultaria o nosso.
+     * A mesma resposta é reaproveitada lá embaixo, então a pergunta continua
+     * sendo UMA por pauta.
+     *
+     * Pessoa não chega aqui, e é de propósito: o bloco acima já recusa trocar
+     * pessoa por cena, e foto do acervo não muda isso.
+     */
+    if (acervo && conferir) {
+      cenaPerguntada = await cenaDaPauta(
+        {
+          titulo: pauta.titulo,
+          resumo: pauta.resumo,
+          categoria: pauta.categoria,
+          pais: pauta.classificacao.pais,
+        },
+        { env, fetcher: opcoes.fetcher, comTag: true },
+      );
+      const pais = paisDoAcervo(pauta.classificacao.pais);
+      if (!cenaPerguntada.tag) {
+        fontesConsultadas.push({
+          fonte: "acervo_proprio",
+          encontrados: 0,
+          // `undefined` é "a chamada nem voltou"; `null` é "voltou sem cena no cardápio".
+          nota: cenaPerguntada.tag === undefined
+            ? `sem tag de cena: ${cenaPerguntada.motivo}`
+            : "o modelo não achou cena do cardápio para esta pauta",
+        });
+      } else {
+        try {
+          const candidatas = await acervo.porTag(cenaPerguntada.tag, pais);
+          const doAcervo = await daPrateleira(candidatas, "cena", cenaPerguntada.tag, pais);
+          if (doAcervo) return doAcervo;
+        } catch (erro) {
+          fontesConsultadas.push({
+            fonte: "acervo_proprio",
+            encontrados: 0,
+            nota: `acervo indisponível: ${(erro as Error).message}`,
+          });
+        }
+      }
+    } else if (acervo) {
+      fontesConsultadas.push({
+        fonte: "acervo_proprio",
+        encontrados: 0,
+        nota: "cena não perguntada: chamadas de modelo desligadas, e sem a tag não há busca por cena",
+      });
     }
 
     if (!bancoConfigurado(env)) {
@@ -471,7 +612,9 @@ export async function resolveVisualAsset(
        * desliga as chamadas de modelo do visual desliga as duas, e não fica
        * uma ligada por descuido.
        */
-      const cena = conferir
+      const cena = cenaPerguntada
+        ? cenaPerguntada
+        : conferir
         ? await cenaDaPauta(
             {
               titulo: pauta.titulo,
