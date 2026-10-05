@@ -1,5 +1,8 @@
 import { LEITOR } from "../editorial/linha-editorial";
 import { instrucaoDaEtapa } from "../instrucoes";
+import type { ProjetoComCapacidades } from "../capacidades";
+import { modoDaFila } from "../aprovacao/modo";
+import { errosRecentesDaEtapa } from "../aprovacao/memoria-de-reprovacao";
 
 /**
  * A voz de cada canal, escrita separada.
@@ -68,4 +71,43 @@ export async function vozesDosRamos(projetoId: string): Promise<VozesDosRamos> {
     instrucaoDaEtapa(projetoId, ETAPA_REDACAO_POST, VOZ_PADRAO_DO_POST),
   ]);
   return { newsletter, artigo, post };
+}
+
+/**
+ * As vozes com o bloco "não repetir" da fila de aprovação no fim de cada uma.
+ *
+ * Integração de 05/10/2026 (RF-29). O bloco vem de `errosRecentesDaEtapa`, que
+ * já junta os erros recentes da etapa e as regras fixas aprovadas pelo dono, e
+ * devolve vazio quando não há nada a dizer. Vazio, as vozes voltam idênticas:
+ * um bloco vazio no prompt é instrução sem conteúdo.
+ *
+ * Fica DEPOIS da voz porque é correção, não identidade: a voz diz como o canal
+ * fala, e o bloco diz o que o editor já recusou falando assim.
+ */
+export function vozesComMemoria(vozes: VozesDosRamos, naoRepetir: string): VozesDosRamos {
+  const bloco = naoRepetir.trim();
+  if (!bloco) return vozes;
+  const juntar = (voz: string) => (voz ? `${voz}\n\n${bloco}` : bloco);
+  return { newsletter: juntar(vozes.newsletter), artigo: juntar(vozes.artigo), post: juntar(vozes.post) };
+}
+
+/**
+ * As vozes do projeto, com a memória de reprovação só quando a fila existe.
+ *
+ * Fila em `off`: a memória nem é lida, e as vozes são as de `vozesDosRamos`,
+ * byte a byte. Fora de `off` (inclusive `dry_run`, que já registra
+ * reprovações), o bloco da etapa "texto" entra no fim de cada voz. Falha de
+ * leitura da memória já devolve vazio dentro de `errosRecentesDaEtapa`.
+ */
+export async function vozesDosRamosComMemoria(
+  projeto: ProjetoComCapacidades & { id: string },
+  deps: {
+    vozes?: (projetoId: string) => Promise<VozesDosRamos>;
+    memoria?: (projetoId: string, etapa: "texto") => Promise<string>;
+  } = {},
+): Promise<VozesDosRamos> {
+  const vozes = await (deps.vozes ?? vozesDosRamos)(projeto.id);
+  if (modoDaFila(projeto) === "off") return vozes;
+  const memoria = deps.memoria ?? ((id: string, etapa: "texto") => errosRecentesDaEtapa(id, etapa));
+  return vozesComMemoria(vozes, await memoria(projeto.id, "texto"));
 }

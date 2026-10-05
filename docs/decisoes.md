@@ -770,6 +770,66 @@ reprovada fica em `refazendo` com o motivo no painel.
 PROPOSTA em `regras_propostas`. Só a aprovada entra no bloco "não repetir"
 de `errosRecentesDaEtapa`, que é a função que os redatores chamam.
 
+## As ligações entre as frentes (05/10/2026)
+
+As cinco frentes do MVP deixaram pontos de encaixe vazios de propósito, para
+não brigarem pelos mesmos arquivos. A integração os preencheu, e cada ligação
+continua atrás da capacidade da frente dona: com todas desligadas, o dia é o
+de antes.
+
+**Uma foto por pauta, em todos os canais.** A newsletter, o post e a capa da
+matéria do portal resolvem a imagem por `imagemDaPauta`. Com o acervo fora de
+`enforce` ela é repasse direto ao resolvedor; em `enforce`, a mesma pauta ganha
+a mesma foto nos três canais e o acervo não queima duas fotos para um fato.
+`capacidadeDoAcervo` virou `resolverCapacidade("acervo", () => "off", ...)`.
+
+**Os perfis de referência entram pelo ciclo de verdade, e só por ele.** O cron
+das 06:03 e a produção da véspera passam `candidatosDosPerfisDeReferencia` ao
+pool do Instagram (`ligacoes-do-ciclo.ts`). O ensaio da véspera não passa:
+seria uma segunda rodada de leitura no mesmo dia.
+
+**Peça do ramo entra na fila pela linha da tabela, uma vez.** `aoProduzirPeca`
+leva a matéria do portal e o post à fila pelo id da linha, com o hash lido da
+linha pelo mesmo adaptador do portão. Peça que já está na fila não é tocada:
+um hash diferente a devolveria a `aguardando` e apagaria uma aprovação. A
+newsletter fica de fora desse caminho porque a redação já a enfileira com o
+resumo completo. A entrega das matérias passou para DEPOIS do upsert em
+`articles`, senão a linha ainda não existe.
+
+**Um portão para o portal.** Os três caminhos que põem matéria no ar
+(`/api/cron/portal`, `/api/cron/publicacao` e a liberação da fila) perguntam a
+`decidirPublicacao` quando a fila não está em `off`, com o mesmo hash. A edição
+só aparece no portal com a newsletter dela aprovada, porque é o mesmo assunto e
+o mesmo HTML. O hash do artigo passou a incluir a capa (só quando há capa, para
+o hash antigo não mudar), porque a refação de imagem troca só ela.
+
+**Matéria aprovada antes da hora espera a hora.** A liberação da fila já
+respeitava `publicar_em`; o despacho do artigo agora também respeita o
+`published_at` da linha, e matéria com horário futuro fica `scheduled` com a
+revisão aprovada, para o relógio do portal publicar na hora. Despachar o que o
+relógio já publicou é sucesso, e não alerta a cada minuto.
+
+**A hora da newsletter na fila é a da cadência.** Com a produção na véspera, a
+fila recebe a data da EDIÇÃO e os horários de `agendamento`, os mesmos que o
+Listmonk e o artigo recebem. Sem véspera, vale `settings.aprovacao`, como era.
+
+**A memória de reprovação entra nos três redatores.** O bloco de
+`errosRecentesDaEtapa(projeto, "texto")`, que já inclui as regras fixas
+aprovadas pelo dono, vai no fim da voz da newsletter, do artigo e do post, só
+com a fila fora de `off`.
+
+**Refação ligada onde há o que refazer.** Texto e imagem do artigo (a pauta e
+o pacote factual passaram a ser gravados no `resumo` da fila, em
+`origemDoArtigo`), imagem e arte do post de peça única (lidas da própria linha).
+Seleção, texto do post, newsletter e carrossel continuam sem gancho, com o
+motivo em `ganchos-de-producao.ts`: cada um pediria um segundo gerador fora do
+gerador.
+
+**A home mostra a matéria do portal.** Com os ramos em `enforce`, a home junta
+as matérias publicadas às pautas das edições, mais recente primeiro, sem o
+artigo que é a própria edição e sem a pauta da edição cuja fonte já tem matéria
+própria.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

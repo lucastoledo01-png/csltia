@@ -1,4 +1,4 @@
-import type { ProjetoComCapacidades } from "../../capacidades";
+import { resolverCapacidade, type ProjetoComCapacidades } from "../../capacidades";
 
 /**
  * Em que estado o acervo próprio roda neste projeto.
@@ -27,14 +27,10 @@ import type { ProjetoComCapacidades } from "../../capacidades";
 export type ModoDoAcervo = "off" | "dry_run" | "enforce";
 
 export function capacidadeDoAcervo(projeto: ProjetoComCapacidades | null | undefined): ModoDoAcervo {
-  const settings = projeto?.settings;
-  if (!settings || typeof settings !== "object") return "off";
-  const capacidades = (settings as Record<string, unknown>).capacidades;
-  if (!capacidades || typeof capacidades !== "object" || Array.isArray(capacidades)) return "off";
-  const bruto = (capacidades as Record<string, unknown>).acervo;
-  if (typeof bruto !== "string") return "off";
-  const t = bruto.trim().toLowerCase();
-  if (t === "enforce") return "enforce";
-  if (t === "dry_run") return "dry_run";
-  return "off";
+  /*
+   * 05/10/2026, integração das frentes: "acervo" entrou em `CAPACIDADES`, e a
+   * troca prevista no comentário acima foi feita. Sem ambiente por baixo, o
+   * fallback é `off` fixo, então o contrato de antes continua o mesmo.
+   */
+  return resolverCapacidade("acervo", () => "off", projeto);
 }

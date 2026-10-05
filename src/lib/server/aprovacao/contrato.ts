@@ -1,3 +1,5 @@
+import type { OrigemDoArtigo } from "../ramos/portal";
+
 /**
  * O contrato da fila de aprovação (RF-20 a RF-29), decidido em 05/10/2026.
  *
@@ -113,6 +115,14 @@ export type ResumoDaPeca = {
   slug?: string | null;
   /** Quando a refação não pôde rodar sozinha, o motivo vai aqui para o painel. */
   refacaoPendente?: string | null;
+  /**
+   * Ramo artigo: a pauta e o pacote factual de onde a matéria saiu.
+   *
+   * Entrou na integração de 05/10/2026 para a refação de texto e de imagem do
+   * artigo poder rodar sem a pauta avaliada inteira, que não sobrevive ao
+   * ciclo. Ver `ganchos-de-producao.ts`.
+   */
+  origemDoArtigo?: OrigemDoArtigo | null;
 };
 
 export function ehRamo(valor: unknown): valor is Ramo {

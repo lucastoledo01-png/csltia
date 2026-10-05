@@ -57,7 +57,101 @@ function texto(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
-export async function pautasRecentes(projectId: string, limite = 40): Promise<PautaDoPortal[]> {
+/** A linha de `articles` que a home lê, quando os ramos publicam matéria própria. */
+export type ArtigoDoRamo = {
+  slug: string;
+  title: string | null;
+  excerpt: string | null;
+  cover_image: string | null;
+  category: string | null;
+  published_at: string | null;
+  source_urls: string[] | null;
+};
+
+/** O prefixo do artigo que é a EDIÇÃO regravada, e não matéria própria. */
+const PREFIXO_DO_ARTIGO_DA_EDICAO = "edicao-";
+
+function dataLocal(iso: string, timezone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date(iso));
+  } catch {
+    return iso.slice(0, 10);
+  }
+}
+
+/**
+ * As matérias próprias do portal entram na home junto das pautas das edições.
+ *
+ * Integração de 05/10/2026. Com os ramos em `enforce`, o portal deixou de
+ * regravar o e-mail e passou a publicar uma matéria por pauta, que é a unidade
+ * que a home sempre quis. Só que a home lia `news_editions` e nada mais: as
+ * matérias iam ao ar e não apareciam em lugar nenhum da primeira página.
+ *
+ * Três regras, e cada uma evita um defeito visível:
+ *
+ *   - o artigo `edicao-AAAA-MM-DD` não entra: ele É a edição, que já está na
+ *     home desmontada em pautas, e entraria duas vezes;
+ *   - a pauta da edição cuja fonte é a mesma de uma matéria própria sai, e a
+ *     matéria fica: é o mesmo fato, e a matéria é a peça escrita para o portal;
+ *   - mais recente primeiro. A matéria tem hora (`published_at`) e a pauta da
+ *     edição só tem dia, então no mesmo dia a matéria vem antes, e a ordem das
+ *     pautas dentro da edição é preservada.
+ *
+ * Pura, para o teste produzir o "não" sem banco.
+ */
+export function juntarPautasEArtigos(
+  pautasDasEdicoes: PautaDoPortal[],
+  artigos: ArtigoDoRamo[],
+  timezone = "America/Sao_Paulo",
+  fontesDasPautas: Map<string, string> = new Map(),
+): PautaDoPortal[] {
+  const proprios = artigos.filter(
+    (a) => a.slug && !a.slug.startsWith(PREFIXO_DO_ARTIGO_DA_EDICAO) && (a.title ?? "").trim() && a.published_at,
+  );
+  const fontesDosArtigos = new Set(proprios.map((a) => a.source_urls?.[0]).filter((u): u is string => Boolean(u)));
+
+  const doRamo = proprios.map((a) => {
+    const titulo = (a.title ?? "").trim();
+    const rotulo = (a.category ?? "").trim() || "Notícias";
+    return {
+      quando: a.published_at as string,
+      pauta: {
+        id: `artigo:${a.slug}`,
+        titulo,
+        resumo: (a.excerpt ?? "").trim(),
+        rotulo,
+        editoria: editoriaDaPauta(rotulo, titulo),
+        imagem: a.cover_image || null,
+        fonte: "",
+        data: dataLocal(a.published_at as string, timezone),
+        href: `/artigos/${a.slug}`,
+      } satisfies PautaDoPortal,
+    };
+  });
+
+  const dasEdicoes = pautasDasEdicoes
+    .filter((p) => {
+      const fonte = fontesDasPautas.get(p.id);
+      return !(fonte && fontesDosArtigos.has(fonte));
+    })
+    // Meia-noite UTC do dia: no mesmo dia, toda matéria com hora vem antes.
+    .map((p) => ({ quando: `${p.data}T00:00:00.000Z`, pauta: p }));
+
+  return [...doRamo, ...dasEdicoes]
+    .map((x, i) => ({ ...x, i }))
+    .sort((a, b) => b.quando.localeCompare(a.quando) || a.i - b.i)
+    .map((x) => x.pauta);
+}
+
+export async function pautasRecentes(
+  projectId: string,
+  limite = 40,
+  /*
+   * Integração de 05/10/2026: só com os ramos em `enforce` a home lê também
+   * `articles`. Ausente, a home é a de antes, uma consulta só.
+   */
+  opcoes: { incluirArtigosDosRamos?: boolean; timezone?: string } = {},
+): Promise<PautaDoPortal[]> {
   const client = getSupabaseAdminClient();
 
   const edicoes = await comRetentativa("edições do portal", async () => {
@@ -74,6 +168,7 @@ export async function pautasRecentes(projectId: string, limite = 40): Promise<Pa
   });
 
   const pautas: PautaDoPortal[] = [];
+  const fontesDasPautas = new Map<string, string>();
 
   for (const edicao of edicoes) {
     const fotos = fotosDoHtml(edicao.content_html);
@@ -83,6 +178,9 @@ export async function pautasRecentes(projectId: string, limite = 40): Promise<Pa
       if (!titulo) return;
 
       const rotulo = texto(s.category) || "Notícias";
+
+      const fonteUrl = texto(s.source_url);
+      if (fonteUrl) fontesDasPautas.set(`${edicao.slug}#${i}`, fonteUrl);
 
       pautas.push({
         id: `${edicao.slug}#${i}`,
@@ -98,7 +196,22 @@ export async function pautasRecentes(projectId: string, limite = 40): Promise<Pa
     });
   }
 
-  return pautas.slice(0, limite);
+  if (!opcoes.incluirArtigosDosRamos) return pautas.slice(0, limite);
+
+  const artigos = await comRetentativa("matérias do portal", async () => {
+    const { data, error } = await client
+      .from("articles")
+      .select("slug, title, excerpt, cover_image, category, published_at, source_urls")
+      .eq("project_id", projectId)
+      .eq("status", "published")
+      .not("slug", "like", `${PREFIXO_DO_ARTIGO_DA_EDICAO}%`)
+      .order("published_at", { ascending: false })
+      .limit(30);
+    if (error) throw new LeituraFalhou(`Falha ao carregar matérias: ${error.message}`);
+    return (data ?? []) as ArtigoDoRamo[];
+  });
+
+  return juntarPautasEArtigos(pautas, artigos, opcoes.timezone, fontesDasPautas).slice(0, limite);
 }
 
 /** As pautas separadas nos blocos que a home desenha. */

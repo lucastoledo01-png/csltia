@@ -53,6 +53,15 @@ export type ContextoDaImagemDaPauta = {
   projeto?: (ProjetoComCapacidades & { id: string }) | null;
   /** As opções de sempre do resolvedor. `acervo` é decidido aqui, pela capacidade. */
   opcoes?: Omit<OpcoesDeResolucao, "acervo">;
+  /**
+   * Resolver de novo, ignorando a memória e a tabela, e regravar a escolha.
+   *
+   * Entrou em 05/10/2026 com a refação da fila de aprovação: o editor reprovou
+   * a IMAGEM desta pauta, e devolver a mesma foto do cache seria refazer nada.
+   * O resultado novo substitui o gravado, para os outros canais que ainda não
+   * publicaram passarem a reusar a foto aprovada, e não a reprovada.
+   */
+  ignorarReuso?: boolean;
   /** Injetáveis para o teste. */
   resolver?: typeof resolveVisualAsset;
   acervo?: Acervo | null;
@@ -83,6 +92,7 @@ async function gravarImagemDaPauta(
   client: SupabaseClient,
   projectId: string,
   resultado: ResultadoVisual,
+  substituir = false,
 ): Promise<void> {
   const { error } = await client.from(TABELA_DA_IMAGEM_DA_PAUTA).upsert(
     {
@@ -97,7 +107,7 @@ async function gravarImagemDaPauta(
      * mesmo tempo, o segundo não sobrescreve o primeiro: um canal pode já ter
      * publicado com a foto gravada.
      */
-    { onConflict: "project_id,story_id", ignoreDuplicates: true },
+    { onConflict: "project_id,story_id", ignoreDuplicates: !substituir },
   );
   if (error) throw new Error(`imagem da pauta, gravação falhou: ${error.message}`);
 }
@@ -120,6 +130,17 @@ export async function imagemDaPauta(
   }
 
   const chave = `${ctx.projeto.id}:${pauta.storyId}`;
+
+  // Refação de imagem: ver `ignorarReuso`. Resolve, regrava e troca a memória.
+  if (ctx.ignorarReuso) {
+    const resultado = await resolver(pauta, { ...opcoes, acervo });
+    if (ctx.client && !opcoes.somenteLeitura) {
+      await gravarImagemDaPauta(ctx.client, ctx.projeto.id, resultado, true);
+    }
+    guardarNaMemoria(chave, Promise.resolve(resultado));
+    return reaproveitar(resultado, opcoes);
+  }
+
   const jaNaMemoria = memoria.get(chave);
   if (jaNaMemoria) return reaproveitar(await jaNaMemoria, opcoes);
 

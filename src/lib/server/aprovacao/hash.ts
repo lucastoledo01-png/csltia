@@ -17,7 +17,13 @@ import type { Ramo } from "./contrato";
 
 export type ConteudoDoPost = { legenda: string; artefatos: string[] };
 export type ConteudoDaNewsletter = { assunto: string; html: string };
-export type ConteudoDoArtigo = { titulo: string; html: string };
+/*
+ * `capa` entrou em 05/10/2026, na integração: a refação de IMAGEM do artigo
+ * troca só `cover_image`, e sem a capa no hash a foto podia mudar depois da
+ * aprovação sem o portão perceber. Opcional e omitida quando vazia, para o
+ * hash do artigo sem capa continuar exatamente o de antes.
+ */
+export type ConteudoDoArtigo = { titulo: string; html: string; capa?: string };
 
 export type ConteudoDaPeca =
   | { ramo: "post"; conteudo: ConteudoDoPost }
@@ -105,8 +111,14 @@ export function hashDaNewsletter(assunto: string | null | undefined, html: strin
   return hashDaPeca({ ramo: "newsletter", conteudo: { assunto: assunto ?? "", html: html ?? "" } });
 }
 
-export function hashDoArtigo(titulo: string | null | undefined, html: string | null | undefined): string {
-  return hashDaPeca({ ramo: "artigo", conteudo: { titulo: titulo ?? "", html: html ?? "" } });
+export function hashDoArtigo(
+  titulo: string | null | undefined,
+  html: string | null | undefined,
+  capa?: string | null,
+): string {
+  const conteudo: ConteudoDoArtigo = { titulo: titulo ?? "", html: html ?? "" };
+  if (capa) conteudo.capa = capa;
+  return hashDaPeca({ ramo: "artigo", conteudo });
 }
 
 export function ramoDoConteudo(peca: ConteudoDaPeca): Ramo {

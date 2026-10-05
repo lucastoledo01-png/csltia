@@ -102,7 +102,19 @@ Devolva EXCLUSIVAMENTE este JSON:
 `.trim();
 }
 
-function montarUserDoArtigo(pauta: PautaAvaliada, pacote: PacoteFactual): string {
+/**
+ * O que o redator do artigo lê da pauta: país, editoria e nome da fonte.
+ *
+ * Estreito de propósito (05/10/2026): a refação da fila de aprovação reescreve
+ * a matéria a partir do que ficou gravado na fila, e não da pauta avaliada
+ * inteira, que não sobrevive ao ciclo. `PautaAvaliada` continua servindo.
+ */
+export type PautaDoArtigo = {
+  classificacao: { pais: PautaAvaliada["classificacao"]["pais"] | string; eixo: PautaAvaliada["classificacao"]["eixo"] | string };
+  grupo: { primary: { source_name: string } };
+};
+
+function montarUserDoArtigo(pauta: PautaDoArtigo, pacote: PacoteFactual): string {
   return [
     `PAÍS: ${pauta.classificacao.pais}`,
     `EDITORIA: ${pauta.classificacao.eixo}`,
@@ -211,7 +223,7 @@ export type ResultadoDoArtigo = {
  * sobra depois de um reparo é a matéria sair do dia, sem levar nada junto.
  */
 export async function escreverArtigoDaPauta(
-  pauta: PautaAvaliada,
+  pauta: PautaDoArtigo,
   pacote: PacoteFactual,
   marca: MarcaDoArtigo,
   opcoes: { env?: Record<string, string | undefined>; fetcher?: typeof fetch; livro?: LivroDeCustos } = {},

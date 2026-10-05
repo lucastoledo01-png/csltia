@@ -1,6 +1,7 @@
 import { PortalHome } from "@/components/PortalHome";
 import { montarHome, pautasRecentes } from "@/lib/server/portal";
-import { DEFAULT_PROJECT_ID } from "@/lib/server/projects";
+import { DEFAULT_PROJECT_ID, getProjectById } from "@/lib/server/projects";
+import { modoDosRamos } from "@/lib/server/ramos/modo";
 
 /**
  * A home não é pré-renderizada, e a razão é concreta.
@@ -32,7 +33,16 @@ export const dynamic = "force-dynamic";
  * renderiza os blocos e o cabeçalho, o rodapé e a inscrição continuam de pé.
  */
 export default async function Home() {
-  const pautas = await pautasRecentes(DEFAULT_PROJECT_ID).catch(() => []);
+  /*
+   * Com os ramos em `enforce` (integração de 05/10/2026) a home junta as
+   * matérias próprias do portal às pautas das edições. Projeto ilegível cai na
+   * home de antes, e não na página vazia.
+   */
+  const projeto = await getProjectById(DEFAULT_PROJECT_ID).catch(() => null);
+  const pautas = await pautasRecentes(DEFAULT_PROJECT_ID, 40, {
+    incluirArtigosDosRamos: modoDosRamos(process.env, projeto) === "enforce",
+    timezone: projeto?.timezone,
+  }).catch(() => []);
 
   return <PortalHome dados={montarHome(pautas)} />;
 }

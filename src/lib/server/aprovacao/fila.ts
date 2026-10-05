@@ -625,6 +625,31 @@ export function instanteDeEnvioDaNewsletter(projeto: ProjetoDaFila, dataLocal: s
   }
 }
 
+/**
+ * Os horários planejados que a redação grava na fila, para a newsletter e para
+ * o artigo da edição.
+ *
+ * Integração de 05/10/2026, com a produção na véspera: às 17:00 de segunda a
+ * redação escreve a edição de TERÇA, e o horário da fila tem de ser o de terça.
+ * A data que entra aqui é a da edição (`dataDaEdicao`, que já é o alvo da
+ * véspera), nunca "hoje".
+ *
+ * Com agendamento (a véspera em `enforce`), os horários são os da cadência, os
+ * MESMOS que a campanha do Listmonk e o artigo agendado recebem. Sem isso, a
+ * fila usaria `settings.aprovacao.newsletter_envio` e a cadência diria outra
+ * hora: o aviso das 06:00 e o disparo sairiam de um relógio, e o resto do dia
+ * de outro. Sem agendamento (o ciclo das 06:03), vale a hora da fila, como era.
+ */
+export function horariosDaRedacaoNaFila(
+  projeto: ProjetoDaFila,
+  dataDaEdicao: string,
+  agendamento?: { newsletterEm: string; portalEm: string } | null,
+): { newsletter: string | null; artigoDaEdicao: string | null } {
+  if (agendamento) return { newsletter: agendamento.newsletterEm, artigoDaEdicao: agendamento.portalEm };
+  const envio = instanteDeEnvioDaNewsletter(projeto, dataDaEdicao);
+  return { newsletter: envio, artigoDaEdicao: envio };
+}
+
 // ---------------------------------------------------------------------------
 // Taxa de aprovação sem retrabalho (RF-25)
 // ---------------------------------------------------------------------------

@@ -2,6 +2,15 @@ import { agendaDoCanal } from "./cadencia";
 import { listProjects, projectToday, type Project } from "./projects";
 import { cicloDasSeisCede } from "./producao-vespera";
 import { getSupabaseAdminClient } from "./supabase-admin";
+import { criarFilaStore, type FilaStore } from "./aprovacao/fila-store";
+import {
+  artigosLiberadosPeloPortao,
+  edicoesLiberadasPeloPortao,
+  portalPerguntaAFila,
+  type ArtigoCandidato,
+  type EdicaoCandidata,
+} from "./aprovacao/portao-do-portal";
+import { modoDosRamos } from "./ramos/modo";
 
 /**
  * O lado da publicação da produção na véspera (RF-01, 05/10/2026).
@@ -29,6 +38,8 @@ export type PublicacaoDoProjeto = {
   projeto: string;
   edicoesPublicadas: string[];
   artigosPublicados: string[];
+  /** O que venceu e o portão da fila segurou, com o motivo. Vazio com a fila em `off`. */
+  seguradas: string[];
   erros: string[];
 };
 
@@ -49,35 +60,61 @@ export function momentoDaEdicao(projeto: Pick<Project, "settings" | "timezone">,
 }
 
 /** Quais edições `approved` já venceram. Pura, para o teste produzir o "não". */
-export function edicoesQueVenceram(
+export function edicoesQueVenceram<E extends { id: string; edition_date: string }>(
   projeto: Pick<Project, "settings" | "timezone">,
-  edicoes: Array<{ id: string; edition_date: string }>,
+  edicoes: E[],
   agora: Date,
-): Array<{ id: string; edition_date: string }> {
+): E[] {
   return edicoes.filter((e) => {
     const momento = momentoDaEdicao(projeto, e.edition_date);
     return momento !== null && Date.parse(momento) <= agora.getTime();
   });
 }
 
+export type DependenciasDaPublicacao = {
+  /** Quem lê a fila de aprovação. Ausente, a fila do banco. Injetável para o teste. */
+  fila?: Pick<FilaStore, "porPeca">;
+  env?: Record<string, string | undefined>;
+};
+
 export async function publicarDoProjeto(
   projeto: Project,
   agora: Date,
   cliente: Cliente = getSupabaseAdminClient(),
+  deps: DependenciasDaPublicacao = {},
 ): Promise<PublicacaoDoProjeto> {
   const saida: PublicacaoDoProjeto = {
     projeto: projeto.slug,
     edicoesPublicadas: [],
     artigosPublicados: [],
+    seguradas: [],
     erros: [],
   };
   const agoraIso = agora.toISOString();
   const hoje = projectToday(projeto, agora);
 
+  /*
+   * O portão único (integração de 05/10/2026). Este relógio virava a edição e
+   * o artigo em `published` sem perguntar à fila, e era o único dos três
+   * caminhos do portal que não perguntava. Com `aprovacao` fora de `off`, as
+   * duas viradas passam por `decidirPublicacao`; em `off`, nada muda.
+   */
+  const perguntaAFila = portalPerguntaAFila(projeto);
+  const fila = perguntaAFila ? (deps.fila ?? criarFilaStore(cliente)) : null;
+  /*
+   * Com os ramos em `enforce`, o artigo do portal nasce `scheduled` e
+   * `needs_review` (`ramos/portal.ts`) e a regra do ramo é: só sai aprovado E
+   * no horário. Este relógio publicava qualquer `scheduled` vencido, e com a
+   * produção na véspera ligada junto dos ramos levaria ao ar, às 06:07, a
+   * matéria que ninguém aprovou. A mesma regra de `publicarArtigosAprovados`
+   * vale aqui.
+   */
+  const exigeRevisaoDoRamo = modoDosRamos(deps.env ?? process.env, projeto) === "enforce";
+
   // 1. Edições aprovadas cuja hora chegou. Só até hoje: a de amanhã espera.
   const { data: edicoes, error: erroEdicoes } = await cliente
     .from("news_editions")
-    .select("id, edition_date")
+    .select(fila ? "id, edition_date, subject, content_html" : "id, edition_date")
     .eq("project_id", projeto.id)
     .eq("status", "approved")
     .lte("edition_date", hoje);
@@ -85,7 +122,13 @@ export async function publicarDoProjeto(
   if (erroEdicoes) {
     saida.erros.push(`edições: ${erroEdicoes.message}`);
   } else {
-    for (const e of edicoesQueVenceram(projeto, (edicoes ?? []) as Array<{ id: string; edition_date: string }>, agora)) {
+    let vencidas = edicoesQueVenceram(projeto, (edicoes ?? []) as unknown as EdicaoCandidata[], agora);
+    if (fila) {
+      const filtro = await edicoesLiberadasPeloPortao(projeto, vencidas, fila);
+      for (const s of filtro.seguradas) saida.seguradas.push(`edição ${s.rotulo}: ${s.motivo}`);
+      vencidas = filtro.liberadas;
+    }
+    for (const e of vencidas) {
       const { error } = await cliente
         .from("news_editions")
         .update({ status: "published", updated_at: agoraIso })
@@ -99,20 +142,25 @@ export async function publicarDoProjeto(
   }
 
   // 2. Artigos agendados cuja hora chegou. A hora é a do próprio artigo.
-  const { data: artigos, error: erroArtigos } = await cliente
-    .from("articles")
-    .update({ status: "published", updated_at: agoraIso })
-    .eq("project_id", projeto.id)
-    .eq("status", "scheduled")
-    .lte("published_at", agoraIso)
-    .select("slug");
+  if (!fila && !exigeRevisaoDoRamo) {
+    const { data: artigos, error: erroArtigos } = await cliente
+      .from("articles")
+      .update({ status: "published", updated_at: agoraIso })
+      .eq("project_id", projeto.id)
+      .eq("status", "scheduled")
+      .lte("published_at", agoraIso)
+      .select("slug");
 
-  if (erroArtigos) saida.erros.push(`artigos: ${erroArtigos.message}`);
-  else saida.artigosPublicados.push(...((artigos ?? []) as Array<{ slug: string }>).map((a) => a.slug));
+    if (erroArtigos) saida.erros.push(`artigos: ${erroArtigos.message}`);
+    else saida.artigosPublicados.push(...((artigos ?? []) as Array<{ slug: string }>).map((a) => a.slug));
+  } else {
+    await publicarArtigosComPortao(cliente, projeto, agoraIso, exigeRevisaoDoRamo, fila, saida);
+  }
 
   // 3. O que foi feito vai para o banco. Silêncio quando nada venceu: são
   // 1.440 chamadas por dia, e uma linha por minuto enterraria as que importam.
-  if (saida.edicoesPublicadas.length + saida.artigosPublicados.length + saida.erros.length > 0) {
+  // Segurada pela fila entra no evento: é a resposta para "por que não saiu às 06:07?".
+  if (saida.edicoesPublicadas.length + saida.artigosPublicados.length + saida.erros.length + saida.seguradas.length > 0) {
     const { error } = await cliente.from("platform_events").insert({
       project_id: projeto.id,
       event_type: "publicacao_agendada",
@@ -122,6 +170,57 @@ export async function publicarDoProjeto(
   }
 
   return saida;
+}
+
+/**
+ * Os artigos vencidos, lidos primeiro e publicados por id, quando há regra a
+ * conferir entre ler e escrever: a revisão do ramo e, ou, o portão da fila.
+ * O `update` repete as condições, para quem mudou de estado no meio não ser
+ * tocado.
+ */
+async function publicarArtigosComPortao(
+  cliente: Cliente,
+  projeto: Project,
+  agoraIso: string,
+  exigeRevisaoDoRamo: boolean,
+  fila: Pick<FilaStore, "porPeca"> | null,
+  saida: PublicacaoDoProjeto,
+): Promise<void> {
+  let leitura = cliente
+    .from("articles")
+    .select("id, slug, title, content_html, cover_image")
+    .eq("project_id", projeto.id)
+    .eq("status", "scheduled")
+    .lte("published_at", agoraIso);
+  if (exigeRevisaoDoRamo) leitura = leitura.eq("manual_review_status", "approved");
+  const { data: lidos, error: erroLeitura } = await leitura;
+  if (erroLeitura) {
+    saida.erros.push(`artigos: ${erroLeitura.message}`);
+    return;
+  }
+
+  let liberados = (lidos ?? []) as unknown as ArtigoCandidato[];
+  if (fila) {
+    const filtro = await artigosLiberadosPeloPortao(projeto, liberados, fila);
+    for (const s of filtro.seguradas) saida.seguradas.push(`artigo ${s.rotulo}: ${s.motivo}`);
+    liberados = filtro.liberadas;
+  }
+  if (liberados.length === 0) return;
+
+  let escrita = cliente
+    .from("articles")
+    .update({ status: "published", updated_at: agoraIso })
+    .eq("project_id", projeto.id)
+    .eq("status", "scheduled")
+    .lte("published_at", agoraIso)
+    .in(
+      "id",
+      liberados.map((a) => a.id),
+    );
+  if (exigeRevisaoDoRamo) escrita = escrita.eq("manual_review_status", "approved");
+  const { data: artigos, error: erroArtigos } = await escrita.select("slug");
+  if (erroArtigos) saida.erros.push(`artigos: ${erroArtigos.message}`);
+  else saida.artigosPublicados.push(...((artigos ?? []) as Array<{ slug: string }>).map((a) => a.slug));
 }
 
 /** Todos os projetos ativos que publicam pela produção na véspera. */
@@ -136,6 +235,7 @@ export async function publicarOQueVenceu(agora: Date = new Date()): Promise<Publ
         projeto: projeto.slug,
         edicoesPublicadas: [],
         artigosPublicados: [],
+        seguradas: [],
         erros: [e instanceof Error ? e.message : String(e)],
       });
     }
