@@ -296,6 +296,10 @@ export async function comDestaqueFixado(
   const portal = (projeto?.settings as Record<string, unknown> | null | undefined)?.portal;
   const slug = portal && typeof portal === "object" ? (portal as Record<string, unknown>).destaque : null;
   if (typeof slug !== "string" || !slug.trim()) return pautas;
+  // Fixada com prazo: `destaque_ate` (AAAA-MM-DD) vencido devolve a home de sempre,
+  // para a manchete não envelhecer esquecida no alto da página.
+  const ate = (portal as Record<string, unknown>).destaque_ate;
+  if (typeof ate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(ate) && ate < hojeEmSaoPaulo()) return pautas;
   const artigo = await ler(slug.trim()).catch(() => null);
   if (!artigo?.title) return pautas;
   const href = `/artigos/${slug.trim()}`;
@@ -313,22 +317,54 @@ export async function comDestaqueFixado(
   return [fixada, ...pautas.filter((p) => p.href !== href && p.titulo !== artigo.title)];
 }
 
+/** Quantas pautas o feed "Últimas notícias" mostra, somadas às chamadas que sobram da coluna. */
+const TAMANHO_DO_FEED = 16;
+
+/**
+ * A home, com cada pauta em UM lugar só.
+ *
+ * Até 05/10/2026 os blocos eram fatias da mesma lista por posição: a grade de
+ * três pegava "da sétima foto em diante" e o feed "da décima pauta em diante",
+ * e as duas faixas se sobrepunham; "O mais novo de cada editoria" pegava a
+ * primeira de cada editoria, que era quase sempre a mesma da coluna Destaques.
+ * O dono abriu a home e viu a mesma matéria três vezes. Agora a montagem
+ * reparte: cada bloco só recebe o que nenhum bloco acima dele recebeu.
+ */
 export function montarHome(pautas: PautaDoPortal[]) {
   const comFoto = pautas.filter((p) => p.imagem);
 
   // A manchete precisa de foto: é ela que ocupa metade da primeira dobra.
   const destaque = comFoto[0] ?? pautas[0] ?? null;
-  const restantes = pautas.filter((p) => p.id !== destaque?.id);
+  const usadas = new Set<string>(destaque ? [destaque.id] : []);
+  const livres = () => pautas.filter((p) => !usadas.has(p.id));
+  const reservar = (lista: PautaDoPortal[]) => {
+    for (const p of lista) usadas.add(p.id);
+    return lista;
+  };
+
+  /** Coluna da direita da primeira dobra, só título (as que sobram abrem o feed). */
+  const chamadas = reservar(livres().slice(0, 6));
+  /** Faixa de três, com foto. */
+  const secundarias = reservar(livres().filter((p) => p.imagem).slice(0, 3));
+  /** Lista cronológica. */
+  const ultimas = reservar(livres().slice(0, TAMANHO_DO_FEED));
+  /**
+   * A mais nova de cada editoria que AINDA NÃO está na página. Editoria cujas
+   * pautas já apareceram todas fica de fora: o bloco é um índice, e repetir
+   * título que está logo acima não indexa nada.
+   */
+  const maisNovaPorEditoria = EDITORIAS.flatMap(({ id }) => {
+    const pauta = livres().find((p) => p.editoria === id);
+    return pauta ? [{ editoria: id, pauta }] : [];
+  });
 
   return {
     destaque,
-    /** Coluna da direita da primeira dobra, só título. */
-    chamadas: restantes.slice(0, 6),
-    /** Faixa de três, com foto. */
-    secundarias: restantes.filter((p) => p.imagem).slice(6, 9),
-    /** Lista cronológica. */
-    ultimas: restantes.slice(9, 25),
-    porEditoria: agruparPorEditoria(restantes),
+    chamadas,
+    secundarias,
+    ultimas,
+    maisNovaPorEditoria,
+    porEditoria: agruparPorEditoria(pautas.filter((p) => p.id !== destaque?.id)),
     secoes: secoesEmFoco(pautas),
   };
 }
@@ -383,4 +419,8 @@ function agruparPorEditoria(pautas: PautaDoPortal[]) {
   return [...mapa.entries()]
     .filter(([, itens]) => itens.length >= 2)
     .map(([editoria, itens]) => ({ editoria, itens: itens.slice(0, 4) }));
+}
+
+function hojeEmSaoPaulo(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
 }

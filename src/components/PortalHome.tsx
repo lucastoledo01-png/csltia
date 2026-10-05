@@ -229,6 +229,8 @@ export type DadosDaHome = {
   secundarias: PautaDoPortal[];
   ultimas: PautaDoPortal[];
   porEditoria: Array<{ editoria: (typeof EDITORIAS)[number]["id"]; itens: PautaDoPortal[] }>;
+  /** A mais nova de cada editoria que não aparece em nenhum outro bloco da página. */
+  maisNovaPorEditoria?: Array<{ editoria: (typeof EDITORIAS)[number]["id"]; pauta: PautaDoPortal }>;
   /** Um card por editoria, para "Seções em foco". */
   secoes: SecaoEmFoco[];
 };
@@ -241,7 +243,7 @@ const LINHAS_COM_FOTO = 10;
 const NOTAS = 6;
 
 export function PortalHome({ dados }: { dados: DadosDaHome }) {
-  const { destaque, chamadas, secundarias, ultimas, porEditoria, secoes } = dados;
+  const { destaque, chamadas, secundarias, ultimas, secoes } = dados;
 
   const naColuna = chamadas.slice(0, NA_COLUNA);
   /*
@@ -256,7 +258,7 @@ export function PortalHome({ dados }: { dados: DadosDaHome }) {
    * No lugar de "Mais lidas", que pediria contagem de leitura que não
    * existe: a pauta mais nova de cada editoria, que é um índice real.
    */
-  const recentesPorEditoria = porEditoria.map(({ editoria, itens }) => ({ editoria, pauta: itens[0] }));
+  const recentesPorEditoria = dados.maisNovaPorEditoria ?? [];
 
   return (
     <MolduraDoPortal>
