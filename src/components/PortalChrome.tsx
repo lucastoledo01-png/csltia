@@ -3,6 +3,7 @@ import { logoDoSite, MARCA } from "@/lib/marca";
 import { EDITORIAS, hrefDaEditoria } from "@/lib/editorias";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { PortalMenuMovel } from "@/components/PortalMenuMovel";
+import { MarcadorDeNavegacao } from "@/components/BotaoVoltar";
 
 /**
  * O cromo do portal: a barra de topo e o rodapé.
@@ -251,6 +252,7 @@ export function RodapeDoPortal() {
 export function MolduraDoPortal({ children }: { children: React.ReactNode }) {
   return (
     <div className="portal min-h-screen bg-white font-portal text-[#0A0A0A]">
+      <MarcadorDeNavegacao />
       <TopoDoPortal />
       {children}
       <RodapeDoPortal />

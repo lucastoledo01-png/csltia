@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import ArticlePage from "./page";
 import { articles } from "@/lib/editorial";
 
+
 describe("Article page", () => {
   it("renderiza um artigo completo com imagem, título, descrição e corpo", async () => {
     // O slug sai de `articles`, não escrito à mão. A versão anterior apontava
@@ -17,6 +18,7 @@ describe("Article page", () => {
     expect(screen.getByRole("img", { name: artigo.title })).toBeInTheDocument();
     expect(screen.getByText(artigo.description)).toBeInTheDocument();
     expect(screen.getByText(artigo.sections[0].heading)).toBeInTheDocument();
-    expect(screen.getByText(/Voltar para todos os artigos/i)).toHaveAttribute("href", "/artigos");
+    // Sem histórico deste site, o botão leva à home (05/10/2026).
+    expect(screen.getByRole("link", { name: /Voltar/i })).toHaveAttribute("href", "/");
   });
 });
