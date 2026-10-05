@@ -13,13 +13,40 @@ import { MARCA } from "@/lib/marca";
  * ruído para quem procura notícia e convite para quem procura formulário de
  * login.
  */
+/*
+ * Robôs de IA, decisão do dono em 05/10/2026: os dois tipos LIBERADOS.
+ *
+ * Os de busca e citação leem a página quando alguém pergunta e citam o site
+ * com link (é o GEO). Os de treino coletam texto para o próximo modelo, sem
+ * link. Bloquear o treino só valeria daqui para frente, depende de o robô
+ * obedecer, e não muda nada no Google. Para um portal que está construindo
+ * audiência, ser conhecido pelo modelo vale mais que proteger notícia, que
+ * perde valor em dias. Rever se surgir licenciamento ou conteúdo exclusivo.
+ *
+ * A regra `*` já liberava todos. A lista existe para a política ficar
+ * escrita como decisão, e para bloquear um tipo ser trocar `allow` por
+ * `disallow` num grupo só.
+ */
+export const ROBOS_DE_BUSCA_DE_IA = [
+  "OAI-SearchBot",
+  "ChatGPT-User",
+  "PerplexityBot",
+  "Perplexity-User",
+  "Claude-SearchBot",
+  "Claude-User",
+] as const;
+
+export const ROBOS_DE_TREINO_DE_IA = ["GPTBot", "ClaudeBot", "Google-Extended", "CCBot", "Applebot-Extended"] as const;
+
+const FORA_DO_RASTREIO = ["/admin", "/api/"];
+
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: {
-      userAgent: "*",
-      allow: "/",
-      disallow: ["/admin", "/api/"],
-    },
+    rules: [
+      { userAgent: "*", allow: "/", disallow: FORA_DO_RASTREIO },
+      { userAgent: [...ROBOS_DE_BUSCA_DE_IA], allow: "/", disallow: FORA_DO_RASTREIO },
+      { userAgent: [...ROBOS_DE_TREINO_DE_IA], allow: "/", disallow: FORA_DO_RASTREIO },
+    ],
     sitemap: `${MARCA.site}/sitemap.xml`,
   };
 }
