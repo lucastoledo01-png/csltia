@@ -617,6 +617,43 @@ para o dono rodar: o nicho e o briefing editorial do projeto, o evergreen
 desligado (os 66 temas do catálogo são todos de imigração) e as quatro fontes
 ativas dedicadas a imigração. Nada foi apagado.
 
+## Produção na véspera e cadência do projeto (05/10/2026)
+
+O PRD do MVP, validado pelo dono, muda o relógio: produção de segunda a quinta
+às 17:00, tudo do dia seguinte; aprovação à noite; publicação de terça a sexta
+nos horários de cada canal (newsletter 06:07; portal 06:07, 12:00 e 18:00;
+Instagram 08:00, 11:22, 14:45, 18:07 e 21:30).
+
+**Dia, horário, volume e fonte são configuração do PROJETO**, em
+`projects.settings.cadencia`, nunca código nem ambiente (RNF-08). Quem lê é
+`cadencia.ts` (`cadenciaDoProjeto`, `horariosDoPortal`, `agendaDoPortal`...), e
+projeto que não declara nada recebe exatamente a tabela do PRD. Campo declarado
+e inválido cai no padrão DAQUELE campo, com aviso no painel: lista vazia de
+horários faria o dia sumir em silêncio.
+
+**A troca é por capacidade, `producao_vespera`, e só `enforce` muda o dia.** Em
+`enforce` a rota das 17:00 produz e a das 06:03 cede; em `dry_run` a das 17:00
+ensaia e a das 06:03 continua publicando; ausente ou `off`, nada muda. O social
+ainda lê ambiente, então a cadência chega a ele como ambiente montado na hora
+(`ambientePelaCadencia`), e só na produção da véspera.
+
+**Todo dia de produção deixa linha em `newsroom_runs`**, inclusive "capacidade
+desligada" e "não é dia de produção". A produção confere se a linha existe no
+fim e grava uma de garantia se não existir, em vez de confiar que cada caminho
+da redação grava a sua.
+
+**O que vai ao ar na hora certa é de três mecanismos, e só um é novo:** o
+Listmonk dispara a campanha agendada (`send_at`), o worker publica o post pelo
+`scheduled_at`, e `publicacao-agendada.ts` vira a edição `approved` e o artigo
+`scheduled` em `published` quando a hora chega.
+
+**A instrução editorial é editável, o contrato não (RF-26).** Os prompts foram
+cortados em julgamento editorial (editável no painel, versionado, com volta) e
+contrato de saída (campos do JSON, tetos da guarda, assinatura), que fica no
+código. Com a capacidade `instrucoes` fora de `enforce`, os prompts saem byte a
+byte como antes; isso foi conferido por snapshot dos seis prompts antes e
+depois do corte.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

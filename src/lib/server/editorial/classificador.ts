@@ -2,7 +2,7 @@ import { z } from "zod";
 import { callOpenAIJSON } from "../newsroom/ai-provider";
 import type { ConfigEditorial } from "./config";
 import { MOTIVOS } from "./config";
-import { LEITOR, REGRA_EIXO, REGRA_LEITURA, REGRA_PAIS, REGRA_RELEVANCIA } from "./linha-editorial";
+import { REGRA_EIXO, REGRA_LEITURA, REGRA_PAIS, leitorVigente, relevanciaVigente } from "./linha-editorial";
 import type { Motivo } from "./config";
 import type { Entidades } from "./fingerprint";
 
@@ -163,7 +163,7 @@ export function montarSystemDoClassificador(): string {
   return `
 Você classifica notícias.
 
-${LEITOR}
+${leitorVigente()}
 
 Para cada notícia, devolva:
 
@@ -175,7 +175,7 @@ ${REGRA_LEITURA}
 
 ${REGRA_EIXO}
 
-${REGRA_RELEVANCIA}
+${relevanciaVigente()}
 
 O que decide a nota é o fato, não a conclusão. Não force leitura negativa: se a notícia brasileira traz um dado bom ou neutro, classifique como está. A publicação compara Brasil e Estados Unidos com números, não com adjetivos, e não adota lado partidário: nenhum partido, nenhum político e nenhuma corrente são o assunto. O assunto é o efeito prático sobre a vida de quem decide ficar ou sair.
 

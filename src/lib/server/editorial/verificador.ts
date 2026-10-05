@@ -4,7 +4,7 @@ import { callOpenAIJSON, getAIProviderConfig } from "../newsroom/ai-provider";
 import type { Classificacao } from "./classificador";
 import type { ConfigEditorial } from "./config";
 import { MOTIVOS } from "./config";
-import { LEITOR, REGRA_EIXO, REGRA_LEITURA, REGRA_PAIS, REGRA_RELEVANCIA } from "./linha-editorial";
+import { REGRA_EIXO, REGRA_LEITURA, REGRA_PAIS, leitorVigente, relevanciaVigente } from "./linha-editorial";
 
 /**
  * A segunda leitura, só de quem está disputando vaga.
@@ -76,7 +76,7 @@ export function montarSystemDoVerificador(): string {
   return `
 Você confere a classificação de uma notícia.
 
-${LEITOR}
+${leitorVigente()}
 
 Isto NÃO é uma reclassificação. Outra leitura já foi feita e você vai vê-la. Sua função é dizer se ela se sustenta diante do texto, não repetir o trabalho.
 
@@ -90,7 +90,7 @@ eua_desfavoravel: true exatamente quando pais é "EUA" e leitura é "desfavorave
 
 ${REGRA_EIXO}
 
-${REGRA_RELEVANCIA}
+${relevanciaVigente()}
 
 fato_principal: uma frase dizendo o que aconteceu, tirada do texto. Se o texto não permitir escrever essa frase, devolva string vazia.
 

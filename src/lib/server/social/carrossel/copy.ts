@@ -20,7 +20,9 @@ import type { PacoteFactual } from "../../editorial/pacote-factual";
 import type { PautaAvaliada } from "../../editorial/guarda";
 import { CopyDoPostSchema, ctaDaPosicao, levaCta, type MarcaSocial } from "../copy";
 import { papeisDoModelo, papeisPara, type EstruturaDoCarrossel, type PapelDeSlide } from "./estrutura";
-import { REGRA_DA_MANCHETE } from "../manchete";
+import { regraDaMancheteVigente } from "../manchete";
+import { instrucaoVigente } from "../../instrucoes";
+import { vozSocialVigente } from "../voz";
 
 /**
  * Corta na última palavra inteira que cabe.
@@ -115,6 +117,28 @@ function descreverPapeis(papeis: PapelDeSlide[]): string {
     .join("\n");
 }
 
+/**
+ * O julgamento editorial do carrossel: quem lê e a régua de escopo. Editável
+ * no painel desde 05/10/2026 (etapa `carrossel_copy`). Os papéis dos slides,
+ * os tetos de caractere e o JSON são contrato e ficam no código.
+ */
+export const INSTRUCAO_PADRAO_CARROSSEL = `QUEM LÊ: uma pessoa no Brasil que sonha em morar, trabalhar ou investir nos Estados Unidos. Ainda não mora lá e não é especialista. Escreva como se explicasse para alguém inteligente que nunca leu um relatório técnico. Imigração não é assunto desta conta: não puxe a pauta para visto. Termo técnico só quando não há palavra comum, e aí explicado na mesma frase em que aparece. Nada de "beneficiário", "peticionário" e "adjudicação" soltos.
+
+  NÃO: "O beneficiário pode apresentar evidência em resposta ao RFE."
+  ASSIM: "Se a USCIS pedir mais provas, por um documento chamado RFE, o processo permite enviar documentos dentro do prazo indicado."
+
+  E só assim se o pacote factual sustentar. Explicar não autoriza acrescentar.
+
+ESCOPO: a afirmação não pode ser maior que o fato que a sustenta. É o erro mais fácil de cometer num carrossel, porque há slides para preencher, e nele nenhuma palavra é inventada: o que é inventado é o alcance. Cinco trocas proibidas:
+
+- possibilidade por certeza: se a fonte diz "pode", "em geral" ou "costuma", NÃO escreva "vai", "garante" ou "sempre";
+- parte por todo: se a fonte fala de "algumas situações" ou "certos casos", NÃO escreva "todos", "qualquer" ou "em qualquer caso";
+- um caso por uma regra: se a fonte descreve um exemplo ou uma decisão específica, NÃO afirme como regra geral;
+- evidência por exigência: se a fonte diz que algo "pode ser apresentado" ou "é considerado", NÃO escreva "é obrigatório" ou "precisa";
+- permissão por direito: se a fonte diz que algo é permitido em determinadas condições, NÃO escreva que a pessoa "tem direito" sem as condições.
+
+Escopo correto vale mais que manchete bonita. Isso vale em especial para comparação, processo, visto e perfil profissional, que são os formatos em que a tentação de generalizar é maior.`;
+
 export function montarSystemDoCarrossel(
   marca: MarcaSocial,
   estrutura: EstruturaDoCarrossel,
@@ -135,22 +159,7 @@ REGRA QUE VALE SOBRE TODAS: você só pode afirmar o que está no PACOTE FACTUAL
 
 CANAL: isto é Instagram, não newsletter. NÃO existe despedida. Proibido "Até amanhã", "Equipe ${marca.nome}", "Boa leitura" e qualquer assinatura de e-mail.
 
-QUEM LÊ: uma pessoa no Brasil que sonha em morar, trabalhar ou investir nos Estados Unidos. Ainda não mora lá e não é especialista. Escreva como se explicasse para alguém inteligente que nunca leu um relatório técnico. Imigração não é assunto desta conta: não puxe a pauta para visto. Termo técnico só quando não há palavra comum, e aí explicado na mesma frase em que aparece. Nada de "beneficiário", "peticionário" e "adjudicação" soltos.
-
-  NÃO: "O beneficiário pode apresentar evidência em resposta ao RFE."
-  ASSIM: "Se a USCIS pedir mais provas, por um documento chamado RFE, o processo permite enviar documentos dentro do prazo indicado."
-
-  E só assim se o pacote factual sustentar. Explicar não autoriza acrescentar.
-
-ESCOPO: a afirmação não pode ser maior que o fato que a sustenta. É o erro mais fácil de cometer num carrossel, porque há slides para preencher, e nele nenhuma palavra é inventada: o que é inventado é o alcance. Cinco trocas proibidas:
-
-- possibilidade por certeza: se a fonte diz "pode", "em geral" ou "costuma", NÃO escreva "vai", "garante" ou "sempre";
-- parte por todo: se a fonte fala de "algumas situações" ou "certos casos", NÃO escreva "todos", "qualquer" ou "em qualquer caso";
-- um caso por uma regra: se a fonte descreve um exemplo ou uma decisão específica, NÃO afirme como regra geral;
-- evidência por exigência: se a fonte diz que algo "pode ser apresentado" ou "é considerado", NÃO escreva "é obrigatório" ou "precisa";
-- permissão por direito: se a fonte diz que algo é permitido em determinadas condições, NÃO escreva que a pessoa "tem direito" sem as condições.
-
-Escopo correto vale mais que manchete bonita. Isso vale em especial para comparação, processo, visto e perfil profissional, que são os formatos em que a tentação de generalizar é maior.
+${instrucaoVigente("carrossel_copy", INSTRUCAO_PADRAO_CARROSSEL)}
 
 OS SLIDES, nesta ordem exata (${paraEscrever.length} slides para você escrever):
 ${descreverPapeis(papeis)}
@@ -164,17 +173,11 @@ COMO ESCREVER CADA SLIDE:
 
 O SLIDE 1 É O ÚNICO QUE APARECE NO FEED de quem não deslizou. Ele precisa funcionar sozinho: humano, claro, interessante, compreensível para quem não é advogado, e ancorado no pacote. Não é teaser: ele já diz do que se trata, e o "headline" abaixo é o texto dele.
 
-VOZ DE REDE SOCIAL (vale para TODO o texto, manchete incluída; onde a manchete pedir o contrário, está dito abaixo):
-aqui é feed, não é e-mail nem jornal.
-- Frase curta. Uma ideia por linha. Se der para cortar uma palavra, corte. NÃO aplique isso à manchete: ela precisa das palavras que o leitor usa para decidir se aquilo é sobre ele.
-- Fale com a pessoa: "se você está com F-1", "quem já protocolou". Isso é endereçamento, e é permitido.
-- Comece pelo que aconteceu, nunca pelo nome de um órgão praticando ato.
-- Palavra comum primeiro, sigla depois e só se ajudar. Nome oficial de norma e de processo em inglês não entra.
-- Zero emoji, zero gíria. Leve não é frouxo, e o assunto é a vida de alguém.
+${vozSocialVigente()}
 
 A LEGENDA não repete o carrossel. O detalhe está nos slides. A legenda tem gancho, resumo, ressalva quando necessária, e nada mais.
 
-${REGRA_DA_MANCHETE}
+${regraDaMancheteVigente()}
 
 Os outros campos:
 

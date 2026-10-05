@@ -320,6 +320,15 @@ export function createListmonkClient(env: EnvLike = process.env, fetcher: typeof
             const body = (await response.json().catch(() => ({}))) as { data?: { id?: number } };
             const campaignId = body.data?.id;
 
+            /*
+             * Com `sendAt`, "enviar" quer dizer AGENDAR. Entrou em 05/10/2026
+             * com a produção na véspera: a edição de amanhã é escrita às 17:00
+             * e só pode sair às 06:07. `running` dispararia na hora, para a
+             * lista inteira, com o conteúdo de amanhã. Sem `sendAt`, que é o
+             * ciclo das 06:03, nada muda.
+             */
+            const statusAlvo = campaign.sendAt ? "scheduled" : "running";
+
             if (campaign.autoSend && campaignId) {
               const statusRes = await fetcher(`${config.url}/api/campaigns/${campaignId}/status`, {
                 method: "PUT",
@@ -327,7 +336,7 @@ export function createListmonkClient(env: EnvLike = process.env, fetcher: typeof
                   Authorization: authHeader,
                   "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ status: "running" }),
+                body: JSON.stringify({ status: statusAlvo }),
               });
 
               if (!statusRes.ok) {
@@ -338,7 +347,7 @@ export function createListmonkClient(env: EnvLike = process.env, fetcher: typeof
               }
             }
 
-            return { ok: true as const, id: campaignId, status: campaign.autoSend ? "running" : "draft" };
+            return { ok: true as const, id: campaignId, status: campaign.autoSend ? statusAlvo : "draft" };
           }
 
           lastStatus = response.status;

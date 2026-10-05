@@ -124,6 +124,8 @@ describe("o cardápio de capacidades", () => {
       "visual",
       "keyword",
       "landing",
+      "producao_vespera",
+      "instrucoes",
     ]);
   });
 });

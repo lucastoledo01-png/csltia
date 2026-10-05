@@ -13,6 +13,9 @@ import { AdminNewsSourcesManager } from "@/components/AdminNewsSourcesManager";
 import { AdminSocialPostsManager } from "@/components/AdminSocialPostsManager";
 import { FerramentasArquivadas } from "@/components/admin/FerramentasArquivadas";
 import { LayoutDosPosts } from "@/components/admin/LayoutDosPosts";
+import { CalendarioDeConteudo } from "@/components/admin/CalendarioDeConteudo";
+import { InstrucoesEditoriais } from "@/components/admin/InstrucoesEditoriais";
+import { LogsDoDia } from "@/components/admin/LogsDoDia";
 
 /**
  * A área de um projeto.
@@ -35,6 +38,8 @@ type Secao =
   | "newsletter"
   | "fontes"
   | "blog"
+  | "calendario"
+  | "instrucoes"
   | "logs"
   | "avancado";
 
@@ -52,7 +57,10 @@ const SECOES: Array<{ id: Secao; rotulo: string; descricao: string }> = [
   },
   { id: "fontes", rotulo: "Fontes de busca", descricao: "De onde a redação lê o mundo." },
   { id: "blog", rotulo: "Blog", descricao: "Comentários dos leitores e audiência do portal." },
-  { id: "logs", rotulo: "Logs", descricao: "O que cada rodada da redação registrou." },
+  // 05/10/2026: o calendário (só leitura) e as instruções editoriais (RF-26).
+  { id: "calendario", rotulo: "Calendário", descricao: "A semana planejada e o que existe em cada canal." },
+  { id: "instrucoes", rotulo: "Instruções", descricao: "O julgamento editorial de cada etapa, com versões." },
+  { id: "logs", rotulo: "Logs", descricao: "O que cada rodada da redação registrou, e por quê." },
   { id: "avancado", rotulo: "Avançado", descricao: "Etapas ligadas e ferramentas arquivadas." },
 ];
 
@@ -239,7 +247,14 @@ function AreaDoProjeto({ slug }: { slug: string }) {
               <AdminAnalyticsDashboard />
             </div>
           ) : null}
-          {secao === "logs" ? <AdminLogsManager /> : null}
+          {secao === "calendario" ? <CalendarioDeConteudo projeto={projeto} /> : null}
+          {secao === "instrucoes" ? <InstrucoesEditoriais projeto={projeto} /> : null}
+          {secao === "logs" ? (
+            <div className="space-y-8">
+              <LogsDoDia projeto={projeto} />
+              <AdminLogsManager />
+            </div>
+          ) : null}
           {secao === "avancado" ? (
             <div className="space-y-8">
               <CapacidadesDoProjeto

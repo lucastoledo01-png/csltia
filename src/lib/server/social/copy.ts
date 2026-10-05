@@ -3,7 +3,9 @@ import { callOpenAIJSON, getAIProviderConfig } from "../newsroom/ai-provider";
 import type { PacoteFactual } from "../editorial/pacote-factual";
 import type { PautaAvaliada } from "../editorial/guarda";
 import { limparVicios } from "../newsroom/anti-vicios";
-import { FORMA_DA_MANCHETE, REGRA_DA_MANCHETE } from "./manchete";
+import { FORMA_DA_MANCHETE, regraDaMancheteVigente } from "./manchete";
+import { instrucaoVigente } from "../instrucoes";
+import { vozSocialVigente } from "./voz";
 
 /**
  * O texto de um post, escrito para o feed e não para o e-mail.
@@ -152,23 +154,12 @@ export function ctaDaPosicao(posicao: number, keyword: string): string {
   return forma.replace(/\{K\}/g, keyword.trim());
 }
 
-export function montarSystemDaCopy(marca: MarcaSocial): string {
-  return `
-Você escreve um POST DE IMAGEM ÚNICA para o Instagram da marca "${marca.nome}".
-
-NICHO:
-${marca.nicho}
-
-BRIEFING (vale sobre qualquer regra genérica abaixo):
-${marca.extra}
-
-REGRA QUE VALE SOBRE TODAS: você só pode afirmar o que está no PACOTE FACTUAL. Ele é a lista do que a matéria diz. Número, prazo, taxa, nome e data que não estiverem lá não existem. Não deduza, não arredonde, não complete, não use o que você sabe do assunto.
-
-CANAL: isto é Instagram, não newsletter. O perfil publica várias vezes por dia, então NÃO existe despedida. Proibido "Até amanhã", "Nos vemos amanhã", "Equipe ${marca.nome}", "Boa leitura" e qualquer assinatura de e-mail.
-
-${REGRA_DA_MANCHETE}
-
-E, na manchete, as quatro que derrubam o post:
+/**
+ * O julgamento editorial do post de imagem única, editável no painel desde
+ * 05/10/2026 (etapa `social_copy`). O que fica fora daqui é contrato: o canal,
+ * a regra do pacote factual, a ordem da legenda e o JSON de saída.
+ */
+export const INSTRUCAO_PADRAO_SOCIAL_COPY = `E, na manchete, as quatro que derrubam o post:
 - Nada de clickbait, nada de pergunta retórica, nada de "você não vai acreditar".
 - Não transforme possibilidade em certeza: "pode mudar" não vira "muda", "proposta avançou" não vira "aprovado".
 - Não inverta a decisão: quem suspendeu não aprovou.
@@ -189,15 +180,27 @@ ressalva: quase sempre VAZIA. Ela só existe quando calar seria enganoso, e mesm
 - Quando a falta É a notícia, escreva falando da divulgação: "a nova data ainda não foi divulgada".
 - Na dúvida, deixe vazio. Post mais curto é melhor que post que explica o que não tem.
 
-hashtags: de 4 a 7, específicas DESTA pauta.
+hashtags: de 4 a 7, específicas DESTA pauta.`;
 
-VOZ DE REDE SOCIAL (vale para TODO o texto, manchete incluída; onde a manchete pedir o contrário, está dito abaixo):
-aqui é feed, não é e-mail nem jornal.
-- Frase curta. Uma ideia por linha. Se der para cortar uma palavra, corte. NÃO aplique isso à manchete: ela precisa das palavras que o leitor usa para decidir se aquilo é sobre ele.
-- Fale com a pessoa: "se você está com F-1", "quem já protocolou". Isso é endereçamento, e é permitido.
-- Comece pelo que aconteceu, nunca pelo nome de um órgão praticando ato.
-- Palavra comum primeiro, sigla depois e só se ajudar. Nome oficial de norma e de processo em inglês não entra.
-- Zero emoji, zero gíria. Leve não é frouxo, e o assunto é a vida de alguém.
+export function montarSystemDaCopy(marca: MarcaSocial): string {
+  return `
+Você escreve um POST DE IMAGEM ÚNICA para o Instagram da marca "${marca.nome}".
+
+NICHO:
+${marca.nicho}
+
+BRIEFING (vale sobre qualquer regra genérica abaixo):
+${marca.extra}
+
+REGRA QUE VALE SOBRE TODAS: você só pode afirmar o que está no PACOTE FACTUAL. Ele é a lista do que a matéria diz. Número, prazo, taxa, nome e data que não estiverem lá não existem. Não deduza, não arredonde, não complete, não use o que você sabe do assunto.
+
+CANAL: isto é Instagram, não newsletter. O perfil publica várias vezes por dia, então NÃO existe despedida. Proibido "Até amanhã", "Nos vemos amanhã", "Equipe ${marca.nome}", "Boa leitura" e qualquer assinatura de e-mail.
+
+${regraDaMancheteVigente()}
+
+${instrucaoVigente("social_copy", INSTRUCAO_PADRAO_SOCIAL_COPY)}
+
+${vozSocialVigente()}
 
 ESTRUTURA DA LEGENDA, nesta ordem: gancho, fato principal, contexto, informação útil, ressalva quando necessária.
 

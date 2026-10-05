@@ -3,6 +3,8 @@ import type { NextRequest } from "next/server";
 import { requireCron } from "@/lib/server/api-auth";
 import { anexarDesfechoDoAlerta, runNewsroom } from "@/lib/server/newsroom/newsroom-service";
 import { enviarAlerta, formatError, pingHealthcheck, sendAlert } from "@/lib/server/alerts";
+import { cicloDasSeisCede } from "@/lib/server/producao-vespera";
+import { DEFAULT_PROJECT_ID, getProjectById } from "@/lib/server/projects";
 
 export const maxDuration = 300;
 
@@ -135,6 +137,30 @@ async function handle(req: NextRequest) {
   const chave = req.nextUrl.searchParams.get("key")?.trim() || undefined;
   const disparadoEm = new Date().toISOString();
   const healthcheck = process.env.HEALTHCHECK_NEWSROOM_URL;
+
+  /*
+   * Com a produção na véspera NO AR (05/10/2026), este horário não produz: o
+   * conteúdo de hoje foi escrito ontem às 17:00, e quem o publica é o relógio
+   * da publicação. Produzir de novo aqui publicaria um segundo dia por cima
+   * do primeiro, inclusive na segunda, que pela cadência do PRD não publica.
+   *
+   * Só cede com a capacidade declarada `enforce`. Leitura que falha NÃO cede:
+   * na dúvida o ciclo de sempre roda, que é o comportamento de antes desta
+   * linha existir. `?key=` também não cede, porque é refazer o dia à mão.
+   */
+  if (!chave) {
+    const projeto = await getProjectById(DEFAULT_PROJECT_ID).catch(() => null);
+    if (cicloDasSeisCede(projeto)) {
+      console.log("[CRON NEWSROOM] produção na véspera em enforce: o ciclo das 06:03 não produz hoje.");
+      await pingHealthcheck(healthcheck);
+      return NextResponse.json({
+        ok: true,
+        skipped: true,
+        motivo: "PRODUCAO_NA_VESPERA",
+        message: "Este projeto produz na véspera às 17:00; ver /api/cron/producao e newsroom_runs.",
+      });
+    }
+  }
 
   void pingHealthcheck(healthcheck, "start");
 

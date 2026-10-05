@@ -33,11 +33,29 @@ export type ConfigDaAgenda = {
   /** Folga entre criar a vaga e ela vencer, para o roteiro ser gerado. */
   folgaInicialEmMinutos: number;
   timezone: string;
+  /**
+   * A grade fixa do projeto, quando existe.
+   *
+   * Entrou em 05/10/2026 com a cadência do PRD: o Instagram publica nos
+   * horários que o dono escolheu (08:00, 11:22, 14:45, 18:07, 21:30), e não
+   * numa janela dividida em partes iguais. Ausente, que é o caso do ciclo das
+   * 06:03, tudo funciona como antes. Ver `cadencia.ts`.
+   */
+  horarios?: string[];
 };
 
 function texto(nome: string, padrao: string, env: Record<string, string | undefined>): string {
   const bruto = (env[nome] || "").trim();
   return /^\d{2}:\d{2}$/.test(bruto) ? bruto : padrao;
+}
+
+function grade(env: Record<string, string | undefined>): string[] | undefined {
+  const bruto = (env.SOCIAL_HORARIOS || "").trim();
+  if (!bruto) return undefined;
+  const horarios = bruto.split(",").map((h) => h.trim());
+  // Um horário torto invalida a grade inteira, e não só ele: grade pela metade
+  // publicaria num horário que ninguém escolheu.
+  return horarios.every((h) => /^\d{2}:\d{2}$/.test(h)) ? [...horarios].sort() : undefined;
 }
 
 function numero(nome: string, padrao: number, env: Record<string, string | undefined>): number {
@@ -56,6 +74,7 @@ export function carregarConfigDaAgenda(
     espacamentoMinimoEmMinutos: numero("SOCIAL_ESPACAMENTO_MINUTOS", 45, env),
     folgaInicialEmMinutos: numero("SOCIAL_FOLGA_MINUTOS", 10, env),
     timezone,
+    horarios: grade(env),
   };
 }
 
@@ -100,8 +119,24 @@ export function distribuirVagas(
   const piso = agoraMs + config.folgaInicialEmMinutos * 60_000;
 
   const alvos: number[] = [];
+  const fixos = config.horarios ?? [];
 
-  if (quantidade === 1) {
+  if (fixos.length > 0 && quantidade <= fixos.length) {
+    /*
+     * Com grade fixa, N posts ocupam N dos horários escolhidos, espalhados
+     * pela grade e nunca inventados fora dela. Um post só vai para o horário
+     * da grade mais perto do nobre, pela mesma razão do caso sem grade.
+     */
+    const instantes = fixos.map((h) => zonedTimeToUtc(dataIso, h, config.timezone).getTime());
+    if (quantidade === 1) {
+      const maisPerto = instantes.reduce((a, b) => (Math.abs(b - nobreMs) < Math.abs(a - nobreMs) ? b : a));
+      alvos.push(maisPerto);
+    } else {
+      for (let i = 0; i < quantidade; i += 1) {
+        alvos.push(instantes[Math.round((i * (instantes.length - 1)) / (quantidade - 1))]);
+      }
+    }
+  } else if (quantidade === 1) {
     alvos.push(nobreMs);
   } else {
     const passo = (fimMs - inicioMs) / (quantidade - 1);

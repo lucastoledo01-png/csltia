@@ -1,3 +1,5 @@
+import { instrucaoVigente, preencherMarcadores } from "../instrucoes";
+
 /**
  * A forma da manchete de capa. Uma regra, num lugar só.
  *
@@ -57,8 +59,14 @@ export const FORMA_DA_MANCHETE = {
  * O que preenche a forma continua vindo do pacote factual, e é por isso que o
  * bloco termina onde termina: pedir "gancho" sem lastro é como o hedge entrou
  * na redação, e a régua de alucinação recusa do mesmo jeito.
+ *
+ * Desde 05/10/2026 o TEXTO é editável no painel (etapa `manchete`), e os
+ * NÚMEROS não: eles são o contrato que `social-guard.ts` confere. Por isso o
+ * modelo escreve os tetos como marcadores, e quem os preenche é o código, com
+ * os valores de `FORMA_DA_MANCHETE`. Uma versão do painel que apague o
+ * marcador perde a frase do tamanho no prompt, e a guarda continua barrando.
  */
-export const REGRA_DA_MANCHETE = `A MANCHETE DA CAPA
+export const MODELO_DA_REGRA_DA_MANCHETE = `A MANCHETE DA CAPA
 
 Ela é o post inteiro para quem não deslizou. Manchete ampla não dá o que decidir: "Corte adia regra de prazo" serve para qualquer regra, qualquer prazo e qualquer pessoa, e quem lê passa reto.
 
@@ -86,10 +94,26 @@ A FORMA. De duas partes, e os dois-pontos são UMA opção, não o padrão: nas 
   "Regra de prazo fixo segue suspensa e o prazo aberto continua valendo para estudantes"
   "Gilmar Mendes em sessão sobre Moraes: 'até a máfia tem ética'"
 
-TAMANHO: de ${FORMA_DA_MANCHETE.minimoDePalavras} a ${FORMA_DA_MANCHETE.maximoDePalavras} palavras, de ${FORMA_DA_MANCHETE.minimoDeCaracteres} a ${FORMA_DA_MANCHETE.maximoDeCaracteres} caracteres. São três linhas na arte, e três linhas é o alvo.
+TAMANHO: de {{minimo_de_palavras}} a {{maximo_de_palavras}} palavras, de {{minimo_de_caracteres}} a {{maximo_de_caracteres}} caracteres. São três linhas na arte, e três linhas é o alvo.
 
 O DETALHE VEM DO PACOTE FACTUAL. Se não houver número, prazo nem citação, a segunda parte é o efeito concreto que a fonte descreve, com as palavras dela. E nomear o leitor é obrigação de FORMA, nunca licença para inventar alcance: o grupo afetado sai da fonte. Continua proibido escrever que algo "muda o cenário para brasileiros" quando o pacote não diz isso.
 
 RETOMADA. Quando a mesma história volta, a manchete carrega o dado NOVO: a data, a etapa, quem fica de fora, o que passa a valer. Trocar "corte" por "tribunal" e "D/S" por "duration of status" não é manchete nova, é a mesma repetida.
 
 PROIBIDO na manchete: pergunta, "entenda", "veja o que muda", "tudo sobre", "saiba mais", promessa de resultado, e adjetivo no lugar do fato ("decisão histórica", "mudança enorme"). O que prende a atenção é o fato com o detalhe, não o adjetivo sobre ele.`;
+
+
+const TETOS_DA_MANCHETE = {
+  minimo_de_palavras: FORMA_DA_MANCHETE.minimoDePalavras,
+  maximo_de_palavras: FORMA_DA_MANCHETE.maximoDePalavras,
+  minimo_de_caracteres: FORMA_DA_MANCHETE.minimoDeCaracteres,
+  maximo_de_caracteres: FORMA_DA_MANCHETE.maximoDeCaracteres,
+};
+
+/** A regra do código, já com os números. É o texto que valia antes de 05/10/2026. */
+export const REGRA_DA_MANCHETE = preencherMarcadores(MODELO_DA_REGRA_DA_MANCHETE, TETOS_DA_MANCHETE);
+
+/** A regra que vale no ciclo em curso: a versão do painel, se ligada, com os números do código. */
+export function regraDaMancheteVigente(): string {
+  return preencherMarcadores(instrucaoVigente("manchete", MODELO_DA_REGRA_DA_MANCHETE), TETOS_DA_MANCHETE);
+}

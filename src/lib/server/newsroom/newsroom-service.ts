@@ -50,6 +50,7 @@ import type { PacoteFactual } from "../editorial/pacote-factual";
 import type { PautaAvaliada } from "../editorial/guarda";
 import type { RankedCandidate } from "./ranker";
 import { modoDoPipelineSocial, type ModoSocial } from "../social/modo";
+import { entrarNasInstrucoes, prepararInstrucoesDoProjeto } from "../instrucoes";
 import type { ProjetoComCapacidades } from "../capacidades";
 import { envDoListmonk } from "../credenciais-do-projeto";
 
@@ -62,7 +63,46 @@ export type RunNewsroomOptions = {
   publishToPortal?: boolean;
   createNewsletterCampaign?: boolean;
   autoSend?: boolean;
+  /**
+   * A data da edição, AAAA-MM-DD no fuso do projeto. Ausente, é hoje.
+   *
+   * Entrou em 05/10/2026 com a produção na véspera (`producao-vespera.ts`): às
+   * 17:00 de segunda a redação escreve a edição de terça. O ciclo das 06:03
+   * não passa este campo, e continua escrevendo a edição de hoje.
+   */
+  editionDate?: string;
+  /**
+   * Publicação com hora marcada, em vez de publicar agora.
+   *
+   * Com este campo a edição é gravada como `approved` (fora do portal até a
+   * hora), o artigo como `scheduled` com `published_at` no horário do portal,
+   * e a campanha do Listmonk AGENDADA para o horário da newsletter. Quem vira
+   * `approved` em `published` na hora certa é `publicacao-agendada.ts`.
+   * Ausente, que é o ciclo das 06:03, tudo sai na hora, como sempre.
+   */
+  agendamento?: {
+    /** Instante ISO do disparo da newsletter. */
+    newsletterEm: string;
+    /** Instante ISO em que o artigo do portal vai ao ar. */
+    portalEm: string;
+  };
 };
+
+const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * A data da edição: a pedida, ou hoje no fuso do projeto.
+ *
+ * Data pedida em formato errado é ERRO, e não fallback para hoje: produzir a
+ * edição de hoje às 17:00 publicaria o dia errado com a chave de outro.
+ */
+export function dataDaEdicao(options: Pick<RunNewsroomOptions, "editionDate">, project: { timezone: string }): string {
+  if (options.editionDate === undefined) return projectToday(project);
+  if (!DATA_ISO.test(options.editionDate)) {
+    throw new Error(`editionDate inválida: "${options.editionDate}". Esperado AAAA-MM-DD.`);
+  }
+  return options.editionDate;
+}
 
 /*
  * Aqui havia cinco fotos fixas do Unsplash, todas de tecnologia, usadas como
@@ -168,10 +208,17 @@ export function renderEditionToHtml(
   imagens: ImagensDaEdicao = new Map(),
   paraWeb = false,
   legendas: LegendasDaEdicao = new Map(),
+  /**
+   * A data que a edição LEVA, AAAA-MM-DD. Ausente, é o relógio, como sempre
+   * foi. Na produção da véspera (05/10/2026) a edição de terça é montada na
+   * segunda, e sem isto o cabeçalho diria segunda e o link apontaria para o
+   * artigo de segunda.
+   */
+  dataDaEdicaoIso?: string,
 ): string {
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = dataDaEdicaoIso ?? new Date().toISOString().split("T")[0];
 
-  const dataLonga = new Date()
+  const dataLonga = (dataDaEdicaoIso ? new Date(`${dataDaEdicaoIso}T12:00:00Z`) : new Date())
     .toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })
     .toUpperCase();
 
@@ -711,7 +758,7 @@ export async function registrarFalhaDaRedacao(
     if (dryRun) return;
 
     const project = await requireActiveProject(options.projectId ?? DEFAULT_PROJECT_ID);
-    const todayStr = projectToday(project);
+    const todayStr = dataDaEdicao(options, project);
     const chaveDoDia = options.idempotencyKey || `daily-edition-${todayStr}`;
     const quando = new Date().toISOString().replace(/\.\d+Z$/, "Z");
 
@@ -1007,9 +1054,18 @@ async function executarRedacaoDoDia(
 
   const project = await requireActiveProject(options.projectId ?? DEFAULT_PROJECT_ID);
 
+  /*
+   * As instruções editoriais do projeto valem daqui até o fim do ciclo
+   * (RF-26). Com a capacidade `instrucoes` desligada, que é o padrão, isto não
+   * lê nada e os prompts saem byte a byte como antes. Ver `instrucoes.ts`.
+   */
+  entrarNasInstrucoes(await prepararInstrucoesDoProjeto(project, { cliente: getSupabaseAdminClient }));
+
   // A data vem do fuso do projeto. Com UTC, toda execução depois das 21h no
-  // Brasil era gravada com a data do dia seguinte.
-  const todayStr = projectToday(project);
+  // Brasil era gravada com a data do dia seguinte. Na produção da véspera, a
+  // data é a de amanhã, pedida por quem chamou.
+  const todayStr = dataDaEdicao(options, project);
+  const agendamento = options.agendamento;
   const idempotencyKey = options.idempotencyKey || `daily-edition-${todayStr}`;
 
   console.log(`[NEWSROOM] Iniciando run da redação de ${project.slug} (dry_run: ${dryRun}, auto_send: ${autoSend}, key: ${idempotencyKey})...`);
@@ -1745,9 +1801,9 @@ async function executarRedacaoDoDia(
     imagensDaEdicao = paraRenderizacao(escolhasDeImagem);
   }
 
-  const htmlContent = renderEditionToHtml(pipelineResult.edition, imagensDaEdicao, false, legendasDaEdicao);
+  const htmlContent = renderEditionToHtml(pipelineResult.edition, imagensDaEdicao, false, legendasDaEdicao, todayStr);
   // Versão sem o cromo de e-mail, para o corpo do artigo no portal.
-  const htmlParaPortal = renderEditionToHtml(pipelineResult.edition, imagensDaEdicao, true, legendasDaEdicao);
+  const htmlParaPortal = renderEditionToHtml(pipelineResult.edition, imagensDaEdicao, true, legendasDaEdicao, todayStr);
   const wordCount = htmlContent.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
   const executionTimeMs = Date.now() - startTime;
 
@@ -1795,7 +1851,9 @@ async function executarRedacaoDoDia(
             qa_score: pipelineResult.qaResult.score,
             qa_hallucination_risk: pipelineResult.qaResult.hallucination_risk,
             qa_issues: pipelineResult.qaResult.issues,
-            status: "published",
+            // Agendada, a edição espera a hora fora do portal: o portal lista
+            // só `published`. Ver `publicacao-agendada.ts`.
+            status: agendamento ? "approved" : "published",
             updated_at: new Date().toISOString(),
           },
           { onConflict: "project_id,edition_date" },
@@ -1914,7 +1972,7 @@ async function executarRedacaoDoDia(
             cover_image: primaryCoverImage,
             content_html: htmlParaPortal,
             content: pipelineResult.edition.stories,
-            status: "published",
+            status: agendamento ? "scheduled" : "published",
             category: "Edição Diária",
             author: MARCA.nome,
             reading_minutes: Math.ceil(wordCount / 200),
@@ -1945,7 +2003,7 @@ async function executarRedacaoDoDia(
             seo_title: pipelineResult.edition.headline || pipelineResult.edition.subject,
             seo_description: (pipelineResult.edition.preheader || pipelineResult.edition.intro || "").slice(0, 160),
             canonical_url: `${MARCA.site}/artigos/${articleSlug}`,
-            published_at: new Date().toISOString(),
+            published_at: agendamento?.portalEm ?? new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
           { onConflict: "project_id,slug" }
@@ -1995,6 +2053,9 @@ async function executarRedacaoDoDia(
         subject: pipelineResult.edition.subject,
         body: htmlContent,
         autoSend: autoSend && !retidoPorAlucinacao,
+        // Com agendamento, `autoSend` AGENDA para a hora da newsletter em vez
+        // de disparar. Ver `listmonk.ts`.
+        ...(agendamento ? { sendAt: agendamento.newsletterEm } : {}),
       });
 
       if (campaignResult.ok && campaignResult.id) {

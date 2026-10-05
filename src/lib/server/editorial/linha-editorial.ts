@@ -34,6 +34,8 @@
  * notícia de visto cairia em "politica" e passaria.
  */
 
+import { instrucaoVigente } from "../instrucoes";
+
 export const LEITOR = `
 A publicação é brasileira e é sobre os ESTADOS UNIDOS: economia, trabalho, custo de vida, política, tecnologia, cultura, segurança e cidades. Imigração NÃO é assunto da publicação: visto, green card, processo migratório, deportação e fronteira ficam fora.
 O leitor é o brasileiro que SONHA com os EUA: pensa em morar, trabalhar ou investir lá. Não é quem já mora nos EUA. A linha é notícia positiva dos EUA e notícia ruim do Brasil, aproveitando o que está em alta.
@@ -75,3 +77,20 @@ Para notícia do Brasil: quanto existe ali um PROBLEMA FACTUAL CONCRETO que afet
 
 Para notícia de terceiro país: só interessa se afetar brasileiro que quer viver ou investir nos EUA. Caso contrário, 0.
 `.trim();
+
+/*
+ * O leitor e a régua de relevância são JULGAMENTO editorial e o dono pode
+ * reescrevê-los no painel (RF-26, 05/10/2026). País, leitura e eixo NÃO: os
+ * três nomeiam os valores que o schema da classificação aceita, e um valor
+ * renomeado no painel viraria classificação inválida sem erro de compilação.
+ *
+ * Os dois prompts chamam ESTAS funções, nunca `instrucaoVigente` direto: é o
+ * que mantém a régua num lugar só, que é a razão de este arquivo existir.
+ */
+export function leitorVigente(): string {
+  return instrucaoVigente("linha_editorial_leitor", LEITOR);
+}
+
+export function relevanciaVigente(): string {
+  return instrucaoVigente("linha_editorial_relevancia", REGRA_RELEVANCIA);
+}
