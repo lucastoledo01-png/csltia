@@ -142,7 +142,16 @@ export async function getPublishedArticles(): Promise<Article[]> {
 export async function getArticleBySlug(slug: string) {
   const all = await getAllArticlesForAdmin();
   const found = all.find((a) => a.slug === slug);
-  if (found) return found;
+  /*
+   * Só o publicado tem página (05/10/2026).
+   *
+   * Até aqui todo artigo do banco nascia `published`, e por isso a leitura
+   * nunca perguntou o status. Com o portal como ramo próprio, a matéria nasce
+   * `scheduled` e à espera de aprovação, e sem esta linha ela estaria no ar
+   * pelo slug antes de alguém aprovar. Medido no banco nesta data: nenhum
+   * artigo fora de `published`, então nada que estava no ar sai do ar.
+   */
+  if (found) return found.status === "published" ? found : null;
 
   const staticArt = staticArticles.find((a) => a.slug === slug);
   if (!staticArt) return null;

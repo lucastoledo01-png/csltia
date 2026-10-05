@@ -628,6 +628,45 @@ para o dono rodar: o nicho e o briefing editorial do projeto, o evergreen
 desligado (os 66 temas do catálogo são todos de imigração) e as quatro fontes
 ativas dedicadas a imigração. Nada foi apagado.
 
+## Três ramos, e nenhum herda o texto do outro (05/10/2026)
+
+A decisão do dono: a newsletter deixa de ser a mãe dos outros canais. Até aqui
+ela compunha primeiro, o portal publicava o HTML do e-mail como artigo, e o
+agendador legado do Instagram fazia um post por pauta da edição.
+
+**O que é comum aos três:** coleta, classificação, pacote factual e resolução
+de imagem. **O que é de cada ramo:** seleção, redação, auditor, arte e fila. A
+mesma pauta pode sair nos três canais; o que é proibido é repetir DENTRO do
+canal. O código está em `src/lib/server/ramos/`.
+
+- **Newsletter:** de 2 a 4 pautas com pacote factual, nenhum acontecimento
+  repetido (cosseno abaixo de 0.70, conferido de novo na saída), voz de
+  e-mail no formato "The News".
+- **Portal:** até 3 matérias por dia, de qualquer pauta aprovada com pacote,
+  inclusive as que a newsletter não levou. Uma matéria por pauta, escrita como
+  matéria de busca, com auditor próprio. Nasce `scheduled` e `needs_review`
+  com o horário em `published_at`, e só vira `published` quando alguém aprovou
+  E o horário chegou (`/api/cron/portal`, nos horários 06:07, 12:00 e 18:00).
+- **Instagram:** até 5 posts sobre o pool mais as candidatas extras (perfis de
+  referência e fontes do feed), evergreen desligado, voz de Not Journal e
+  Brazil Journal.
+
+**O pacote factual é a única matéria-prima.** Pauta sem pacote não é escolhida
+por ramo nenhum: o texto cru da fonte não chega a redator nenhum.
+
+**Nota baixa de QA vira aviso; risco de alucinação continua bloqueando
+sozinho.** Fecha a divergência registrada em 18/09: o piso de 85 sai do portão
+e vai para a peça, onde quem aprova vê. As duas ancoragens e o risco de
+alucinação não mudaram.
+
+**Tudo atrás de `settings.capacidades.ramos`.** Não declarado é `off`, e `off`
+é o fluxo de antes. Em `dry_run` os ramos rodam e gravam diagnóstico em
+`platform_events` (`ramo_veredito`, `ramo_custos_do_dia`), e quem publica é o
+fluxo de antes. Os ramos só mandam com a guarda também em `enforce`.
+
+**As instruções passam por `instrucaoDaEtapa`**, em `src/lib/server/instrucoes.ts`,
+que hoje devolve o texto do código e amanhã lê a versão editável do banco.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

@@ -52,6 +52,19 @@ import type { RankedCandidate } from "./ranker";
 import { modoDoPipelineSocial, type ModoSocial } from "../social/modo";
 import type { ProjetoComCapacidades } from "../capacidades";
 import { envDoListmonk } from "../credenciais-do-projeto";
+import { modoDosRamos } from "../ramos/modo";
+import type { ModoDosRamos } from "../ramos/modo";
+import { criarLivroDeCustos } from "../ramos/custos";
+import { montarPeca } from "../ramos/peca";
+import type { PecaPronta } from "../ramos/peca";
+import { vozesDosRamos } from "../ramos/vozes";
+import type { VozesDosRamos } from "../ramos/vozes";
+import { TETO_DO_INSTAGRAM, preSelecaoParaPacote, selecionarParaNewsletter } from "../ramos/selecao";
+import { garantirPacotes, rodarRamoDoPortal } from "../ramos/ramo-do-portal";
+import type { ResultadoDoRamoDoPortal } from "../ramos/ramo-do-portal";
+import { gravarArtigosAgendados, horariosDoPortal } from "../ramos/portal";
+import { gravarCustos, gravarVeredito, vereditoDaPeca } from "../ramos/registro";
+import { lancarCustosDoInstagram, pecasDoInstagram } from "../ramos/instagram";
 
 export type RunNewsroomOptions = {
   /** Projeto para o qual a edição é produzida. Sem valor, usa o projeto semente. */
@@ -62,6 +75,20 @@ export type RunNewsroomOptions = {
   publishToPortal?: boolean;
   createNewsletterCampaign?: boolean;
   autoSend?: boolean;
+  /**
+   * Candidatas do Instagram que não vieram da coleta: perfis de referência e
+   * fontes do feed, construídos em paralelo (05/10/2026). Só são lidas com os
+   * ramos em `enforce`.
+   */
+  candidatasExtrasDoInstagram?: PautaAvaliada[];
+  /**
+   * Recebe cada peça pronta dos três ramos, para a fila de aprovação.
+   *
+   * A fila é construída em paralelo; este é o ponto de encaixe. Só é chamado
+   * com os ramos em `enforce` e fora de ensaio. Falha aqui vira log, nunca
+   * derruba o ciclo.
+   */
+  aoProduzirPeca?: (peca: PecaPronta) => Promise<void> | void;
 };
 
 /*
@@ -1119,6 +1146,55 @@ async function executarRedacaoDoDia(
   const modo = modoDaGuarda(env, project);
   console.log(`[NEWSROOM] Guarda editorial ${descreverModo(modo)} (EDITORIAL_GUARD=${modo}).`);
 
+  /*
+   * Os três ramos (05/10/2026). Ver `ramos/modo.ts`.
+   *
+   * Eles dependem do pool da guarda, então sem guarda não há ramo. E só
+   * mandam quando a guarda também manda: com a guarda em observação quem
+   * escolhe a edição é o ranker antigo, e um ramo em `enforce` em cima dele
+   * decidiria sobre uma seleção que não é a publicada. Nesse caso o ramo
+   * desce para `dry_run` e o log diz por quê.
+   */
+  const modoRamosDeclarado = modoDosRamos(env, project);
+  const modoRamos: ModoDosRamos =
+    modo === "off" ? "off" : modo === "dry_run" && modoRamosDeclarado === "enforce" ? "dry_run" : modoRamosDeclarado;
+  const ramosNoComando = modoRamos === "enforce";
+  if (modoRamosDeclarado !== "off") {
+    console.log(
+      `[NEWSROOM] Ramos ${modoRamos}` +
+        (modoRamos !== modoRamosDeclarado ? ` (declarado ${modoRamosDeclarado}, guarda em ${modo})` : "") +
+        ".",
+    );
+  }
+  const livro = criarLivroDeCustos();
+  const pecasDoDia: PecaPronta[] = [];
+  /** O pacote factual é camada comum: um por pauta, para todos os ramos. */
+  const pacotesDoDia = new Map<string, PacoteFactual>();
+  const vozes: VozesDosRamos | null = modoRamos !== "off" ? await vozesDosRamos(project.id) : null;
+  let resultadoDoPortal: ResultadoDoRamoDoPortal | null = null;
+  // O registro dos ramos vai para o banco só fora de ensaio, como o resto.
+  const registrarRamos = modoRamos !== "off" && !dryRun;
+  const contextoDoRegistro = { data: todayStr, dryRun, modo: modoRamos };
+  const fecharCustosDosRamos = async () => {
+    if (!registrarRamos) return;
+    const erro = await gravarCustos(getSupabaseAdminClient(), project.id, livro, contextoDoRegistro);
+    if (erro) console.warn(`[NEWSROOM] custos dos ramos não gravados: ${erro}`);
+  };
+  const entregarPeca = async (peca: PecaPronta) => {
+    pecasDoDia.push(peca);
+    if (registrarRamos) {
+      const erro = await gravarVeredito(getSupabaseAdminClient(), project.id, vereditoDaPeca(peca), contextoDoRegistro);
+      if (erro) console.warn(`[NEWSROOM] veredito do ramo ${peca.ramo} não gravado: ${erro}`);
+    }
+    if (ramosNoComando && !dryRun && options.aoProduzirPeca) {
+      try {
+        await options.aoProduzirPeca(peca);
+      } catch (erro) {
+        console.warn(`[NEWSROOM] fila não recebeu a peça ${peca.ramo} ${peca.referenciaId}: ${(erro as Error).message}`);
+      }
+    }
+  };
+
   let ranked: RankedCandidate[];
   let pautasDaGuarda: PautaAvaliada[] = [];
   let diagnosticoDeCandidatas: {
@@ -1198,6 +1274,7 @@ async function executarRedacaoDoDia(
     );
 
     for (const linha of resultado.linhasDeLog) console.log(linha);
+    livro.lancar("classificacao", "comum", resultado.custoUsd, resultado.tokens.total);
 
     /*
      * O Instagram entra AQUI, e o lugar é a regra de produto.
@@ -1219,6 +1296,24 @@ async function executarRedacaoDoDia(
     rastro.funil = { ...rastro.funil, approvedCount: resultado.approvedEditorialPool.length };
 
     const modoSocialDoEnsaio = modoSocialParaOEnsaio(dryRun, env, project);
+    /*
+     * O ramo próprio do Instagram (RF-15): a voz do post depois do briefing,
+     * até cinco posts, pool mais as candidatas extras, pacote factual
+     * obrigatório e evergreen desligado. Fora do comando dos ramos nada disto
+     * é passado, e o ciclo é o de antes.
+     */
+    const extraDoSocial =
+      ramosNoComando && vozes
+        ? [project.editorialPromptExtra ?? "", vozes.post].filter(Boolean).join("\n\n")
+        : (project.editorialPromptExtra ?? "");
+    const opcoesDoRamoNoSocial = ramosNoComando
+      ? {
+          tetoDoDia: TETO_DO_INSTAGRAM,
+          candidatasExtras: options.candidatasExtrasDoInstagram ?? [],
+          exigirPacoteFactual: true,
+          evergreen: { modoForcado: "off" as const },
+        }
+      : {};
     let resultadoSocial: Awaited<ReturnType<typeof rodarSocialDoDia>> | null = null;
 
     try {
@@ -1232,7 +1327,7 @@ async function executarRedacaoDoDia(
         marca: {
           nome: project.brand.displayName || project.name,
           nicho: project.niche,
-          extra: project.editorialPromptExtra ?? "",
+          extra: extraDoSocial,
           keyword: String(project.settings?.instagram_keyword ?? "").trim(),
         },
         historico,
@@ -1241,7 +1336,13 @@ async function executarRedacaoDoDia(
         persistenciaDegradada: resultado.reuso.erros.length > 0,
         env,
         fetcher,
+        ...opcoesDoRamoNoSocial,
       });
+
+      if (modoRamos !== "off") {
+        lancarCustosDoInstagram(livro, social);
+        for (const peca of pecasDoInstagram(social)) await entregarPeca(peca);
+      }
 
       rastro.social = social.diagnostico;
       for (const l of social.ciclo?.linhasDeLog ?? []) console.log(l);
@@ -1277,7 +1378,126 @@ async function executarRedacaoDoDia(
     );
     if (naoGravado) console.warn(`[NEWSROOM] diagnóstico do social não gravado: ${naoGravado}`);
 
-    const daGuarda: RankedCandidate[] = resultado.selecionadas.map((p) => ({
+    /*
+     * A camada comum dos ramos: o pacote factual, uma vez por pauta.
+     *
+     * A pré-seleção decide quais pautas qualquer ramo PODE levar, e só elas
+     * pagam extração. Depois disso cada ramo escolhe a sua, já exigindo o
+     * pacote (RF-05).
+     */
+    let selecionadasDaNewsletter = resultado.selecionadas;
+    let viavelDaNewsletter = resultado.viavel;
+    let motivoDaInviabilidade = resultado.motivoDaInviabilidade;
+
+    if (modoRamos !== "off") {
+      const pre = preSelecaoParaPacote(resultado.approvedEditorialPool, configEditorial, historico);
+      const g = await garantirPacotes(pre, pacotesDoDia, { env, fetcher, livro });
+      console.log(`[NEWSROOM] Ramos: pacote factual para ${pacotesDoDia.size} de ${pre.length} pauta(s) pré-selecionada(s).`);
+      for (const falha of g.falhas) console.warn(`[NEWSROOM] Pacote factual falhou: ${falha}`);
+
+      /*
+       * O portal (RF-12 a RF-14) roda AQUI, antes da decisão da newsletter, pelo
+       * mesmo motivo do Instagram: dia sem edição não pode ser dia sem matéria.
+       */
+      try {
+        resultadoDoPortal = await rodarRamoDoPortal({
+          pool: resultado.approvedEditorialPool,
+          pacotes: pacotesDoDia,
+          historico,
+          config: configEditorial,
+          marca: {
+            nome: project.brand.displayName || project.name,
+            nicho: project.niche,
+            briefing: project.editorialPromptExtra ?? "",
+            voz: vozes?.artigo ?? "",
+          },
+          data: todayStr,
+          timezone: project.timezone,
+          horarios: horariosDoPortal(project),
+          livro,
+          env,
+          fetcher,
+          resolverCapa: async (pauta) => {
+            const r = await resolveVisualAsset(
+              {
+                storyId: pauta.storyId,
+                titulo: pauta.grupo.primary.title,
+                resumo: pauta.enriquecimento?.texto ?? "",
+                categoria: pauta.classificacao.eixo,
+                classificacao: {
+                  atores: pauta.classificacao.atores,
+                  lugares: pauta.classificacao.lugares,
+                  acontecimento: pauta.classificacao.acontecimento,
+                  pais: pauta.classificacao.pais,
+                },
+              },
+              { env, fetcher, somenteLeitura: true },
+            );
+            return r.asset?.imageUrl ?? null;
+          },
+        });
+        for (const l of resultadoDoPortal.linhasDeLog) console.log(l);
+        for (const peca of resultadoDoPortal.pecas) await entregarPeca(peca);
+
+        if (ramosNoComando && !dryRun) {
+          const supabase = getSupabaseAdminClient();
+          const gravacao = await gravarArtigosAgendados(supabase, project.id, resultadoDoPortal.pecas);
+          for (const e of gravacao.erros) console.warn(`[NEWSROOM PORTAL] artigo não gravado: ${e}`);
+          console.log(
+            `[NEWSROOM PORTAL] ${gravacao.gravados.length} matéria(s) agendada(s), à espera de aprovação: ${gravacao.gravados.join(", ")}`,
+          );
+
+          /*
+           * O histórico do canal `article` nasce no agendamento, e não na
+           * publicação. É conservador de propósito: a matéria agendada e
+           * reprovada também impede a pauta de voltar ao portal por trinta
+           * dias, e o preço disso é uma pauta a menos. O contrário seria a
+           * mesma matéria agendada duas vezes em dois dias seguidos.
+           */
+          const porStory = new Map(resultadoDoPortal.selecao.escolhidas.map((p) => [p.storyId, p]));
+          const registros = resultadoDoPortal.pecas
+            .filter((pc) => gravacao.gravados.includes(pc.referenciaId))
+            .map((pc) => {
+              const pauta = porStory.get(pc.storyIds[0]);
+              return pauta
+                ? registroDaPauta(pauta, {
+                    projectId: project.id,
+                    canal: "article",
+                    imagemUrl: pc.conteudo.capa,
+                    publicadoEm: pc.conteudo.publicarEm,
+                  })
+                : null;
+            })
+            .filter((r): r is NonNullable<typeof r> => r !== null);
+          if (registros.length > 0) {
+            try {
+              await criarHistoricoStore(supabase).registrar(registros);
+            } catch (erro) {
+              console.warn(`[NEWSROOM PORTAL] histórico do portal não gravado: ${(erro as Error).message}`);
+            }
+          }
+        }
+      } catch (erro) {
+        const motivo = erro instanceof Error ? erro.message : String(erro);
+        console.error(`[NEWSROOM PORTAL] ramo do portal falhou, e a newsletter segue: ${motivo}`);
+        await sendAlert("warning", "Ramo do portal falhou", `Dia ${todayStr}. A newsletter segue.\n${motivo}`);
+      }
+
+      /*
+       * A seleção própria da newsletter (RF-07), só quando os ramos mandam.
+       * Em `dry_run` ela é calculada e registrada no log, e a edição sai pela
+       * seleção de antes.
+       */
+      const daNewsletter = selecionarParaNewsletter(resultado.approvedEditorialPool, pacotesDoDia, configEditorial);
+      for (const l of daNewsletter.linhasDeLog) console.log(l);
+      if (ramosNoComando) {
+        selecionadasDaNewsletter = daNewsletter.escolhidas;
+        viavelDaNewsletter = daNewsletter.viavel;
+        motivoDaInviabilidade = daNewsletter.viavel ? "" : daNewsletter.motivo;
+      }
+    }
+
+    const daGuarda: RankedCandidate[] = selecionadasDaNewsletter.map((p) => ({
       group: p.grupo,
       score: p.pontuacao.total,
       breakdown: {
@@ -1308,7 +1528,7 @@ async function executarRedacaoDoDia(
         throw new Error(`Número insuficiente de notícias qualificadas coletadas (${ranked.length}, mínimo 4).`);
       }
     } else {
-      if (!resultado.viavel) {
+      if (!viavelDaNewsletter) {
         /*
          * Sem pauta suficiente, a edição não sai. A alternativa seria completar
          * com o que o filtro recusou, e completar com o que o filtro recusou é
@@ -1329,7 +1549,7 @@ async function executarRedacaoDoDia(
          * watchdog continuar sabendo que a chamada chegou à aplicação.
          */
         const detalhe =
-          `${resultado.motivoDaInviabilidade}. ` +
+          `${motivoDaInviabilidade}. ` +
           `${resultado.recusadas.length} pautas recusadas pela linha editorial.`;
 
         console.log(`[NEWSROOM] Edição não fecha hoje: ${detalhe}`);
@@ -1343,15 +1563,16 @@ async function executarRedacaoDoDia(
           candidatesFound: collectionResult.candidates.length,
           uniqueCount: uniqueGroups.length,
           duplicatesCount,
-          storiesSelected: resultado.selecionadas.length,
+          storiesSelected: selecionadasDaNewsletter.length,
           dryRun,
         });
+        await fecharCustosDosRamos();
 
         return {
           ok: false as const,
           reason: "editorial_minimum_not_met" as const,
           detail: detalhe,
-          approvedCount: resultado.selecionadas.length,
+          approvedCount: selecionadasDaNewsletter.length,
           rejectedCount: resultado.recusadas.length,
           minimumRequired: configEditorial.minimoDePautas,
           /*
@@ -1362,11 +1583,13 @@ async function executarRedacaoDoDia(
            * mais tem valor seria o dia em que ninguém saberia se ele rodou.
            */
           socialV2: rastro.social,
+          /* O portal também sai neste retorno: dia sem edição não é dia sem matéria. */
+          ramos: modoRamos !== "off" ? { modo: modoRamos, pecas: pecasDoDia, custos: livro.porRamo() } : undefined,
           idempotencyKey,
         };
       }
 
-      pautasDaGuarda = resultado.selecionadas;
+      pautasDaGuarda = selecionadasDaNewsletter;
       ranked = daGuarda;
     }
   } else {
@@ -1385,9 +1608,16 @@ async function executarRedacaoDoDia(
    * enriquecido, e sem esse texto o extrator leria a manchete de novo.
    */
   const pacotes = new Map<string, PacoteFactual>();
-  if (pautasDaGuarda.length > 0) {
+  // Com os ramos, parte (ou tudo) já foi montado na camada comum, e não se paga
+  // de novo. Sem os ramos o cache está vazio e o bloco é o de antes.
+  for (const p of pautasDaGuarda) {
+    const pronto = pacotesDoDia.get(p.grupo.primary.url);
+    if (pronto) pacotes.set(p.grupo.primary.url, pronto);
+  }
+  const pacotesQueFaltam = pautasDaGuarda.filter((p) => !pacotes.has(p.grupo.primary.url));
+  if (pacotesQueFaltam.length > 0) {
     const r = await montarPacotesDasPautas(
-      pautasDaGuarda.map((p) => ({
+      pacotesQueFaltam.map((p) => ({
         url: p.grupo.primary.url,
         titulo: p.grupo.primary.title,
         texto: p.enriquecimento.texto,
@@ -1398,7 +1628,8 @@ async function executarRedacaoDoDia(
     );
 
     for (const [url, pacote] of r.pacotes) pacotes.set(url, pacote);
-    console.log(`[NEWSROOM] Pacote factual montado para ${r.pacotes.size} de ${pautasDaGuarda.length} pautas.`);
+    livro.lancar("pacote_factual", "comum", r.custoUsd, r.tokens);
+    console.log(`[NEWSROOM] Pacote factual montado para ${r.pacotes.size} de ${pacotesQueFaltam.length} pautas.`);
     for (const falha of r.falhas) console.warn(`[NEWSROOM] Pacote factual falhou: ${falha}`);
   }
 
@@ -1425,7 +1656,14 @@ async function executarRedacaoDoDia(
        * Vazio na maior parte dos dias, e isso está certo: em 5 de janeiro não
        * existe gancho, e inventar um seria pior do que não ter.
        */
-      extra: [project.editorialPromptExtra, agendaDoBriefing(todayStr)].filter(Boolean).join("\n\n"),
+      extra: [
+        project.editorialPromptExtra,
+        // A voz própria do ramo da newsletter, só quando os ramos mandam.
+        ramosNoComando ? vozes?.newsletter : "",
+        agendaDoBriefing(todayStr),
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
       assinatura:
         String(project.settings?.final_line ?? "").trim() ||
         `Até amanhã. Equipe ${project.brand.displayName || project.name}.`,
@@ -1437,8 +1675,17 @@ async function executarRedacaoDoDia(
       : { minimo: 4, maximo: 6 },
     pacotes,
     configEditorial.maximoDeReparos,
-    configEditorial.notaMinimaDeQA,
+    /*
+     * Com os ramos no comando, a nota do auditor deixa de bloquear e vira aviso
+     * na peça (decisão do dono, 05/10/2026). O risco de alucinação e as duas
+     * ancoragens continuam bloqueando, exatamente como antes.
+     */
+    ramosNoComando ? 0 : configEditorial.notaMinimaDeQA,
+    ramosNoComando ? { notaDeAviso: configEditorial.notaMinimaDeQA } : {},
   );
+  livro.lancar("redacao", "newsletter", pipelineResult.custosPorEtapa.redacao);
+  livro.lancar("auditoria_qa", "newsletter", pipelineResult.custosPorEtapa.auditoria_qa);
+  livro.lancar("auditoria_claims", "newsletter", pipelineResult.custosPorEtapa.auditoria_claims);
 
   /*
    * Números viram apresentação humana AQUI, e não antes.
@@ -1539,7 +1786,57 @@ async function executarRedacaoDoDia(
     }
   }
 
+  /*
+   * A peça da newsletter, para a fila e para o registro do veredito (RF-10).
+   *
+   * O veredito é gravado nos dois desfechos. Até aqui só o bloqueio deixava
+   * rastro, e só na linha `failed` do run.
+   */
+  const storyIdPorUrl = new Map(pautasDaGuarda.map((p) => [p.grupo.primary.url, p.storyId]));
+  const pecaDaNewsletter = (referenciaId: string, html: string | null) =>
+    montarPeca({
+      ramo: "newsletter",
+      referenciaId,
+      storyIds: pipelineResult.edition.stories
+        .map((st) => storyIdPorUrl.get(st.source_url) ?? "")
+        .filter(Boolean),
+      titulo: pipelineResult.edition.subject,
+      conteudo: {
+        subject: pipelineResult.edition.subject,
+        preheader: pipelineResult.edition.preheader,
+        headline: pipelineResult.edition.headline,
+        edition: pipelineResult.edition,
+        html,
+      },
+      avisos: [
+        ...pipelineResult.avisos,
+        ...pipelineResult.pautasRemovidas.map((p) => `pauta retirada: "${p.titulo}" (${p.motivo})`),
+        ...pipelineResult.problemasRestantes.map((p) => `apontamento não resolvido: ${p.descricao}`),
+      ],
+      aprovadaPeloAuditor: pipelineResult.aprovado,
+      bloqueios: pipelineResult.bloqueios,
+    });
+  const registrarVereditoDaNewsletter = async (peca: PecaPronta) => {
+    if (!registrarRamos) return;
+    const erro = await gravarVeredito(
+      getSupabaseAdminClient(),
+      project.id,
+      vereditoDaPeca(peca, {
+        nota: pipelineResult.qaResult.score,
+        riscoDeAlucinacao: Boolean(pipelineResult.qaResult.hallucination_risk),
+      }),
+      contextoDoRegistro,
+    );
+    if (erro) console.warn(`[NEWSROOM] veredito da newsletter não gravado: ${erro}`);
+  };
+
   if (!pipelineResult.aprovado && modo === "enforce") {
+    if (modoRamos !== "off") {
+      const peca = pecaDaNewsletter(`edicao-${todayStr}`, null);
+      pecasDoDia.push(peca);
+      await registrarVereditoDaNewsletter(peca);
+      await fecharCustosDosRamos();
+    }
     /*
      * A decisão é a mesma, e a mensagem é byte a byte a de antes: o alerta e a
      * linha `failed` de `newsroom_runs` continuam lendo o que liam. O que muda
@@ -1885,7 +2182,35 @@ async function executarRedacaoDoDia(
     }
   }
 
-  if (publishToPortal) {
+  if (modoRamos !== "off") {
+    const peca = pecaDaNewsletter(editionId ?? `edicao-${todayStr}`, htmlContent);
+    pecasDoDia.push(peca);
+    await registrarVereditoDaNewsletter(peca);
+    if (ramosNoComando && !dryRun && options.aoProduzirPeca) {
+      try {
+        await options.aoProduzirPeca(peca);
+      } catch (erro) {
+        console.warn(`[NEWSROOM] fila não recebeu a peça da newsletter: ${(erro as Error).message}`);
+      }
+    }
+  }
+
+  /*
+   * Com os ramos no comando, o portal NÃO regrava o e-mail (RF-13).
+   *
+   * O artigo da edição era o HTML da newsletter sob o slug da data. O portal
+   * passou a ter matéria própria por pauta, escrita para a busca, e publicar
+   * as duas coisas faria cada pauta aparecer duas vezes no site, uma delas
+   * com o texto do e-mail.
+   */
+  if (publishToPortal && ramosNoComando) {
+    console.log(
+      `[NEWSROOM PORTAL] edição NÃO regravada como artigo: o portal é ramo próprio ` +
+        `(${resultadoDoPortal?.pecas.length ?? 0} matéria(s) do dia).`,
+    );
+  }
+
+  if (publishToPortal && !ramosNoComando) {
     try {
       const supabase = getSupabaseAdminClient();
       const articleSlug = `edicao-${todayStr}`;
@@ -2042,7 +2367,8 @@ async function executarRedacaoDoDia(
    * históricas ficam. O que para é a criação automática de vaga nova.
    */
   const modoSocialV2 = modoDoPipelineSocial(env, project);
-  const legadoCede = modoSocialV2 === "enforce";
+  // Com os ramos no comando, o Instagram é ramo próprio e nunca nasce da edição.
+  const legadoCede = modoSocialV2 === "enforce" || ramosNoComando;
 
   let scheduledPosts: ScheduledPostSlot[] = [];
 
@@ -2084,7 +2410,9 @@ async function executarRedacaoDoDia(
           stories_selected: pipelineResult.selectedCandidates.length,
           tokens_input: pipelineResult.totalUsage.promptTokens,
           tokens_output: pipelineResult.totalUsage.completionTokens,
-          cost_estimate_usd: pipelineResult.totalUsage.estimatedCostUsd,
+          // Com os ramos, o custo do dia é o do livro inteiro, e não só o da
+          // redação da newsletter (RNF-14).
+          cost_estimate_usd: modoRamos !== "off" ? livro.total() : pipelineResult.totalUsage.estimatedCostUsd,
           dry_run: false,
           edition_id: editionId,
           idempotency_key: idempotencyKey,
@@ -2093,6 +2421,8 @@ async function executarRedacaoDoDia(
       console.error("[NEWSROOM DB] Erro ao gravar histórico no Supabase:", dbErr);
     }
   }
+
+  await fecharCustosDosRamos();
 
   return {
     ok: true,
@@ -2149,5 +2479,10 @@ async function executarRedacaoDoDia(
     htmlContent,
     wordCount,
     tokens: pipelineResult.totalUsage,
+    /**
+     * Os três ramos, quando ligados: as peças prontas para a fila, e o custo
+     * do dia por ramo. Ausente com os ramos em `off`.
+     */
+    ramos: modoRamos !== "off" ? { modo: modoRamos, pecas: pecasDoDia, custos: livro.porRamo() } : undefined,
   };
 }
