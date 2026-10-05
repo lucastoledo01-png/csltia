@@ -237,4 +237,32 @@ describe("uma pauta sem lastro não derruba a edição", () => {
     expect(r.edition.stories).toHaveLength(3);
     expect(r.pautasRemovidas).toEqual([]);
   });
+
+  /*
+   * A frase sem lastro na MOLDURA (abertura, giro rápido, fechamento) também
+   * não derruba a edição: a moldura é trocada pela versão neutra. Foi o caso do
+   * primeiro ensaio da produção na véspera, em 05/10/2026.
+   */
+  it("frase sem lastro na abertura troca a moldura e mantém as matérias", async () => {
+    const { fetcher } = openaiFalso([
+      { trecho: "uma previsão na abertura", tipo: "previsao", sustentada: false, motivo: "o pacote não prevê nada", pauta: -1 },
+    ]);
+
+    const r = await runNewsroomPipeline(
+      [candidata(0), candidata(1), candidata(2)],
+      ENV,
+      fetcher,
+      undefined,
+      { minimo: 2, maximo: 4 },
+      pacotes(),
+      0,
+    );
+
+    expect(r.aprovado).toBe(true);
+    expect(r.edition.stories).toHaveLength(3);
+    expect(r.pautasRemovidas).toEqual([]);
+    expect(r.edition.intro).toBe("Bom dia. Nesta edição: Matéria alfa; Matéria beta; e Matéria gama.");
+    expect(r.avisos.join(" ")).toContain("MOLDURA_NEUTRA");
+    expect(r.avisos.join(" ")).toContain("não prevê");
+  });
 });
