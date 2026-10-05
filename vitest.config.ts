@@ -14,5 +14,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
+    // As cópias de trabalho das sessões paralelas moram dentro do repositório
+    // e trazem os próprios testes, que rodariam contra outro node_modules.
+    exclude: ["**/node_modules/**", "**/.claude/**"],
   },
 });

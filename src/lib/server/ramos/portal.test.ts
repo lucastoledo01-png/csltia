@@ -22,9 +22,10 @@ describe("horários do portal", () => {
   });
 
   it("aceita a cadência do projeto quando ela é válida, e NÃO aceita lixo", () => {
-    expect(horariosDoPortal({ settings: { cadencia: { portal: ["18:00", "07:30"] } } })).toEqual(["07:30", "18:00"]);
-    expect(horariosDoPortal({ settings: { cadencia: { portal: ["25:00"] } } })).toEqual([...HORARIOS_PADRAO_DO_PORTAL]);
-    expect(horariosDoPortal({ settings: { cadencia: { portal: [] } } })).toEqual([...HORARIOS_PADRAO_DO_PORTAL]);
+    // O formato é o de `cadencia.ts` desde a integração de 05/10/2026.
+    expect(horariosDoPortal({ settings: { cadencia: { portal: { horarios: ["18:00", "07:30"] } } } })).toEqual(["07:30", "18:00"]);
+    expect(horariosDoPortal({ settings: { cadencia: { portal: { horarios: ["25:00"] } } } })).toEqual([...HORARIOS_PADRAO_DO_PORTAL]);
+    expect(horariosDoPortal({ settings: { cadencia: { portal: { horarios: [] } } } })).toEqual([...HORARIOS_PADRAO_DO_PORTAL]);
   });
 
   it("converte o horário de Brasília para UTC", () => {
