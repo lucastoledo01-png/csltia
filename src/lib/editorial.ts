@@ -44,7 +44,7 @@ export const featuredIssue = {
  * escreve sobre o que nao muda, como o processo se organiza e que perguntas
  * fazer, e o que muda fica com a edicao diaria, que cita a fonte do dia.
  */
-export const articles: Article[] = [
+const todosOsArtigos: Article[] = [
   {
     slug: "como-a-fila-de-imigracao-funciona",
     category: "Entenda o processo",
@@ -174,6 +174,18 @@ export const articles: Article[] = [
   },
 ];
 
+/*
+ * Os dois textos de imigracao sairam do ar em 05/10/2026, quando imigracao
+ * deixou a pauta. Ficam no arquivo, e nao sao apagados: voltar e tirar o slug
+ * daqui.
+ */
+const ARQUIVADOS = new Set([
+  "como-a-fila-de-imigracao-funciona",
+  "perguntas-antes-de-contratar-um-advogado-de-imigracao",
+]);
+
+export const articles: Article[] = todosOsArtigos.filter((a) => !ARQUIVADOS.has(a.slug));
+
 export function getArticle(slug: string) {
   return articles.find((article) => article.slug === slug);
 }
@@ -188,7 +200,7 @@ export function getArticle(slug: string) {
  */
 export const newsletterBenefits = [
   "Economia, trabalho e custo de vida nos EUA explicados em português",
-  "O que muda nas regras de visto e de permanência, e a partir de quando",
+  "O que está em alta nos EUA, e o que pesa no Brasil",
   "Tecnologia, política e cultura americana sem jargão e sem tradução literal",
   "Fonte ao lado de cada informação, para você conferir",
 ];

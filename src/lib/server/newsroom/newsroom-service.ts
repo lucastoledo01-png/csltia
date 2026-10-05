@@ -534,9 +534,8 @@ export function renderEditionToHtml(
                   política, tecnologia e cultura, sempre com a fonte ao lado.
                 </p>
                 <p style="font-family:${fonte};font-size:12px;line-height:1.6;color:#8A8A8F;margin:0 0 20px 0;">
-                  Conteúdo informativo, não orientação jurídica. Regras de imigração mudam e cada
-                  caso tem particularidades. Confirme na fonte citada ou com um advogado
-                  licenciado antes de tomar qualquer decisão.
+                  Conteúdo informativo, não orientação financeira nem jurídica. Confirme
+                  na fonte citada antes de tomar qualquer decisão.
                 </p>
                 ${/*
                   O Instagram, agora, é isto: um ícone e o nome do perfil.

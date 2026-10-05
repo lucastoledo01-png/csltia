@@ -592,6 +592,31 @@ cena, e `religiao` ou `militar` precisam de uma.
 
 A lista de produção tem 746 cenas em 40 grupos, e está no guia do designer.
 
+## Imigração sai da pauta (05/10/2026)
+
+A decisão do dono: o eua.journal não fala de imigração. O leitor é o
+brasileiro que SONHA com os EUA (pensa em morar, trabalhar ou investir lá), e
+não quem já mora. A linha é notícia positiva dos EUA e notícia ruim do Brasil,
+aproveitando o que está em alta.
+
+**O eixo `imigracao` fica, e é ele que recusa.** O classificador continua
+rotulando a pauta de visto como `imigracao`, e `decidirPauta` recusa com
+`REJECT_IMMIGRATION_OFF_LINE` antes de olhar país ou nota. Tirar o eixo seria
+pior: a notícia de visto cairia em `politica` e passaria. Vale o booleano OU o
+eixo, porque o modelo às vezes marca um e esquece o outro.
+
+**O que mudou junto:** o verificador do Instagram recusa pelo mesmo motivo; a
+triagem de assuntos em alta deixou de aprovar imigração; o boletim de vistos e
+o registro do H-1B saíram do calendário; o teto de imigração no feed caiu de 3
+para 0; as editorias do portal viraram Economia, Trabalho, Tecnologia, Custo de
+vida, Política e Brasil; e "morar nos EUA" deixou de marcar o post como
+imigração nas hashtags.
+
+**O que mora no banco**, e por isso está em `supabase/2026-10-05-sem-imigracao.sql`
+para o dono rodar: o nicho e o briefing editorial do projeto, o evergreen
+desligado (os 66 temas do catálogo são todos de imigração) e as quatro fontes
+ativas dedicadas a imigração. Nada foi apagado.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

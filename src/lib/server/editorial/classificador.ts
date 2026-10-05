@@ -105,6 +105,9 @@ export const ClassificacaoSchema = z.object({
    *
    * O `imigracao` booleano continua existindo logo acima, e é ele que o teto
    * do feed usa para a imigração não voltar a ocupar o dia inteiro.
+    *
+   * Em 05/10/2026 imigração saiu da pauta. O booleano e o eixo ficam, e
+   * agora servem para `decidirPauta` recusar.
    */
   eixo: z.enum([
     "economia",
@@ -465,6 +468,18 @@ export type DecisaoEditorial = {
  * Sobre o Brasil, o negativo entra: é o outro lado da mesma comparação.
  */
 export function decidirPauta(c: Classificacao, config: ConfigEditorial): DecisaoEditorial {
+  // Primeira regra porque é a única que não depende de país nem de nota:
+  // imigração saiu da linha em 05/10/2026, e uma pauta de visto com
+  // relevância 9 continua fora. Vale o booleano OU o eixo, porque o modelo
+  // às vezes marca um e esquece o outro.
+  if (c.imigracao || c.eixo === "imigracao") {
+    return {
+      aprovada: false,
+      motivo: MOTIVOS.REJEITADO_IMIGRACAO,
+      explicacao: `imigração fora da linha editorial: ${c.justificativa || "sem justificativa"}`,
+    };
+  }
+
   if (c.pais === "EUA" && c.leitura === "desfavoravel") {
     return {
       aprovada: false,
@@ -506,8 +521,7 @@ export function decidirPauta(c: Classificacao, config: ConfigEditorial): Decisao
     const noEixo =
       c.eixo === "brasil" ||
       c.eixo === "custo_de_vida" ||
-      c.eixo === "economia" ||
-      c.imigracao;
+      c.eixo === "economia";
     if (!noEixo) {
       return {
         aprovada: false,
@@ -525,19 +539,11 @@ export function decidirPauta(c: Classificacao, config: ConfigEditorial): Decisao
     };
   }
 
-  if (c.pais === "outro" && !c.imigracao) {
+  if (c.pais === "outro") {
     return {
       aprovada: false,
       motivo: MOTIVOS.REJEITADO_SEM_CLASSIFICACAO,
-      explicacao: "fora de EUA e Brasil e sem relação com imigração",
-    };
-  }
-
-  if (c.imigracao) {
-    return {
-      aprovada: true,
-      motivo: MOTIVOS.APROVADO_IMIGRACAO,
-      explicacao: `imigração, leitura ${c.leitura}, relevância ${c.relevancia}`,
+      explicacao: "fora de EUA e Brasil",
     };
   }
 

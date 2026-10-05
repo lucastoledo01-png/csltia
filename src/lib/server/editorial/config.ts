@@ -117,6 +117,8 @@ export const MOTIVOS = {
   /** Pauta brasileira no eixo, sem carga negativa. Existe para o log não
    *  chamar de "desafio" uma notícia boa e virar viés escondido em rótulo. */
   APROVADO_CONTEXTO_BRASIL: "APPROVED_BRAZIL_CONTEXT",
+  /** Não é mais emitido desde 05/10/2026, quando imigração saiu da pauta.
+   *  Fica porque nomeia as linhas antigas do banco. */
   APROVADO_IMIGRACAO: "APPROVED_IMMIGRATION",
   REJEITADO_EUA_NEGATIVO: "REJECT_US_NEGATIVE",
   REJEITADO_URL_DUPLICADA: "REJECT_DUPLICATE_URL",
@@ -141,6 +143,8 @@ export const MOTIVOS = {
   REJEITADO_DECLARACAO: "REJECT_POLITICAL_STATEMENT",
   REJEITADO_EIXO_BRASIL: "REJECT_BR_OFF_AXIS",
   REJEITADO_SEM_CLASSIFICACAO: "REJECT_UNCLASSIFIED",
+  /** Imigração saiu da linha editorial em 05/10/2026, por decisão do dono. */
+  REJEITADO_IMIGRACAO: "REJECT_IMMIGRATION_OFF_LINE",
   /** Nem o feed nem a página da matéria deram o que aconteceu. */
   REJEITADO_SEM_FATOS: "REJECT_INSUFFICIENT_FACTS",
   /** Veio de agregador e não foi possível chegar à matéria de origem. */

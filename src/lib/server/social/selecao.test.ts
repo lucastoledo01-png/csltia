@@ -104,6 +104,15 @@ describe("composição do feed", () => {
     expect(r.cortadas).toHaveLength(0);
   });
 
+  it("sem configuração, nenhuma pauta de imigração entra no feed", () => {
+    // Imigração saiu da pauta em 05/10/2026. O classificador recusa antes;
+    // este é o cinto para o que escapar dele.
+    const pool = [pauta({ titulo: "Novidade sobre green card", nota: 90, imigracao: true })];
+    const r = comporFeedSocial(pool, carregarConfigSocial({}));
+    expect(r.escolhidas).toHaveLength(0);
+    expect(r.cortadas[0]?.motivo).toBe("IMMIGRATION_TOPIC_OVERLOAD");
+  });
+
   it("pool vazio produz feed vazio", () => {
     const r = comporFeedSocial([], CONFIG);
     expect(r.escolhidas).toHaveLength(0);
@@ -111,7 +120,9 @@ describe("composição do feed", () => {
 
   it("não deixa o mesmo programa migratório dominar o dia", () => {
     const pool = [1, 2, 3, 4].map((i) =>
-      pauta({ titulo: `Caso ${i} do EB-2 NIW aprovado`, nota: 60 - i, imigracao: true, atores: [`Órgão ${i}`] }),
+      // Sem o booleano: o teto de imigração é zero desde 05/10/2026 e cortaria
+      // antes, escondendo a regra de programa que este caso testa.
+      pauta({ titulo: `Caso ${i} do EB-2 NIW aprovado`, nota: 60 - i, imigracao: false, atores: [`Órgão ${i}`] }),
     );
 
     const r = comporFeedSocial(pool, CONFIG);

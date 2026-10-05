@@ -260,16 +260,18 @@ export type TendenciaTriada = {
   motivo: string;
 };
 
-const EIXOS = "economia, trabalho, custo_de_vida, politica, tecnologia, cultura, imigracao, brasil";
+// Sem `imigracao` desde 05/10/2026: assunto em alta sobre visto ou
+// deportação virava busca extra para uma pauta que o classificador recusa.
+const EIXOS = "economia, trabalho, custo_de_vida, politica, tecnologia, cultura, seguranca, brasil";
 
 export function montarSystemDaTriagem(): string {
   return `
 Você tria assuntos em alta para um jornal diário sobre os Estados Unidos escrito em português para brasileiros.
 
-A pergunta é uma só: um brasileiro que acompanha os EUA quer ler sobre isso?
+A pergunta é uma só: um brasileiro que sonha em morar, trabalhar ou investir nos EUA quer ler sobre isso?
 
 APROVE quando o assunto tocar em: ${EIXOS}.
-REPROVE resultado de jogo, fofoca de celebridade, lançamento de série, boato e assunto puramente local americano sem efeito fora dele.
+REPROVE imigração (visto, green card, deportação, fronteira), resultado de jogo, fofoca de celebridade, lançamento de série, boato e assunto puramente local americano sem efeito fora dele.
 
 Atenção ao contexto: "Super Bowl" reprovado como jogo pode ser aprovado como economia quando o assunto for preço de anúncio ou gasto do consumidor. Julgue o ASSUNTO, não a palavra.
 

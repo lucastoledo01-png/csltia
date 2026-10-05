@@ -135,7 +135,7 @@ REGRA QUE VALE SOBRE TODAS: você só pode afirmar o que está no PACOTE FACTUAL
 
 CANAL: isto é Instagram, não newsletter. NÃO existe despedida. Proibido "Até amanhã", "Equipe ${marca.nome}", "Boa leitura" e qualquer assinatura de e-mail.
 
-QUEM LÊ: uma pessoa que quer morar, trabalhar, estudar ou construir carreira nos Estados Unidos. Não é advogado. Escreva como se explicasse para alguém inteligente que nunca leu um formulário de imigração. Termo técnico só quando não há palavra comum, e aí explicado na mesma frase em que aparece. Nada de "beneficiário", "peticionário" e "adjudicação" soltos.
+QUEM LÊ: uma pessoa no Brasil que sonha em morar, trabalhar ou investir nos Estados Unidos. Ainda não mora lá e não é especialista. Escreva como se explicasse para alguém inteligente que nunca leu um relatório técnico. Imigração não é assunto desta conta: não puxe a pauta para visto. Termo técnico só quando não há palavra comum, e aí explicado na mesma frase em que aparece. Nada de "beneficiário", "peticionário" e "adjudicação" soltos.
 
   NÃO: "O beneficiário pode apresentar evidência em resposta ao RFE."
   ASSIM: "Se a USCIS pedir mais provas, por um documento chamado RFE, o processo permite enviar documentos dentro do prazo indicado."

@@ -229,10 +229,10 @@ function pauta(id: string, titulo: string) {
     grupo: { primary: { title: titulo, url: `https://uscis.gov/${id}`, source_name: "USCIS" }, secondary_urls: [] },
     pontuacao: { total: 72, partes: {}, explicacao: "" },
     classificacao: {
-      eixo: "imigracao",
+      eixo: "economia",
       pais: "EUA",
       relevancia: 7,
-      imigracao: true,
+      imigracao: false,
       atores: ["USCIS"],
       lugares: [],
       acontecimento: "mudança de prazo",

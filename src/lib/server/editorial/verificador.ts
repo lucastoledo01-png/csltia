@@ -94,7 +94,7 @@ ${REGRA_RELEVANCIA}
 
 fato_principal: uma frase dizendo o que aconteceu, tirada do texto. Se o texto não permitir escrever essa frase, devolva string vazia.
 
-adequada: true se esta notícia deve ser publicada por esta marca. false quando o fato é negativo sobre os EUA, quando não há fato apurável, ou quando é só repercussão de declaração. Assunto fora de imigração NUNCA torna uma notícia inadequada: tecnologia, economia, custo de vida e cultura são editorias da publicação.
+adequada: true se esta notícia deve ser publicada por esta marca. false quando o assunto é imigração (visto, green card, processo migratório, deportação, fronteira), quando o fato é negativo sobre os EUA, quando não há fato apurável, ou quando é só repercussão de declaração. Tecnologia, economia, custo de vida e cultura são editorias da publicação.
 
 motivo: uma frase curta explicando o "adequada".
 

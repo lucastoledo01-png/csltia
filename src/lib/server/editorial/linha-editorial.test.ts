@@ -26,6 +26,8 @@ const REGUA_ANTERIOR = [
   "publicação brasileira sobre imigração",
   "projeto de mudança",
   "quem quer se mudar",
+  // A régua de 16/09 a 05/10/2026, quando imigração ainda era editoria.
+  "imigração é uma editoria",
 ];
 
 function frasesDaReguaAnterior(prompt: string): string[] {
@@ -61,8 +63,15 @@ describe("linha editorial compartilhada", () => {
     }
   });
 
-  it("o verificador diz com todas as letras que assunto fora de imigração não recusa", () => {
-    expect(PROMPTS.verificador).toContain("Assunto fora de imigração NUNCA torna uma notícia inadequada");
+  // Imigração saiu da pauta em 05/10/2026, e o verificador tem que recusar
+  // pelo mesmo motivo que o classificador.
+  it("o verificador recusa imigração com todas as letras", () => {
+    expect(PROMPTS.verificador).toContain("false quando o assunto é imigração");
+  });
+
+  it("as duas leituras recebem a régua que rotula imigração para recusar", () => {
+    expect(PROMPTS.verificador).toContain("a pauta fica FORA da linha e é recusada");
+    expect(PROMPTS.classificador).toContain("a pauta fica FORA da linha e é recusada");
   });
 
   it("eua_desfavoravel é a mesma régua da leitura desfavorável, como a comparação assume", () => {

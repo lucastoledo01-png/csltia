@@ -439,18 +439,8 @@ function datasComerciaisEUA(ano: number): DataDoCalendario[] {
       antecedenciaEmDias: 14,
       termosDeBusca: ["open enrollment health insurance", "ACA marketplace premiums"],
     },
-    {
-      id: `us-h1b-registro-${ano}`,
-      nome: "Abre o registro do H-1B",
-      // Início de março, por cerca de duas semanas. Peso 2, e não 3: a
-      // publicação deixou de ser sobre imigração, mas a data é real.
-      data: iso(ano, 3, 5),
-      pais: "eua",
-      tipo: "prazo",
-      pesoParaOBrasileiro: 2,
-      antecedenciaEmDias: 14,
-      termosDeBusca: ["H-1B registration", "H-1B cap season"],
-    },
+    // O registro do H-1B saiu daqui em 05/10/2026, junto com imigração da
+    // pauta. Ele virava busca extra na coleta para uma pauta que hoje é recusada.
     {
       id: `us-eleicao-${ano}`,
       nome: "Dia da eleição nos EUA",
@@ -835,25 +825,10 @@ function datasEconomicasEUA(ano: number): DataDoCalendario[] {
   }
 
   /*
-   * O boletim de vistos, mensal.
-   *
-   * Continua no calendário mesmo depois do reposicionamento, e com peso 2, e
-   * não 3: a publicação deixou de ser sobre imigração, mas a data existe, é
-   * previsível e interessa a uma parte do público. O teto de uma pauta de
-   * visto por edição é quem impede isso de voltar a dominar a edição.
+   * O boletim de vistos mensal ficou aqui até 05/10/2026, quando imigração
+   * saiu da pauta. Cada edição dele virava busca extra na coleta, e o que a
+   * busca trazia passou a ser recusado pelo classificador.
    */
-  for (let mes = 1; mes <= 12; mes++) {
-    datas.push({
-      id: `us-visa-bulletin-${ano}-${String(mes).padStart(2, "0")}`,
-      nome: "Boletim de vistos do Departamento de Estado",
-      data: proximoDiaUtil(iso(ano, mes, 15)),
-      pais: "eua",
-      tipo: "prazo",
-      pesoParaOBrasileiro: 2,
-      antecedenciaEmDias: 2,
-      termosDeBusca: ["visa bulletin", "priority date"],
-    });
-  }
 
   return datas;
 }

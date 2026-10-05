@@ -328,7 +328,7 @@ describe("o prompt da copy previne, além de o auditor detectar", () => {
 
   it("o exemplo de linguagem para pessoa comum está no prompt, com o par certo", () => {
     const p = prompt();
-    expect(p).toContain("morar, trabalhar, estudar ou construir carreira");
+    expect(p).toContain("sonha em morar, trabalhar ou investir");
     expect(p).toContain("O beneficiário pode apresentar evidência em resposta ao RFE");
     expect(p).toContain("um documento chamado RFE");
     /* E a ressalva que impede a explicação de virar acréscimo. */

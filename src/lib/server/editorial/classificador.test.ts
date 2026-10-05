@@ -14,15 +14,15 @@ function classificacao(over: Partial<Classificacao> = {}): Classificacao {
   return {
     id: "1",
     pais: "EUA",
-    imigracao: true,
+    imigracao: false,
     leitura: "oportunidade",
-    eixo: "imigracao",
+    eixo: "economia",
     natureza: "official_action",
     relevancia: 8,
-    atores: ["USCIS"],
+    atores: ["Federal Reserve"],
     lugares: ["EUA"],
-    acontecimento: ["prorrogação"],
-    justificativa: "prazo maior para renovar",
+    acontecimento: ["corte de juros"],
+    justificativa: "juros menores",
     ...over,
   };
 }
@@ -96,15 +96,37 @@ describe("decidirPauta", () => {
     expect(d.motivo).toBe(MOTIVOS.REJEITADO_RELEVANCIA);
   });
 
-  it("recusa terceiro país sem relação com imigração", () => {
-    const d = decidirPauta(classificacao({ pais: "outro", imigracao: false }), config);
+  it("recusa terceiro país", () => {
+    const d = decidirPauta(classificacao({ pais: "outro" }), config);
     expect(d.motivo).toBe(MOTIVOS.REJEITADO_SEM_CLASSIFICACAO);
   });
 
-  it("aprova pauta de imigração dos EUA com leitura neutra", () => {
-    const d = decidirPauta(classificacao({ leitura: "neutra" }), config);
+  it("aprova pauta positiva de economia dos EUA", () => {
+    const d = decidirPauta(classificacao(), config);
     expect(d.aprovada).toBe(true);
-    expect(d.motivo).toBe(MOTIVOS.APROVADO_IMIGRACAO);
+    expect(d.motivo).toBe(MOTIVOS.APROVADO_OPORTUNIDADE_EUA);
+  });
+
+  // Imigração saiu da pauta em 05/10/2026: nem nota alta nem leitura boa salvam.
+  it("recusa imigração mesmo com relevância 10 e leitura de oportunidade", () => {
+    const d = decidirPauta(classificacao({ imigracao: true, eixo: "imigracao", relevancia: 10 }), config);
+    expect(d.aprovada).toBe(false);
+    expect(d.motivo).toBe(MOTIVOS.REJEITADO_IMIGRACAO);
+  });
+
+  it("recusa quando só o booleano marca imigração", () => {
+    const d = decidirPauta(classificacao({ imigracao: true, eixo: "politica" }), config);
+    expect(d.motivo).toBe(MOTIVOS.REJEITADO_IMIGRACAO);
+  });
+
+  it("recusa quando só o eixo marca imigração", () => {
+    const d = decidirPauta(classificacao({ imigracao: false, eixo: "imigracao" }), config);
+    expect(d.motivo).toBe(MOTIVOS.REJEITADO_IMIGRACAO);
+  });
+
+  it("recusa imigração também do lado do Brasil", () => {
+    const d = decidirPauta(classificacao({ pais: "Brasil", imigracao: true, eixo: "brasil" }), config);
+    expect(d.motivo).toBe(MOTIVOS.REJEITADO_IMIGRACAO);
   });
 });
 
@@ -394,9 +416,9 @@ describe("montarSystemDoClassificador, régua de relevância", () => {
 describe("entidadesDaClassificacao", () => {
   it("entrega o formato que a camada de repetição por entidade espera", () => {
     expect(entidadesDaClassificacao(classificacao())).toEqual({
-      atores: ["USCIS"],
+      atores: ["Federal Reserve"],
       lugares: ["EUA"],
-      acontecimento: ["prorrogação"],
+      acontecimento: ["corte de juros"],
     });
   });
 });

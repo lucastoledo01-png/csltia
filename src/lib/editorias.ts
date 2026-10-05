@@ -14,12 +14,17 @@
  * bloco vazio na página, que é pior que não existir.
  */
 
+/*
+ * Vistos, Green Card e Fiscalização saíram em 05/10/2026, quando imigração
+ * deixou a pauta. No lugar entraram as editorias que a classificação aprova
+ * de verdade: economia, tecnologia e custo de vida.
+ */
 export const EDITORIAS = [
-  { id: "vistos", nome: "Vistos" },
+  { id: "economia", nome: "Economia" },
   { id: "trabalho", nome: "Trabalho" },
-  { id: "green-card", nome: "Green Card" },
-  { id: "fiscalizacao", nome: "Fiscalização" },
-  { id: "governo", nome: "Governo" },
+  { id: "tecnologia", nome: "Tecnologia" },
+  { id: "custo-de-vida", nome: "Custo de vida" },
+  { id: "governo", nome: "Política" },
   { id: "brasil", nome: "Brasil" },
 ] as const;
 
@@ -30,17 +35,16 @@ export const EDITORIA_PADRAO: EditoriaId = "governo";
 /**
  * Termos que apontam para cada editoria, do mais específico para o mais geral.
  *
- * A ordem importa: "green card profissional" tem que cair em Green Card, e não
- * em Trabalho por causa de "profissional". Por isso a busca é sequencial e a
- * primeira editoria que casa vence.
+ * A ordem importa: a primeira editoria que casa vence. Brasil vem antes de
+ * tudo porque "inflação no Brasil" é pauta do Brasil, e não de economia.
  */
 const SINAIS: Array<{ editoria: EditoriaId; termos: string[] }> = [
-  { editoria: "green-card", termos: ["green card", "residência permanente", "ajuste de status", "consular"] },
-  { editoria: "fiscalizacao", termos: ["ice", "deportaç", "detenç", "fiscalizaç", "cbp", "fronteira"] },
   { editoria: "brasil", termos: ["brasil", "câmbio", "dólar", "real"] },
-  { editoria: "vistos", termos: ["visto", "boletim", "h1b", "h-1b", "o-1", "eb-", "f-1", "j-1", "uscis", "família"] },
-  { editoria: "trabalho", termos: ["trabalho", "emprego", "empregador", "carreira", "profissional", "contrataç"] },
-  { editoria: "governo", termos: ["governo", "congresso", "suprema corte", "justiça", "corte", "juiz", "decreto"] },
+  { editoria: "tecnologia", termos: ["tecnologia", "inteligência artificial", "startup", "aplicativo", "chip", "robô", "big tech"] },
+  { editoria: "custo-de-vida", termos: ["custo de vida", "aluguel", "moradia", "imóve", "gasolina", "combustível", "energia", "plano de saúde"] },
+  { editoria: "trabalho", termos: ["trabalho", "emprego", "empregador", "carreira", "profissional", "contrataç", "salário"] },
+  { editoria: "economia", termos: ["economia", "juros", "fed", "inflação", "mercado", "bolsa", "pib", "investi", "empresa"] },
+  { editoria: "governo", termos: ["governo", "congresso", "suprema corte", "justiça", "corte", "juiz", "decreto", "eleiç", "casa branca"] },
 ];
 
 /** A editoria de uma pauta, a partir do rótulo que a redação escreveu. */

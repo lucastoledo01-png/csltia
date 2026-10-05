@@ -43,7 +43,7 @@ function grupo(id: string, title: string, url: string): DeduplicatedGroup {
 
 function classificacao(over: Partial<Classificacao> = {}): Classificacao {
   return {
-    id: "1", pais: "EUA", imigracao: true, leitura: "oportunidade", eixo: "imigracao",
+    id: "1", pais: "EUA", imigracao: false, leitura: "oportunidade", eixo: "economia",
     natureza: "official_action", relevancia: 8, atores: ["USCIS"], lugares: ["EUA"],
     acontecimento: ["prorrogação"], justificativa: "", ...over,
   };

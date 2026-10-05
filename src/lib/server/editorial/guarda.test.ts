@@ -47,9 +47,9 @@ function classificacao(over: Partial<Classificacao> = {}): Classificacao {
   return {
     id: "1",
     pais: "EUA",
-    imigracao: true,
+    imigracao: false,
     leitura: "oportunidade",
-    eixo: "imigracao",
+    eixo: "economia",
     natureza: "official_action",
     relevancia: 8,
     atores: ["USCIS"],
@@ -238,7 +238,7 @@ describe("registroDaPauta", () => {
       newsletterId: "n1",
     });
 
-    expect(registro.motivo).toBe(MOTIVOS.APROVADO_IMIGRACAO);
+    expect(registro.motivo).toBe(MOTIVOS.APROVADO_OPORTUNIDADE_EUA);
     expect(registro.pais).toBe("EUA");
     expect(registro.sentimento).toBe("positive");
     expect(registro.procedencia).toBe("pipeline");
