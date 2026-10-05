@@ -830,6 +830,41 @@ as matérias publicadas às pautas das edições, mais recente primeiro, sem o
 artigo que é a própria edição e sem a pauta da edição cuja fonte já tem matéria
 própria.
 
+## Sem a fila em enforce, a matéria do portal sai no horário (05/10/2026)
+
+Achado depois da integração. A matéria do ramo nasce `scheduled` e
+`needs_review`, e os dois relógios (`/api/cron/portal` e
+`/api/cron/publicacao`) exigiam `approved`. Quem grava `approved` é a liberação
+da fila (`despacharArtigo`), e ela só despacha com `aprovacao` em `enforce`.
+Com os ramos em `enforce` e a fila em `off` ou `dry_run`, nenhuma matéria
+seria publicada nunca, sem erro e sem alerta.
+
+**A regra agora:** a revisão humana só é exigida com a fila em `enforce`
+(`revisaoExigidaPeloProjeto`, em `ramos/portal.ts`). Fora disso a matéria sai
+no `published_at` dela, como antes de a fila existir, e só `blocked` segura.
+Há teste dos dois lados contra uma tabela em memória que aplica os filtros.
+
+## As edições viram matéria por pauta, e as editorias viram página (05/10/2026)
+
+**As 23 edições publicadas como artigo (`edicao-AAAA-MM-DD`) viram uma matéria
+por pauta**, pelo script `src/scripts/artigos-por-pauta.ts`, que o dono roda
+(ensaio por padrão, `--aplicar` grava). Sem chamada de modelo: o texto é o que
+a edição publicou, no molde da matéria do ramo (abertura, "Contexto", "Por que
+importa", "Na prática", fonte). A pauta de imigração não vira matéria. A
+edição não é apagada: sai da lista com `status = archived` (ou `draft`, se o
+CHECK do banco recusar), e o link antigo redireciona com 308 para a primeira
+matéria da edição. A foto da pauta é pareada pela POSIÇÃO no HTML do e-mail,
+não pela ordem, porque pauta sem foto deslocava as seguintes.
+
+**"Seções em foco" é uma fileira de cards de tema**, como na referência: um
+card por editoria, com foto, nome e descrição fixa, rolando para o lado com
+`scroll-snap` e sem biblioteca de carrossel. Cada card leva a `/editoria/<id>`,
+página por requisição com as pautas da editoria no card do feed. Menu, rodapé
+e barra lateral apontam para essas páginas; o `id` `editoria-<id>` ficou nos
+cards para link antigo não cair no topo. A foto do card é a mais recente da
+editoria que ainda não está num card à esquerda, porque as edições de
+setembro usaram a mesma foto de Wall Street como reserva em dezenas de pautas.
+
 ## O portal veste Sora (05/10/2026)
 
 O dono desenhou a referência no Superdesign, e ela está guardada em

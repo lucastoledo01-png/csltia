@@ -46,6 +46,13 @@ describe("sitemap", () => {
     }
   });
 
+  it("inclui a página de cada editoria do menu", async () => {
+    const urls = (await sitemap()).map((e) => e.url);
+    for (const id of ["economia", "trabalho", "tecnologia", "custo-de-vida", "governo", "brasil"]) {
+      expect(urls.some((u) => u.endsWith(`/editoria/${id}`))).toBe(true);
+    }
+  });
+
   it("falha de leitura devolve as fixas em vez de derrubar a rota", async () => {
     vi.resetModules();
     vi.doMock("@/lib/server/articles-service", () => ({
@@ -57,7 +64,8 @@ describe("sitemap", () => {
     const { default: comFalha } = await import("./sitemap");
     const urls = (await comFalha()).map((e) => e.url);
 
-    expect(urls.length).toBe(3);
+    // As três fixas mais as seis editorias, que não dependem do banco.
+    expect(urls.length).toBe(9);
     expect(urls.some((u) => u.includes("/artigos/"))).toBe(false);
   });
 });

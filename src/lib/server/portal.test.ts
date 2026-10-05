@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { juntarPautasEArtigos, montarHome, type ArtigoDoRamo, type PautaDoPortal } from "./portal";
+import {
+  juntarPautasEArtigos,
+  montarHome,
+  pautasDaEditoria,
+  pautasDasEdicoes,
+  secoesEmFoco,
+  type ArtigoDoRamo,
+  type EdicaoBruta,
+  type PautaDoPortal,
+} from "./portal";
 
 /**
  * A home com as matérias próprias do portal (integração de 05/10/2026).
@@ -71,5 +80,74 @@ describe("a home com as matérias dos ramos", () => {
   it("sem matérias, a lista é a das edições, intacta", () => {
     const pautas = [pautaDaEdicao(0), pautaDaEdicao(1)];
     expect(juntarPautasEArtigos(pautas, [])).toEqual(pautas);
+  });
+});
+
+describe("as pautas das edições depois das matérias por pauta (05/10/2026)", () => {
+  const edicao: EdicaoBruta = {
+    edition_date: "2026-10-04",
+    slug: "edicao-2026-10-04",
+    content_html: "",
+    stories: [
+      { title: "Fed corta juros", category: "Economia", source_url: "https://f.com/fed" },
+      { title: "EUA admitem refugiados", category: "Imigração", source_url: "https://f.com/ref" },
+      { title: "Chip novo da AMD", category: "Tecnologia", source_url: "https://f.com/chip" },
+    ],
+  };
+
+  it("antes do script, a pauta aponta para a edição, que ainda está publicada", () => {
+    const { pautas } = pautasDasEdicoes([edicao]);
+    expect(pautas.map((p) => p.href)).toEqual(["/artigos/edicao-2026-10-04", "/artigos/edicao-2026-10-04"]);
+  });
+
+  it("com a matéria publicada, a pauta aponta direto para ela, pelo mesmo slug que o script grava", () => {
+    const { pautas } = pautasDasEdicoes([edicao], new Set(["chip-novo-da-amd-2026-10-04"]));
+    expect(pautas.map((p) => p.href)).toEqual(["/artigos/edicao-2026-10-04", "/artigos/chip-novo-da-amd-2026-10-04"]);
+  });
+
+  it("a pauta de imigração sai da home", () => {
+    const { pautas, fontesDasPautas } = pautasDasEdicoes([edicao]);
+    expect(pautas.map((p) => p.titulo)).toEqual(["Fed corta juros", "Chip novo da AMD"]);
+    // O id continua sendo a posição na edição, para a foto e a fonte casarem.
+    expect(pautas.map((p) => p.id)).toEqual(["edicao-2026-10-04#0", "edicao-2026-10-04#2"]);
+    expect(fontesDasPautas.has("edicao-2026-10-04#1")).toBe(false);
+  });
+});
+
+describe("seções em foco", () => {
+  function p(id: string, editoria: PautaDoPortal["editoria"], imagem: string | null): PautaDoPortal {
+    return { ...pautaDaEdicao(0), id, editoria, imagem };
+  }
+
+  it("um card por editoria, sempre as seis, na ordem do menu", () => {
+    expect(secoesEmFoco([]).map((s) => s.editoria)).toEqual(["economia", "trabalho", "tecnologia", "custo-de-vida", "governo", "brasil"]);
+    expect(montarHome([]).secoes).toHaveLength(6);
+  });
+
+  it("a foto é a da pauta mais recente COM foto; sem nenhuma, fica sem foto", () => {
+    const pautas = [p("a", "economia", null), p("b", "economia", "https://x/b.jpg"), p("c", "economia", "https://x/c.jpg")];
+    const [economia, trabalho] = secoesEmFoco(pautas);
+    expect(economia).toEqual({ editoria: "economia", imagem: "https://x/b.jpg", total: 3 });
+    expect(trabalho).toEqual({ editoria: "trabalho", imagem: null, total: 0 });
+  });
+
+  it("a mesma foto não se repete na fileira enquanto a editoria tiver outra", () => {
+    const pautas = [
+      p("a", "economia", "https://x/wall-street.jpg"),
+      p("b", "trabalho", "https://x/wall-street.jpg"),
+      p("c", "trabalho", "https://x/fabrica.jpg"),
+      p("d", "tecnologia", "https://x/wall-street.jpg"),
+    ];
+    expect(secoesEmFoco(pautas).slice(0, 3).map((s) => s.imagem)).toEqual([
+      "https://x/wall-street.jpg",
+      "https://x/fabrica.jpg",
+      // Sem outra foto, a repetida é melhor que nenhuma.
+      "https://x/wall-street.jpg",
+    ]);
+  });
+
+  it("a página da editoria lista só as pautas dela, na ordem em que chegaram", () => {
+    const pautas = [p("a", "economia", null), p("b", "brasil", null), p("c", "economia", null)];
+    expect(pautasDaEditoria(pautas, "economia").map((x) => x.id)).toEqual(["a", "c"]);
   });
 });

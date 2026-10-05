@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { MARCA } from "@/lib/marca";
+import { EDITORIAS, hrefDaEditoria } from "@/lib/editorias";
 import { getPublishedArticles } from "@/lib/server/articles-service";
 
 /**
@@ -21,6 +22,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: MARCA.site, changeFrequency: "daily", priority: 1 },
     { url: `${MARCA.site}/artigos`, changeFrequency: "daily", priority: 0.8 },
     { url: `${MARCA.site}/newsletter`, changeFrequency: "monthly", priority: 0.5 },
+    // As páginas de editoria (05/10/2026): fixas, uma por editoria do menu.
+    ...EDITORIAS.map((e) => ({
+      url: `${MARCA.site}${hrefDaEditoria(e.id)}`,
+      changeFrequency: "daily" as const,
+      priority: 0.6,
+    })),
   ];
 
   /*

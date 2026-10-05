@@ -4,7 +4,7 @@ import { requireCron } from "@/lib/server/api-auth";
 import { DEFAULT_PROJECT_ID, requireActiveProject } from "@/lib/server/projects";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import { modoDosRamos } from "@/lib/server/ramos/modo";
-import { publicarArtigosAprovados } from "@/lib/server/ramos/portal";
+import { publicarArtigosAprovados, revisaoExigidaPeloProjeto } from "@/lib/server/ramos/portal";
 import { formatError, sendAlert } from "@/lib/server/alerts";
 import { criarFilaStore } from "@/lib/server/aprovacao/fila-store";
 import {
@@ -17,8 +17,9 @@ import {
  * Publicação das matérias do portal nos horários do dia (RF-14).
  *
  * O crontab chama esta rota em cada horário do portal (hoje 06:07, 12:00 e
- * 18:00 de Brasília). Ela publica só o que está `scheduled`, APROVADO e com o
- * horário vencido; o resto fica onde está. Chamar fora de hora não publica nada
+ * 18:00 de Brasília). Ela publica só o que está `scheduled` e com o horário
+ * vencido, e APROVADO quando a fila de aprovação está em `enforce`; o resto
+ * fica onde está. Chamar fora de hora não publica nada
  * a mais, então o cron pode ser generoso sem risco.
  *
  * Com os ramos fora de `enforce` a rota responde e não toca em nada: nenhum
@@ -46,7 +47,11 @@ async function handle(req: NextRequest) {
     const portao = portalPerguntaAFila(project)
       ? (candidatos: ArtigoCandidato[]) => artigosLiberadosPeloPortao(project, candidatos, criarFilaStore(client))
       : undefined;
-    const r = await publicarArtigosAprovados(client, project.id, new Date(), portao);
+    /*
+     * Sem a fila em `enforce` não há quem grave `approved`, e exigir isso
+     * deixava a matéria `scheduled` para sempre (correção de 05/10/2026).
+     */
+    const r = await publicarArtigosAprovados(client, project.id, new Date(), portao, revisaoExigidaPeloProjeto(project));
     for (const s of r.segurados ?? []) console.log(`[CRON PORTAL] segurado pela fila: ${s.rotulo} (${s.motivo})`);
     if (r.erro) {
       await sendAlert("warning", "Portal não publicou as matérias do horário", r.erro);

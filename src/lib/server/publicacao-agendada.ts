@@ -11,6 +11,7 @@ import {
   type EdicaoCandidata,
 } from "./aprovacao/portao-do-portal";
 import { modoDosRamos } from "./ramos/modo";
+import { revisaoExigidaPeloProjeto } from "./ramos/portal";
 
 /**
  * O lado da publicação da produção na véspera (RF-01, 05/10/2026).
@@ -109,7 +110,16 @@ export async function publicarDoProjeto(
    * matéria que ninguém aprovou. A mesma regra de `publicarArtigosAprovados`
    * vale aqui.
    */
-  const exigeRevisaoDoRamo = modoDosRamos(deps.env ?? process.env, projeto) === "enforce";
+  /*
+   * Correção de 05/10/2026: a revisão do ramo só existe com a fila em
+   * `enforce`, porque é a liberação da fila que grava `approved`. Com a fila em
+   * `off` ou `dry_run` e os ramos em `enforce`, exigir `approved` deixava a
+   * matéria `scheduled` para sempre. Fora de `enforce` ela sai no horário,
+   * como antes da fila, e só `blocked` segura.
+   */
+  const ramosNoComando = modoDosRamos(deps.env ?? process.env, projeto) === "enforce";
+  const exigeRevisaoDoRamo = ramosNoComando && revisaoExigidaPeloProjeto(projeto) === "aprovada";
+  const excluiBloqueado = ramosNoComando && !exigeRevisaoDoRamo;
 
   // 1. Edições aprovadas cuja hora chegou. Só até hoje: a de amanhã espera.
   const { data: edicoes, error: erroEdicoes } = await cliente
@@ -143,18 +153,18 @@ export async function publicarDoProjeto(
 
   // 2. Artigos agendados cuja hora chegou. A hora é a do próprio artigo.
   if (!fila && !exigeRevisaoDoRamo) {
-    const { data: artigos, error: erroArtigos } = await cliente
+    let escrita = cliente
       .from("articles")
       .update({ status: "published", updated_at: agoraIso })
       .eq("project_id", projeto.id)
-      .eq("status", "scheduled")
-      .lte("published_at", agoraIso)
-      .select("slug");
+      .eq("status", "scheduled");
+    if (excluiBloqueado) escrita = escrita.neq("manual_review_status", "blocked");
+    const { data: artigos, error: erroArtigos } = await escrita.lte("published_at", agoraIso).select("slug");
 
     if (erroArtigos) saida.erros.push(`artigos: ${erroArtigos.message}`);
     else saida.artigosPublicados.push(...((artigos ?? []) as Array<{ slug: string }>).map((a) => a.slug));
   } else {
-    await publicarArtigosComPortao(cliente, projeto, agoraIso, exigeRevisaoDoRamo, fila, saida);
+    await publicarArtigosComPortao(cliente, projeto, agoraIso, exigeRevisaoDoRamo, excluiBloqueado, fila, saida);
   }
 
   // 3. O que foi feito vai para o banco. Silêncio quando nada venceu: são
@@ -183,6 +193,7 @@ async function publicarArtigosComPortao(
   projeto: Project,
   agoraIso: string,
   exigeRevisaoDoRamo: boolean,
+  excluiBloqueado: boolean,
   fila: Pick<FilaStore, "porPeca"> | null,
   saida: PublicacaoDoProjeto,
 ): Promise<void> {
@@ -193,6 +204,7 @@ async function publicarArtigosComPortao(
     .eq("status", "scheduled")
     .lte("published_at", agoraIso);
   if (exigeRevisaoDoRamo) leitura = leitura.eq("manual_review_status", "approved");
+  if (excluiBloqueado) leitura = leitura.neq("manual_review_status", "blocked");
   const { data: lidos, error: erroLeitura } = await leitura;
   if (erroLeitura) {
     saida.erros.push(`artigos: ${erroLeitura.message}`);
@@ -218,6 +230,7 @@ async function publicarArtigosComPortao(
       liberados.map((a) => a.id),
     );
   if (exigeRevisaoDoRamo) escrita = escrita.eq("manual_review_status", "approved");
+  if (excluiBloqueado) escrita = escrita.neq("manual_review_status", "blocked");
   const { data: artigos, error: erroArtigos } = await escrita.select("slug");
   if (erroArtigos) saida.erros.push(`artigos: ${erroArtigos.message}`);
   else saida.artigosPublicados.push(...((artigos ?? []) as Array<{ slug: string }>).map((a) => a.slug));

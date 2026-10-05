@@ -29,6 +29,14 @@ function dados(): DadosDaHome {
     secundarias: lista.slice(7, 10),
     ultimas: lista.slice(10),
     porEditoria: [{ editoria: "economia", itens: lista.slice(1, 5) }],
+    secoes: [
+      { editoria: "economia", imagem: "https://images.pexels.com/photos/9/economia.jpeg", total: 4 },
+      { editoria: "trabalho", imagem: null, total: 0 },
+      { editoria: "tecnologia", imagem: null, total: 0 },
+      { editoria: "custo-de-vida", imagem: null, total: 0 },
+      { editoria: "governo", imagem: null, total: 0 },
+      { editoria: "brasil", imagem: null, total: 0 },
+    ],
   };
 }
 
@@ -66,12 +74,48 @@ describe("home do portal (redesenho Sora)", () => {
     expect(within(header).getAllByAltText(MARCA.nome).length).toBe(2);
   });
 
-  it("dá âncora a cada bloco de editoria, que é para onde o menu aponta", () => {
+  it("Seções em foco é UMA fileira de cards de tema, um por editoria, cada um levando à página dela", () => {
     const { container } = render(<PortalHome dados={dados()} />);
+    const secao = screen.getByRole("heading", { name: "Seções em foco" }).closest("section")!;
+    const trilho = within(secao).getByRole("list", { name: "Uma seção por editoria" });
+    const cards = within(trilho).getAllByRole("listitem");
 
-    expect(container.querySelector("#editoria-economia")).not.toBeNull();
-    const menu = screen.getByLabelText("Editorias");
-    expect(menu.querySelector('a[href="/#editoria-economia"]')).not.toBeNull();
+    expect(cards).toHaveLength(6);
+    expect(cards.map((c) => c.querySelector("a")?.getAttribute("href"))).toEqual([
+      "/editoria/economia",
+      "/editoria/trabalho",
+      "/editoria/tecnologia",
+      "/editoria/custo-de-vida",
+      "/editoria/governo",
+      "/editoria/brasil",
+    ]);
+    // Nome e descrição no card; nenhuma pauta empilhada por editoria.
+    expect(within(cards[0]).getByRole("heading", { name: "Economia" })).toBeInTheDocument();
+    expect(within(cards[0]).getByText(/economia americana/)).toBeInTheDocument();
+    expect(within(secao).queryByText(/Manchete de teste/)).not.toBeInTheDocument();
+    // O trilho rola pelo teclado, e "Ver tudo" leva ao arquivo.
+    expect(trilho).toHaveAttribute("tabindex", "0");
+    expect(within(secao).getByRole("link", { name: "Ver tudo" })).toHaveAttribute("href", "/artigos");
+    // A âncora antiga cai no card certo.
+    expect(container.querySelector("#editoria-economia")).toBe(cards[0]);
+  });
+
+  it("a editoria sem foto ganha a peça tipográfica, e a com foto usa a mais recente", () => {
+    render(<PortalHome dados={dados()} />);
+    const trilho = screen.getByRole("list", { name: "Uma seção por editoria" });
+    const [economia, trabalho] = within(trilho).getAllByRole("listitem");
+
+    expect(economia.querySelector("img")?.getAttribute("src")).toContain("economia.jpeg");
+    expect(trabalho.querySelector("img")).toBeNull();
+  });
+
+  it("o menu, o rodapé e a barra lateral apontam para as páginas de editoria", () => {
+    render(<PortalHome dados={dados()} />);
+
+    expect(screen.getByLabelText("Editorias").querySelector('a[href="/editoria/economia"]')).not.toBeNull();
+    expect(screen.getByLabelText("Editorias no rodapé").querySelector('a[href="/editoria/brasil"]')).not.toBeNull();
+    expect(screen.getByLabelText("Por editoria").querySelector('a[href="/editoria/economia"]')).not.toBeNull();
+    expect(document.querySelector('a[href^="/#editoria-"]')).toBeNull();
   });
 
   it("pauta sem foto vira peça tipográfica, e não imagem quebrada", () => {

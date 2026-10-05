@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { ArticleComments } from "@/components/ArticleComments";
 import { CaixaDeAssinatura, MolduraDoPortal } from "@/components/PortalChrome";
 import { SubstackArticleRenderer } from "@/components/SubstackArticleRenderer";
 import { articles as staticArticles } from "@/lib/editorial";
-import { getArticleBySlug } from "@/lib/server/articles-service";
+import { destinoDoLinkDaEdicao, getArticleBySlug } from "@/lib/server/articles-service";
 import { MARCA } from "@/lib/marca";
 import { miniaturaDoCommons } from "@/components/PortalPecas";
 
@@ -136,6 +136,12 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   const article = await getArticleBySlug(slug);
 
   if (!article) {
+    /*
+     * A edição antiga que virou matéria por pauta não some: o link dela
+     * redireciona, de forma permanente, para a primeira matéria da edição.
+     */
+    const destino = await destinoDoLinkDaEdicao(slug);
+    if (destino) permanentRedirect(destino);
     notFound();
   }
 

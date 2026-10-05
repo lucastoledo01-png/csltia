@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { MARCA } from "@/lib/marca";
-import { EDITORIAS, nomeDaEditoria } from "@/lib/editorias";
-import type { PautaDoPortal } from "@/lib/server/portal";
+import { EDITORIAS, editoriaPeloId, hrefDaEditoria, nomeDaEditoria } from "@/lib/editorias";
+import type { PautaDoPortal, SecaoEmFoco } from "@/lib/server/portal";
 import { CaixaDeAssinatura, MolduraDoPortal } from "@/components/PortalChrome";
-import { Chapeu, FotoDaPauta, Selo, corDaEditoria, dataCurta, textoCorrido } from "@/components/PortalPecas";
+import { Chapeu, FotoDaPauta, Selo, dataCurta, textoCorrido } from "@/components/PortalPecas";
+import { TrilhoDeSecoes } from "@/components/TrilhoDeSecoes";
 
 /**
  * A home do portal, no formato de jornal.
@@ -23,6 +24,12 @@ import { Chapeu, FotoDaPauta, Selo, corDaEditoria, dataCurta, textoCorrido } fro
  *   Últimas notícias    o resto das chamadas, depois ultimas
  *   Seções em foco      porEditoria
  *
+ * Em 05/10/2026, à tarde, "Seções em foco" deixou de ser a pilha de blocos
+ * por editoria e passou a ser o que a referência desenha: UMA fileira de
+ * cards de tema, um por editoria, cada um levando à página dela
+ * (`secoes`, em `montarHome`). A pilha repetia pautas que a página já
+ * mostrava acima, em seis blocos seguidos.
+ *
  * O que o desenho tinha e não existe aqui ficou fora, em vez de inventado:
  * "Mais lidas" (não há contagem de leitura por pauta), tempo de leitura (a
  * pauta só tem o resumo), "Carregar mais" (não há paginação; no lugar, o link
@@ -30,7 +37,7 @@ import { Chapeu, FotoDaPauta, Selo, corDaEditoria, dataCurta, textoCorrido } fro
  */
 
 /** Meta da pauta: fonte e data, a linha de baixo dos cards. */
-function Meta({ pauta, className = "" }: { pauta: PautaDoPortal; className?: string }) {
+export function Meta({ pauta, className = "" }: { pauta: PautaDoPortal; className?: string }) {
   return (
     <p className={`flex flex-wrap items-center gap-x-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#71717A] ${className}`}>
       <span>{pauta.fonte || MARCA.nome}</span>
@@ -120,7 +127,7 @@ function CardDaGrade({ pauta }: { pauta: PautaDoPortal }) {
  * As duas medidas da foto são fixas (96x96 e 224x160): a caixa não depende
  * do tamanho do arquivo.
  */
-function LinhaDoFeed({ pauta, className = "" }: { pauta: PautaDoPortal; className?: string }) {
+export function LinhaDoFeed({ pauta, className = "" }: { pauta: PautaDoPortal; className?: string }) {
   return (
     <Link href={pauta.href} className={`group flex gap-4 md:gap-6 ${className}`}>
       <FotoDaPauta
@@ -145,7 +152,7 @@ function LinhaDoFeed({ pauta, className = "" }: { pauta: PautaDoPortal; classNam
 }
 
 /** O primeiro item do feed no celular: foto 16:9 grande, como no desenho. */
-function PrimeiroDoFeedMovel({ pauta }: { pauta: PautaDoPortal }) {
+export function PrimeiroDoFeedMovel({ pauta }: { pauta: PautaDoPortal }) {
   return (
     <Link href={pauta.href} className="group block md:hidden">
       <FotoDaPauta
@@ -175,7 +182,7 @@ function NotaDoFeed({ pauta }: { pauta: PautaDoPortal }) {
   );
 }
 
-function TituloDeSecao({ texto, id }: { texto: string; id?: string }) {
+export function TituloDeSecao({ texto, id }: { texto: string; id?: string }) {
   return (
     <h2 id={id} className="mb-6 inline-block border-b-2 border-[#0A0A0A] pb-1 text-xl font-semibold text-[#0A0A0A] md:mb-10 md:text-2xl">
       {texto}
@@ -184,34 +191,30 @@ function TituloDeSecao({ texto, id }: { texto: string; id?: string }) {
 }
 
 /**
- * Bloco de uma editoria na faixa cinza. Até quatro pautas, a primeira com
- * foto maior. A âncora `editoria-<id>` é para onde aponta o menu.
+ * Card de uma editoria em "Seções em foco", como na referência: caixa branca
+ * arredondada, foto 16:9, nome da editoria e uma linha de descrição.
+ *
+ * A foto é a da pauta mais recente da editoria que tem foto; sem nenhuma, a
+ * peça tipográfica com a cor da editoria. O `id` `editoria-<id>` é o destino
+ * das âncoras que o menu usava antes das páginas de editoria, para um link
+ * antigo cair no card certo e não no topo da home.
  */
-function BlocoDaEditoria({ editoria, itens }: { editoria: (typeof EDITORIAS)[number]["id"]; itens: PautaDoPortal[] }) {
-  const nome = nomeDaEditoria(editoria);
+function CardDaSecao({ secao }: { secao: SecaoEmFoco }) {
+  const editoria = editoriaPeloId(secao.editoria);
+  if (!editoria) return null;
   return (
-    <section id={`editoria-${editoria}`} aria-labelledby={`titulo-editoria-${editoria}`} className="scroll-mt-24">
-      <div className="mb-6 flex items-center gap-3 border-b border-[#E4E4E7] pb-3">
-        <span aria-hidden="true" className="h-5 w-1.5 rounded-full" style={{ background: corDaEditoria(editoria) }} />
-        <h3 id={`titulo-editoria-${editoria}`} className="text-xl font-semibold text-[#0A0A0A] md:text-2xl">
-          {nome}
-        </h3>
-      </div>
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {itens.map((p) => (
-          <Link key={p.id} href={p.href} className="group block rounded-2xl border border-[#F4F4F5] bg-white p-2">
-            <FotoDaPauta src={p.imagem} proporcao="aspect-video" rotulo={p.rotulo} editoria={p.editoria} />
-            <div className="p-3 pb-4">
-              <Chapeu texto={p.rotulo} />
-              <h4 className="mt-2 text-[15px] font-semibold leading-snug text-[#0A0A0A] transition-colors group-hover:text-marca-texto">
-                {p.titulo}
-              </h4>
-              <Meta pauta={p} className="mt-3" />
-            </div>
-          </Link>
-        ))}
-      </div>
-    </section>
+    <li
+      id={`editoria-${secao.editoria}`}
+      className="w-[80%] shrink-0 snap-start scroll-mt-28 sm:w-[calc((100%-1rem)/2)] md:w-[calc((100%-3rem)/3)] lg:w-[calc((100%-4.5rem)/4)]"
+    >
+      <Link href={hrefDaEditoria(secao.editoria)} className="group block h-full rounded-2xl border border-[#E4E4E7] bg-white p-2 transition-colors hover:border-[#D4D4D8]">
+        <FotoDaPauta src={secao.imagem} proporcao="aspect-video" rotulo={editoria.nome} editoria={secao.editoria} />
+        <div className="p-4">
+          <h3 className="mb-2 text-lg font-semibold text-[#0A0A0A] transition-colors group-hover:text-marca-texto">{editoria.nome}</h3>
+          <p className="text-xs leading-relaxed text-[#71717A]">{editoria.descricao}</p>
+        </div>
+      </Link>
+    </li>
   );
 }
 
@@ -221,6 +224,8 @@ export type DadosDaHome = {
   secundarias: PautaDoPortal[];
   ultimas: PautaDoPortal[];
   porEditoria: Array<{ editoria: (typeof EDITORIAS)[number]["id"]; itens: PautaDoPortal[] }>;
+  /** Um card por editoria, para "Seções em foco". */
+  secoes: SecaoEmFoco[];
 };
 
 /** Quantas chamadas vão para a coluna "Destaques"; o resto abre o feed. */
@@ -231,7 +236,7 @@ const LINHAS_COM_FOTO = 10;
 const NOTAS = 6;
 
 export function PortalHome({ dados }: { dados: DadosDaHome }) {
-  const { destaque, chamadas, secundarias, ultimas, porEditoria } = dados;
+  const { destaque, chamadas, secundarias, ultimas, porEditoria, secoes } = dados;
 
   const naColuna = chamadas.slice(0, NA_COLUNA);
   /*
@@ -331,12 +336,12 @@ export function PortalHome({ dados }: { dados: DadosDaHome }) {
                               {String(i + 1).padStart(2, "0")}
                             </span>
                             <div className="min-w-0">
-                              <a
-                                href={`#editoria-${editoria}`}
+                              <Link
+                                href={hrefDaEditoria(editoria)}
                                 className="text-[10px] font-bold uppercase tracking-[0.14em] text-marca-texto hover:underline"
                               >
                                 {nomeDaEditoria(editoria)}
-                              </a>
+                              </Link>
                               <Link
                                 href={pauta.href}
                                 className="mt-1 block text-sm font-bold leading-snug text-[#0A0A0A] transition-colors hover:text-marca-texto"
@@ -370,18 +375,30 @@ export function PortalHome({ dados }: { dados: DadosDaHome }) {
           ) : null}
         </div>
 
-        {/* ---- seções em foco: os blocos por editoria ---- */}
-        {porEditoria.length > 0 ? (
-          <section aria-labelledby="titulo-secoes" className="mt-16 bg-[#F4F4F5] px-5 py-14 sm:px-6 md:mt-20 md:py-20">
-            <div className="mx-auto max-w-7xl">
-              <h2 id="titulo-secoes" className="mb-10 text-2xl font-semibold text-[#0A0A0A] md:text-3xl">
-                Seções em foco
-              </h2>
-              <div className="flex flex-col gap-14">
-                {porEditoria.map(({ editoria, itens }) => (
-                  <BlocoDaEditoria key={editoria} editoria={editoria} itens={itens} />
+        {/* ---- seções em foco: uma fileira de cards de tema, um por editoria ---- */}
+        {secoes.length > 0 ? (
+          <section aria-labelledby="titulo-secoes" className="mt-16 bg-[#F4F4F5] py-14 md:mt-20 md:py-20">
+            <div className="mx-auto max-w-7xl px-5 sm:px-6">
+              <TrilhoDeSecoes
+                rotulo="Uma seção por editoria"
+                titulo={
+                  <h2 id="titulo-secoes" className="text-2xl font-semibold text-[#0A0A0A] md:text-3xl">
+                    Seções em foco
+                  </h2>
+                }
+                acao={
+                  <Link
+                    href="/artigos"
+                    className="shrink-0 border-b-2 border-[var(--portal-vermelho)] pb-1 text-xs font-bold uppercase tracking-[0.16em] text-[#0A0A0A]"
+                  >
+                    Ver tudo
+                  </Link>
+                }
+              >
+                {secoes.map((secao) => (
+                  <CardDaSecao key={secao.editoria} secao={secao} />
                 ))}
-              </div>
+              </TrilhoDeSecoes>
             </div>
           </section>
         ) : (
