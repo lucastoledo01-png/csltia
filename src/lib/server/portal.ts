@@ -1,6 +1,7 @@
 import { getSupabaseAdminClient } from "./supabase-admin";
-import { editoriaDaPauta, type EditoriaId } from "@/lib/editorias";
+import { EDITORIAS, editoriaDaPauta, type EditoriaId } from "@/lib/editorias";
 import { comRetentativa, LeituraFalhou } from "./leitura";
+import { motivoDeImigracao, slugsDaEdicao } from "./artigos-por-pauta";
 
 /**
  * O conteúdo da home do portal.
@@ -38,7 +39,7 @@ export type PautaDoPortal = {
   href: string;
 };
 
-type EdicaoBruta = {
+export type EdicaoBruta = {
   edition_date: string;
   slug: string;
   stories: Array<Record<string, unknown>> | null;
@@ -143,41 +144,41 @@ export function juntarPautasEArtigos(
     .map((x) => x.pauta);
 }
 
-export async function pautasRecentes(
-  projectId: string,
-  limite = 40,
-  /*
-   * Integração de 05/10/2026: só com os ramos em `enforce` a home lê também
-   * `articles`. Ausente, a home é a de antes, uma consulta só.
-   */
-  opcoes: { incluirArtigosDosRamos?: boolean; timezone?: string } = {},
-): Promise<PautaDoPortal[]> {
-  const client = getSupabaseAdminClient();
-
-  const edicoes = await comRetentativa("edições do portal", async () => {
-    const { data, error } = await client
-      .from("news_editions")
-      .select("edition_date, slug, stories, content_html")
-      .eq("project_id", projectId)
-      .eq("status", "published")
-      .order("edition_date", { ascending: false })
-      .limit(20);
-
-    if (error) throw new LeituraFalhou(`Falha ao carregar edições: ${error.message}`);
-    return (data ?? []) as EdicaoBruta[];
-  });
-
+/**
+ * As pautas das edições, prontas para a home. Pura, para o teste.
+ *
+ * Duas regras de 05/10/2026, do dia em que as edições viraram uma matéria por
+ * pauta (`artigos-por-pauta.ts`):
+ *
+ *   - a pauta cuja matéria própria está publicada aponta para a matéria, e não
+ *     para a edição. O slug é o MESMO que o script gravou (`slugsDaEdicao`), e
+ *     só vale se a matéria está no ar: antes de o dono rodar o script, a pauta
+ *     continua apontando para a edição, que continua publicada;
+ *   - a pauta de imigração sai. A linha deixou o assunto, o script não a
+ *     transformou em matéria, e o link dela levaria, pelo redirecionamento da
+ *     edição, a outra pauta.
+ */
+export function pautasDasEdicoes(
+  edicoes: EdicaoBruta[],
+  slugsPublicados: Set<string> = new Set(),
+): { pautas: PautaDoPortal[]; fontesDasPautas: Map<string, string> } {
   const pautas: PautaDoPortal[] = [];
   const fontesDasPautas = new Map<string, string>();
 
   for (const edicao of edicoes) {
     const fotos = fotosDoHtml(edicao.content_html);
+    const historias = edicao.stories ?? [];
+    const slugs = slugsDaEdicao(
+      historias.map((s) => texto(s.title)),
+      edicao.edition_date,
+    );
 
-    (edicao.stories ?? []).forEach((s, i) => {
+    historias.forEach((s, i) => {
       const titulo = texto(s.title);
       if (!titulo) return;
 
       const rotulo = texto(s.category) || "Notícias";
+      if (motivoDeImigracao(rotulo, titulo)) return;
 
       const fonteUrl = texto(s.source_url);
       if (fonteUrl) fontesDasPautas.set(`${edicao.slug}#${i}`, fonteUrl);
@@ -191,10 +192,67 @@ export async function pautasRecentes(
         imagem: fotos[i] ?? null,
         fonte: texto(s.source_name),
         data: edicao.edition_date,
-        href: `/artigos/${edicao.slug}`,
+        href: slugsPublicados.has(slugs[i]) ? `/artigos/${slugs[i]}` : `/artigos/${edicao.slug}`,
       });
     });
   }
+
+  return { pautas, fontesDasPautas };
+}
+
+export async function pautasRecentes(
+  projectId: string,
+  limite = 40,
+  /*
+   * Integração de 05/10/2026: só com os ramos em `enforce` a home lê também
+   * `articles`. Ausente, a home é a de antes, uma consulta só.
+   *
+   * Depois, no mesmo dia: a home lê sempre os slugs publicados (duas colunas
+   * de uma tabela pequena), para a pauta apontar para a matéria por pauta.
+   */
+  opcoes: {
+    incluirArtigosDosRamos?: boolean;
+    timezone?: string;
+    /** Quantas edições ler. A home lê 20; a página de editoria lê mais, porque filtra. */
+    edicoes?: number;
+    /** Quantas matérias dos ramos ler, com os ramos em `enforce`. */
+    artigos?: number;
+  } = {},
+): Promise<PautaDoPortal[]> {
+  const client = getSupabaseAdminClient();
+
+  const edicoes = await comRetentativa("edições do portal", async () => {
+    const { data, error } = await client
+      .from("news_editions")
+      .select("edition_date, slug, stories, content_html")
+      .eq("project_id", projectId)
+      .eq("status", "published")
+      .order("edition_date", { ascending: false })
+      .limit(opcoes.edicoes ?? 20);
+
+    if (error) throw new LeituraFalhou(`Falha ao carregar edições: ${error.message}`);
+    return (data ?? []) as EdicaoBruta[];
+  });
+
+  /*
+   * Os slugs das matérias por pauta já publicadas (05/10/2026), para a pauta
+   * da edição apontar direto para a matéria dela. Sem esta leitura a pauta
+   * aponta para a edição, que redireciona: o leitor chega, com um salto a
+   * mais. Não vale derrubar a home por isso, e a falha vira conjunto vazio.
+   */
+  const slugsPublicados = await comRetentativa("matérias por pauta", async () => {
+    const { data, error } = await client
+      .from("articles")
+      .select("slug")
+      .eq("project_id", projectId)
+      .eq("status", "published")
+      .not("slug", "like", `${PREFIXO_DO_ARTIGO_DA_EDICAO}%`)
+      .limit(2000);
+    if (error) throw new LeituraFalhou(`Falha ao carregar matérias: ${error.message}`);
+    return new Set(((data ?? []) as Array<{ slug: string }>).map((r) => r.slug));
+  }).catch(() => new Set<string>());
+
+  const { pautas, fontesDasPautas } = pautasDasEdicoes(edicoes, slugsPublicados);
 
   if (!opcoes.incluirArtigosDosRamos) return pautas.slice(0, limite);
 
@@ -206,7 +264,7 @@ export async function pautasRecentes(
       .eq("status", "published")
       .not("slug", "like", `${PREFIXO_DO_ARTIGO_DA_EDICAO}%`)
       .order("published_at", { ascending: false })
-      .limit(30);
+      .limit(opcoes.artigos ?? 30);
     if (error) throw new LeituraFalhou(`Falha ao carregar matérias: ${error.message}`);
     return (data ?? []) as ArtigoDoRamo[];
   });
@@ -231,7 +289,42 @@ export function montarHome(pautas: PautaDoPortal[]) {
     /** Lista cronológica. */
     ultimas: restantes.slice(9, 25),
     porEditoria: agruparPorEditoria(restantes),
+    secoes: secoesEmFoco(pautas),
   };
+}
+
+/** Um card por editoria em "Seções em foco": a foto mais recente dela, ou nenhuma. */
+export type SecaoEmFoco = { editoria: EditoriaId; imagem: string | null; total: number };
+
+/**
+ * As seis editorias, sempre, na ordem do menu.
+ *
+ * A foto é a da pauta mais recente da editoria que TEM foto, e não a da pauta
+ * mais recente: uma editoria cuja última pauta saiu sem foto continuaria com a
+ * peça tipográfica por dias tendo foto na anterior. Sem pauta com foto, sem
+ * foto, e o card mostra a peça tipográfica com a cor da editoria.
+ */
+export function secoesEmFoco(pautas: PautaDoPortal[]): SecaoEmFoco[] {
+  /*
+   * Uma foto não se repete na fileira enquanto houver outra. As edições de
+   * setembro usaram a mesma foto de Wall Street como reserva em dezenas de
+   * pautas, e três cards vizinhos com a mesma foto leem como defeito. A
+   * editoria pega a foto mais recente dela que ainda não está num card à
+   * esquerda; se todas estiverem, fica com a mais recente mesmo.
+   */
+  const usadas = new Set<string>();
+  return EDITORIAS.map(({ id }) => {
+    const daEditoria = pautas.filter((p) => p.editoria === id);
+    const fotos = daEditoria.map((p) => p.imagem).filter((f): f is string => Boolean(f));
+    const imagem = fotos.find((f) => !usadas.has(f)) ?? fotos[0] ?? null;
+    if (imagem) usadas.add(imagem);
+    return { editoria: id, imagem, total: daEditoria.length };
+  });
+}
+
+/** As pautas de uma editoria, na ordem em que chegaram (mais recente primeiro). */
+export function pautasDaEditoria(pautas: PautaDoPortal[], editoria: EditoriaId): PautaDoPortal[] {
+  return pautas.filter((p) => p.editoria === editoria);
 }
 
 function agruparPorEditoria(pautas: PautaDoPortal[]) {

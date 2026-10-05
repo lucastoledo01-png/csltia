@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { logoDoSite, MARCA } from "@/lib/marca";
-import { EDITORIAS } from "@/lib/editorias";
+import { EDITORIAS, hrefDaEditoria } from "@/lib/editorias";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { PortalMenuMovel } from "@/components/PortalMenuMovel";
 
@@ -62,6 +62,11 @@ export function dataDeHoje(agora: Date = new Date()): { longa: string; curta: st
  * de um artigo, que antes apontava para uma âncora inexistente na própria
  * página do artigo.
  *
+ * Depois, no mesmo 05/10/2026: as páginas de editoria passaram a existir
+ * (`/editoria/<id>`), e o menu e o rodapé apontam para elas. As âncoras
+ * `editoria-<id>` continuam nos cards de "Seções em foco" da home, para um
+ * link antigo cair no card certo em vez de no topo.
+ *
  * O logotipo segue a regra da marca: a versão é escolhida pela cor do fundo.
  * Fundo branco no computador, versão de fundo claro; fundo preto no celular,
  * versão de fundo escuro. A referência punha a versão de fundo escuro no
@@ -98,7 +103,7 @@ export function TopoDoPortal() {
               {EDITORIAS.map((e) => (
                 <a
                   key={e.id}
-                  href={`/#editoria-${e.id}`}
+                  href={hrefDaEditoria(e.id)}
                   className="text-sm font-semibold text-[#52525B] transition-colors hover:text-[#0A0A0A]"
                 >
                   {e.nome}
@@ -183,7 +188,7 @@ export function RodapeDoPortal() {
             <ul className="mt-5 flex flex-col gap-3">
               {EDITORIAS.map((e) => (
                 <li key={e.id}>
-                  <a href={`/#editoria-${e.id}`} className="text-sm text-[#A1A1AA] transition-colors hover:text-white">
+                  <a href={hrefDaEditoria(e.id)} className="text-sm text-[#A1A1AA] transition-colors hover:text-white">
                     {e.nome}
                   </a>
                 </li>

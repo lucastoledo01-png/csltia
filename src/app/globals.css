@@ -146,6 +146,97 @@ body {
     padding-left: 0 !important;
     padding-right: 0 !important;
   }
+
+  /*
+   * A matéria por pauta (ramo do portal e edições desmontadas, 05/10/2026)
+   * chega como HTML limpo: seções com intertítulo, parágrafos e o crédito da
+   * fonte. Sem isto o reset do Tailwind deixa tudo no mesmo corpo e sem
+   * espaço entre parágrafos. Os seletores são de filho DIRETO do corpo: o HTML
+   * da edição antiga começa por um `div` de e-mail e não é tocado.
+   */
+  .artigo-corpo > section + section {
+    margin-top: 2.25rem;
+  }
+
+  .artigo-corpo > section > h2 {
+    margin-bottom: 0.75rem;
+    font-size: 1.375rem;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    color: #0a0a0a;
+  }
+
+  .artigo-corpo > section > h3 {
+    margin: 1.5rem 0 0.5rem;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: #0a0a0a;
+  }
+
+  .artigo-corpo > section > p {
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    color: #27272a;
+  }
+
+  .artigo-corpo > section > p + p {
+    margin-top: 1.1rem;
+  }
+
+  /* A abertura, que é a primeira seção sem intertítulo, um corpo acima. */
+  .artigo-corpo > section:first-child > p:first-child {
+    font-size: 1.1875rem;
+    line-height: 1.7;
+    color: #0a0a0a;
+  }
+
+  .artigo-corpo > section strong {
+    font-weight: 600;
+    color: #0a0a0a;
+  }
+
+  .artigo-corpo > p.fonte {
+    margin-top: 2.5rem;
+    border-top: 1px solid #f4f4f5;
+    padding-top: 1rem;
+    font-size: 0.8125rem;
+    color: #71717a;
+  }
+
+  .artigo-corpo > p.fonte + p.fonte {
+    margin-top: 0.5rem;
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  .artigo-corpo > p.fonte a {
+    color: var(--portal-vermelho-texto);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /*
+   * O trilho de "Seções em foco". A barra de rolagem fica à mostra e fina: no
+   * computador é ela que diz que há mais cards do que cabem.
+   */
+  .trilho {
+    scrollbar-width: thin;
+    scrollbar-color: #a1a1aa #e4e4e7;
+  }
+
+  .trilho::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .trilho::-webkit-scrollbar-track {
+    background: #e4e4e7;
+    border-radius: 999px;
+  }
+
+  .trilho::-webkit-scrollbar-thumb {
+    background: #a1a1aa;
+    border-radius: 999px;
+  }
 }
 
 button,

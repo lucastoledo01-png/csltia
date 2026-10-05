@@ -168,13 +168,52 @@ describe("caminho 2, o relógio da publicação da véspera, com o portão", () 
     expect(r.artigosPublicados).toEqual([ARTIGO.slug]);
   });
 
-  it("ramos em enforce e fila em off: só sai o artigo com revisão aprovada (regra do ramo)", async () => {
+  /*
+   * Correção de 05/10/2026: este teste afirmava o contrário ("ramos em
+   * enforce e fila em off: só sai o artigo com revisão aprovada"). Com a
+   * fila em `off` ninguém grava `approved`, e a matéria ficava agendada para
+   * sempre. A revisão humana só é exigida com a fila em `enforce`.
+   */
+  it("ramos e fila em enforce: só sai o artigo com revisão aprovada", async () => {
     const { client, ops } = banco();
-    await publicarDoProjeto(projetoCom({ producao_vespera: "enforce", ramos: "enforce" }), agora, client, { env: {} });
+    const fila = await filaCom([
+      { ramo: "artigo", pecaId: ARTIGO.id, hash: hashDoArtigo(ARTIGO.title, ARTIGO.content_html, ARTIGO.cover_image), estado: "aprovada" },
+    ]);
+    await publicarDoProjeto(projetoCom({ producao_vespera: "enforce", ramos: "enforce", aprovacao: "enforce" }), agora, client, {
+      env: {},
+      fila,
+    });
     const leitura = ops.find((o) => o.tabela === "articles" && o.tipo === "select");
     const escrita = escritas(ops, "articles")[0];
     expect(filtro(leitura!, "eq", "manual_review_status")).toEqual(["approved"]);
     expect(filtro(escrita, "eq", "manual_review_status")).toEqual(["approved"]);
+  });
+
+  it("ramos em enforce e fila em off: sai no horário sem exigir aprovação, e o bloqueado não sai", async () => {
+    const { client, ops } = banco();
+    const r = await publicarDoProjeto(projetoCom({ producao_vespera: "enforce", ramos: "enforce" }), agora, client, { env: {} });
+    const artigos = ops.filter((o) => o.tabela === "articles");
+    expect(artigos).toHaveLength(1);
+    expect(artigos[0].tipo).toBe("update");
+    expect(filtro(artigos[0], "eq", "manual_review_status")).toBeUndefined();
+    expect(filtro(artigos[0], "neq", "manual_review_status")).toEqual(["blocked"]);
+    expect(filtro(artigos[0], "lte", "published_at")).toEqual([agora.toISOString()]);
+    expect(r.artigosPublicados).toEqual([ARTIGO.slug]);
+  });
+
+  it("ramos em enforce e fila em dry_run: o portão é consultado, mas a aprovação não é exigida", async () => {
+    const { client, ops } = banco();
+    const fila = await filaCom([]);
+    const r = await publicarDoProjeto(projetoCom({ producao_vespera: "enforce", ramos: "enforce", aprovacao: "dry_run" }), agora, client, {
+      env: {},
+      fila,
+    });
+    const leitura = ops.find((o) => o.tabela === "articles" && o.tipo === "select");
+    const escrita = escritas(ops, "articles")[0];
+    expect(filtro(leitura!, "eq", "manual_review_status")).toBeUndefined();
+    expect(filtro(leitura!, "neq", "manual_review_status")).toEqual(["blocked"]);
+    expect(filtro(escrita, "neq", "manual_review_status")).toEqual(["blocked"]);
+    expect(r.artigosPublicados).toEqual([ARTIGO.slug]);
   });
 
   it("tudo desligado: o update de antes, sem leitura de artigo e sem filtro de revisão", async () => {

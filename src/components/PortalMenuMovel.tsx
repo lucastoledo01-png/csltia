@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
-import { EDITORIAS } from "@/lib/editorias";
+import { EDITORIAS, hrefDaEditoria } from "@/lib/editorias";
 
 /**
  * O menu do celular: um botão de verdade que abre as editorias.
@@ -12,6 +12,10 @@ import { EDITORIAS } from "@/lib/editorias";
  * escolher um destino e com Esc, porque as editorias são âncoras da própria
  * home e a página não troca: sem isso o painel ficaria aberto por cima do
  * bloco que a pessoa acabou de pedir.
+ *
+ * Desde 05/10/2026 as editorias são páginas próprias e a página troca, mas
+ * fechar ao escolher continua certo: a navegação do cliente preserva o estado
+ * do componente, e o painel abriria por cima da página nova.
  */
 export function PortalMenuMovel() {
   const [aberto, setAberto] = useState(false);
@@ -55,7 +59,7 @@ export function PortalMenuMovel() {
             {EDITORIAS.map((e) => (
               <li key={e.id} className="border-b border-white/10">
                 <a
-                  href={`/#editoria-${e.id}`}
+                  href={hrefDaEditoria(e.id)}
                   onClick={() => setAberto(false)}
                   className="block py-3.5 text-[15px] font-semibold text-white"
                 >

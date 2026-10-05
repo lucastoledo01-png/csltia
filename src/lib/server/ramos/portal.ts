@@ -3,6 +3,7 @@ import { zonedTimeToUtc } from "../time";
 import { MARCA } from "@/lib/marca";
 import type { ProjetoComCapacidades } from "../capacidades";
 import { horariosDoPortal as horariosDaCadencia } from "../cadencia";
+import { modoDaFila } from "../aprovacao/modo";
 import type { Artigo } from "./artigo";
 import type { PacoteFactual } from "../editorial/pacote-factual";
 import type { PecaPronta } from "./peca";
@@ -24,6 +25,23 @@ import type { ArtigoCandidato } from "../aprovacao/portao-do-portal";
  * dele. Ele só vira `published` quando alguém o aprovou E o horário chegou.
  * Artigo que ninguém aprovou não sai, nem atrasado.
  */
+/*
+ * Correção de 05/10/2026, depois da integração: "alguém o aprovou" só existe
+ * com a fila de aprovação em `enforce`. É a liberação da fila
+ * (`despacharArtigo`, em `aprovacao/pecas-supabase.ts`) quem grava `approved`,
+ * e ela só despacha em `enforce`. Com os ramos em `enforce` e a fila em `off`
+ * ou `dry_run`, ninguém gravava `approved`, e o relógio exigia `approved`: a
+ * matéria nascia `scheduled` e ficava assim para sempre, sem erro e sem
+ * alerta. Fora de `enforce` a fila não é portão, então a matéria sai no
+ * horário dela, como saía antes da fila existir. Só `blocked` continua
+ * segurando, porque é uma decisão gravada por alguém.
+ */
+export type RevisaoExigida = "aprovada" | "nao_bloqueada";
+
+/** A revisão que o projeto exige para a matéria sair: só a fila em `enforce` exige gente. */
+export function revisaoExigidaPeloProjeto(projeto: ProjetoComCapacidades | null | undefined): RevisaoExigida {
+  return modoDaFila(projeto) === "enforce" ? "aprovada" : "nao_bloqueada";
+}
 export const HORARIOS_PADRAO_DO_PORTAL = ["06:07", "12:00", "18:00"] as const;
 
 /*
@@ -181,17 +199,23 @@ export async function publicarArtigosAprovados(
    * `update` de antes, numa consulta só, e nada mais é lido.
    */
   portao?: PortaoDosArtigos,
+  /*
+   * `aprovada` é a regra com gente no meio (fila em `enforce`);
+   * `nao_bloqueada` é a regra sem portão humano. Quem decide é quem chama,
+   * por `revisaoExigidaPeloProjeto`. O padrão é o mais restrito, para um
+   * chamador esquecido segurar em vez de publicar.
+   */
+  revisao: RevisaoExigida = "aprovada",
 ): Promise<{ publicados: string[]; erro: string | null; segurados?: Array<{ rotulo: string; motivo: string }> }> {
-  if (portao) return publicarPeloPortao(client, projectId, agora, portao);
+  if (portao) return publicarPeloPortao(client, projectId, agora, portao, revisao);
 
-  const { data, error } = await client
+  let escrita = client
     .from("articles")
     .update({ status: "published", updated_at: agora.toISOString() })
     .eq("project_id", projectId)
-    .eq("status", "scheduled")
-    .eq("manual_review_status", "approved")
-    .lte("published_at", agora.toISOString())
-    .select("slug");
+    .eq("status", "scheduled");
+  escrita = revisao === "aprovada" ? escrita.eq("manual_review_status", "approved") : escrita.neq("manual_review_status", "blocked");
+  const { data, error } = await escrita.lte("published_at", agora.toISOString()).select("slug");
 
   if (error) return { publicados: [], erro: error.message };
   return { publicados: ((data ?? []) as Array<{ slug: string }>).map((r) => r.slug), erro: null };
@@ -210,26 +234,28 @@ async function publicarPeloPortao(
   projectId: string,
   agora: Date,
   portao: PortaoDosArtigos,
+  revisao: RevisaoExigida,
 ): Promise<{ publicados: string[]; erro: string | null; segurados: Array<{ rotulo: string; motivo: string }> }> {
   const agoraIso = agora.toISOString();
-  const { data: lidos, error: erroDeLeitura } = await client
+  let leitura = client
     .from("articles")
     .select("id, slug, title, content_html, cover_image")
     .eq("project_id", projectId)
-    .eq("status", "scheduled")
-    .eq("manual_review_status", "approved")
-    .lte("published_at", agoraIso);
+    .eq("status", "scheduled");
+  leitura = revisao === "aprovada" ? leitura.eq("manual_review_status", "approved") : leitura.neq("manual_review_status", "blocked");
+  const { data: lidos, error: erroDeLeitura } = await leitura.lte("published_at", agoraIso);
   if (erroDeLeitura) return { publicados: [], erro: erroDeLeitura.message, segurados: [] };
 
   const { liberadas, seguradas } = await portao((lidos ?? []) as ArtigoCandidato[]);
   if (liberadas.length === 0) return { publicados: [], erro: null, segurados: seguradas };
 
-  const { data, error } = await client
+  let escrita = client
     .from("articles")
     .update({ status: "published", updated_at: agoraIso })
     .eq("project_id", projectId)
-    .eq("status", "scheduled")
-    .eq("manual_review_status", "approved")
+    .eq("status", "scheduled");
+  escrita = revisao === "aprovada" ? escrita.eq("manual_review_status", "approved") : escrita.neq("manual_review_status", "blocked");
+  const { data, error } = await escrita
     .lte("published_at", agoraIso)
     .in(
       "id",

@@ -19,13 +19,18 @@
  * deixou a pauta. No lugar entraram as editorias que a classificação aprova
  * de verdade: economia, tecnologia e custo de vida.
  */
+/*
+ * A descrição de cada editoria aparece no card de "Seções em foco" e na
+ * página dela (05/10/2026). É fixa, curta e segue a linha: o lado bom dos
+ * EUA para quem sonha com eles, o lado que não vai bem no Brasil.
+ */
 export const EDITORIAS = [
-  { id: "economia", nome: "Economia" },
-  { id: "trabalho", nome: "Trabalho" },
-  { id: "tecnologia", nome: "Tecnologia" },
-  { id: "custo-de-vida", nome: "Custo de vida" },
-  { id: "governo", nome: "Política" },
-  { id: "brasil", nome: "Brasil" },
+  { id: "economia", nome: "Economia", descricao: "Juros, bolsa e empresas que fazem a economia americana crescer." },
+  { id: "trabalho", nome: "Trabalho", descricao: "Vagas, salários e carreiras que estão em alta nos EUA." },
+  { id: "tecnologia", nome: "Tecnologia", descricao: "IA, big techs e o que sai primeiro dos laboratórios americanos." },
+  { id: "custo-de-vida", nome: "Custo de vida", descricao: "Moradia, preços e quanto custa viver em cada canto dos EUA." },
+  { id: "governo", nome: "Política", descricao: "Casa Branca, Congresso e as decisões que mudam o país." },
+  { id: "brasil", nome: "Brasil", descricao: "Juros, câmbio e contas públicas: o que pesa no bolso por aqui." },
 ] as const;
 
 export type EditoriaId = (typeof EDITORIAS)[number]["id"];
@@ -58,4 +63,14 @@ export function editoriaDaPauta(rotulo: string, titulo = ""): EditoriaId {
 
 export function nomeDaEditoria(id: EditoriaId): string {
   return EDITORIAS.find((e) => e.id === id)?.nome ?? "Notícias";
+}
+
+/** A editoria pelo id da URL, ou `null` quando o id não é de editoria nenhuma. */
+export function editoriaPeloId(id: string): (typeof EDITORIAS)[number] | null {
+  return EDITORIAS.find((e) => e.id === id) ?? null;
+}
+
+/** O endereço da página da editoria. */
+export function hrefDaEditoria(id: EditoriaId): string {
+  return `/editoria/${id}`;
 }

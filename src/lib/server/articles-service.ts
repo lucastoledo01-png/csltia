@@ -174,3 +174,40 @@ export async function getArticleBySlug(slug: string) {
     age_summary: staticArt.quote,
   };
 }
+
+/**
+ * Para onde vai o link antigo de uma edição (05/10/2026).
+ *
+ * As edições `edicao-AAAA-MM-DD` viraram uma matéria por pauta
+ * (`src/scripts/artigos-por-pauta.ts`) e saíram da lista do portal. O link
+ * delas está em e-mail enviado, em post e no Google, e não pode virar 404:
+ * ele vai para a primeira matéria da edição, calculada pelo MESMO plano que o
+ * script gravou, e só se ela estiver publicada. Sem isso, para a lista.
+ *
+ * `null` quando o slug não é de edição: aí a página segue para o 404 de
+ * sempre. Falha de leitura também cai na lista, que existe, e não no 404.
+ */
+export async function destinoDoLinkDaEdicao(slug: string): Promise<string | null> {
+  const { dataDaEdicao, destinoDaEdicao } = await import("./artigos-por-pauta");
+  if (!dataDaEdicao(slug)) return null;
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { data: edicao, error } = await supabase
+      .from("articles")
+      .select("slug, project_id, published_at, cover_image, content, content_html")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (error || !edicao) return "/artigos";
+    const destino = destinoDaEdicao(edicao);
+    if (!destino) return "/artigos";
+    const { data: materia } = await supabase
+      .from("articles")
+      .select("slug")
+      .eq("slug", destino)
+      .eq("status", "published")
+      .maybeSingle();
+    return materia ? `/artigos/${destino}` : "/artigos";
+  } catch {
+    return "/artigos";
+  }
+}
