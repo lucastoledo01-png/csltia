@@ -894,6 +894,17 @@ serve o arquivo da nossa origem.
 - Cada página do portal tem UMA caixa de assinatura (`id="newsletter"`), que
   é o fluxo real da newsletter. Barra de topo e rodapé apontam para ela.
 
+## Robôs de IA liberados, os dois tipos (05/10/2026)
+
+Decisão do dono. Os robôs de **busca e citação** (OAI-SearchBot, PerplexityBot,
+Claude-SearchBot e os de leitura sob demanda) leem a página quando alguém
+pergunta e citam o site com link, e é deles que vem o GEO. Os de **treino**
+(GPTBot, ClaudeBot, Google-Extended, CCBot) também ficam liberados: bloquear só
+valeria daqui para frente, depende de o robô obedecer e não muda nada na busca
+do Google, e um portal construindo audiência ganha mais sendo conhecido pelo
+modelo do que protegendo notícia, que perde valor em dias. Rever se surgir
+licenciamento ou conteúdo exclusivo. A lista está em `src/app/robots.ts`.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.
