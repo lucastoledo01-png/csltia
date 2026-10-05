@@ -129,6 +129,7 @@ describe("o cardápio de capacidades", () => {
       "acervo",
       "producao_vespera",
       "instrucoes",
+      "aprovacao",
     ]);
   });
 });

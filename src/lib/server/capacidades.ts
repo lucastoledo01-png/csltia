@@ -79,6 +79,13 @@ export const CAPACIDADES = [
    * gravada em `instrucoes_editoriais`. Ver `instrucoes.ts`.
    */
   "instrucoes",
+  /**
+   * Fila de aprovação humana antes da publicação (05/10/2026).
+   *
+   * Sem fallback de ambiente: ausente vale `off`, que é publicar como antes.
+   * Ver `aprovacao/modo.ts`.
+   */
+  "aprovacao",
 ] as const;
 
 export type Capacidade = (typeof CAPACIDADES)[number];

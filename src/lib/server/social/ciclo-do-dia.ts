@@ -11,6 +11,7 @@ import { resolveVisualAsset } from "../visual/resolver";
 import { carregarConfigSocial } from "./selecao";
 import { limitarTetoDoDia, poolDoInstagram } from "../ramos/selecao";
 import { criarSocialPostsStore } from "./social-posts-store";
+import { opcoesDaFilaParaOStore, projetoDaFila } from "../aprovacao/integracao";
 import { modoDoPipelineSocial } from "./modo";
 import type { ModoSocial, ResumoVisualDoDia } from "./modo";
 import type { ProjetoComCapacidades } from "../capacidades";
@@ -427,7 +428,14 @@ export async function rodarSocialDoDia(
      * ciclo já se recusa a gravar fora de enforce. Não entregar o store faz a
      * gravação ser impossível, e não apenas proibida.
      */
-    store: modo === "enforce" ? criarSocialPostsStore(opcoes.client) : null,
+    store:
+      modo === "enforce"
+        ? criarSocialPostsStore(
+            opcoes.client,
+            // A fila de aprovação (05/10/2026): ausente ou `off`, objeto vazio e o store de sempre.
+            opcoesDaFilaParaOStore(projetoDaFila(opcoes.projeto, opcoes.projectId), opcoes.client),
+          )
+        : null,
     config: configSocial,
     env: opcoes.modoForcado ? { ...env, SOCIAL_PIPELINE_V2: opcoes.modoForcado } : env,
     fetcher,

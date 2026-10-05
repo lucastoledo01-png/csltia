@@ -20,6 +20,11 @@ import { runNewsroomPipeline } from "./pipeline";
 import { rankAndFilterCandidates } from "./ranker";
 import { EditionContent } from "./schemas";
 import { sendAlert } from "../alerts";
+import { modoDaFila } from "../aprovacao/modo";
+import { redacaoDisparaNewsletter, statusDeEntradaDoArtigo } from "../aprovacao/portao";
+import { avisosDaEdicao, enfileirarDaRedacao } from "../aprovacao/integracao";
+import { instanteDeEnvioDaNewsletter } from "../aprovacao/fila";
+import { hashDaNewsletter, hashDoArtigo } from "../aprovacao/hash";
 import { MARCA } from "@/lib/marca";
 import { linkDaNewsletter } from "@/lib/visamatch";
 import {
@@ -2268,6 +2273,16 @@ async function executarRedacaoDoDia(
     );
   }
 
+
+  /*
+   * A fila de aprovação do projeto (05/10/2026). Em `off`, que é o padrão,
+   * nada abaixo muda: o artigo nasce publicado e a newsletter dispara aqui.
+   * Em `enforce`, as duas peças entram na fila e só saem quando aprovadas.
+   */
+  const modoDaFilaDoDia = modoDaFila(project);
+  const projetoDaFilaDoDia = { id: project.id, timezone: project.timezone, settings: project.settings };
+  const envioDaNewsletter = instanteDeEnvioDaNewsletter(projetoDaFilaDoDia, todayStr);
+
   if (publishToPortal && !ramosNoComando) {
     try {
       const supabase = getSupabaseAdminClient();
@@ -2297,7 +2312,14 @@ async function executarRedacaoDoDia(
             cover_image: primaryCoverImage,
             content_html: htmlParaPortal,
             content: pipelineResult.edition.stories,
-            status: agendamento ? "scheduled" : "published",
+            // A fila manda sobre o agendamento (integração de 05/10/2026): com
+            // ela em `enforce` o artigo espera a aprovação, mesmo agendado.
+            status:
+              modoDaFilaDoDia === "enforce"
+                ? statusDeEntradaDoArtigo(modoDaFilaDoDia)
+                : agendamento
+                  ? "scheduled"
+                  : "published",
             category: "Edição Diária",
             author: MARCA.nome,
             reading_minutes: Math.ceil(wordCount / 200),
@@ -2328,7 +2350,9 @@ async function executarRedacaoDoDia(
             seo_title: pipelineResult.edition.headline || pipelineResult.edition.subject,
             seo_description: (pipelineResult.edition.preheader || pipelineResult.edition.intro || "").slice(0, 160),
             canonical_url: `${MARCA.site}/artigos/${articleSlug}`,
-            published_at: agendamento?.portalEm ?? new Date().toISOString(),
+            // Na fila, a data de publicação é a da liberação, e não a da redação.
+            published_at:
+              modoDaFilaDoDia === "enforce" ? null : (agendamento?.portalEm ?? new Date().toISOString()),
             updated_at: new Date().toISOString(),
           },
           { onConflict: "project_id,slug" }
@@ -2347,13 +2371,56 @@ async function executarRedacaoDoDia(
           body: pipelineResult.edition as any,
           created_by: "newsroom_bot",
         });
+
+        await enfileirarDaRedacao(projetoDaFilaDoDia, {
+          ramo: "artigo",
+          pecaId: articleData.id as string,
+          hash: hashDoArtigo(pipelineResult.edition.headline, htmlParaPortal),
+          publicarEm: envioDaNewsletter,
+          avisos: avisosDaEdicao(pipelineResult.qaResult),
+          resumo: {
+            titulo: pipelineResult.edition.headline,
+            texto: pipelineResult.edition.headline,
+            slug: articleData.slug as string,
+            imagens: primaryCoverImage ? [primaryCoverImage] : [],
+            pacoteFactual: pipelineResult.edition.stories.map((st) => st.title).filter(Boolean),
+          },
+        });
       }
     } catch (pubErr) {
       console.error("[NEWSROOM PORTAL ERROR] Falha ao publicar edição no portal:", pubErr);
     }
   }
 
-  if (createNewsletterCampaign) {
+  /*
+   * A newsletter entra na fila ANTES do disparo, e em `enforce` no lugar dele.
+   *
+   * O horário planejado é o de envio do projeto (06:07 por padrão): aprovada
+   * antes, ela espera; aprovada depois, sai na hora da aprovação, e às 06:00 o
+   * Telegram avisa se ainda não houver decisão. Quem faz isso é `cicloDaFila`.
+   */
+  if (createNewsletterCampaign && editionId) {
+    await enfileirarDaRedacao(projetoDaFilaDoDia, {
+      ramo: "newsletter",
+      pecaId: editionId,
+      hash: hashDaNewsletter(pipelineResult.edition.subject, htmlContent),
+      publicarEm: envioDaNewsletter,
+      avisos: avisosDaEdicao(pipelineResult.qaResult),
+      resumo: {
+        titulo: pipelineResult.edition.subject,
+        texto: pipelineResult.edition.subject,
+        pacoteFactual: pipelineResult.edition.stories.map((st) => st.title).filter(Boolean),
+      },
+    });
+  }
+
+  if (createNewsletterCampaign && !redacaoDisparaNewsletter(modoDaFilaDoDia)) {
+    console.log(
+      `[NEWSROOM LISTMONK] fila de aprovação em enforce: a campanha de ${todayStr} só é criada quando a edição for aprovada.`,
+    );
+  }
+
+  if (createNewsletterCampaign && redacaoDisparaNewsletter(modoDaFilaDoDia)) {
     try {
       /*
        * A configuração do Listmonk vem do projeto quando ele tem uma.
