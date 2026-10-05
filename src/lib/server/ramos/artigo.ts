@@ -9,8 +9,11 @@ import { auditarClaims } from "../editorial/claims-semanticas";
 import type { ClaimSemantica } from "../editorial/claims-semanticas";
 import { motivoDeRespostaSemLastro } from "../auditoria-de-artigo";
 import { contencao } from "../newsroom/leitor";
+import { regrarEssencial } from "./essencial";
 import { escapeHtml, safeHttpUrl } from "../html";
 import { editoriaDaPauta, nomeDaEditoria } from "@/lib/editorias";
+import { temasParaOPrompt } from "@/lib/temas";
+import { descreverDescartes, entidadesDoPacote, validarAssuntos, type AssuntoDescartado, type EntidadeDaMateria } from "@/lib/indexacao-do-artigo";
 import type { LivroDeCustos } from "./custos";
 
 /**
@@ -43,7 +46,8 @@ function aparar(limite: number) {
  * ela tinha sido refeita só a partir do resumo da newsletter.
  *
  *   titulo, subtitulo       título no modelo de título e a linha fina
- *   essencial               "O que você precisa saber": 3 a 4 tópicos curtos
+ *   essencial               "O que você precisa saber": até 3 tópicos, cada um
+ *                           com fato próprio (regras em `essencial.ts`, 06/10)
  *   abertura                dois parágrafos com fato, quem, quando e onde, e o
  *                           link para a fonte dentro do texto, marcado [[assim]]
  *   secoes                  intertítulos em forma de pergunta do leitor
@@ -51,7 +55,8 @@ function aparar(limite: number) {
  *   significado             "O que isso significa para quem olha para os EUA",
  *                           só quando o pacote sustenta; vazio é o certo
  *   perguntas               3 a 5, cada resposta presente no corpo
- *   assuntos                3 a 6 temas, para `keywords` e a fileira "Assuntos"
+ *   assuntos                até 5, entidade ou tema da lista fechada de
+ *                           `temas.ts`; quem decide é `validarAssuntos`
  *
  * Os campos novos são OPCIONAIS no tipo, e não `.default()`: a armadilha
  * registrada em `decisoes.md` ("`.default()` em campo novo de schema
@@ -101,7 +106,8 @@ export const ArtigoSchema = z.object({
     .array(z.object({ pergunta: z.string().min(5), resposta: z.string().min(5) }))
     .max(5)
     .default([]),
-  assuntos: listaDeTexto(6).optional(),
+  /** O modelo propõe; `validarAssuntos` corta para cinco e decide o que fica. */
+  assuntos: listaDeTexto(12).optional(),
 });
 
 export type Artigo = z.infer<typeof ArtigoSchema>;
@@ -139,13 +145,16 @@ FORMA (o contrato do JSON):
 - Sem travessão. Sem emoji. Sem saudação nem despedida.
 - "subtitulo": a linha fina, uma frase que acrescenta ao título e não o repete.
 - "descricao_seo": de 120 a 155 caracteres, frase inteira.
-- "essencial": de três a quatro tópicos curtos, uma frase cada.
+- "essencial": de dois a três tópicos curtos, uma frase cada. Cada tópico traz um fato que a abertura NÃO diz (número, data, prazo, próximo passo ou quem decide) e nunca repete uma frase dela. Tópico que repete a abertura ou não traz fato próprio é apagado; com menos de dois, o bloco sai. Em matéria de até 400 palavras, devolva lista vazia.
 - "abertura": dois parágrafos. Marque UMA vez, no primeiro, o trecho que vira link para a fonte original, entre colchetes duplos: [[segundo a Axios]]. Só o nome do veículo ou a expressão que o cita.
 - "secoes": de duas a quatro, cada uma com "intertitulo" em forma de pergunta (terminando em "?") e de um a três parágrafos.
 - "tabela": só com comparação de verdade (dois ou mais itens medidos pela mesma régua, com os números do pacote). Sem isso, omita o campo.
 - "significado": de zero a dois parágrafos, só quando o pacote diz o efeito. Lista vazia é o normal.
 - "perguntas": de três a cinco, cada resposta autossuficiente e já dita no corpo da matéria. Menos que três é correto quando o pacote não rende.
-- "assuntos": de três a seis temas curtos, em português, do que a matéria trata (ex.: "data centers", "Chicago", "energia"). Nada de palavra repetida para enfeitar.
+- "assuntos": até cinco, e só de dois tipos: (1) nome próprio que está no pacote (pessoa, organização, lugar, programa), escrito como no pacote; (2) tema copiado EXATAMENTE da lista de temas abaixo. Palavra solta e genérica ("água", "energia", "governo", "economia") é descartada, e o que não está na lista também.
+
+TEMAS PERMITIDOS EM "assuntos" (por editoria; use o nome exato):
+${temasParaOPrompt()}
 
 Devolva EXCLUSIVAMENTE este JSON:
 {"titulo":"...","subtitulo":"...","titulo_seo":"...","descricao_seo":"...","essencial":["..."],"abertura":["...[[...]]...","..."],"secoes":[{"intertitulo":"...?","paragrafos":["..."]}],"tabela":{"titulo":"...","colunas":["...","..."],"linhas":[["...","..."]]},"significado":[],"perguntas":[{"pergunta":"...","resposta":"..."}],"assuntos":["..."]}
@@ -256,6 +265,30 @@ export function textoDoArtigo(a: Artigo): string {
   return unidadesDoArtigo(a)
     .map((u) => u.texto)
     .join("\n");
+}
+
+export type IndexacaoDoArtigoEscrito = {
+  assuntos: string[];
+  entidades: EntidadeDaMateria[];
+  descartados: AssuntoDescartado[];
+};
+
+/**
+ * Assuntos e entidades de uma matéria escrita, decididos pelo CÓDIGO
+ * (06/10/2026): as entidades do pacote que o texto final nomeia, e os assuntos
+ * que o redator propôs passados por `validarAssuntos`, com os temas da lista
+ * fechada que o texto trata. O redator, o ramo e o script de reescrita usam
+ * esta função, e nenhum deles grava `artigo.assuntos` cru.
+ */
+export function indexacaoDoArtigoEscrito(
+  artigo: Artigo,
+  pacote: Pick<PacoteFactual, "people" | "organizations" | "places">,
+  opcoes: { excluir?: string[]; editoria?: string | null } = {},
+): IndexacaoDoArtigoEscrito {
+  const texto = textoDoArtigo(artigo);
+  const entidades = entidadesDoPacote(pacote, artigo.titulo, opcoes.excluir ?? [], texto);
+  const { assuntos, descartados } = validarAssuntos(artigo.assuntos ?? [], { entidades, texto, editoria: opcoes.editoria ?? null });
+  return { assuntos, entidades, descartados };
 }
 
 export type UnidadeReprovada = { id: string; campo: CampoDaUnidade; texto: string; motivo: string };
@@ -406,6 +439,14 @@ export function corpoEmTexto(a: Artigo): string {
     .join("\n");
 }
 
+/** Palavras do corpo que o leitor lê: abertura, seções, tabela e significado, sem o bloco de tópicos nem as perguntas. */
+export function palavrasDoCorpo(a: Artigo): number {
+  return corpoEmTexto({ ...a, essencial: [] })
+    .replace(/\*/g, "")
+    .split(/\s+/)
+    .filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+}
+
 /**
  * Apaga cada unidade reprovada, inteira. Nada é reescrito nem amaciado: o que
  * não se sustenta sai, e a matéria fica mais curta (decisão de 06/10/2026,
@@ -489,6 +530,18 @@ export function podarArtigo(artigo: Artigo, veredicto: Pick<VeredictoDoArtigo, "
     }
     return true;
   });
+
+  /*
+   * "O que você precisa saber" com as regras do dono (06/10/2026): até três
+   * tópicos, nenhum repetindo a abertura, cada um com fato próprio, e o bloco
+   * só em corpo acima de 400 palavras. Antes das respostas, porque o corpo
+   * que as sustenta inclui o bloco.
+   */
+  const essencial = regrarEssencial(podado.essencial ?? [], podado.abertura ?? [], palavrasDoCorpo(podado));
+  podado.essencial = essencial.mantidos;
+  for (const r of essencial.removidos) {
+    removidas.push({ id: `essencial.${r.indice}`, campo: "essencial", texto: r.texto, motivo: r.motivo });
+  }
 
   // As respostas contra o corpo que sobrou.
   const corpo = corpoEmTexto(podado);
@@ -615,13 +668,15 @@ ${JSON.stringify(artigo, null, 2)}
       removidas: poda.removidas,
     };
   }
+  // Os assuntos que o redator propôs passam pelo validador antes de sair daqui.
+  const indexacao = indexacaoDoArtigoEscrito(poda.artigo, pacote);
   return {
-    artigo: poda.artigo,
+    artigo: { ...poda.artigo, assuntos: indexacao.assuntos },
     veredicto: {
       ...veredicto,
       aprovado: true,
       bloqueios: [],
-      avisos: [...veredicto.avisos, ...poda.removidas.map((r) => `APAGADO ${r.id}: ${r.motivo}`)],
+      avisos: [...veredicto.avisos, ...poda.removidas.map((r) => `APAGADO ${r.id}: ${r.motivo}`), ...descreverDescartes(indexacao.descartados)],
     },
     tentativas,
     erro: null,

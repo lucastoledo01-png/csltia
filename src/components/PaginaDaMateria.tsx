@@ -4,7 +4,7 @@ import { CaixaDeAssinatura, MolduraDoPortal } from "@/components/PortalChrome";
 import { SubstackArticleRenderer } from "@/components/SubstackArticleRenderer";
 import { miniaturaDoCommons } from "@/components/PortalPecas";
 import { semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
-import { indexacaoDasTags } from "@/lib/indexacao-do-artigo";
+import { indexacaoValidadaDoArtigo } from "@/lib/indexacao-do-artigo";
 import {
   corpoComPerguntas,
   dadosEstruturadosDoArtigo,
@@ -162,7 +162,7 @@ export function PaginaDaMateria({ article, comComentarios = true }: { article: M
             coverCredit={creditoDaCapa}
             coverDescription={legendaDaCapa}
             shareUrl={urlDoArtigo(article.slug)}
-            topics={indexacaoDasTags(article.tags).assuntos}
+            topics={indexacaoValidadaDoArtigo(article).assuntos}
             contentHtml={corpoComMiniaturas(corpo)}
             sections={article.content}
             quote={article.age_summary}

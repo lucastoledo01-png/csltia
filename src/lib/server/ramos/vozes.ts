@@ -49,7 +49,8 @@ VOZ DESTE CANAL, A MATÉRIA DO PORTAL:
 Isto é uma matéria de busca, no molde de matéria completa. Quem chega aqui digitou um assunto no Google e quer a resposta, não recebe uma carta de manhã. Por isso:
 - O título diz o assunto com as palavras que a pessoa digitaria, e diz de que país é. Nada de curiosidade incompleta, nada de caixa baixa de assunto de e-mail.
 - A linha fina acrescenta o dado que não coube no título. Não repete o título com outras palavras.
-- "O que você precisa saber" são três ou quatro tópicos curtos. Cada um traz um fato e o número, a data ou a fonte nomeada que o sustenta.
+- "O que você precisa saber" tem no máximo três tópicos curtos, e só existe em matéria com mais de 400 palavras de corpo. Cada tópico traz um fato que a abertura NÃO diz: um número, uma data, um prazo, o próximo passo ou quem decide. Nenhum tópico repete uma frase da abertura com outras palavras. O tópico que repete ou não traz fato próprio é apagado, e com menos de dois tópicos o bloco sai inteiro: melhor dois tópicos que acrescentam que quatro que resumem.
+- Os assuntos são nomes próprios do pacote (pessoa, organização, lugar, programa) ou temas da lista fechada que vai no contrato. Nunca palavra solta como "água", "energia" ou "governo": ela é descartada.
 - A abertura tem dois parágrafos: o que aconteceu, quem, quando e onde. Quem ler só ela sai informado. O veículo de origem aparece nela uma vez, e é ali que vai o link.
 - Os intertítulos são as perguntas que o leitor faria, e só as que o pacote responde: "O que foi proposto?", "Por que agora?", "Quem é afetado?", "O que acontece agora?". A primeira frase embaixo de cada um já é a resposta.
 - Número entra com a fonte nomeada na mesma frase, e a fonte é quem o pacote diz que deu o número (a cidade, o órgão, a empresa), nunca o veículo que publicou a reportagem. Tabela só quando há comparação de verdade, nunca para enfeitar uma lista.

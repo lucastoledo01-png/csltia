@@ -118,7 +118,11 @@ describe("indexação no NewsArticle (06/10/2026)", () => {
   it("keywords, about e mentions saem das tags gravadas; sem tags, nenhum dos três", () => {
     const comTags = grafo(
       dadosEstruturadosDoArtigo(
-        { ...base, tags: ["Economia", "assunto:Hollywood", "sobre:Place:Hollywood", "menciona:Organization:Wall Street|https://www.wikidata.org/wiki/Q127703"] },
+        {
+          ...base,
+          content_html: "<section class=\"abertura\"><p>Fundos de Wall Street financiam filmes em Hollywood.</p></section>",
+          tags: ["Economia", "assunto:Hollywood", "sobre:Place:Hollywood", "menciona:Organization:Wall Street|https://www.wikidata.org/wiki/Q127703"],
+        },
         { perguntasVisiveis: [] },
       ),
     ).find((n) => n["@type"] === "NewsArticle")!;
@@ -130,6 +134,37 @@ describe("indexação no NewsArticle (06/10/2026)", () => {
     expect(semTags).not.toHaveProperty("keywords");
     expect(semTags).not.toHaveProperty("about");
     expect(semTags).not.toHaveProperty("mentions");
+  });
+
+  it("o JSON-LD lê os assuntos PELO VALIDADOR: tag antiga genérica não sai, e entidade que o corpo não nomeia também não", () => {
+    // Linha gravada antes da regra de 06/10/2026, como a de Chicago: "água" e
+    // "energia" como assunto, e Trump em mentions sem estar no texto. Se a
+    // página voltar a ler `indexacaoDasTags` direto, este teste quebra.
+    const n = grafo(
+      dadosEstruturadosDoArtigo(
+        {
+          ...base,
+          title: "Chicago propõe um ano sem novos data centers",
+          category: "Política",
+          content_html:
+            "<section class=\"abertura\"><p>O prefeito Brandon Johnson quer pausar os data centers.</p></section>" +
+            "<section class=\"leia-tambem\"><h2>Leia também</h2><ul><li><a href=\"/artigos/x\">President Trump fala de tarifas</a></li></ul></section>",
+          tags: [
+            "assunto:data centers",
+            "assunto:energia",
+            "assunto:água",
+            "assunto:governo",
+            "sobre:Place:Chicago",
+            "menciona:Person:Brandon Johnson",
+            "menciona:Person:President Trump",
+          ],
+        },
+        { perguntasVisiveis: [] },
+      ),
+    ).find((x) => x["@type"] === "NewsArticle")!;
+    expect(n.keywords).toEqual(["data centers"]);
+    expect(n.about).toEqual([{ "@type": "Place", name: "Chicago" }]);
+    expect(n.mentions).toEqual([{ "@type": "Person", name: "Brandon Johnson" }]);
   });
 
   it("as perguntas gravadas entram antes da seção de fontes do molde, não depois", () => {

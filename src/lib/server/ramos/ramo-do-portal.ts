@@ -8,11 +8,11 @@ import { montarPeca } from "./peca";
 import type { PecaPronta } from "./peca";
 import { selecionarParaPortal } from "./selecao";
 import type { SelecaoDoRamo } from "./selecao";
-import { categoriaDoArtigo, escreverArtigoDaPauta, renderizarArtigoHtml } from "./artigo";
+import { categoriaDoArtigo, escreverArtigoDaPauta, indexacaoDoArtigoEscrito, renderizarArtigoHtml } from "./artigo";
 import type { MarcaDoArtigo, MateriaRelacionada, ResultadoDoArtigo } from "./artigo";
 import type { AlvoDaRelacao } from "../materias-relacionadas";
 import { editoriaPeloNome, hrefDaEditoria } from "@/lib/editorias";
-import { entidadesDoPacote, tagsDeIndexacao } from "@/lib/indexacao-do-artigo";
+import { tagsDeIndexacao } from "@/lib/indexacao-do-artigo";
 import { horariosDosArtigos, slugDoArtigo } from "./portal";
 import type { ConteudoDoArtigo } from "./portal";
 
@@ -154,7 +154,11 @@ export async function rodarRamoDoPortal(e: EntradaDoRamoDoPortal): Promise<Resul
         ...(editoria ? { editoria: { nome: editoria.nome, href: hrefDaEditoria(editoria.id) } } : {}),
       }),
       categoria,
-      tags: tagsDeIndexacao({ assuntos: r.artigo.assuntos ?? [], entidades: entidadesDoPacote(pacote, r.artigo.titulo) }),
+      // Entidades só as que o texto final nomeia; assuntos pelo validador (06/10/2026).
+      tags: (() => {
+        const ix = indexacaoDoArtigoEscrito(r.artigo, pacote, { editoria: categoria });
+        return tagsDeIndexacao({ assuntos: ix.assuntos, entidades: ix.entidades });
+      })(),
       fonte,
       sourceUrls: pacote.source_urls,
       capa,
