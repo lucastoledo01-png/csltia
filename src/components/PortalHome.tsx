@@ -75,8 +75,13 @@ function Manchete({ pauta }: { pauta: PautaDoPortal }) {
       <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-medium text-[#71717A] md:text-sm">
         <span>Por Redação {MARCA.nome}</span>
         <span aria-hidden="true" className="h-1 w-1 rounded-full bg-[#D4D4D8]" />
-        <span>{pauta.fonte || MARCA.nome}</span>
-        <span aria-hidden="true" className="h-1 w-1 rounded-full bg-[#D4D4D8]" />
+        {/* Sem fonte, a marca já está no "Por Redação": repetir imprimia "eua.journal" duas vezes. */}
+        {pauta.fonte && pauta.fonte !== MARCA.nome ? (
+          <>
+            <span>{pauta.fonte}</span>
+            <span aria-hidden="true" className="h-1 w-1 rounded-full bg-[#D4D4D8]" />
+          </>
+        ) : null}
         <time dateTime={pauta.data}>{dataCurta(pauta.data)}</time>
       </p>
     </Link>

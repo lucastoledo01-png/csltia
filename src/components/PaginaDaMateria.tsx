@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { BotaoVoltar } from "@/components/BotaoVoltar";
 import { ArticleComments } from "@/components/ArticleComments";
 import { CaixaDeAssinatura, MolduraDoPortal } from "@/components/PortalChrome";
 import { SubstackArticleRenderer } from "@/components/SubstackArticleRenderer";
@@ -144,12 +144,7 @@ export function PaginaDaMateria({ article, comComentarios = true }: { article: M
 
         <div className="mx-auto max-w-[720px] px-5 pb-20 pt-6 sm:px-6 md:pt-10">
           <div className="mb-2">
-            <Link
-              className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-marca-texto hover:underline"
-              href="/artigos"
-            >
-              <span aria-hidden="true">←</span> Voltar para todos os artigos
-            </Link>
+            <BotaoVoltar className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-marca-texto hover:underline" />
           </div>
 
           <SubstackArticleRenderer

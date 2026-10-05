@@ -158,8 +158,14 @@ export function Chapeu({ texto, className = "" }: { texto: string; className?: s
   );
 }
 
-/** "2026-10-04" vira "04/10/2026". A data da pauta é a da edição. */
+/**
+ * "2026-10-04" vira "04/10/2026". A data da pauta é a da edição.
+ *
+ * Aceita também o instante completo ("2026-09-24T09:19:54.472+00:00"): a
+ * manchete fixada (05/10/2026) traz o `published_at` da matéria, e o corte por
+ * hífen sozinho imprimia "24T09:19:54.472+00:00/09/2026" na home.
+ */
 export function dataCurta(iso: string): string {
-  const [a, m, d] = iso.split("-");
-  return a && m && d ? `${d}/${m}/${a}` : iso;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
 }
