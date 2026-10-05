@@ -995,6 +995,58 @@ para quem está sem JavaScript.
 página** (`buscarTextoDaFonte`), com o mesmo agente honesto. Não se disfarça de
 navegador.
 
+## Assuntos com lista fechada, e o resumo com regra (06/10/2026)
+
+A matéria-piloto de Chicago saiu com "energia" e "água" na fileira
+"Assuntos", Trump em `mentions` sem uma linha sobre ele no texto, e quatro
+tópicos de "O que você precisa saber" que repetiam a abertura logo abaixo. O
+dono: "isso não pode acontecer novamente". As duas regras moram no CÓDIGO, e o
+prompt só avisa o redator do que vai ser cortado.
+
+**Assunto é entidade nomeada ou tema da lista fechada, e nada mais.** O
+vocabulário está em `src/lib/temas.ts`: de 15 a 30 temas por editoria, em
+português, específicos e buscáveis ("juros do Fed", "data centers", "conta de
+luz"), cada um com `slug` estável para as futuras páginas `/tema` e com
+sinônimos para casar a proposta do redator e o texto. A validação aceita tema
+de QUALQUER editoria (Chicago é de Política e trata de data centers); a
+organização por editoria serve ao prompt e às páginas futuras. Tema novo
+entra por decisão editorial, editando o arquivo, nunca pelo que o modelo
+devolveu num dia.
+
+**Quem decide é `validarAssuntos`** (`indexacao-do-artigo.ts`): o modelo
+propõe, o validador grava a forma canônica da entidade ou do tema, joga fora
+palavra genérica (há uma lista só para o motivo do log; a regra é "fora da
+lista sai"), repetição e o que passa de cinco, com entidades primeiro (no
+máximo três, a central antes) e os temas da lista que o texto trata (duas
+menções ou mais) completando. O descarte é silencioso para o leitor e vai
+para o aviso do ramo ou para o terminal do script. `tagsDeIndexacao` valida
+de novo, para quem grava não conseguir gravar "água" nem esquecendo.
+
+**`about` e `mentions` só com quem o texto final nomeia**, sem acento nem
+caixa. Na geração, o filtro vem antes do teto de dez menções; na página,
+`indexacaoValidadaDoArtigo` lê as tags, tira entidade ausente do corpo (sem
+contar "Leia também" e "Fontes") e passa os assuntos pelo validador. É a
+ÚNICA porta de leitura da fileira e do JSON-LD: linha antiga com tag ruim não
+mostra tag ruim, mesmo antes de ser reescrita. Há teste que quebra se a
+página voltar a ler `indexacaoDasTags` direto.
+
+**"O que você precisa saber" fica, com quatro regras no pós-processamento**
+(`ramos/essencial.ts`, chamado por `podarArtigo`): até três tópicos; nenhum
+repete uma frase da abertura (contenção de 60%, a medida do leitor); cada um
+traz fato próprio que a abertura não disse (número, data, prazo, próximo
+passo ou ator nomeado); e o bloco só existe com mais de 400 palavras de corpo.
+Tópico que falha sai inteiro; com menos de dois, o bloco sai.
+
+**Reaplicar sem reescrever.** `reescrever-artigo.ts --so <slug> --so-ajustes`
+aplica as regras à matéria GRAVADA, sem modelo, e grava só `content_html`,
+`tags` e `updated_at` (`ajuste-de-materia.ts`). Existe porque a reescrita dá
+outro texto a cada rodada, e o dono já tinha lido a versão de Chicago. Em
+Chicago (06/10/2026) os quatro tópicos caíram e o bloco saiu; os assuntos
+viraram Chicago, City Council, data centers, política municipal e conta de
+luz; e saíram de `mentions` Trump, Seattle, City of Chicago, a força-tarefa e
+a Data Center Coalition, que o texto não nomeia. Illinois caiu também: está no
+texto, mas não estava entre as entidades gravadas.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

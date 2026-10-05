@@ -1,12 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { editoriaPeloNome, hrefDaEditoria } from "../lib/editorias";
-import {
-  entidadesDoPacote,
-  tagsDeIndexacao,
-  tagsSemIndexacao,
-  type EntidadeDaMateria,
-} from "../lib/indexacao-do-artigo";
+import { descreverDescartes, tagsDeIndexacao, tagsSemIndexacao, type EntidadeDaMateria } from "../lib/indexacao-do-artigo";
+import { ajustarMateriaGravada } from "../lib/server/ajuste-de-materia";
 import { normalizarDescricao, DESCRICAO_MAXIMA, DESCRICAO_MINIMA } from "../lib/server/auditoria-de-artigo";
 import { descricaoPorRegra, tituloDeBuscaPorRegra } from "../lib/server/correcao-de-artigo";
 import { buscarTextoDaFonte } from "../lib/server/editorial/enriquecimento";
@@ -17,6 +13,7 @@ import { buscarRelacionadas } from "../lib/server/materias-relacionadas";
 import { getProjectById } from "../lib/server/projects";
 import {
   escreverArtigoDaPauta,
+  indexacaoDoArtigoEscrito,
   palavrasDoHtml,
   renderizarArtigoHtml,
   secoesParaConteudo,
@@ -38,6 +35,11 @@ import { argumento, carregarEnv, clienteDoBanco, type LinhaDoArtigo } from "./ar
  *   npx tsx src/scripts/reescrever-artigo.ts --so <slug> --aplicar --de <arq>  grava EXATAMENTE o que foi revisado
  *   npx tsx src/scripts/reescrever-artigo.ts --so <slug> --aplicar             reescreve de novo e grava
  *   --trocar-titulo                                                            aceita o título do redator
+ *   npx tsx src/scripts/reescrever-artigo.ts --so <slug> --so-ajustes [--aplicar]
+ *       SEM modelo: aplica à matéria GRAVADA as regras do "O que você precisa
+ *       saber" e recalcula assuntos e entidades pelo validador. Grava só
+ *       content_html, tags e updated_at. É o caminho para a versão que o dono
+ *       já leu receber as regras novas sem virar outro texto (06/10/2026).
  *
  * O ensaio chama o modelo e o custo é real. `--de` existe porque o redator é
  * um modelo: rodar de novo para gravar daria OUTRO texto, e o que vai ao ar
@@ -208,9 +210,12 @@ async function reescrever(a: LinhaDoArtigo, opcoes: { trocarTitulo: boolean }): 
     descricao = descricaoPorRegra(tituloFinal, corpo, usadas).valor ?? descricao;
   }
 
-  // 8. Assuntos e entidades.
-  const entidades = await comSameAs(entidadesDoPacote(pacote, tituloFinal, [...fonte.metadados.autores, fonte.metadados.veiculo, veiculo]), `${tituloFinal} ${(artigo.abertura ?? []).join(" ")}`);
-  const tags = [...tagsSemIndexacao(a.tags), ...tagsDeIndexacao({ assuntos: artigo.assuntos ?? [], entidades })];
+  // 8. Assuntos e entidades: só entidade que o texto final nomeia, e assunto
+  // pelo validador (entidade ou tema da lista fechada de `temas.ts`).
+  const ix = indexacaoDoArtigoEscrito(artigoFinal, pacote, { excluir: [...fonte.metadados.autores, fonte.metadados.veiculo, veiculo], editoria: categoria });
+  for (const linha of descreverDescartes(ix.descartados)) console.log(`   ${linha}`);
+  const entidades = await comSameAs(ix.entidades, `${tituloFinal} ${(artigo.abertura ?? []).join(" ")}`);
+  const tags = [...tagsSemIndexacao(a.tags), ...tagsDeIndexacao({ assuntos: ix.assuntos, entidades })];
 
   const contagem = contarLinks(html);
   const patch: Record<string, unknown> = {
@@ -281,6 +286,35 @@ function imprimir(r: Resultado): void {
   console.log(`\n== Campos que mudam\n   ${Object.keys(r.patch).join(", ")}\n   (slug, cover_image e published_at ficam como estão)`);
 }
 
+/** `--so-ajustes`: as regras novas sobre a matéria gravada, sem modelo e sem reescrever frase. */
+async function soAjustes(client: ReturnType<typeof clienteDoBanco>, a: LinhaDoArtigo, aplicar: boolean): Promise<void> {
+  const r = ajustarMateriaGravada({ title: a.title, category: a.category, content_html: a.content_html ?? "", tags: a.tags });
+  const lista = (xs: string[]) => (xs.length ? xs.map((x) => `   - ${x}`).join("\n") : "   (nenhum)");
+  console.log(`\n== O que você precisa saber (corpo com ${r.essencial.palavrasDoCorpo} palavras)`);
+  console.log(`ANTES\n${lista(r.essencial.antes)}\nDEPOIS\n${r.essencial.depois.length ? lista(r.essencial.depois) : "   (bloco removido)"}`);
+  console.log(`\n== Assuntos\nANTES\n${lista(r.antes.assuntos)}\nDEPOIS\n${lista(r.depois.assuntos)}`);
+  const ent = (es: EntidadeDaMateria[]) => es.map((e) => `${e.papel}:${e.tipo}:${e.nome}${e.sameAs ? ` (${e.sameAs})` : ""}`);
+  console.log(`\n== Entidades (about e mentions)\nANTES\n${lista(ent(r.antes.entidades))}\nDEPOIS\n${lista(ent(r.depois.entidades))}`);
+  console.log(`\n== Registro\n${lista(r.log)}`);
+  console.log(`\n== Tags gravadas\n${lista(r.patch.tags)}`);
+  const mudou = r.patch.content_html !== (a.content_html ?? "") || JSON.stringify(r.patch.tags) !== JSON.stringify(a.tags ?? []);
+  if (!mudou) {
+    console.log("\nNada muda: a matéria já segue as regras.");
+    return;
+  }
+  if (!aplicar) {
+    console.log("\nENSAIO: nada foi gravado. Rode com --aplicar para gravar content_html, tags e updated_at.");
+    return;
+  }
+  const { error } = await client
+    .from("articles")
+    .update({ content_html: r.patch.content_html, tags: r.patch.tags, updated_at: new Date().toISOString() })
+    .eq("id", a.id ?? "")
+    .eq("slug", a.slug);
+  if (error) throw new Error(`não gravou: ${error.message}`);
+  console.log(`\nGravada: ${a.slug} (content_html, tags, updated_at).`);
+}
+
 async function main(): Promise<void> {
   carregarEnv();
   const so = argumento("--so");
@@ -290,7 +324,14 @@ async function main(): Promise<void> {
   const trocarTitulo = process.argv.includes("--trocar-titulo");
   if (!so) throw new Error("Diga qual matéria: --so <slug>. Este script reescreve UMA matéria por vez.");
 
-  console.log(aplicar ? "MODO: APLICAR (grava no banco)" : "MODO: ENSAIO (o modelo é chamado e o custo é real; nada é gravado)");
+  const soAjuste = process.argv.includes("--so-ajustes");
+  console.log(
+    aplicar
+      ? `MODO: APLICAR (grava no banco)${soAjuste ? ", só os ajustes, sem modelo" : ""}`
+      : soAjuste
+        ? "MODO: ENSAIO dos ajustes (sem modelo, sem custo; nada é gravado)"
+        : "MODO: ENSAIO (o modelo é chamado e o custo é real; nada é gravado)",
+  );
   const client = clienteDoBanco();
   const { data, error } = await client
     .from("articles")
@@ -300,6 +341,11 @@ async function main(): Promise<void> {
   if (error) throw new Error(`não consegui ler ${so}: ${error.message}`);
   if (!data) throw new Error(`nenhuma matéria com o slug ${so}`);
   const a = data as LinhaDoArtigo;
+
+  if (process.argv.includes("--so-ajustes")) {
+    await soAjustes(client, a, aplicar);
+    return;
+  }
 
   let r: Resultado | null;
   if (de) {

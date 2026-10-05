@@ -1,7 +1,7 @@
 import { MARCA } from "@/lib/marca";
 import { editoriaPeloNome, hrefDaEditoria } from "@/lib/editorias";
 import { escapeHtml } from "./html";
-import { camposDeIndexacaoNoJsonLd, indexacaoDasTags } from "@/lib/indexacao-do-artigo";
+import { camposDeIndexacaoNoJsonLd, indexacaoValidadaDoArtigo } from "@/lib/indexacao-do-artigo";
 
 /**
  * O que a busca e os assistentes leem da matéria, montado num lugar só
@@ -184,8 +184,10 @@ export function dadosEstruturadosDoArtigo(
       ...(capa ? { image: [capa] } : {}),
       ...(secao ? { articleSection: secao } : {}),
       // `keywords`, `about` e `mentions` só com o que a matéria gravou; nunca
-      // meta keywords, que nenhum buscador lê.
-      ...camposDeIndexacaoNoJsonLd(indexacaoDasTags(a.tags)),
+      // meta keywords, que nenhum buscador lê. Passam pelo validador na
+      // leitura (06/10/2026): assunto genérico gravado antes da regra não
+      // aparece, e entidade que o corpo não nomeia não entra.
+      ...camposDeIndexacaoNoJsonLd(indexacaoValidadaDoArtigo(a)),
       author: { "@type": "Organization", name: `Redação ${MARCA.nome}`, url: MARCA.site },
       publisher: { "@id": idOrganizacao },
       mainEntityOfPage: { "@type": "WebPage", "@id": url },

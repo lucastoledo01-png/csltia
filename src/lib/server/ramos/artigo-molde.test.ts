@@ -213,6 +213,20 @@ describe("redação com poda, de ponta a ponta", () => {
     expect(r.veredicto.avisos.some((a) => a.startsWith("APAGADO secao.2.0"))).toBe(true);
   });
 
+  it("o redator propõe assuntos; o que não é entidade nem tema da lista sai, e fica no aviso (06/10/2026)", async () => {
+    const artigo: Artigo = { ...COMPLETO, assuntos: ["água", "energia", "governo", "data centers", "Brandon Johnson"] };
+    const r = await escreverArtigoDaPauta(PAUTA, PACOTE, MARCA, { env: ENV, fetcher: openaiFalso(artigo) });
+    // "política municipal" não foi proposto: entra porque o texto fala do prefeito e da câmara municipal.
+    expect(r.artigo?.assuntos).toEqual(["Chicago", "Brandon Johnson", "data centers", "política municipal"]);
+    expect(r.veredicto.avisos).toEqual(expect.arrayContaining(['ASSUNTO DESCARTADO "água": genérico', 'ASSUNTO DESCARTADO "energia": genérico']));
+  });
+
+  it("matéria curta perde o bloco 'O que você precisa saber', e o motivo fica no aviso (06/10/2026)", async () => {
+    const r = await escreverArtigoDaPauta(PAUTA, PACOTE, MARCA, { env: ENV, fetcher: openaiFalso(COMPLETO) });
+    expect(r.artigo?.essencial).toEqual([]);
+    expect(r.veredicto.avisos.some((a) => a.startsWith("APAGADO essencial.0: corpo com"))).toBe(true);
+  });
+
   it("número inventado no TÍTULO não se poda: a matéria fica bloqueada", async () => {
     const artigo: Artigo = { ...COMPLETO, titulo: "Chicago propõe 450 dias sem novos data centers" };
     const r = await escreverArtigoDaPauta(PAUTA, PACOTE, MARCA, { env: ENV, fetcher: openaiFalso(artigo) });
