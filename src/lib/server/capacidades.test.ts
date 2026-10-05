@@ -125,6 +125,8 @@ describe("o cardápio de capacidades", () => {
       "keyword",
       "landing",
       "ramos",
+      "perfis_referencia",
+      "acervo",
     ]);
   });
 });

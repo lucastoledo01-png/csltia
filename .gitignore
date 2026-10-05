@@ -61,3 +61,6 @@ src/scripts/__*
 # Rascunho de subagente. Ja escapou para tres commits.
 .tmp-*/
 src/scripts/__*
+
+# Copias de trabalho das sessoes paralelas do Claude Code
+.claude/worktrees/

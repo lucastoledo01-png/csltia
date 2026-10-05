@@ -55,6 +55,18 @@ export const CAPACIDADES = [
    * Ver `ramos/modo.ts`.
    */
   "ramos",
+  /**
+   * Perfis de referência do Instagram como SINAL de pauta (RF-16, RF-17).
+   *
+   * Entrou em 05/10/2026. Não tem variável de ambiente por trás: não declarada
+   * é `off`, então subir o código não muda o ciclo de nenhum projeto.
+   */
+  "perfis_referencia",
+  /**
+   * O acervo de imagens próprio como primeira fonte (RF-06, decisão de
+   * 29/09/2026). Não declarado vale `off`. Ver `visual/acervo/modo.ts`.
+   */
+  "acervo",
 ] as const;
 
 export type Capacidade = (typeof CAPACIDADES)[number];
