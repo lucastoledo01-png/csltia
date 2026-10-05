@@ -21,15 +21,15 @@ type SubstackArticleRendererProps = {
 export function SubstackArticleRenderer({
   title,
   subtitle,
-  date = "25 de Agosto de 2026",
-  category = "Radar",
-  readTime = "5 min",
+  date,
+  category = "Notícias",
+  readTime,
   coverImage,
   contentHtml,
   sections,
   quote,
   quoteBy = MARCA.nome,
-  author = `${MARCA.nome} Editorial`,
+  author = MARCA.nome,
 }: SubstackArticleRendererProps) {
   const [pollVoted, setPollVoted] = useState<string | null>(null);
 
@@ -37,60 +37,64 @@ export function SubstackArticleRenderer({
     `Confira esta leitura no ${MARCA.nome}: ${title}`
   )}`;
 
+  /*
+   * Sem data e sem tempo de leitura inventados. Até 05/10/2026 a página caía
+   * em "20 de Agosto de 2026" quando o registro não tinha data, e em "5 min"
+   * quando não tinha tempo: dois números que pareciam medidos e não eram.
+   * Quem não tem o dado não imprime a linha.
+   */
+  const assinatura = author === MARCA.nome ? `Redação ${MARCA.nome}` : author;
+
   return (
-    <article className="mx-auto max-w-[680px] bg-white px-4 py-6 text-[#111827] sm:px-0">
-      {/* 1. Header Estilo Substack */}
-      <header className="border-b border-[#f3f4f6] pb-6">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#E4344A]">
-          <span>{category}</span>
-          <span className="text-gray-300">•</span>
-          <span className="text-[#6b7280] font-normal lowercase">{readTime} de leitura</span>
+    <article className="mx-auto max-w-[680px] bg-white py-6 text-[#0A0A0A]">
+      {/* 1. Cabeçalho */}
+      <header className="border-b border-[#F4F4F5] pb-6">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.16em]">
+          <span className="rounded-sm bg-[var(--portal-vermelho)] px-3 py-1 text-white">{category}</span>
+          {readTime ? <span className="text-[#71717A]">{readTime} de leitura</span> : null}
         </div>
 
-        {/* Título Principal Clean */}
-        <h1 className="mt-3 font-serif text-3xl font-bold leading-snug tracking-tight text-[#111827] sm:text-4xl">
+        <h1 className="mt-4 text-[30px] font-semibold leading-[1.15] tracking-[-0.02em] text-[#0A0A0A] sm:text-[40px]">
           {title}
         </h1>
 
-        {/* Subtítulo / Resumo */}
         {subtitle ? (
-          <p className="mt-3 text-lg leading-relaxed text-[#4b5563] font-normal">{subtitle}</p>
+          <p className="mt-4 text-[17px] leading-relaxed text-[#52525B] sm:text-lg">{subtitle}</p>
         ) : null}
 
-        {/* Avatar e Meta do Autor */}
-        <div className="mt-6 flex items-center justify-between border-t border-[#f3f4f6] pt-4 text-xs">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#E4344A] font-mono text-sm font-black text-white shadow-sm">
-              b.
-            </div>
-            <div>
-              <p className="font-semibold text-[#111827]">{author}</p>
-              <p className="text-[#6b7280]">{date}</p>
-            </div>
-          </div>
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[#F4F4F5] pt-4">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[#71717A]">
+            <span>Por {assinatura}</span>
+            {date ? (
+              <>
+                <span aria-hidden="true" className="h-1 w-1 rounded-full bg-[#D4D4D8]" />
+                <span>{date}</span>
+              </>
+            ) : null}
+          </p>
 
           <a
             href={whatsappShareUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-[#fafafa] px-3.5 py-1.5 font-medium text-[#374151] transition-colors hover:bg-gray-100"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#E4E4E7] px-4 py-2 text-xs font-semibold text-[#0A0A0A] transition-colors hover:border-[#0A0A0A]"
           >
-            <span>Compartilhar</span>
+            <span>Compartilhar no WhatsApp</span>
           </a>
         </div>
       </header>
 
-      {/* 2. Capa Principal Fotográfica */}
+      {/* 2. Capa, em caixa de proporção fixa */}
       {coverImage ? (
         <figure className="my-8">
-          <div className="overflow-hidden rounded-2xl border border-[#eaecf0]">
+          <div className="relative aspect-[16/9] overflow-hidden rounded-2xl bg-[#F4F4F5]">
             <Image
               alt={title}
               src={coverImage}
-              width={1200}
-              height={720}
+              fill
+              sizes="(min-width: 768px) 680px, 100vw"
               priority
-              className="aspect-[16/9] h-auto w-full object-cover"
+              className="object-cover"
             />
           </div>
         </figure>
@@ -98,10 +102,10 @@ export function SubstackArticleRenderer({
 
       {/* 3. Destaque de Citação */}
       {quote ? (
-        <blockquote className="my-8 rounded-r-xl border-l-4 border-[#E4344A] bg-[#fafafa] p-5 font-serif text-lg italic text-[#1f2937]">
+        <blockquote className="my-8 rounded-r-xl border-l-4 border-[var(--portal-vermelho)] bg-[#FAFAFA] p-5 text-lg text-[#18181B]">
           <p>{`"${quote}"`}</p>
-          <footer className="mt-2 font-sans text-xs font-semibold not-italic text-[#6b7280]">
-            — {quoteBy}
+          <footer className="mt-2 text-xs font-semibold text-[#71717A]">
+            {quoteBy}
           </footer>
         </blockquote>
       ) : null}
@@ -109,14 +113,14 @@ export function SubstackArticleRenderer({
       {/* 4. Corpo do Artigo em HTML Fluido ou Seções */}
       {contentHtml && contentHtml.trim().length > 0 ? (
         <div
-          className="prose prose-neutral max-w-none text-base leading-relaxed text-[#374151] prose-headings:font-serif prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-[#111827] prose-a:text-[#E4344A] prose-a:no-underline hover:prose-a:underline my-6"
+          className="artigo-corpo my-6 max-w-none text-base leading-relaxed text-[#27272A]"
           dangerouslySetInnerHTML={{ __html: contentHtml }}
         />
       ) : (
         <div className="my-6 space-y-8">
           {sections?.map((sec, idx) => (
             <section key={idx} className="space-y-3">
-              <h2 className="font-serif text-2xl font-bold tracking-tight text-[#111827]">{sec.heading}</h2>
+              <h2 className="text-2xl font-semibold tracking-tight text-[#0A0A0A]">{sec.heading}</h2>
               <div className="space-y-4 text-base leading-relaxed text-[#374151]">
                 {sec.paragraphs.map((p, pIdx) => (
                   <p key={pIdx}>{p}</p>

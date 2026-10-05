@@ -17,6 +17,23 @@
   --casaloti-black: #050505;
   --casaloti-muted: #667085;
   --casaloti-line: #e5e7eb;
+
+  /*
+   * O vermelho do portal, amostrado do ".journal" do logotipo (05/10/2026).
+   *
+   * O desenho de referência usava o rose-600 do Tailwind (#E11D48). O tom do
+   * logotipo é outro (#E91C32 na versão de fundo claro, #FC1E32 na de fundo
+   * escuro) e os dois ficam lado a lado no cabeçalho, então a página usa o do
+   * logotipo e não um vizinho dele.
+   *
+   * São três porque contraste não é negociável em texto pequeno. Medido:
+   *   #E91C32 sobre branco  4,49  (preenchimento: selo, botão, filete)
+   *   #C8102E sobre branco  5,88  (texto pequeno: chapéu de editoria)
+   *   #FC1E32 sobre preto   5,37  (texto vermelho na barra preta)
+   */
+  --portal-vermelho: #E91C32;
+  --portal-vermelho-texto: #C8102E;
+  --portal-vermelho-escuro-fundo: #FC1E32;
 }
 
 @theme inline {
@@ -24,6 +41,10 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
   --font-mono: var(--font-inter);
+  --font-portal: var(--fonte-sora), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-marca: var(--portal-vermelho);
+  --color-marca-texto: var(--portal-vermelho-texto);
+  --color-marca-noite: var(--portal-vermelho-escuro-fundo);
 }
 
 * {
@@ -61,6 +82,69 @@ body {
   a {
     color: inherit;
     text-decoration: none;
+  }
+
+  /*
+   * Foco visível em todo o portal, e não link a link: com a classe em cada
+   * componente, o primeiro link novo esquecido vira um buraco para quem
+   * navega pelo teclado.
+   */
+  .portal :focus-visible {
+    outline: 2px solid var(--portal-vermelho);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
+
+/*
+ * O corpo do artigo é a edição do e-mail regravada, com estilo inline em cada
+ * elemento: fonte de sistema, fundo cinza de cartão e largura de 600px.
+ *
+ * Dentro de layer e com `!important` de propósito. Estilo inline normal perde
+ * para declaração de autor com `!important`, que é o único jeito de trocar a
+ * fonte sem reescrever o HTML gravado. Isto só mexe em letra e fundo: medidas,
+ * cores de texto e a ordem do conteúdo continuam as da edição.
+ */
+@layer components {
+  .artigo-corpo,
+  .artigo-corpo * {
+    font-family: var(--font-portal) !important;
+  }
+
+  /*
+   * Só o cinza de moldura do e-mail some. Fundo de bloco com significado,
+   * como o cartão azul-marinho do convite, fica: zerar todo fundo deixaria
+   * texto branco sobre branco.
+   */
+  .artigo-corpo [style*="background:#F4F4F5"] {
+    background-color: transparent !important;
+  }
+
+  /*
+   * A coluna de 600px do e-mail ocupa a coluna do artigo, alinhada ao título,
+   * e nunca passa dela. `table-layout: fixed` porque no layout automático a
+   * tabela cresce até a largura mínima do conteúdo (a foto declara
+   * width="600"), e no celular isso empurrava a página 230px para o lado.
+   */
+  .artigo-corpo table {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed;
+  }
+
+  .artigo-corpo img {
+    max-width: 100% !important;
+  }
+
+  /* O peso 800 do e-mail fica pesado demais em Sora; o portal usa 600. */
+  .artigo-corpo h2 {
+    font-weight: 600 !important;
+  }
+
+  .artigo-corpo td[style*="padding:16px 0"],
+  .artigo-corpo td.quadro {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
   }
 }
 
