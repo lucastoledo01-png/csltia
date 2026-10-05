@@ -878,6 +878,7 @@ Retorne EXCLUSIVAMENTE a edição inteira no mesmo formato JSON.
   for (const c of semantica.naoSustentadas) if (c.pauta >= 0) comProblema.add(c.pauta);
 
   const pautasRemovidas: Array<{ indice: number; titulo: string; motivo: string }> = [];
+  let molduraTrocada = "";
   const sobrariam = parsedEdition.stories.length - comProblema.size;
 
   /*
@@ -928,10 +929,41 @@ Retorne EXCLUSIVAMENTE a edição inteira no mesmo formato JSON.
     semantica = { ...semantica, naoSustentadas: [] };
   }
 
+  /*
+   * Abertura, giro rápido e fechamento também saem, e não a edição.
+   *
+   * Até 05/10/2026 só a frase sem lastro DENTRO de uma matéria tinha saída: a
+   * matéria era removida. A mesma frase na abertura, no giro rápido ou no
+   * fechamento não pertence a matéria nenhuma, e a edição inteira caía. Foi o
+   * que aconteceu no primeiro ensaio da produção na véspera: QA 96, uma
+   * conclusão, edição barrada.
+   *
+   * Esses três trechos não carregam fato que as matérias não carreguem: são
+   * moldura. Então a moldura com problema é trocada por uma versão escrita
+   * aqui, só com os títulos já auditados, e o giro rápido sai, porque ele não
+   * é mais renderizado no e-mail. Nada novo é afirmado, e o aviso registra a
+   * troca para quem aprova ver.
+   */
+  const molduraSemLastro =
+    ancoragem.some((a) => a.indice === -1 && !a.ancorado) || semantica.naoSustentadas.some((c) => c.pauta < 0);
+  if (molduraSemLastro && parsedEdition.stories.length >= pisoDePautas) {
+    const motivoDaMoldura = [
+      ...ancoragem
+        .filter((a) => a.indice === -1 && !a.ancorado)
+        .flatMap((a) => a.naoSustentadas.map((c) => `${c.tipo} "${c.valor}"`)),
+      ...semantica.naoSustentadas.filter((c) => c.pauta < 0).map((c) => `${c.tipo}: ${c.motivo}`),
+    ].join("; ");
+    parsedEdition = { ...parsedEdition, ...molduraNeutra(parsedEdition) };
+    ancoragem = ancoragem.filter((a) => a.indice !== -1);
+    semantica = { ...semantica, naoSustentadas: semantica.naoSustentadas.filter((c) => c.pauta >= 0) };
+    molduraTrocada = `abertura e fechamento trocados por versão neutra, giro rápido retirado (${motivoDaMoldura || "sem lastro"})`;
+  }
+
   const bloqueios = bloqueia(ancoragem, parsedQA, semantica);
   const aprovado = bloqueios.length === 0;
 
   const avisos: string[] = [];
+  if (molduraTrocada) avisos.push(`MOLDURA_NEUTRA: ${molduraTrocada}`);
   const notaDeAviso = opcoesDoPortao.notaDeAviso ?? 0;
   if (notaDeAviso > 0 && parsedQA.score < notaDeAviso) {
     avisos.push(`QA_LOW_SCORE: nota ${parsedQA.score} abaixo de ${notaDeAviso} (aviso, não bloqueia)`);
@@ -960,3 +992,23 @@ Retorne EXCLUSIVAMENTE a edição inteira no mesmo formato JSON.
     },
   };
 }
+
+/**
+ * A moldura da edição sem afirmação nenhuma, só com os títulos já auditados.
+ *
+ * Usada quando a abertura, o giro rápido ou o fechamento trazem algo sem
+ * lastro. Os limites são os de `EditionContentSchema`: a abertura tem de 40 a
+ * 800 caracteres, e o fechamento pelo menos 10.
+ */
+export function molduraNeutra(edicao: Pick<EditionContent, "stories">): Pick<EditionContent, "intro" | "closing" | "quick_bits"> {
+  const titulos = edicao.stories.map((s) => s.title.trim().replace(/[.!?]+$/, "")).filter(Boolean);
+  const lista =
+    titulos.length <= 1
+      ? titulos.join("")
+      : `${titulos.slice(0, -1).join("; ")}; e ${titulos[titulos.length - 1]}`;
+  let intro = `Bom dia. Nesta edição: ${lista}.`;
+  if (intro.length > 800) intro = `${intro.slice(0, 796).replace(/\s+\S*$/, "")}...`;
+  if (intro.length < 40) intro = `Bom dia. Estas são as notícias de hoje sobre os Estados Unidos: ${lista}.`;
+  return { intro, closing: "Essas foram as notícias de hoje.", quick_bits: [] };
+}
+

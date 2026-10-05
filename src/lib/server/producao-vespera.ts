@@ -307,7 +307,14 @@ export async function produzirNaVespera(
       linhaDeGarantia: linha,
     };
   } catch (e) {
-    const erro = e instanceof Error ? e.message : String(e);
+    // O detalhe do bloqueio (o trecho reprovado e o motivo) entra junto. Em
+    // ensaio a redação não grava a própria falha, e no primeiro ensaio, em
+    // 05/10/2026, a linha ficou só com "1 conclusão", sem dizer qual.
+    // Import dinâmico: este módulo só importa tipos da redação, e continua assim.
+    const { detalheDoBloqueioDoErro, resumoDoBloqueio } = await import("./newsroom/newsroom-service");
+    const detalhe = detalheDoBloqueioDoErro(e);
+    const erro =
+      (e instanceof Error ? e.message : String(e)) + (detalhe ? `\n${resumoDoBloqueio(detalhe)}` : "");
     // A redação grava a própria falha (`registrarFalhaDaRedacao`), mas essa
     // gravação é melhor esforço. Se ela não estiver lá, esta está.
     const prefixo = ensaio ? `producao-${decisao.alvo}` : chave;
