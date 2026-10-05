@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  buscarTextoDaFonte,
+  metadadosDaPagina,
   ehAgregador,
   enriquecerPauta,
   extrairTextoDeHtml,
@@ -155,5 +157,70 @@ describe("ehAgregador", () => {
   it("reconhece o Google News e não confunde com veículo", () => {
     expect(ehAgregador("https://news.google.com/rss/articles/x")).toBe(true);
     expect(ehAgregador("https://www.kptv.com/2026/09/05/materia")).toBe(false);
+  });
+});
+
+describe("a fonte de uma matéria já publicada (06/10/2026)", () => {
+  const HTML = `<html><head><script type="application/ld+json">${JSON.stringify({
+    "@type": "NewsArticle",
+    headline: "Chicago mayor proposes 12-month moratorium on new data centers",
+    description: "The move would give the city time to study the impacts.",
+    author: [{ "@type": "Person", name: "Justin Kaufmann" }],
+    datePublished: "2026-09-23T16:40:11Z",
+    publisher: { "@type": "NewsMediaOrganization", name: "Axios Chicago" },
+  })}</script></head><body>
+    <ul class="compartilhar"><li><a href="#">facebook (opens in new window)</a> <a href="#">twitter (opens in new window)</a> <a href="#">linkedin (opens in new window)</a></li></ul>
+    <p>Chicago could halt new data center development within city limits for a year, and that is the news.</p>
+    <p>The latest: Mayor Brandon Johnson&#x27;s plan is a 12-month moratorium while the city develops new rules.</p>
+    <ul><li>There are 39 active data centers in Chicago, according to the city government.</li></ul>
+    <p>What's next: Both proposals will now make their way through the City Council for a full debate.</p>
+    <p>Context: other alders push their own ordinance to regulate data centers, with zoning and environmental reviews for every new project.</p>
+    <p>Zoom out: at least a half-dozen major U.S. cities have temporarily halted or restricted new data center development.</p>
+  </body></html>`;
+
+  it("o item de lista com o dado entra; a barra de compartilhar não; entidade hexadecimal é desfeita", () => {
+    const texto = extrairTextoDeHtml(HTML);
+    expect(texto).toContain("There are 39 active data centers in Chicago");
+    expect(texto).not.toContain("opens in new window");
+    expect(texto).toContain("Johnson's plan");
+  });
+
+  it("título, autor, data e veículo saem do JSON-LD da página", () => {
+    expect(metadadosDaPagina(HTML)).toEqual({
+      titulo: "Chicago mayor proposes 12-month moratorium on new data centers",
+      descricao: "The move would give the city time to study the impacts.",
+      autores: ["Justin Kaufmann"],
+      publicadaEm: "2026-09-23T16:40:11Z",
+      veiculo: "Axios Chicago",
+    });
+  });
+
+  it("veículo que recusa o robô: vai à cópia arquivada da MESMA página, com o mesmo agente", async () => {
+    const pedidos: Array<{ url: string; agente: string }> = [];
+    const fetcher = (async (url: string | URL, init?: RequestInit) => {
+      const u = String(url);
+      pedidos.push({ url: u, agente: String((init?.headers as Record<string, string>)?.["User-Agent"] ?? "") });
+      if (u.startsWith("https://www.axios.com/")) return new Response("Just a moment...", { status: 403 });
+      if (u.startsWith("https://web.archive.org/cdx/")) {
+        return new Response(JSON.stringify([["urlkey", "timestamp", "original"], ["k", "20261004195718", "https://www.axios.com/materia"]]), { status: 200 });
+      }
+      return new Response(HTML, { status: 200, headers: { "content-type": "text/html" } });
+    }) as unknown as typeof fetch;
+    const notas: string[] = [];
+    const r = await buscarTextoDaFonte("https://www.axios.com/materia", fetcher, notas);
+    expect(r?.via).toBe("arquivo");
+    expect(r?.urlLida).toBe("https://web.archive.org/web/20261004195718id_/https://www.axios.com/materia");
+    expect(r?.texto.startsWith("Chicago mayor proposes")).toBe(true);
+    expect(r?.texto).toContain("By Justin Kaufmann, Axios Chicago, published 2026-09-23");
+    expect(notas[0]).toContain("HTTP 403");
+    expect(pedidos.every((p) => p.agente.includes("imigra-us-newsroom"))).toBe(true);
+  });
+
+  it("sem cópia arquivada, nada: silêncio, com o motivo nas notas", async () => {
+    const fetcher = (async (url: string | URL) =>
+      String(url).includes("cdx") ? new Response("[]", { status: 200 }) : new Response("", { status: 403 })) as unknown as typeof fetch;
+    const notas: string[] = [];
+    expect(await buscarTextoDaFonte("https://www.axios.com/materia", fetcher, notas)).toBeNull();
+    expect(notas.join(" ")).toContain("nenhuma captura");
   });
 });

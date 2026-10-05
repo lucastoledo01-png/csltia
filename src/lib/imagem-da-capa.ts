@@ -83,10 +83,23 @@ function textoSimples(html: string): string {
 export function semImagemDaCapaNoCorpo(
   html: string | null | undefined,
   capa: string | null | undefined,
-): { html: string; creditoDaCapa: string | null; removidas: number } {
+): { html: string; creditoDaCapa: string | null; legendaDaCapa: string | null; removidas: number } {
   let corpo = html ?? "";
   let credito: string | null = null;
   let removidas = 0;
+
+  /*
+   * A descrição da foto da capa (06/10/2026): o que a foto mostra, para o
+   * `alt` e para a legenda visível. Mora no corpo, como o crédito, porque a
+   * tabela não tem coluna para ela e o dono não quer DDL agora. A página a
+   * tira do corpo e a desenha embaixo da capa.
+   */
+  let legenda: string | null = null;
+  const descrita = corpo.match(/<p[^>]*class="legenda-da-capa"[^>]*>([\s\S]*?)<\/p>/i);
+  if (descrita) {
+    legenda = textoSimples(descrita[1]) || null;
+    corpo = corpo.replace(descrita[0], "");
+  }
 
   const marcado = corpo.match(/<p[^>]*class="credito-da-foto"[^>]*>([\s\S]*?)<\/p>/i);
   if (marcado) {
@@ -95,7 +108,7 @@ export function semImagemDaCapaNoCorpo(
   }
 
   const alvo = identidadeDaImagem(capa);
-  if (!alvo) return { html: corpo, creditoDaCapa: credito, removidas };
+  if (!alvo) return { html: corpo, creditoDaCapa: credito, legendaDaCapa: legenda, removidas };
 
   const IMG = /(<figure\b[^>]*>\s*)?(<a\b[^>]*>\s*)?<img\b[^>]*\bsrc\s*=\s*"([^"]*)"[^>]*>(\s*<\/a>)?(\s*<figcaption\b[^>]*>[\s\S]*?<\/figcaption>)?(\s*<\/figure>)?/gi;
   corpo = corpo.replace(IMG, (inteiro: string, ...grupos: unknown[]) => {
@@ -118,7 +131,7 @@ export function semImagemDaCapaNoCorpo(
     return paragrafo;
   });
 
-  return { html: corpo, creditoDaCapa: credito, removidas };
+  return { html: corpo, creditoDaCapa: credito, legendaDaCapa: legenda, removidas };
 }
 
 /** Quantas vezes cada foto aparece como capa, por identidade. */

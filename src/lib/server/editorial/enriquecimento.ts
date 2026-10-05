@@ -111,8 +111,18 @@ export function extrairTextoDeHtml(html: string): string {
     .replace(/<form\b[\s\S]*?<\/form>/gi, " ")
     .replace(/<figcaption\b[\s\S]*?<\/figcaption>/gi, " ");
 
-  const paragrafos = [...limpo.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
-    .map((m) => decodificar(m[1].replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim())
+  /*
+   * Parágrafo E item de lista, na ordem do documento (06/10/2026). A matéria
+   * da Axios põe o dado central num `<li>` ("There are 39 active data centers
+   * in Chicago"), e só com `<p>` o número sumia do texto que vira pacote. Item
+   * de menu continua de fora: `<nav>` já saiu acima, e o piso de 60
+   * caracteres derruba o item curto que sobrar.
+   */
+  const paragrafos = [...limpo.matchAll(/<(p|li)\b[^>]*>([\s\S]*?)<\/\1>/gi)]
+    // Item de lista que é só link (a barra de compartilhar: "facebook (opens
+    // in new window) twitter ...") não é texto da matéria.
+    .filter((m) => m[1].toLowerCase() !== "li" || m[2].replace(/<a\b[\s\S]*?<\/a>/gi, " ").replace(/<[^>]+>/g, " ").trim().length >= 20)
+    .map((m) => decodificar(m[2].replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim())
     .filter((t) => t.length >= 60);
 
   if (paragrafos.length > 0) return paragrafos.join("\n\n");
@@ -132,6 +142,7 @@ function decodificar(texto: string): string {
       .replace(/&#0?39;|&apos;|&#8217;/g, "'")
       .replace(/&nbsp;/g, " ")
       .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+      .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
       .replace(/&amp;/g, "&");
   return uma(uma(texto));
 }
@@ -467,4 +478,156 @@ export function conteudoInsuficiente(texto: string): LeituraDeConteudo {
  */
 export function temFatosSuficientes(resultado: ResultadoDoEnriquecimento): boolean {
   return !conteudoInsuficiente(resultado.texto).insuficiente;
+}
+
+/* ------------------------------------------------------------------ */
+/* A fonte de uma matéria já publicada, de novo (06/10/2026)           */
+/* ------------------------------------------------------------------ */
+
+export type MetadadosDaPagina = {
+  titulo: string;
+  descricao: string;
+  autores: string[];
+  publicadaEm: string;
+  veiculo: string;
+};
+
+/**
+ * Título, linha fina, autor, data e veículo, lidos do JSON-LD da página.
+ *
+ * O texto de `extrairTextoDeHtml` é só o corpo. A matéria reescrita cita o
+ * veículo, a data e quem assina, e cada um desses tem que estar no material,
+ * senão a ancoragem acusa (com razão) um nome e uma data que ninguém leu.
+ */
+export function metadadosDaPagina(html: string): MetadadosDaPagina {
+  const vazio: MetadadosDaPagina = { titulo: "", descricao: "", autores: [], publicadaEm: "", veiculo: "" };
+  for (const m of html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)) {
+    let dados: unknown;
+    try {
+      dados = JSON.parse(m[1]);
+    } catch {
+      continue;
+    }
+    const nos = (Array.isArray(dados) ? dados : [dados]).flatMap((d) =>
+      d && typeof d === "object" && Array.isArray((d as { "@graph"?: unknown[] })["@graph"]) ? (d as { "@graph": unknown[] })["@graph"] : [d],
+    ) as Array<Record<string, unknown>>;
+    const materia = nos.find((n) => /Article/.test(String(n?.["@type"] ?? "")));
+    if (!materia) continue;
+    const autores = (Array.isArray(materia.author) ? materia.author : materia.author ? [materia.author] : [])
+      .map((a) => (typeof a === "string" ? a : String((a as { name?: unknown })?.name ?? "")))
+      .map((a) => decodificar(a).trim())
+      .filter(Boolean);
+    const publicador = materia.publisher as { name?: unknown } | undefined;
+    return {
+      titulo: decodificar(String(materia.headline ?? "")).trim(),
+      descricao: decodificar(String(materia.description ?? "")).trim(),
+      autores,
+      publicadaEm: String(materia.datePublished ?? "").trim(),
+      veiculo: decodificar(String(publicador?.name ?? "")).trim(),
+    };
+  }
+  return vazio;
+}
+
+export type TextoDaFonte = {
+  /** Cabeçalho (título, linha fina, assinatura, data) mais o corpo. */
+  texto: string;
+  metadados: MetadadosDaPagina;
+  /** "original": a página do veículo; "arquivo": a cópia do Internet Archive. */
+  via: "original" | "arquivo";
+  /** O endereço efetivamente lido. */
+  urlLida: string;
+  notas: string[];
+};
+
+/**
+ * A captura mais recente da página no Internet Archive que respondeu 200.
+ *
+ * Usada só quando o veículo recusa o robô. A cópia é da MESMA matéria, no
+ * mesmo endereço, arquivada no dia: não é fonte secundária. O sufixo `id_`
+ * pede o HTML original, sem a barra do arquivo injetada.
+ */
+export async function capturaNoArquivo(url: string, fetcher: typeof fetch = fetch): Promise<string | null> {
+  const cdx = new URL("https://web.archive.org/cdx/search/cdx");
+  cdx.searchParams.set("url", url.replace(/^https?:\/\//, ""));
+  cdx.searchParams.set("output", "json");
+  cdx.searchParams.set("filter", "statuscode:200");
+  cdx.searchParams.set("limit", "-1");
+  // O índice do arquivo é lento e às vezes não responde na primeira: uma segunda tentativa.
+  let r: Response | null = null;
+  for (let tentativa = 0; tentativa < 2 && !r; tentativa++) {
+    try {
+      const resposta = await fetcher(cdx, { headers: { "User-Agent": AGENTE }, signal: AbortSignal.timeout(45_000) });
+      if (resposta.ok) r = resposta;
+    } catch (erro) {
+      if (tentativa === 1) throw erro;
+    }
+  }
+  if (!r) return null;
+  const linhas = (await r.json()) as string[][];
+  const ultima = linhas.length > 1 ? linhas[linhas.length - 1] : null;
+  return ultima ? `https://web.archive.org/web/${ultima[1]}id_/${ultima[2]}` : null;
+}
+
+function montarTextoDaFonte(html: string): { texto: string; metadados: MetadadosDaPagina } {
+  const metadados = metadadosDaPagina(html);
+  const corpo = extrairTextoDeHtml(html);
+  const assinatura = [
+    metadados.autores.length ? `By ${metadados.autores.join(", ")}` : "",
+    metadados.veiculo,
+    metadados.publicadaEm ? `published ${metadados.publicadaEm.slice(0, 10)}` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const cabecalho = [metadados.titulo, metadados.descricao, assinatura].filter(Boolean).join("\n");
+  return { texto: cabecalho ? `${cabecalho}\n\n${corpo}` : corpo, metadados };
+}
+
+/**
+ * O texto de uma fonte, para reescrever a matéria a partir dela.
+ *
+ * Primeiro a página do veículo, com o mesmo agente honesto de
+ * `enriquecerPauta`. Se o veículo recusar (a Axios responde 403 com desafio do
+ * Cloudflare a qualquer robô) ou entregar página de bloqueio, a cópia
+ * arquivada da mesma página. Não se disfarça de navegador em nenhum dos dois:
+ * a regra do `AGENTE` continua valendo.
+ */
+export async function buscarTextoDaFonte(
+  url: string,
+  fetcher: typeof fetch = fetch,
+  /** Recebe o que aconteceu em cada tentativa, inclusive quando nada serviu. */
+  notas: string[] = [],
+): Promise<TextoDaFonte | null> {
+  const tentar = async (endereco: string, via: TextoDaFonte["via"]): Promise<TextoDaFonte | null> => {
+    try {
+      const html = await buscarPagina(endereco, fetcher);
+      const { texto, metadados } = montarTextoDaFonte(html);
+      const leitura = conteudoInsuficiente(extrairTextoDeHtml(html));
+      if (leitura.insuficiente) {
+        notas.push(`${via}: ${leitura.motivo}`);
+        return null;
+      }
+      notas.push(`${via}: ${texto.length} caracteres`);
+      return { texto, metadados, via, urlLida: endereco, notas };
+    } catch (erro) {
+      notas.push(`${via}: ${(erro as Error).message}`);
+      return null;
+    }
+  };
+
+  const original = await tentar(url, "original");
+  if (original) return original;
+
+  let captura: string | null = null;
+  try {
+    captura = await capturaNoArquivo(url, fetcher);
+  } catch (erro) {
+    notas.push(`arquivo: consulta falhou, ${(erro as Error).message}`);
+  }
+  if (!captura) {
+    notas.push("arquivo: nenhuma captura com status 200");
+    return null;
+  }
+  const arquivada = await tentar(captura, "arquivo");
+  return arquivada ?? null;
 }

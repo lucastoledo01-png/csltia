@@ -121,7 +121,9 @@ function semAcento(s: string): string {
 export function corpoSemPerguntas(html: string): string {
   return html
     .replace(/<section[^>]*>\s*<h2[^>]*>\s*Perguntas e respostas\s*<\/h2>[\s\S]*?<\/section>/gi, "")
-    .replace(/<p[^>]*class="(?:fonte|credito-da-foto)"[^>]*>[\s\S]*?<\/p>/gi, "");
+    .replace(/<p[^>]*class="(?:fonte|credito-da-foto|legenda-da-capa)"[^>]*>[\s\S]*?<\/p>/gi, "")
+    // As seções de serviço do molde de 06/10/2026: lista de links, não texto.
+    .replace(/<section[^>]*class="(?:leia-tambem|fontes)"[^>]*>[\s\S]*?<\/section>/gi, "");
 }
 
 /** Os parágrafos de texto corrido do corpo, sem crédito e sem linha curta de cromo. */
@@ -131,8 +133,17 @@ export function paragrafosDoCorpo(html: string): string[] {
     .filter((t) => t.length >= 40);
 }
 
+/**
+ * Rótulos fixos do molde de matéria (06/10/2026). São cabeçalho de caixa, não
+ * intertítulo de conteúdo: "Fontes" tem uma palavra e seria apontado como
+ * rótulo de gaveta, que é exatamente o que ele é, de propósito.
+ */
+const ROTULOS_DO_MOLDE = new Set(["o que voce precisa saber", "o que isso significa para quem olha para os eua", "leia tambem", "fontes"]);
+
 export function intertitulosDoCorpo(html: string): string[] {
-  return [...corpoSemPerguntas(html).matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi)].map((m) => textoDeHtml(m[1])).filter(Boolean);
+  return [...corpoSemPerguntas(html).matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi)]
+    .map((m) => textoDeHtml(m[1]))
+    .filter((h) => h && !ROTULOS_DO_MOLDE.has(semAcento(h).replace(/[^a-z ]/g, "").trim()));
 }
 
 function frases(t: string): string[] {
@@ -346,7 +357,9 @@ export function auditarMateria(a: ArtigoAuditavel, ctx: ContextoDaAuditoria): Re
 
   // Crédito da fonte.
   const fontes = (a.source_urls ?? []).filter(Boolean);
-  const creditoMarcado = /<p[^>]*class="fonte"[^>]*>[\s\S]*?<a\b[^>]*href="https?:\/\/[^"]+"/i.test(html);
+  const creditoMarcado =
+    /<p[^>]*class="fonte"[^>]*>[\s\S]*?<a\b[^>]*href="https?:\/\/[^"]+"/i.test(html) ||
+    /<section[^>]*class="fontes"[^>]*>[\s\S]*?<a\b[^>]*href="https?:\/\/[^"]+"/i.test(html);
   const linkParaFonte = fontes.some((u) => html.includes(`href="${u}"`));
   c.push(
     checagem(

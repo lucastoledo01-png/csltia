@@ -113,3 +113,28 @@ describe("perguntas", () => {
     expect(corpoComPerguntas(html, [{ pergunta: "Q?", resposta: "R." }])).toBe(html);
   });
 });
+
+describe("indexação no NewsArticle (06/10/2026)", () => {
+  it("keywords, about e mentions saem das tags gravadas; sem tags, nenhum dos três", () => {
+    const comTags = grafo(
+      dadosEstruturadosDoArtigo(
+        { ...base, tags: ["Economia", "assunto:Hollywood", "sobre:Place:Hollywood", "menciona:Organization:Wall Street|https://www.wikidata.org/wiki/Q127703"] },
+        { perguntasVisiveis: [] },
+      ),
+    ).find((n) => n["@type"] === "NewsArticle")!;
+    expect(comTags.keywords).toEqual(["Hollywood"]);
+    expect(comTags.about).toEqual([{ "@type": "Place", name: "Hollywood" }]);
+    expect(comTags.mentions).toEqual([{ "@type": "Organization", name: "Wall Street", sameAs: "https://www.wikidata.org/wiki/Q127703" }]);
+
+    const semTags = grafo(dadosEstruturadosDoArtigo(base, { perguntasVisiveis: [] })).find((n) => n["@type"] === "NewsArticle")!;
+    expect(semTags).not.toHaveProperty("keywords");
+    expect(semTags).not.toHaveProperty("about");
+    expect(semTags).not.toHaveProperty("mentions");
+  });
+
+  it("as perguntas gravadas entram antes da seção de fontes do molde, não depois", () => {
+    const html = '<section><p>Texto.</p></section><section class="fontes"><h2>Fontes</h2><ul><li>x</li></ul></section>';
+    const r = corpoComPerguntas(html, [{ pergunta: "Q?", resposta: "R." }]);
+    expect(r.indexOf("Perguntas e respostas")).toBeLessThan(r.indexOf('class="fontes"'));
+  });
+});

@@ -9,7 +9,10 @@ import type { PecaPronta } from "./peca";
 import { selecionarParaPortal } from "./selecao";
 import type { SelecaoDoRamo } from "./selecao";
 import { categoriaDoArtigo, escreverArtigoDaPauta, renderizarArtigoHtml } from "./artigo";
-import type { MarcaDoArtigo, ResultadoDoArtigo } from "./artigo";
+import type { MarcaDoArtigo, MateriaRelacionada, ResultadoDoArtigo } from "./artigo";
+import type { AlvoDaRelacao } from "../materias-relacionadas";
+import { editoriaPeloNome, hrefDaEditoria } from "@/lib/editorias";
+import { entidadesDoPacote, tagsDeIndexacao } from "@/lib/indexacao-do-artigo";
 import { horariosDosArtigos, slugDoArtigo } from "./portal";
 import type { ConteudoDoArtigo } from "./portal";
 
@@ -60,6 +63,11 @@ export type EntradaDoRamoDoPortal = {
   resolverCapa?: (pauta: PautaAvaliada) => Promise<string | null>;
   /** Trocado em teste, para não chamar o modelo. */
   escrever?: typeof escreverArtigoDaPauta;
+  /**
+   * O "Leia também": matérias publicadas da mesma editoria. Ausente, a matéria
+   * sai só com o link da página da editoria.
+   */
+  buscarRelacionadas?: (alvo: AlvoDaRelacao) => Promise<MateriaRelacionada[]>;
 };
 
 export type ResultadoDoRamoDoPortal = {
@@ -111,6 +119,20 @@ export async function rodarRamoDoPortal(e: EntradaDoRamoDoPortal): Promise<Resul
 
     const fonte = { nome: pauta.grupo.primary.source_name, url: pauta.grupo.primary.url };
     const slug = slugDoArtigo(r.artigo.titulo, e.data);
+    const categoria = categoriaDoArtigo(pauta, r.artigo.titulo);
+    const editoria = editoriaPeloNome(categoria);
+    let relacionadas: MateriaRelacionada[] = [];
+    if (e.buscarRelacionadas) {
+      try {
+        relacionadas = await e.buscarRelacionadas({
+          slug,
+          categoria,
+          texto: [r.artigo.titulo, ...(r.artigo.assuntos ?? [])].join(" "),
+        });
+      } catch (erro) {
+        linhas.push(`[RAMO artigo] leia também não lido: ${(erro as Error).message}`);
+      }
+    }
     const conteudo: ConteudoDoArtigo = {
       origem: {
         storyId: pauta.storyId,
@@ -126,8 +148,13 @@ export async function rodarRamoDoPortal(e: EntradaDoRamoDoPortal): Promise<Resul
         pacote,
       },
       artigo: r.artigo,
-      html: renderizarArtigoHtml(r.artigo, fonte),
-      categoria: categoriaDoArtigo(pauta, r.artigo.titulo),
+      html: renderizarArtigoHtml(r.artigo, fonte, {
+        fontes: [fonte],
+        relacionadas,
+        ...(editoria ? { editoria: { nome: editoria.nome, href: hrefDaEditoria(editoria.id) } } : {}),
+      }),
+      categoria,
+      tags: tagsDeIndexacao({ assuntos: r.artigo.assuntos ?? [], entidades: entidadesDoPacote(pacote, r.artigo.titulo) }),
       fonte,
       sourceUrls: pacote.source_urls,
       capa,

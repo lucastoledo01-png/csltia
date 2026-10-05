@@ -1332,6 +1332,37 @@ corpo e a levar o crédito marcado.
 imagem é o arquivo sem os parâmetros de entrega, e comparar URL inteira acha
 duas fotos onde há uma.
 
+### A matéria de Chicago reescrita: o que os auditores não pegam (06/10/2026)
+
+**Contexto.** Piloto do molde de matéria completa. Cinco ensaios do redator
+sobre a mesma fonte, cada um lido frase a frase contra o texto da Axios.
+
+**Três defeitos que passaram pelos dois auditores, em ensaios diferentes:**
+
+- **Atribuição trocada.** "Chicago tem 39 data centers ativos, segundo a
+  Axios", quando a fonte diz "according to the city". Nenhum nome, número ou
+  data foi inventado, e o auditor semântico não confere de quem é a fala. A
+  voz passou a dizer que a fonte de um número é quem o deu, nunca o veículo.
+- **Sequência inventada.** "Johnson respondeu que a cidade continua aberta"
+  às críticas do setor: a declaração do prefeito é ANTERIOR e independente.
+  Causalidade de ordem não cabe em nenhum dos tipos que o auditor procura com
+  segurança. O ensaio foi descartado à mão.
+- **Bloco de análise que só recapitula.** O "O que isso significa..." saiu
+  repetindo a abertura com 79% das mesmas palavras. Virou regra determinista
+  na poda.
+
+**Dois defeitos de coleta, achados porque a matéria foi lida contra a fonte.**
+`extrairTextoDeHtml` só lia `<p>`, e o dado central da Axios (os 39 data
+centers) está num `<li>`. Com `<li>`, entrou também a barra de compartilhar
+("facebook (opens in new window)..."): item de lista que é só link agora sai.
+E `&#x27;` (entidade hexadecimal) não era desfeito.
+
+**Lição.** Ancoragem e auditor semântico juntos ainda não garantem fidelidade
+de atribuição nem de ordem dos fatos. Até haver conferência para isso, matéria
+reescrita por script é lida contra a fonte antes do `--aplicar`, e o
+`--de <arquivo>` existe para gravar exatamente a versão lida, já que rodar de
+novo daria outro texto.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

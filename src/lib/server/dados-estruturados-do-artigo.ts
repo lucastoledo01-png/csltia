@@ -1,6 +1,7 @@
 import { MARCA } from "@/lib/marca";
 import { editoriaPeloNome, hrefDaEditoria } from "@/lib/editorias";
 import { escapeHtml } from "./html";
+import { camposDeIndexacaoNoJsonLd, indexacaoDasTags } from "@/lib/indexacao-do-artigo";
 
 /**
  * O que a busca e os assistentes leem da matéria, montado num lugar só
@@ -44,6 +45,8 @@ export type ArtigoParaBusca = {
   updated_at?: string | null;
   content_html?: string | null;
   aeo_questions?: unknown;
+  /** Assuntos e entidades (`assunto:`, `sobre:`, `menciona:`), de `indexacao-do-artigo.ts`. */
+  tags?: string[] | null;
 };
 
 export type PerguntaVisivel = { pergunta: string; resposta: string };
@@ -113,7 +116,7 @@ export function corpoComPerguntas(html: string, perguntas: PerguntaVisivel[]): s
   const secao = `<section class="perguntas"><h2>Perguntas e respostas</h2>${perguntas
     .map((p) => `<h3>${escapeHtml(semNegrito(p.pergunta))}</h3><p>${escapeHtml(semNegrito(p.resposta))}</p>`)
     .join("")}</section>`;
-  const fonte = html.search(/<p[^>]*class="fonte"/i);
+  const fonte = html.search(/<p[^>]*class="fonte"|<section[^>]*class="fontes"/i);
   return fonte >= 0 ? `${html.slice(0, fonte)}${secao}${html.slice(fonte)}` : `${html}${secao}`;
 }
 
@@ -180,6 +183,9 @@ export function dadosEstruturadosDoArtigo(
       ...(publicada ? { dateModified: dataDeModificacao(a.published_at, a.updated_at) } : {}),
       ...(capa ? { image: [capa] } : {}),
       ...(secao ? { articleSection: secao } : {}),
+      // `keywords`, `about` e `mentions` só com o que a matéria gravou; nunca
+      // meta keywords, que nenhum buscador lê.
+      ...camposDeIndexacaoNoJsonLd(indexacaoDasTags(a.tags)),
       author: { "@type": "Organization", name: `Redação ${MARCA.nome}`, url: MARCA.site },
       publisher: { "@id": idOrganizacao },
       mainEntityOfPage: { "@type": "WebPage", "@id": url },

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { MARCA } from "@/lib/marca";
+import { enderecoDaPaginaAtual, linkDoWhatsApp } from "@/lib/compartilhar";
 
 type SubstackArticleRendererProps = {
   title: string;
@@ -13,6 +14,15 @@ type SubstackArticleRendererProps = {
   coverImage?: string | null;
   /** O crédito da foto da capa, que a licença CC BY exige visível junto da obra. */
   coverCredit?: string | null;
+  /**
+   * O que a foto da capa mostra, em uma frase: vai para o `alt` e abre a
+   * legenda visível. Sem ela, o `alt` cai no título, como era.
+   */
+  coverDescription?: string | null;
+  /** O endereço canônico da matéria, só para o link de compartilhar sem JavaScript. */
+  shareUrl?: string;
+  /** Os assuntos da matéria, na fileira do fim. Texto puro: ainda não há página de assunto. */
+  topics?: string[];
   contentHtml?: string;
   sections?: Array<{ heading: string; paragraphs: string[] }>;
   quote?: string;
@@ -28,6 +38,9 @@ export function SubstackArticleRenderer({
   readTime,
   coverImage,
   coverCredit,
+  coverDescription,
+  shareUrl,
+  topics,
   contentHtml,
   sections,
   quote,
@@ -36,9 +49,10 @@ export function SubstackArticleRenderer({
 }: SubstackArticleRendererProps) {
   const [pollVoted, setPollVoted] = useState<string | null>(null);
 
-  const whatsappShareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(
-    `Confira esta leitura no ${MARCA.nome}: ${title}`
-  )}`;
+  // O href do servidor leva o canônico, para quem está sem JavaScript; o clique
+  // troca pelo endereço que o navegador está mostrando (ver `compartilhar.ts`).
+  const whatsappShareUrl = linkDoWhatsApp(MARCA.nome, title, shareUrl ?? MARCA.site);
+  const legendaDaCapa = [coverDescription?.trim(), coverCredit?.trim()].filter(Boolean) as string[];
 
   /*
    * Sem data e sem tempo de leitura inventados. Até 05/10/2026 a página caía
@@ -78,6 +92,9 @@ export function SubstackArticleRenderer({
 
           <a
             href={whatsappShareUrl}
+            onClick={(e) => {
+              e.currentTarget.href = linkDoWhatsApp(MARCA.nome, title, enderecoDaPaginaAtual(window.location));
+            }}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-full border border-[#E4E4E7] px-4 py-2 text-xs font-semibold text-[#0A0A0A] transition-colors hover:border-[#0A0A0A]"
@@ -92,7 +109,7 @@ export function SubstackArticleRenderer({
         <figure className="my-8">
           <div className="relative aspect-[16/9] overflow-hidden rounded-2xl bg-[#F4F4F5]">
             <Image
-              alt={title}
+              alt={coverDescription?.trim() || title}
               src={coverImage}
               fill
               sizes="(min-width: 768px) 680px, 100vw"
@@ -100,7 +117,13 @@ export function SubstackArticleRenderer({
               className="object-cover"
             />
           </div>
-          {coverCredit ? <figcaption className="mt-2 text-xs text-[#71717A]">{coverCredit}</figcaption> : null}
+          {legendaDaCapa.length ? (
+            <figcaption className="mt-2 text-xs leading-relaxed text-[#71717A]">
+              {coverDescription?.trim() ? <span className="text-[#52525B]">{coverDescription.trim()}</span> : null}
+              {coverDescription?.trim() && coverCredit?.trim() ? <span aria-hidden="true"> · </span> : null}
+              {coverCredit?.trim() ? <span>{coverCredit.trim()}</span> : null}
+            </figcaption>
+          ) : null}
         </figure>
       ) : null}
 
@@ -135,7 +158,23 @@ export function SubstackArticleRenderer({
         </div>
       )}
 
-      {/* 5. Módulo de Interação de Leitura */}
+      {/* 5. Assuntos: texto puro até existir página de assunto (decisão para depois). */}
+      {topics && topics.length > 0 ? (
+        <section aria-labelledby="assuntos-da-materia" className="mt-10 border-t border-[#F4F4F5] pt-5">
+          <h2 id="assuntos-da-materia" className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#71717A]">
+            Assuntos
+          </h2>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {topics.map((t) => (
+              <li key={t} className="rounded-full border border-[#E4E4E7] px-3 py-1 text-xs font-medium text-[#3F3F46]">
+                {t}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* 6. Módulo de Interação de Leitura */}
       <div className="my-10 border-t border-b border-[#f3f4f6] py-6 text-center">
         <p className="text-xs font-semibold uppercase tracking-wider text-[#6b7280]">
           O que você achou desta matéria?
