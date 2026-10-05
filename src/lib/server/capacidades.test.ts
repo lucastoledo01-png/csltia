@@ -127,6 +127,8 @@ describe("o cardápio de capacidades", () => {
       "ramos",
       "perfis_referencia",
       "acervo",
+      "producao_vespera",
+      "instrucoes",
     ]);
   });
 });

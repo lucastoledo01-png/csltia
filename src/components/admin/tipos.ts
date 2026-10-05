@@ -43,6 +43,8 @@ export const ROTULO_DA_CAPACIDADE: Record<string, string> = {
   perfis_referencia: "Perfis de referência",
   ramos: "Três canais independentes",
   acervo: "Acervo de imagens próprio",
+  producao_vespera: "Produção na véspera (17:00)",
+  instrucoes: "Instruções editadas no painel",
 };
 
 export const ROTULO_DO_ESTADO: Record<EstadoDeCapacidade, string> = {

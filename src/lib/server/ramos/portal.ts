@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { zonedTimeToUtc } from "../time";
 import { MARCA } from "@/lib/marca";
 import type { ProjetoComCapacidades } from "../capacidades";
+import { horariosDoPortal as horariosDaCadencia } from "../cadencia";
 import type { Artigo } from "./artigo";
 import type { PecaPronta } from "./peca";
 
@@ -23,15 +24,13 @@ import type { PecaPronta } from "./peca";
  */
 export const HORARIOS_PADRAO_DO_PORTAL = ["06:07", "12:00", "18:00"] as const;
 
-const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
-
+/*
+ * Na integração de 05/10/2026 a leitura passou a ser a de `cadencia.ts`, que é
+ * a cadência configurável por projeto. Esta função fica como ponto de
+ * entrada do ramo, para nenhum chamador mudar.
+ */
 export function horariosDoPortal(projeto?: ProjetoComCapacidades | null): string[] {
-  const cadencia = (projeto?.settings as Record<string, unknown> | null | undefined)?.cadencia;
-  const lista = cadencia && typeof cadencia === "object" ? (cadencia as Record<string, unknown>).portal : null;
-  if (Array.isArray(lista) && lista.length > 0 && lista.every((h) => typeof h === "string" && HHMM.test(h))) {
-    return [...(lista as string[])].sort();
-  }
-  return [...HORARIOS_PADRAO_DO_PORTAL];
+  return horariosDaCadencia(projeto);
 }
 
 /**

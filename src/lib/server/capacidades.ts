@@ -67,6 +67,18 @@ export const CAPACIDADES = [
    * 29/09/2026). Não declarado vale `off`. Ver `visual/acervo/modo.ts`.
    */
   "acervo",
+  /**
+   * Produção na véspera (05/10/2026, PRD do MVP): segunda a quinta às 17:00,
+   * tudo do dia seguinte. Em `enforce` o ciclo das 06:03 deixa de produzir
+   * para este projeto. Ausente ou `off`, nada muda. Ver `producao-vespera.ts`.
+   */
+  "producao_vespera",
+  /**
+   * Instrução editorial editável no painel (RF-26, 05/10/2026). Em `off` os
+   * prompts usam o texto do código, byte a byte; em `enforce` a versão ativa
+   * gravada em `instrucoes_editoriais`. Ver `instrucoes.ts`.
+   */
+  "instrucoes",
 ] as const;
 
 export type Capacidade = (typeof CAPACIDADES)[number];

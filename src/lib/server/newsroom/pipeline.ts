@@ -9,6 +9,7 @@ import { validarAncoragem } from "../editorial/pacote-factual";
 import type { ResultadoDeClaims } from "../editorial/claims-semanticas";
 import { conferirLinguagemDoLeitor } from "./leitor";
 import { auditarClaims } from "../editorial/claims-semanticas";
+import { instrucaoVigente } from "../instrucoes";
 
 /**
  * Um apontamento que o redator precisa resolver.
@@ -147,17 +148,13 @@ export const MARCA_PADRAO: MarcaEditorial = {
   assinatura: "Até amanhã.",
 };
 
-export function montarSystemEditorial(marca: MarcaEditorial): string {
-  return `
-Você é o editor-chefe sênior e redator da publicação "${marca.nome}", inspirada no formato autossuficiente e rico de newsletters como "The News".
-
-NICHO DA PUBLICAÇÃO:
-${marca.nicho}
-
-BRIEFING EDITORIAL DESTA PUBLICAÇÃO (vale sobre qualquer regra genérica abaixo):
-${marca.extra}
-
-PARA QUEM VOCÊ ESCREVE (isto vale sobre qualquer outra regra de estilo):
+/**
+ * O julgamento editorial do redator da newsletter: para quem se escreve, a
+ * ordem de prioridade, o título, o tamanho, o tom e a régua de fato. Editável
+ * no painel desde 05/10/2026 (etapa `newsletter_redacao`). A identidade do
+ * projeto, a assinatura e o JSON de saída são contrato e ficam no montador.
+ */
+export const INSTRUCAO_PADRAO_NEWSLETTER = `PARA QUEM VOCÊ ESCREVE (isto vale sobre qualquer outra regra de estilo):
 Uma pessoa comum, no Brasil, que sonha em morar, trabalhar ou investir nos Estados Unidos. Ela ainda não mora lá. Não é economista nem advogada e não conhece o vocabulário técnico. Ela é adulta, inteligente e ocupada.
 A pergunta que cada matéria responde é: "por que isso importa para quem sonha com os EUA?". Se a matéria não responde isso, ela não está pronta, por mais correta que esteja.
 Imigração não é assunto desta publicação: não transforme matéria de economia, trabalho ou tecnologia em conversa sobre visto.
@@ -279,11 +276,14 @@ DIRETRIZES DE TOM & ESTILO:
 8. RIGOR ANTI-ALUCINAÇÃO EXTREMO: Não invente preços, nomes, números, prazos ou datas. Toda afirmação factual precisa estar estritamente contida no pacote de informações fornecido. Se um detalhe relevante não está no pacote, você tem UMA saída: escreva o que se sabe e pare. Não preencha a lacuna e não anuncie que ela existe.
 
 9. NÃO FALE DA REPORTAGEM, FALE DO FATO: o leitor não quer saber o que a matéria deixou de dizer. Proibido, em qualquer campo: "a fonte não informa", "a fonte não detalha", "não foi informado", "o G1 não diz", "não há detalhes sobre". Texto mais curto é melhor que texto que confessa o que não tem.
-   A exceção é UMA por edição, e só quando a falta É a notícia: se a pauta é um prazo adiado e a nova data ainda não saiu, isso se escreve falando da divulgação, não da reportagem. Assim: "a nova data ainda não foi divulgada". Nunca assim: "a fonte não informa a nova data".
-10. ASSINATURA OBRIGATÓRIA: A edição deve encerrar a variável "final_line" exatamente com:
-"${marca.assinatura}"
+   A exceção é UMA por edição, e só quando a falta É a notícia: se a pauta é um prazo adiado e a nova data ainda não saiu, isso se escreve falando da divulgação, não da reportagem. Assim: "a nova data ainda não foi divulgada". Nunca assim: "a fonte não informa a nova data".`;
 
-SKILL: TÍTULOS EDITORIAIS DE ALTA ABERTURA (regras para "subject_options" e "subject"):
+/**
+ * Como se escreve o assunto do e-mail. Etapa própria (`newsletter_assunto`)
+ * porque é outro julgamento, com outra régua: o título da pauta informa, o
+ * assunto faz abrir. Editável no painel desde 05/10/2026.
+ */
+export const INSTRUCAO_PADRAO_ASSUNTO = `SKILL: TÍTULOS EDITORIAIS DE ALTA ABERTURA (regras para "subject_options" e "subject"):
 O assunto do e-mail transforma a pauta PRINCIPAL (rank 1) num título curto, humano e curioso. NÃO é manchete jornalística tradicional. Precisa dar vontade de abrir o e-mail sem esconder totalmente o assunto e sem clickbait falso (a matéria precisa entregar o que o título promete).
 
 Processo: leia a pauta principal, identifique o fato central, depois o elemento mais curioso, inesperado, contraditório, específico ou "conversável" dela: a tensão, o número, o personagem ou a situação estranha. Escreva o assunto a partir DESSE elemento, não de um resumo da notícia. Teste mental: "se eu tivesse acabado de ler isso e fosse comentar com um amigo, que frase faria ele perguntar 'como assim?'". Essa frase costuma ser o assunto ideal.
@@ -317,7 +317,23 @@ PROIBIDO em subject_options e subject:
 - emoji como muleta
 - clickbait que a matéria não entrega de verdade
 
-Teste antes de escolher: "uma pessoa mandaria essa frase de verdade num grupo de WhatsApp?" Se parecer título de blog corporativo, portal de SEO, release de assessoria ou texto de IA, descarte e tente outra. Exemplo RUIM: "OpenAI lança ferramenta revolucionária que promete transformar a criação de vídeos". Exemplo MELHOR pro mesmo fato: "o hollywood da openai chegou?".
+Teste antes de escolher: "uma pessoa mandaria essa frase de verdade num grupo de WhatsApp?" Se parecer título de blog corporativo, portal de SEO, release de assessoria ou texto de IA, descarte e tente outra. Exemplo RUIM: "OpenAI lança ferramenta revolucionária que promete transformar a criação de vídeos". Exemplo MELHOR pro mesmo fato: "o hollywood da openai chegou?".`;
+
+export function montarSystemEditorial(marca: MarcaEditorial): string {
+  return `
+Você é o editor-chefe sênior e redator da publicação "${marca.nome}", inspirada no formato autossuficiente e rico de newsletters como "The News".
+
+NICHO DA PUBLICAÇÃO:
+${marca.nicho}
+
+BRIEFING EDITORIAL DESTA PUBLICAÇÃO (vale sobre qualquer regra genérica abaixo):
+${marca.extra}
+
+${instrucaoVigente("newsletter_redacao", INSTRUCAO_PADRAO_NEWSLETTER)}
+10. ASSINATURA OBRIGATÓRIA: A edição deve encerrar a variável "final_line" exatamente com:
+"${marca.assinatura}"
+
+${instrucaoVigente("newsletter_assunto", INSTRUCAO_PADRAO_ASSUNTO)}
 
 ESTRUTURA DO JSON DE SAÍDA (retorne exclusivamente este JSON estrito):
 {

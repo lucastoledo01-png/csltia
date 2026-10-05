@@ -237,4 +237,45 @@ describe("listmonk integration", () => {
 
     expect(result).toMatchObject({ ok: false, reason: "listmonk_form_request_failed" });
   });
+
+  /*
+   * Produção na véspera (05/10/2026): a edição de amanhã sai do Listmonk
+   * AGENDADA. Disparar `running` com conteúdo de amanhã seria o pior erro
+   * possível do canal, então o "não" está travado aqui.
+   */
+  describe("campanha com data marcada", () => {
+    function clienteQueRegistra() {
+      const corpos: Array<{ url: string; corpo: Record<string, unknown> }> = [];
+      const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+        corpos.push({ url: String(url), corpo: JSON.parse(String(init?.body ?? "{}")) });
+        return new Response(JSON.stringify({ data: { id: 77 } }), { status: 200 });
+      });
+      const client = createListmonkClient(
+        { LISTMONK_URL: "https://listmonk.casaloti.ia.br", LISTMONK_API_TOKEN: "token-de-teste", LISTMONK_DEFAULT_LIST_ID: "7" },
+        fetchMock as unknown as typeof fetch,
+      );
+      return { client, corpos };
+    }
+
+    it("com sendAt agenda, e NÃO dispara", async () => {
+      const { client, corpos } = clienteQueRegistra();
+      const r = await client.createCampaign({
+        name: "edição",
+        subject: "assunto",
+        body: "<p>x</p>",
+        autoSend: true,
+        sendAt: "2026-10-06T09:07:00.000Z",
+      });
+      expect(r).toMatchObject({ ok: true, status: "scheduled" });
+      expect(corpos[0].corpo.send_at).toBe("2026-10-06T09:07:00.000Z");
+      expect(corpos[1].url).toContain("/api/campaigns/77/status");
+      expect(corpos[1].corpo).toEqual({ status: "scheduled" });
+    });
+
+    it("sem sendAt, que é o ciclo das 06:03, continua disparando na hora", async () => {
+      const { client, corpos } = clienteQueRegistra();
+      await client.createCampaign({ name: "edição", subject: "assunto", body: "<p>x</p>", autoSend: true });
+      expect(corpos[1].corpo).toEqual({ status: "running" });
+    });
+  });
 });
