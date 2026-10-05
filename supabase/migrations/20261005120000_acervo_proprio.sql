@@ -105,8 +105,9 @@ create index if not exists acervo_faltas_por_data
   on public.acervo_faltas (project_id, criado_em desc);
 
 -- Para o SQL Editor: a lista de produção da última semana, por frequência.
-create or replace view public.acervo_lista_de_compras
-with (security_invoker = true) as
+-- `with (...)` no CREATE VIEW deu erro de sintaxe no SQL Editor em 05/10/2026;
+-- a opção entra logo abaixo, por ALTER VIEW, que tem o mesmo efeito.
+create or replace view public.acervo_lista_de_compras as
 select project_id,
        tipo,
        chave,
@@ -119,6 +120,8 @@ select project_id,
  where criado_em >= now() - interval '7 days'
  group by project_id, tipo, chave, pais
  order by pautas desc, ultimo_pedido desc;
+
+alter view public.acervo_lista_de_compras set (security_invoker = true);
 
 -- ---------------------------------------------------------------------------
 -- 3. A imagem de cada pauta, resolvida uma vez e reusada pelos ramos
