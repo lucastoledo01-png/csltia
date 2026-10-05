@@ -330,7 +330,20 @@ const TAMANHO_DO_FEED = 16;
  * O dono abriu a home e viu a mesma matéria três vezes. Agora a montagem
  * reparte: cada bloco só recebe o que nenhum bloco acima dele recebeu.
  */
-export function montarHome(pautas: PautaDoPortal[]) {
+export function montarHome(todas: PautaDoPortal[]) {
+  /*
+   * A mesma notícia em duas edições seguidas chega como duas pautas, com ids
+   * diferentes e o mesmo endereço ou o mesmo título (medido em 05/10/2026: a
+   * pauta da juíza de Oklahoma saiu duas vezes no feed). Fica a primeira, que
+   * é a mais nova.
+   */
+  const vistas = new Set<string>();
+  const pautas = todas.filter((p) => {
+    const chaves = [p.href, `t:${normalizarTitulo(p.titulo)}`];
+    if (chaves.some((c) => vistas.has(c))) return false;
+    chaves.forEach((c) => vistas.add(c));
+    return true;
+  });
   const comFoto = pautas.filter((p) => p.imagem);
 
   // A manchete precisa de foto: é ela que ocupa metade da primeira dobra.
@@ -423,4 +436,8 @@ function agruparPorEditoria(pautas: PautaDoPortal[]) {
 
 function hojeEmSaoPaulo(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+}
+
+function normalizarTitulo(t: string): string {
+  return t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
