@@ -7,7 +7,7 @@ import { montarPacotesDasPautas } from "../editorial/pacote-factual";
 import { conferirFinalistas } from "../editorial/finalistas";
 import type { ResultadoDosFinalistas } from "../editorial/finalistas";
 import { criarCandidatosStore } from "../editorial/candidatos-store";
-import { resolveVisualAsset } from "../visual/resolver";
+import { imagemDaPauta } from "../visual/acervo/imagem-da-pauta";
 import { carregarConfigSocial } from "./selecao";
 import { limitarTetoDoDia, poolDoInstagram } from "../ramos/selecao";
 import { criarSocialPostsStore } from "./social-posts-store";
@@ -464,8 +464,13 @@ export async function rodarSocialDoDia(
     ...(opcoes.congelarArte ? { congelarArte: opcoes.congelarArte } : {}),
     ...(opcoes.congelarCarrossel ? { congelarCarrossel: opcoes.congelarCarrossel } : {}),
     ...(opcoes.resolverKeyword ? { resolverKeyword: opcoes.resolverKeyword } : {}),
+    /*
+     * Por `imagemDaPauta` (05/10/2026, integração): com o acervo em `enforce`
+     * o post reusa a foto que o portal e a newsletter receberam para a mesma
+     * pauta. Fora de `enforce` é repasse direto ao resolvedor, como antes.
+     */
     resolverVisual: async (pauta) =>
-      resolveVisualAsset(
+      imagemDaPauta(
         {
           storyId: pauta.storyId,
           titulo: pauta.grupo.primary.title,
@@ -479,11 +484,15 @@ export async function rodarSocialDoDia(
           },
         },
         {
-          env,
-          fetcher,
-          somenteLeitura: true,
-          jaUsadosNestaEdicao: fotosDaEdicao,
-          jaUsadasRecentemente: fotosAntigas,
+          client: opcoes.client,
+          projeto: opcoes.projeto ? { ...opcoes.projeto, id: opcoes.projectId } : null,
+          opcoes: {
+            env,
+            fetcher,
+            somenteLeitura: true,
+            jaUsadosNestaEdicao: fotosDaEdicao,
+            jaUsadasRecentemente: fotosAntigas,
+          },
         },
       ),
   });

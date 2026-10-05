@@ -6,6 +6,12 @@ import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import { modoDosRamos } from "@/lib/server/ramos/modo";
 import { publicarArtigosAprovados } from "@/lib/server/ramos/portal";
 import { formatError, sendAlert } from "@/lib/server/alerts";
+import { criarFilaStore } from "@/lib/server/aprovacao/fila-store";
+import {
+  artigosLiberadosPeloPortao,
+  portalPerguntaAFila,
+  type ArtigoCandidato,
+} from "@/lib/server/aprovacao/portao-do-portal";
 
 /**
  * Publicação das matérias do portal nos horários do dia (RF-14).
@@ -30,12 +36,23 @@ async function handle(req: NextRequest) {
       return NextResponse.json({ ok: true, publicados: [], motivo: `ramos em ${modo}, nada a publicar` });
     }
 
-    const r = await publicarArtigosAprovados(getSupabaseAdminClient(), project.id);
+    /*
+     * Portão único (integração de 05/10/2026): com a fila de aprovação fora de
+     * `off`, cada matéria vencida passa por `decidirPublicacao` antes de sair,
+     * a mesma pergunta que a liberação da fila e o relógio da publicação
+     * fazem. Em `off` a publicação é a de antes, sem uma leitura a mais.
+     */
+    const client = getSupabaseAdminClient();
+    const portao = portalPerguntaAFila(project)
+      ? (candidatos: ArtigoCandidato[]) => artigosLiberadosPeloPortao(project, candidatos, criarFilaStore(client))
+      : undefined;
+    const r = await publicarArtigosAprovados(client, project.id, new Date(), portao);
+    for (const s of r.segurados ?? []) console.log(`[CRON PORTAL] segurado pela fila: ${s.rotulo} (${s.motivo})`);
     if (r.erro) {
       await sendAlert("warning", "Portal não publicou as matérias do horário", r.erro);
       return NextResponse.json({ ok: false, error: r.erro }, { status: 500 });
     }
-    return NextResponse.json({ ok: true, publicados: r.publicados });
+    return NextResponse.json({ ok: true, publicados: r.publicados, segurados: r.segurados ?? [] });
   } catch (err) {
     await sendAlert("warning", "Cron do portal falhou", formatError(err));
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });

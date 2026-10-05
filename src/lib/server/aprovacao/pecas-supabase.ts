@@ -82,6 +82,51 @@ export function criarAdaptadorSupabase(
     return (data as Linha | null) ?? null;
   }
 
+  /*
+   * O artigo liberado pela fila, com três ajustes da integração de 05/10/2026:
+   *
+   *   1. Horário futuro na linha FICA agendado. A matéria do ramo nasce com
+   *      `published_at` no horário dela; aprovar às 22h a matéria das 12:00 e
+   *      publicá-la às 22h atropelaria a cadência. Ela fica `scheduled`, e
+   *      quem a publica na hora é o relógio do portal, que pergunta ao portão
+   *      de novo e encontra esta aprovação. A liberação da fila já espera o
+   *      `publicar_em`, então isto é o cinto para fila e linha discordarem.
+   *   2. `manual_review_status` vira `approved`, a coluna que a regra do ramo
+   *      lê (`publicarArtigosAprovados`). Sem isto, a aprovação da fila e a do
+   *      ramo seriam duas aprovações para a mesma matéria.
+   *   3. Já publicado é sucesso. O relógio do portal pode ter publicado no
+   *      mesmo minuto, e responder falha aqui soltaria a liberação e mandaria
+   *      alerta a cada giro sobre uma matéria que está no ar.
+   */
+  async function despacharArtigo(pecaId: string, agora: Date): Promise<ResultadoDoDespacho> {
+    const l = await lerLinha("articles", "id, status, published_at", pecaId);
+    if (!l) return { ok: false, motivo: "o artigo não existe mais" };
+    if (l.status === "published") return { ok: true, detalhe: "artigo já estava publicado no portal" };
+
+    const horario = typeof l.published_at === "string" ? Date.parse(l.published_at) : NaN;
+    const futuro = Number.isFinite(horario) && horario > agora.getTime();
+    const campos = futuro
+      ? { status: "scheduled", manual_review_status: "approved", updated_at: agora.toISOString() }
+      : {
+          status: "published",
+          manual_review_status: "approved",
+          published_at: agora.toISOString(),
+          updated_at: agora.toISOString(),
+        };
+    const { data, error } = await client
+      .from("articles")
+      .update(campos)
+      .eq("id", pecaId)
+      .eq("project_id", projeto.id)
+      .in("status", ["draft", "scheduled"])
+      .select("id");
+    if (error) return { ok: false, motivo: error.message };
+    if (!data || data.length === 0) return { ok: false, motivo: "o artigo não estava em rascunho nem agendado" };
+    return futuro
+      ? { ok: true, detalhe: `artigo aprovado e agendado para ${String(l.published_at)}` }
+      : { ok: true, detalhe: "artigo publicado no portal" };
+  }
+
   const adaptador: AdaptadorDePecas = {
     async ler(ramo, pecaId): Promise<PecaLida | null> {
       if (ramo === "post") {
@@ -105,10 +150,10 @@ export function criarAdaptadorSupabase(
           material: [s(l.headline), ...materialDaEdicao(l.stories)],
         };
       }
-      const l = await lerLinha("articles", "id, title, content_html, excerpt, description", pecaId);
+      const l = await lerLinha("articles", "id, title, content_html, excerpt, description, cover_image", pecaId);
       if (!l) return null;
       return {
-        hashAtual: hashDoArtigo(s(l.title), s(l.content_html)),
+        hashAtual: hashDoArtigo(s(l.title), s(l.content_html), s(l.cover_image)),
         texto: s(l.title),
         titulo: s(l.title),
         material: [s(l.excerpt), s(l.description), s(l.content_html)],
@@ -168,18 +213,7 @@ export function criarAdaptadorSupabase(
         return { ok: true, detalhe: `post na vaga do worker para ${quando.toISOString()}` };
       }
 
-      if (ramo === "artigo") {
-        const { data, error } = await client
-          .from("articles")
-          .update({ status: "published", published_at: agora.toISOString(), updated_at: agora.toISOString() })
-          .eq("id", pecaId)
-          .eq("project_id", projeto.id)
-          .in("status", ["draft", "scheduled"])
-          .select("id");
-        if (error) return { ok: false, motivo: error.message };
-        if (!data || data.length === 0) return { ok: false, motivo: "o artigo não estava em rascunho" };
-        return { ok: true, detalhe: "artigo publicado no portal" };
-      }
+      if (ramo === "artigo") return despacharArtigo(pecaId, agora);
 
       /*
        * Newsletter: a campanha nasce AQUI, com o assunto e o HTML que estão na

@@ -112,6 +112,19 @@ export async function rodarRamoDoPortal(e: EntradaDoRamoDoPortal): Promise<Resul
     const fonte = { nome: pauta.grupo.primary.source_name, url: pauta.grupo.primary.url };
     const slug = slugDoArtigo(r.artigo.titulo, e.data);
     const conteudo: ConteudoDoArtigo = {
+      origem: {
+        storyId: pauta.storyId,
+        titulo: pauta.grupo.primary.title,
+        resumo: pauta.enriquecimento?.texto ?? "",
+        eixo: String(pauta.classificacao.eixo ?? ""),
+        pais: String(pauta.classificacao.pais ?? ""),
+        atores: pauta.classificacao.atores ?? [],
+        lugares: pauta.classificacao.lugares ?? [],
+        acontecimento: pauta.classificacao.acontecimento ?? [],
+        fonteNome: pauta.grupo.primary.source_name,
+        fonteUrl: pauta.grupo.primary.url,
+        pacote,
+      },
       artigo: r.artigo,
       html: renderizarArtigoHtml(r.artigo, fonte),
       categoria: categoriaDoArtigo(pauta, r.artigo.titulo),

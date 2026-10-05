@@ -23,7 +23,7 @@ import { sendAlert } from "../alerts";
 import { modoDaFila } from "../aprovacao/modo";
 import { redacaoDisparaNewsletter, statusDeEntradaDoArtigo } from "../aprovacao/portao";
 import { avisosDaEdicao, enfileirarDaRedacao } from "../aprovacao/integracao";
-import { instanteDeEnvioDaNewsletter } from "../aprovacao/fila";
+import { horariosDaRedacaoNaFila } from "../aprovacao/fila";
 import { hashDaNewsletter, hashDoArtigo } from "../aprovacao/hash";
 import { MARCA } from "@/lib/marca";
 import { linkDaNewsletter } from "@/lib/visamatch";
@@ -45,7 +45,7 @@ import { descreverModo, modoDaGuarda } from "../editorial/modo";
 import { paraRenderizacao, resolverImagens } from "../editorial/imagens";
 import { descreverModoVisual, diagnosticoVazio, modoDoResolvedorVisual } from "../visual/modo";
 import type { DiagnosticoVisual } from "../visual/modo";
-import { resolveVisualAsset } from "../visual/resolver";
+import { imagemDaPauta } from "../visual/acervo/imagem-da-pauta";
 import { ehUltimoRecurso } from "../visual/bandeira";
 import { criarBiblioteca } from "../visual/biblioteca";
 import type { ResultadoVisual } from "../visual/tipos";
@@ -63,7 +63,7 @@ import type { ModoDosRamos } from "../ramos/modo";
 import { criarLivroDeCustos } from "../ramos/custos";
 import { montarPeca } from "../ramos/peca";
 import type { PecaPronta } from "../ramos/peca";
-import { vozesDosRamos } from "../ramos/vozes";
+import { vozesDosRamosComMemoria } from "../ramos/vozes";
 import type { VozesDosRamos } from "../ramos/vozes";
 import { TETO_DO_INSTAGRAM, preSelecaoParaPacote, selecionarParaNewsletter } from "../ramos/selecao";
 import { garantirPacotes, rodarRamoDoPortal } from "../ramos/ramo-do-portal";
@@ -1231,7 +1231,13 @@ async function executarRedacaoDoDia(
   const pecasDoDia: PecaPronta[] = [];
   /** O pacote factual é camada comum: um por pauta, para todos os ramos. */
   const pacotesDoDia = new Map<string, PacoteFactual>();
-  const vozes: VozesDosRamos | null = modoRamos !== "off" ? await vozesDosRamos(project.id) : null;
+  /*
+   * A memória de reprovação nos redatores dos ramos (RF-29, integração de
+   * 05/10/2026): os erros recentes que o editor apontou na etapa "texto", e as
+   * regras fixas que o dono aprovou, entram depois da voz de cada ramo. Só com
+   * a fila fora de `off`; desligada, as vozes saem byte a byte como antes.
+   */
+  const vozes: VozesDosRamos | null = modoRamos !== "off" ? await vozesDosRamosComMemoria(project) : null;
   let resultadoDoPortal: ResultadoDoRamoDoPortal | null = null;
   // O registro dos ramos vai para o banco só fora de ensaio, como o resto.
   const registrarRamos = modoRamos !== "off" && !dryRun;
@@ -1478,8 +1484,14 @@ async function executarRedacaoDoDia(
           livro,
           env,
           fetcher,
+          /*
+           * A capa da matéria sai de `imagemDaPauta` (05/10/2026, integração):
+           * com o acervo em `enforce`, a mesma pauta ganha a MESMA foto no
+           * portal, no post e na newsletter. Fora de `enforce` é repasse direto
+           * ao resolvedor, como antes.
+           */
           resolverCapa: async (pauta) => {
-            const r = await resolveVisualAsset(
+            const r = await imagemDaPauta(
               {
                 storyId: pauta.storyId,
                 titulo: pauta.grupo.primary.title,
@@ -1492,13 +1504,16 @@ async function executarRedacaoDoDia(
                   pais: pauta.classificacao.pais,
                 },
               },
-              { env, fetcher, somenteLeitura: true },
+              {
+                client: getSupabaseAdminClient(),
+                projeto: project,
+                opcoes: { env, fetcher, somenteLeitura: true },
+              },
             );
             return r.asset?.imageUrl ?? null;
           },
         });
         for (const l of resultadoDoPortal.linhasDeLog) console.log(l);
-        for (const peca of resultadoDoPortal.pecas) await entregarPeca(peca);
 
         if (ramosNoComando && !dryRun) {
           const supabase = getSupabaseAdminClient();
@@ -1538,6 +1553,14 @@ async function executarRedacaoDoDia(
             }
           }
         }
+
+        /*
+         * A entrega das peças vem DEPOIS da gravação (integração de 05/10/2026):
+         * a fila identifica o artigo por `articles.id`, e antes do upsert a
+         * linha não existe. Entregue antes, toda matéria do dia ficaria fora da
+         * fila, e com ela em `enforce` nenhuma sairia.
+         */
+        for (const peca of resultadoDoPortal.pecas) await entregarPeca(peca);
       } catch (erro) {
         const motivo = erro instanceof Error ? erro.message : String(erro);
         console.error(`[NEWSROOM PORTAL] ramo do portal falhou, e a newsletter segue: ${motivo}`);
@@ -1997,7 +2020,8 @@ async function executarRedacaoDoDia(
           }
         : (extraidas.get(String(i)) ?? { atores: [], lugares: [], acontecimento: [] });
 
-      const resultado = await resolveVisualAsset(
+      // Por `imagemDaPauta` (05/10/2026): ver a capa do portal, acima.
+      const resultado = await imagemDaPauta(
         {
           storyId: identidadeDaPauta(story),
           titulo: story.title,
@@ -2007,12 +2031,16 @@ async function executarRedacaoDoDia(
         },
         {
           client: getSupabaseAdminClient(),
-          biblioteca,
-          env,
-          fetcher,
-          jaUsadosNestaEdicao: usadosNestaEdicao,
-          // Grava só quando o V2 manda de verdade e a execução publica.
-          somenteLeitura: modoVisual !== "enforce" || dryRun,
+          projeto: project,
+          opcoes: {
+            client: getSupabaseAdminClient(),
+            biblioteca,
+            env,
+            fetcher,
+            jaUsadosNestaEdicao: usadosNestaEdicao,
+            // Grava só quando o V2 manda de verdade e a execução publica.
+            somenteLeitura: modoVisual !== "enforce" || dryRun,
+          },
         },
       );
 
@@ -2281,7 +2309,9 @@ async function executarRedacaoDoDia(
    */
   const modoDaFilaDoDia = modoDaFila(project);
   const projetoDaFilaDoDia = { id: project.id, timezone: project.timezone, settings: project.settings };
-  const envioDaNewsletter = instanteDeEnvioDaNewsletter(projetoDaFilaDoDia, todayStr);
+  // A data é a da EDIÇÃO (o alvo da véspera), e o horário é o da cadência quando há agendamento.
+  const horariosNaFila = horariosDaRedacaoNaFila(projetoDaFilaDoDia, todayStr, agendamento);
+  const envioDaNewsletter = horariosNaFila.newsletter;
 
   if (publishToPortal && !ramosNoComando) {
     try {
@@ -2375,8 +2405,8 @@ async function executarRedacaoDoDia(
         await enfileirarDaRedacao(projetoDaFilaDoDia, {
           ramo: "artigo",
           pecaId: articleData.id as string,
-          hash: hashDoArtigo(pipelineResult.edition.headline, htmlParaPortal),
-          publicarEm: envioDaNewsletter,
+          hash: hashDoArtigo(pipelineResult.edition.headline, htmlParaPortal, primaryCoverImage),
+          publicarEm: horariosNaFila.artigoDaEdicao,
           avisos: avisosDaEdicao(pipelineResult.qaResult),
           resumo: {
             titulo: pipelineResult.edition.headline,

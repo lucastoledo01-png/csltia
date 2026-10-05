@@ -196,3 +196,46 @@ describe("as prateleiras do painel", () => {
     ]);
   });
 });
+
+/*
+ * 05/10/2026, integração: a refação de imagem da fila de aprovação pede foto
+ * NOVA. Sem `ignorarReuso`, a pauta reprovada pela imagem ganharia de volta a
+ * mesma foto do cache, e a refação seria um carimbo.
+ */
+describe("a imagem da pauta na refação (ignorarReuso)", () => {
+  it("enforce: ignora memória e tabela, resolve de novo e SUBSTITUI o gravado", async () => {
+    const resolver = vi.fn(async () => resultado("https://x/nova.jpg"));
+    const opcoesDoUpsert: unknown[] = [];
+    const cliente = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({ maybeSingle: async () => ({ data: { resultado: resultado("https://x/gravada.jpg") }, error: null }) }),
+          }),
+        }),
+        upsert: async (_linha: unknown, opcoes: unknown) => {
+          opcoesDoUpsert.push(opcoes);
+          return { error: null };
+        },
+      }),
+    } as unknown as SupabaseClient;
+
+    const ctx = { projeto: projeto("enforce"), client: cliente, resolver, acervo: ACERVO };
+    const r = await imagemDaPauta(PAUTA, { ...ctx, ignorarReuso: true });
+    expect(r.asset?.imageUrl).toBe("https://x/nova.jpg");
+    expect(opcoesDoUpsert).toEqual([{ onConflict: "project_id,story_id", ignoreDuplicates: false }]);
+
+    // A chamada seguinte, sem refação, reusa a foto NOVA, e não a que estava gravada.
+    const depois = await imagemDaPauta(PAUTA, ctx);
+    expect(depois.asset?.imageUrl).toBe("https://x/nova.jpg");
+    expect(resolver).toHaveBeenCalledTimes(1);
+  });
+
+  it("capacidade desligada: ignorarReuso não muda nada, é o repasse de sempre", async () => {
+    const resolver = vi.fn(async () => resultado("https://x/a.jpg"));
+    const { cliente, gravacoes } = clienteFalso();
+    await imagemDaPauta(PAUTA, { projeto: projeto(undefined), client: cliente, resolver, ignorarReuso: true });
+    expect(resolver).toHaveBeenCalledTimes(1);
+    expect(gravacoes).toHaveLength(0);
+  });
+});

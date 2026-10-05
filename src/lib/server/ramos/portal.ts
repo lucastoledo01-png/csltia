@@ -4,7 +4,9 @@ import { MARCA } from "@/lib/marca";
 import type { ProjetoComCapacidades } from "../capacidades";
 import { horariosDoPortal as horariosDaCadencia } from "../cadencia";
 import type { Artigo } from "./artigo";
+import type { PacoteFactual } from "../editorial/pacote-factual";
 import type { PecaPronta } from "./peca";
+import type { ArtigoCandidato } from "../aprovacao/portao-do-portal";
 
 /**
  * A agenda do portal (RF-14): três horários, e só sai o que foi aprovado.
@@ -65,7 +67,32 @@ export function slugDoArtigo(titulo: string, data: string): string {
   return `${base || "materia"}-${data}`;
 }
 
+/**
+ * De onde a matéria saiu, guardado para a refação da fila de aprovação.
+ *
+ * Integração de 05/10/2026: a fila reprova o TEXTO ou a IMAGEM de uma matéria
+ * e pede que só aquela etapa seja refeita (RF-22). Refazer o texto exige o
+ * pacote factual e a classificação da pauta, e nenhum dos dois estava gravado
+ * em lugar nenhum depois do ciclo. Sem isto, a refação teria de remontar a
+ * pauta por fora, que é um segundo gerador do lado de fora do gerador.
+ */
+export type OrigemDoArtigo = {
+  storyId: string;
+  titulo: string;
+  resumo: string;
+  eixo: string;
+  pais: string;
+  atores: string[];
+  lugares: string[];
+  acontecimento: string[];
+  fonteNome: string;
+  fonteUrl: string;
+  pacote: PacoteFactual;
+};
+
 export type ConteudoDoArtigo = {
+  /** Ausente nas peças anteriores a 05/10/2026 e nos testes antigos. */
+  origem?: OrigemDoArtigo;
   artigo: Artigo;
   html: string;
   categoria: string;
@@ -140,11 +167,23 @@ export async function gravarArtigosAgendados(
  * `scheduled`, `approved` e `published_at <= agora`. Um artigo que não
  * cumpra as três não é tocado, e a prova está no teste que oferece um de cada.
  */
+export type PortaoDosArtigos = (
+  candidatos: ArtigoCandidato[],
+) => Promise<{ liberadas: ArtigoCandidato[]; seguradas: Array<{ rotulo: string; motivo: string }> }>;
+
 export async function publicarArtigosAprovados(
   client: Pick<SupabaseClient, "from">,
   projectId: string,
   agora: Date = new Date(),
-): Promise<{ publicados: string[]; erro: string | null }> {
+  /*
+   * O portão da fila de aprovação (integração de 05/10/2026), só quando a
+   * capacidade `aprovacao` não está em `off`. Ausente, a publicação é o
+   * `update` de antes, numa consulta só, e nada mais é lido.
+   */
+  portao?: PortaoDosArtigos,
+): Promise<{ publicados: string[]; erro: string | null; segurados?: Array<{ rotulo: string; motivo: string }> }> {
+  if (portao) return publicarPeloPortao(client, projectId, agora, portao);
+
   const { data, error } = await client
     .from("articles")
     .update({ status: "published", updated_at: agora.toISOString() })
@@ -156,4 +195,47 @@ export async function publicarArtigosAprovados(
 
   if (error) return { publicados: [], erro: error.message };
   return { publicados: ((data ?? []) as Array<{ slug: string }>).map((r) => r.slug), erro: null };
+}
+
+/**
+ * As mesmas três condições, e entre ler e escrever, a pergunta ao portão.
+ *
+ * O `update` final repete as três condições e acrescenta o id: um artigo que
+ * mudou de estado entre a leitura e a escrita não é tocado. A versão conferida
+ * pelo portão é a que estava na linha no momento da leitura; se alguém a
+ * regravar nesse intervalo, o próximo giro pergunta de novo.
+ */
+async function publicarPeloPortao(
+  client: Pick<SupabaseClient, "from">,
+  projectId: string,
+  agora: Date,
+  portao: PortaoDosArtigos,
+): Promise<{ publicados: string[]; erro: string | null; segurados: Array<{ rotulo: string; motivo: string }> }> {
+  const agoraIso = agora.toISOString();
+  const { data: lidos, error: erroDeLeitura } = await client
+    .from("articles")
+    .select("id, slug, title, content_html, cover_image")
+    .eq("project_id", projectId)
+    .eq("status", "scheduled")
+    .eq("manual_review_status", "approved")
+    .lte("published_at", agoraIso);
+  if (erroDeLeitura) return { publicados: [], erro: erroDeLeitura.message, segurados: [] };
+
+  const { liberadas, seguradas } = await portao((lidos ?? []) as ArtigoCandidato[]);
+  if (liberadas.length === 0) return { publicados: [], erro: null, segurados: seguradas };
+
+  const { data, error } = await client
+    .from("articles")
+    .update({ status: "published", updated_at: agoraIso })
+    .eq("project_id", projectId)
+    .eq("status", "scheduled")
+    .eq("manual_review_status", "approved")
+    .lte("published_at", agoraIso)
+    .in(
+      "id",
+      liberadas.map((a) => a.id),
+    )
+    .select("slug");
+  if (error) return { publicados: [], erro: error.message, segurados: seguradas };
+  return { publicados: ((data ?? []) as Array<{ slug: string }>).map((r) => r.slug), erro: null, segurados: seguradas };
 }

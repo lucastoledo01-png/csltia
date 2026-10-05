@@ -16,6 +16,7 @@ import {
   type DecisaoDoPortao,
 } from "./portao";
 import type { GanchosDeRefazer } from "./refazer";
+import { criarGanchosDeProducao, mundoDeProducao } from "./ganchos-de-producao";
 
 /**
  * Onde a fila encosta no resto do sistema: o store do social, o worker e a
@@ -33,8 +34,13 @@ import type { GanchosDeRefazer } from "./refazer";
  * refação que remonta a pauta por fora seria um segundo gerador. Quem ligar
  * uma etapa registra o gancho aqui; até lá a peça reprovada fica em
  * `refazendo`, com o motivo visível no painel.
+ *
+ * Preenchido na integração do mesmo dia: texto e imagem do artigo (a pauta e o
+ * pacote passaram a ser gravados na linha da fila) e imagem e arte do post
+ * (lidas da própria linha de `social_posts`). O que continua sem gancho, e o
+ * porquê de cada um, está em `ganchos-de-producao.ts`.
  */
-export const GANCHOS_DE_PRODUCAO: GanchosDeRefazer = {};
+export const GANCHOS_DE_PRODUCAO: GanchosDeRefazer = criarGanchosDeProducao(mundoDeProducao());
 
 /**
  * O projeto como a fila precisa dele, a partir do que o chamador tem na mão.

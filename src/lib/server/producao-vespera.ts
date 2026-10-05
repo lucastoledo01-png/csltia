@@ -9,6 +9,7 @@ import {
 import { DEFAULT_PROJECT_ID, projectToday, requireActiveProject, type Project } from "./projects";
 import { getSupabaseAdminClient } from "./supabase-admin";
 import type { RunNewsroomOptions } from "./newsroom/newsroom-service";
+import { ligacoesDoCiclo, type LigacoesDoCiclo } from "./newsroom/ligacoes-do-ciclo";
 
 /**
  * A produção na véspera (RF-01, PRD de 05/10/2026).
@@ -66,6 +67,8 @@ export type DependenciasDaProducao = {
     options: RunNewsroomOptions,
     env: Record<string, string | undefined>,
   ) => Promise<unknown>;
+  /** As ligações do ciclo real (perfis e fila). Ausente, as de verdade. Ver `ligacoes-do-ciclo.ts`. */
+  ligacoes?: (projeto: Project, env: Record<string, string | undefined>) => Promise<LigacoesDoCiclo>;
   /** Existe alguma linha do run com este prefixo desde o início? */
   existeLinha?: (projetoId: string, prefixo: string, desdeIso: string) => Promise<boolean>;
   gravarLinha?: (linha: LinhaDoRun) => Promise<void>;
@@ -264,6 +267,21 @@ export async function produzirNaVespera(
     });
 
   const envDaCadencia = ambientePelaCadencia(cadencia, env);
+
+  /*
+   * As ligações do ciclo de verdade (integração de 05/10/2026): perfis de
+   * referência e fila de aprovação. Só fora do ensaio: em `dry_run` a redação
+   * não chama `aoProduzirPeca`, e uma rodada de perfis a mais gravaria
+   * leituras em dobro no dia. Falha aqui nunca segura a produção.
+   */
+  if (!ensaio) {
+    try {
+      const ligar = deps.ligacoes ?? ((p: Project, e: Record<string, string | undefined>) => ligacoesDoCiclo(p, { env: e }));
+      Object.assign(options, await ligar(projeto, envDaCadencia));
+    } catch (e) {
+      console.error(`[PRODUCAO] ligações do ciclo não entraram: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   // Sem Instagram no alvo, o teto do dia é zero: o ciclo social roda a
   // verificação e não agenda nada, em vez de agendar posts para um dia que a
   // cadência deixou sem feed.

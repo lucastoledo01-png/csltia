@@ -4,7 +4,8 @@ import { requireCron } from "@/lib/server/api-auth";
 import { anexarDesfechoDoAlerta, runNewsroom } from "@/lib/server/newsroom/newsroom-service";
 import { enviarAlerta, formatError, pingHealthcheck, sendAlert } from "@/lib/server/alerts";
 import { cicloDasSeisCede } from "@/lib/server/producao-vespera";
-import { DEFAULT_PROJECT_ID, getProjectById } from "@/lib/server/projects";
+import { DEFAULT_PROJECT_ID, getProjectById, requireActiveProject } from "@/lib/server/projects";
+import { ligacoesDoCiclo } from "@/lib/server/newsroom/ligacoes-do-ciclo";
 
 export const maxDuration = 300;
 
@@ -164,13 +165,25 @@ async function handle(req: NextRequest) {
 
   void pingHealthcheck(healthcheck, "start");
 
-  const execucao = runNewsroom({
-    dryRun: false,
-    publishToPortal: true,
-    createNewsletterCampaign: true,
-    autoSend: true,
-    ...(chave ? { idempotencyKey: chave } : {}),
-  });
+  /*
+   * As ligações do ciclo de verdade (integração de 05/10/2026): perfis de
+   * referência no pool do Instagram e as peças dos ramos na fila de
+   * aprovação. Com as capacidades desligadas o objeto vem vazio e a chamada é
+   * a de antes. Projeto ilegível aqui não segura o ciclo: a redação lê o
+   * projeto de novo, com a própria retentativa, e decide.
+   */
+  const execucao = (async () => {
+    const projeto = await requireActiveProject(DEFAULT_PROJECT_ID).catch(() => null);
+    const ligacoes = await ligacoesDoCiclo(projeto);
+    return runNewsroom({
+      dryRun: false,
+      publishToPortal: true,
+      createNewsletterCampaign: true,
+      autoSend: true,
+      ...(chave ? { idempotencyKey: chave } : {}),
+      ...ligacoes,
+    });
+  })();
 
   if (aguardar) {
     try {

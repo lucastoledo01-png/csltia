@@ -1280,6 +1280,39 @@ prompts muda em um. Quando duas leituras existem para se conferir, elas precisam
 ler a mesma régua de um lugar só, ou a conferência passa a medir a distância
 entre a régua nova e a velha.
 
+### 05/10/2026: cinco frentes certas, e o encaixe publicaria o que ninguém aprovou
+
+**Sintoma.** Nenhum, e foi achado na integração, antes de qualquer capacidade
+ser ligada. Cada frente passava nos próprios testes.
+
+**Causa 1, o relógio que não perguntava.** O ramo do portal grava a matéria
+`scheduled` com `needs_review` e só a publica aprovada. A produção da véspera
+criou um relógio (`publicacao-agendada.ts`) que vira todo `scheduled` vencido
+em `published`, sem olhar revisão nem fila. Com as duas capacidades ligadas
+juntas, às 06:07 a matéria que ninguém aprovou iria ao ar. Cada frente estava
+certa sobre o próprio caminho; ninguém via os dois juntos.
+
+**Causa 2, a peça entregue antes da linha existir.** Os ramos entregavam a
+matéria à fila ANTES do upsert em `articles`, e a fila identifica o artigo pelo
+id da linha. Toda matéria do dia ficaria fora da fila, e com a fila em
+`enforce` nenhuma sairia, em silêncio.
+
+**Causa 3, a imagem fora do hash.** O hash do artigo era título mais HTML. A
+refação de imagem troca só a capa, então uma foto podia mudar depois da
+aprovação sem o portão perceber.
+
+**Corrigido.** `portao-do-portal.ts` dá aos dois relógios a mesma pergunta da
+liberação da fila, com o mesmo hash; o relógio da véspera exige a revisão do
+ramo quando os ramos mandam; a entrega das matérias vem depois do upsert; e a
+capa entrou no hash, só quando existe, para o hash antigo não mudar. Há teste
+de cada caminho produzindo o "não" com o banco de mentira anotando que nenhuma
+escrita aconteceu.
+
+**Lição.** É a "mesma regra em três cópias" de 16/09 em escala de frente: quando
+duas frentes escrevem no mesmo estado (`scheduled`), cada uma traz a sua regra
+de quem sai. A integração não é juntar os arquivos, é procurar todo escritor do
+estado que vai ao ar e fazê-los perguntar ao mesmo lugar.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta
