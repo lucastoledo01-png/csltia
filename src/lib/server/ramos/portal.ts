@@ -4,7 +4,7 @@ import { MARCA } from "@/lib/marca";
 import type { ProjetoComCapacidades } from "../capacidades";
 import { horariosDoPortal as horariosDaCadencia } from "../cadencia";
 import { modoDaFila } from "../aprovacao/modo";
-import type { Artigo } from "./artigo";
+import { secoesParaConteudo, type Artigo } from "./artigo";
 import type { PacoteFactual } from "../editorial/pacote-factual";
 import type { PecaPronta } from "./peca";
 import type { ArtigoCandidato } from "../aprovacao/portao-do-portal";
@@ -119,6 +119,8 @@ export type ConteudoDoArtigo = {
   capa: string | null;
   publicarEm: string;
   slug: string;
+  /** Assuntos e entidades, no formato de `indexacao-do-artigo.ts`. Ausente nas peças antigas. */
+  tags?: string[];
 };
 
 /**
@@ -151,7 +153,7 @@ export async function gravarArtigosAgendados(
           description: c.artigo.descricao_seo,
           cover_image: c.capa,
           content_html: c.html,
-          content: c.artigo.secoes.map((s) => ({ heading: s.intertitulo, paragraphs: s.paragrafos })),
+          content: secoesParaConteudo(c.artigo),
           status: "scheduled",
           manual_review_status: "needs_review",
           category: c.categoria,
@@ -161,7 +163,7 @@ export async function gravarArtigosAgendados(
           seo_description: c.artigo.descricao_seo.slice(0, 160),
           aeo_questions: c.artigo.perguntas,
           source_urls: c.sourceUrls,
-          tags: [c.categoria],
+          tags: [c.categoria, ...(c.tags ?? [])],
           canonical_url: `${MARCA.site}/artigos/${c.slug}`,
           published_at: c.publicarEm,
           updated_at: new Date().toISOString(),

@@ -46,12 +46,20 @@ LINHA EDITORIAL (vale para os três canais):
 ${LEITOR}
 
 VOZ DESTE CANAL, A MATÉRIA DO PORTAL:
-Isto é uma matéria de busca. Quem chega aqui digitou um assunto no Google e quer a resposta, não recebe uma carta de manhã. Por isso:
+Isto é uma matéria de busca, no molde de matéria completa. Quem chega aqui digitou um assunto no Google e quer a resposta, não recebe uma carta de manhã. Por isso:
 - O título diz o assunto com as palavras que a pessoa digitaria, e diz de que país é. Nada de curiosidade incompleta, nada de caixa baixa de assunto de e-mail.
-- O primeiro parágrafo responde a pergunta inteira em duas ou três frases: o que aconteceu, onde, quando. Quem ler só ele sai informado.
-- Os intertítulos permitem escanear: cada um diz o que o bloco abaixo traz, em frase afirmativa curta.
+- A linha fina acrescenta o dado que não coube no título. Não repete o título com outras palavras.
+- "O que você precisa saber" são três ou quatro tópicos curtos. Cada um traz um fato e o número, a data ou a fonte nomeada que o sustenta.
+- A abertura tem dois parágrafos: o que aconteceu, quem, quando e onde. Quem ler só ela sai informado. O veículo de origem aparece nela uma vez, e é ali que vai o link.
+- Os intertítulos são as perguntas que o leitor faria, e só as que o pacote responde: "O que foi proposto?", "Por que agora?", "Quem é afetado?", "O que acontece agora?". A primeira frase embaixo de cada um já é a resposta.
+- Número entra com a fonte nomeada na mesma frase, e a fonte é quem o pacote diz que deu o número (a cidade, o órgão, a empresa), nunca o veículo que publicou a reportagem. Tabela só quando há comparação de verdade, nunca para enfeitar uma lista.
+- Proposta, projeto e plano ainda não aprovados ficam no condicional: "daria", "permitiria", "alcançaria". Nunca no futuro certo, e nunca com detalhe que o pacote não dá (quem criou, quando começa).
+- Quando o pacote traz o outro lado (quem critica, quem se opõe, quem defende o contrário), ele entra, com o nome de quem disse.
+- Órgão, comissão ou cargo com nome em inglês vira descrição em português e em minúscula: "a câmara municipal", "a força-tarefa do prefeito sobre data centers". O nome próprio de pessoa, empresa e entidade fica como está. Tratamento em inglês antes do nome (Ald., Gov., Sen.) vira o cargo em português: "o vereador Bill Conway".
+- O bloco "O que isso significa para quem olha para os EUA" só existe quando o pacote diz o efeito. Sem isso, fica vazio, e vazio é o certo.
+- O tamanho é o que o pacote rende, entre 500 e 900 palavras no total. Nunca encha: matéria curta e certa vence matéria longa e esticada.
 - Sem saudação, sem "bom dia", sem despedida, sem convite a compartilhar. A matéria não é a edição de hoje: ela continua valendo amanhã.
-- O tom continua sendo o da casa: fala, não relata. Frase curta, palavra comum primeiro, sigla depois e só se ajudar.
+- O tom continua sendo o da casa: fala, não relata. Frase curta, palavra comum primeiro, sigla depois e só se ajudar. Nada de repetir palavra-chave.
 `.trim();
 
 export const VOZ_PADRAO_DO_POST = `

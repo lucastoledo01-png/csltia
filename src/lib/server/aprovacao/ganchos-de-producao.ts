@@ -141,7 +141,7 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
         excerpt: a.subtitulo || a.descricao_seo,
         description: a.descricao_seo,
         content_html: html,
-        content: a.secoes.map((s) => ({ heading: s.intertitulo, paragraphs: s.paragrafos })),
+        content: (await import("../ramos/artigo")).secoesParaConteudo(a),
         seo_title: a.titulo_seo,
         seo_description: a.descricao_seo.slice(0, 160),
         aeo_questions: a.perguntas,
@@ -356,7 +356,7 @@ export function mundoDeProducao(env: Record<string, string | undefined> = proces
     vozDoArtigo: async (projectId) => (await (await import("../ramos/vozes")).vozesDosRamos(projectId)).artigo,
     escrever: async (pauta, pacote, marca) =>
       (await import("../ramos/artigo")).escreverArtigoDaPauta(pauta, pacote, marca, { env }),
-    renderizarHtml: async (artigo, fonte) => (await import("../ramos/artigo")).renderizarArtigoHtml(artigo, fonte),
+    renderizarHtml: async (artigo, fonte) => (await import("../ramos/artigo")).renderizarArtigoHtml(artigo, fonte, { fontes: [fonte] }),
     imagem: async (pauta, ctx) => {
       const { imagemDaPauta } = await import("../visual/acervo/imagem-da-pauta");
       return imagemDaPauta(pauta, {

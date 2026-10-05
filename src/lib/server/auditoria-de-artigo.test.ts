@@ -122,3 +122,25 @@ describe("as réguas", () => {
     expect(relatorioEmCsv(r).split("\n")[1].startsWith(`"${modelo.slug}",100,ok`)).toBe(true);
   });
 });
+
+describe("o molde de matéria completa (06/10/2026) na auditoria", () => {
+  const molde: ArtigoAuditavel = {
+    ...modelo,
+    content_html:
+      `<p class="legenda-da-capa">Edifícios altos vistos de baixo.</p>` +
+      `<section class="essencial"><h2>O que você precisa saber</h2><ul><li>Moratória de 12 meses.</li></ul></section>` +
+      `<section class="abertura"><p>O prefeito Brandon Johnson e um grupo de vereadores defendem uma moratória de 12 meses para novos data centers dentro dos limites de Chicago, <a href="https://www.axios.com/x" rel="noopener" target="_blank">segundo a Axios</a>. A cidade tem 39 data centers ativos.</p></section>` +
+      `<section><h2>O que foi proposto?</h2><p>Para moradores de Chicago, a proposta prevê suspender novos data centers por 12 meses enquanto a cidade estuda seus impactos.</p></section>` +
+      `<section><h2>Por que as contas preocupam?</h2><p>Moradores de Chicago podem ter as contas de serviços públicos afetadas pela demanda crescente de data centers por eletricidade e água.</p></section>` +
+      `<section class="leia-tambem"><h2>Leia também</h2><ul><li><a href="/artigos/outra">Outra</a></li></ul></section>` +
+      `<section class="fontes"><h2>Fontes</h2><ul><li><a href="https://www.axios.com/x" rel="noopener" target="_blank">Axios Chicago</a></li></ul></section>`,
+  };
+
+  it("rótulos fixos do molde não contam como intertítulo de gaveta, e a seção de fontes vale como crédito", () => {
+    const r = auditarMateria(molde, contextoDoConjunto([molde]));
+    const porId = Object.fromEntries(r.checagens.map((c) => [c.id, c]));
+    expect(porId.intertitulos_descritivos.passou).toBe(true);
+    expect(porId.fonte_com_link.passou).toBe(true);
+    expect(r.problemas).toEqual([]);
+  });
+});

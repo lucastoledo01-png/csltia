@@ -11,6 +11,7 @@ import {
   requireActiveProject,
 } from "../projects";
 import { getSupabaseAdminClient } from "../supabase-admin";
+import { buscarRelacionadas } from "../materias-relacionadas";
 import { collectAllNews } from "./collector";
 import { coletarTendencias, limparTendencias, triarTendencias } from "../editorial/tendencias";
 import { buscasDoDia } from "../editorial/busca-dinamica";
@@ -1484,6 +1485,7 @@ async function executarRedacaoDoDia(
           livro,
           env,
           fetcher,
+          buscarRelacionadas: (alvo) => buscarRelacionadas(getSupabaseAdminClient(), project.id, alvo),
           /*
            * A capa da matéria sai de `imagemDaPauta` (05/10/2026, integração):
            * com o acervo em `enforce`, a mesma pauta ganha a MESMA foto no

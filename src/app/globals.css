@@ -216,6 +216,157 @@ body {
   }
 
   /*
+   * O molde de matéria completa (06/10/2026): caixa "O que você precisa
+   * saber", abertura com o link da fonte no texto, tabela, "Leia também",
+   * perguntas e "Fontes". Cada bloco tem classe própria, então a matéria
+   * antiga, que não tem nenhuma delas, continua desenhada como antes.
+   */
+  /* Só o link dentro do texto corrido do molde: o HTML de e-mail das edições antigas tem botão com estilo próprio. */
+  .artigo-corpo > section > p a,
+  .artigo-corpo > section.fontes a {
+    color: var(--portal-vermelho-texto);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  .artigo-corpo > section > p a:hover,
+  .artigo-corpo > section.fontes a:hover {
+    text-decoration-thickness: 2px;
+  }
+
+  .artigo-corpo > section.essencial {
+    border-left: 3px solid var(--portal-vermelho);
+    background: #fafafa;
+    border-radius: 0 12px 12px 0;
+    padding: 1.1rem 1.25rem 1.2rem;
+  }
+
+  .artigo-corpo > section.essencial > h2 {
+    margin-bottom: 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 700 !important;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #52525b;
+  }
+
+  .artigo-corpo > section.essencial li,
+  .artigo-corpo > section.leia-tambem li,
+  .artigo-corpo > section.fontes li {
+    position: relative;
+    padding-left: 1.1rem;
+  }
+
+  .artigo-corpo > section.essencial li {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #18181b;
+  }
+
+  .artigo-corpo > section.essencial li + li {
+    margin-top: 0.55rem;
+  }
+
+  .artigo-corpo > section.essencial li::before,
+  .artigo-corpo > section.leia-tambem li::before,
+  .artigo-corpo > section.fontes li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.65em;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--portal-vermelho);
+  }
+
+  /* A abertura do molde é a que ganha o corpo de lide, e não a caixa acima dela. */
+  .artigo-corpo > section.abertura > p:first-child {
+    font-size: 1.1875rem;
+    line-height: 1.7;
+    color: #0a0a0a;
+  }
+
+  .artigo-corpo > section.tabela .tabela-rolagem {
+    overflow-x: auto;
+  }
+
+  .artigo-corpo > section.tabela table {
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+  }
+
+  .artigo-corpo > section.tabela caption {
+    margin-bottom: 0.5rem;
+    text-align: left;
+    font-weight: 600;
+    color: #0a0a0a;
+  }
+
+  .artigo-corpo > section.tabela th,
+  .artigo-corpo > section.tabela td {
+    border-bottom: 1px solid #e4e4e7;
+    padding: 0.55rem 0.5rem;
+    text-align: left;
+    vertical-align: top;
+    overflow-wrap: anywhere;
+  }
+
+  .artigo-corpo > section.tabela th {
+    font-weight: 600;
+    color: #0a0a0a;
+  }
+
+  .artigo-corpo > section.leia-tambem,
+  .artigo-corpo > section.fontes {
+    border-top: 1px solid #f4f4f5;
+    padding-top: 1.25rem;
+  }
+
+  .artigo-corpo > section.leia-tambem > h2,
+  .artigo-corpo > section.fontes > h2 {
+    font-size: 0.75rem;
+    font-weight: 700 !important;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #52525b;
+  }
+
+  .artigo-corpo > section.leia-tambem li {
+    font-size: 1rem;
+    line-height: 1.5;
+    font-weight: 600;
+  }
+
+  .artigo-corpo > section.leia-tambem li + li,
+  .artigo-corpo > section.fontes li + li {
+    margin-top: 0.5rem;
+  }
+
+  .artigo-corpo > section.leia-tambem li a {
+    color: #0a0a0a;
+    text-decoration: none;
+  }
+
+  .artigo-corpo > section.leia-tambem li a:hover {
+    color: var(--portal-vermelho-texto);
+    text-decoration: underline;
+  }
+
+  .artigo-corpo > section.leia-tambem .mais-da-editoria {
+    margin-top: 0.85rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .artigo-corpo > section.fontes li {
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: #52525b;
+  }
+
+  /*
    * O trilho de "Seções em foco". A barra de rolagem fica à mostra e fina: no
    * computador é ela que diz que há mais cards do que cabem.
    */

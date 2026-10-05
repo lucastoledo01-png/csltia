@@ -4,12 +4,14 @@ import { CaixaDeAssinatura, MolduraDoPortal } from "@/components/PortalChrome";
 import { SubstackArticleRenderer } from "@/components/SubstackArticleRenderer";
 import { miniaturaDoCommons } from "@/components/PortalPecas";
 import { semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
+import { indexacaoDasTags } from "@/lib/indexacao-do-artigo";
 import {
   corpoComPerguntas,
   dadosEstruturadosDoArtigo,
   jsonLdSeguro,
   perguntasDoArtigo,
   perguntasVisiveisDoArtigo,
+  urlDoArtigo,
 } from "@/lib/server/dados-estruturados-do-artigo";
 
 /**
@@ -37,6 +39,8 @@ export type MateriaDaPagina = {
   content_html?: string;
   age_summary?: string;
   aeo_questions?: unknown;
+  /** Inclui os assuntos e as entidades, no formato de `indexacao-do-artigo.ts`. */
+  tags?: string[] | null;
 };
 
 /**
@@ -97,7 +101,7 @@ function semMarcas(s: string): string {
 function linhaFinaQueAcrescenta(descricao: string | undefined, corpo: string | undefined): string | undefined {
   const fina = semMarcas(descricao ?? "");
   if (!fina) return undefined;
-  const primeiro = semMarcas(corpo?.match(/<p\b(?![^>]*class="(?:fonte|credito-da-foto)")[^>]*>([\s\S]*?)<\/p>/i)?.[1] ?? "");
+  const primeiro = semMarcas(corpo?.match(/<p\b(?![^>]*class="(?:fonte|credito-da-foto|legenda-da-capa)")[^>]*>([\s\S]*?)<\/p>/i)?.[1] ?? "");
   return primeiro.startsWith(fina) ? undefined : descricao;
 }
 
@@ -110,7 +114,7 @@ export function PaginaDaMateria({ article, comComentarios = true }: { article: M
    * página desenhava a mesma foto como capa logo acima. O crédito que vinha
    * colado na foto passa para baixo da capa, que é onde a obra está agora.
    */
-  const { html: corpoSemCapa, creditoDaCapa } = semImagemDaCapaNoCorpo(article.content_html, capa);
+  const { html: corpoSemCapa, creditoDaCapa, legendaDaCapa } = semImagemDaCapaNoCorpo(article.content_html, capa);
 
   /*
    * Perguntas e respostas VISÍVEIS, e só então o FAQPage. As gravadas em
@@ -156,6 +160,9 @@ export function PaginaDaMateria({ article, comComentarios = true }: { article: M
             readTime={minutos ? `${minutos} min` : undefined}
             coverImage={capa ? miniaturaDoCommons(capa, 1280) : null}
             coverCredit={creditoDaCapa}
+            coverDescription={legendaDaCapa}
+            shareUrl={urlDoArtigo(article.slug)}
+            topics={indexacaoDasTags(article.tags).assuntos}
             contentHtml={corpoComMiniaturas(corpo)}
             sections={article.content}
             quote={article.age_summary}

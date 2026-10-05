@@ -942,6 +942,59 @@ banco direto, e não `getAllArticlesForAdmin`: aquela cai nos artigos estáticos
 com `published_at` de agora quando o banco falha, e o sitemap de notícias
 anunciaria matéria velha como de um minuto atrás.
 
+## A matéria completa: molde, poda e indexação (06/10/2026)
+
+O dono achou a matéria-piloto de Chicago rala (238 palavras, dois links): ela
+tinha sido refeita só a partir do resumo da newsletter. O molde acertado, que
+o redator do ramo do portal passou a seguir e que `reescrever-artigo.ts`
+aplica a uma matéria publicada:
+
+título e linha fina; "O que você precisa saber" (3 a 4 tópicos); abertura de
+dois parágrafos com o link da fonte DENTRO do texto; intertítulos em forma de
+pergunta do leitor, só as que o pacote responde; tabela só com comparação de
+verdade; "O que isso significa para quem olha para os EUA" só quando o pacote
+diz o efeito; "Leia também" com 2 a 3 matérias publicadas da mesma editoria e
+a página da editoria; perguntas e respostas; "Fontes". De 500 a 900 palavras,
+sem encher.
+
+**A parte editorial do molde mora na voz (`VOZ_PADRAO_DO_ARTIGO`), que passa
+por `instrucaoDaEtapa`; o contrato do JSON fica no código.** É a regra RF-26.
+
+**O que não se sustenta é APAGADO, não amaciado.** `podarArtigo` corta por
+unidade (tópico, parágrafo, linha de tabela, par de pergunta e resposta). A
+ancoragem dura roda unidade por unidade; a conclusão do auditor semântico cai
+na unidade que contém o trecho. Quando o primeiro parágrafo de uma seção sai,
+a seção inteira sai, porque é ele que responde a pergunta do intertítulo. O
+que não se poda bloqueia: título sem lastro, conclusão sem lugar na matéria,
+matéria sem parágrafo. A poda roda SEMPRE, não só na reprovação: cada resposta
+tem que estar no corpo que sobrou (`motivoDeRespostaSemLastro`), e o bloco de
+significado que só repete o corpo (contenção de 60% ou mais) sai.
+
+**Assuntos e entidades moram em `articles.tags`, com prefixo**, porque a
+tabela não tem coluna de metadado em JSON e o dono não quer DDL agora:
+`assunto:<texto>`, `sobre:<Tipo>:<nome>[|sameAs]`, `menciona:<Tipo>:<nome>[|sameAs]`
+(`src/lib/indexacao-do-artigo.ts`). Viram `keywords`, `about` e `mentions` no
+NewsArticle e a fileira "Assuntos" no fim da matéria, em texto puro: não existe
+página de assunto nem busca, e link para o que não existe é pior que nenhum.
+`sameAs` só com QID que o resolvedor do Wikidata do projeto devolveu com
+confiança 70 ou mais. Nada de meta keywords.
+
+**A descrição da foto da capa mora no corpo**, num `<p class="legenda-da-capa">`
+que a página tira de lá e desenha embaixo da capa, como o crédito já fazia. Ela
+vem da conferência visual chamada SEM a manchete (com a manchete, o modelo
+"via" Chicago numa foto qualquer de prédios) e passa pela ancoragem contra o
+pacote: nome ou número que o pacote não tem derruba a descrição, e a legenda
+vira neutra ("Imagem ilustrativa: <assunto>.").
+
+**O link de compartilhar no WhatsApp leva o endereço**, montado no clique a
+partir do que o navegador mostra (origem e caminho, sem consulta nem âncora),
+para sobreviver a troca de domínio. O `href` do servidor usa o canônico, só
+para quem está sem JavaScript.
+
+**Fonte que recusa o robô é lida pela cópia do Internet Archive da mesma
+página** (`buscarTextoDaFonte`), com o mesmo agente honesto. Não se disfarça de
+navegador.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.
