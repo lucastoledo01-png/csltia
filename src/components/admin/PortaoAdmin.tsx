@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { MARCA } from "@/lib/marca";
+import { logoDoSite, MARCA } from "@/lib/marca";
 
 /**
  * A porta do painel, uma só, para todas as telas administrativas.
@@ -94,7 +94,11 @@ export function PortaoAdmin({ children }: { children: React.ReactNode }) {
     return (
       <main className="admin-shell grid min-h-screen place-items-center p-4">
         <div className="admin-glass w-full max-w-sm p-8">
-          <h1 className="text-[22px] text-slate-900">{MARCA.nome}</h1>
+          {/* O cartão é branco, então a versão é a de fundo claro. */}
+          <h1 className="text-[22px] text-slate-900">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={logoDoSite()} alt={MARCA.nome} className="h-7 w-auto" />
+          </h1>
           <p className="mt-1 text-[13px] text-slate-500">Painel de operação. Acesso restrito.</p>
 
           <form onSubmit={entrar} className="mt-6 space-y-4">

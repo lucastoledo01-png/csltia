@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { MARCA } from "@/lib/marca";
+import { logoDoSite, MARCA } from "@/lib/marca";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -44,14 +44,17 @@ export function NewsletterRenderer({
           <span>{category}</span> • <span>{readTime} DE LEITURA</span>
         </div>
 
-        {/* Brand Logo Header */}
+        {/*
+          O logotipo, e não o nome escrito em texto.
+
+          Até 05/10/2026 isto era o nome em fonte mono dentro de uma pílula
+          vermelha, com o ".journal" pintado no mesmo vermelho da pílula: metade
+          da marca sumia no fundo. O cabeçalho é branco, então a versão é a de
+          fundo claro, a mesma do e-mail.
+        */}
         <div className="mt-6 flex justify-center">
-          <div className="rounded-2xl bg-[#E4344A] px-6 py-2 shadow-lg shadow-[#E4344A]/20">
-            <span className="font-mono text-3xl font-black lowercase tracking-tighter text-white sm:text-4xl">
-              {MARCA.nomeBase}
-              <span style={{ color: MARCA.cor }}>{MARCA.nomeSufixo}</span>
-            </span>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={logoDoSite()} alt={MARCA.nome} className="h-8 w-auto sm:h-9" />
         </div>
 
         <h1 className="mt-6 text-[clamp(2rem,7vw,3.5rem)] font-black leading-[0.95] tracking-[-0.07em] text-black">

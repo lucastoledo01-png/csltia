@@ -69,15 +69,42 @@ export const MARCA = {
    * e-mail o caminho relativo não resolve: o cliente de e-mail não sabe de
    * qual origem a mensagem veio.
    */
-  logoClaro: "https://casaloti.ia.br/marca/eua-journal-claro.png",
+  /*
+   * O logotipo entregue pelo dono em 05/10/2026, nas duas versões.
+   *
+   * Até esta data os dois arquivos `eua-journal-claro.png` e
+   * `eua-journal-escuro.png` ainda desenhavam "usa.journal" com a estrela: a
+   * marca mudou de nome em 28/09 e o arquivo do logotipo não mudou junto. Os
+   * nomes novos são outros de propósito, por dois motivos: e-mail já enviado
+   * aponta para o endereço antigo e continua igual ao que foi lido, e cache
+   * de navegador e de cliente de e-mail não serve o desenho velho no endereço
+   * novo. Os arquivos antigos ficam em `public/marca`, sem uso.
+   *
+   * `fundo-claro` é o "eua" em azul-marinho, para fundo branco; `fundo-escuro`
+   * é o "eua" em branco, para azul-marinho e foto escura. O ".journal" é
+   * vermelho nas duas. As versões `-alta` são o arquivo entregue sem as
+   * margens, em resolução cheia, e nada no código aponta para elas.
+   */
+  logoClaro: "https://casaloti.ia.br/marca/eua-journal-fundo-claro.png",
   /*
    * A versão escura é a clara com o azul-marinho virado branco.
    *
    * Ela foi gerada a partir da clara, e não desenhada: no fundo azul-marinho
    * do cabeçalho e do rodapé o "eua", a estrela e os traços sumiriam. O
    * vermelho do ".journal" permanece, porque ele tem contraste nos dois fundos.
+   *
+   * Isso valeu até 05/10/2026. Desde então a versão escura é desenhada pelo
+   * dono, e não derivada.
    */
-  logoEscuro: "https://casaloti.ia.br/marca/eua-journal-escuro.png",
+  logoEscuro: "https://casaloti.ia.br/marca/eua-journal-fundo-escuro.png",
+  /**
+   * Proporção dos dois arquivos, largura sobre altura (800 por 142 o claro,
+   * 800 por 143 o escuro: a diferença é de um pixel e não aparece).
+   *
+   * Existe para o e-mail: o Outlook ignora `height:auto` e usa o atributo
+   * `height`, e sem ele a imagem sai esticada ou com a altura do arquivo.
+   */
+  logoProporcao: 800 / 142,
   /**
    * A marca em círculo, que é a foto de perfil.
    *
