@@ -39,16 +39,22 @@ function texto(patch: Partial<Bloco>, z: number): Bloco {
 }
 
 /** Marca no topo. Texto fixo: não é slot, não vem da IA. */
+/*
+ * Até 05/10/2026 isto escrevia "desbuguei.ia" em texto, e sobreviveu a três
+ * trocas de nome porque só aparece quando alguém começa um desenho novo no
+ * painel. Agora é o logotipo, como imagem fixa. A `cor` continua sendo a tinta
+ * do desenho: tinta clara quer dizer fundo escuro, e a versão do logotipo sai
+ * dela. A caixa tem a proporção do logotipo, para o `contain` não deixar
+ * sobra que empurre a marca para o meio.
+ */
 function marca(z: number, cor: string): Bloco {
-  return texto(
-    {
-      textoFixo: "desbuguei.ia",
-      x: 7, y: 5, w: 50, h: 4,
-      tamanho: 32, tamanhoMinimo: 20, peso: 800,
-      fonte: "body", cor, espacamento: -0.02, ajuste: "cortar",
-    },
-    z,
-  );
+  return {
+    ...blocoNovo("imagem", z),
+    x: 7, y: 5, w: 30, h: 4,
+    imagem: "fixa",
+    imagemUrl: cor === PAPEL ? MARCA.logoEscuro : MARCA.logoClaro,
+    encaixe: "contain",
+  } as Bloco;
 }
 
 /** Fundo sangrado com véu — é o véu que garante texto legível sobre a foto. */
@@ -220,17 +226,14 @@ function capaNoticiaEUA(): Layout {
         fundo: "linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0))",
       } as Bloco,
 
-      texto(
-        {
-          textoFixo: MARCA.nome,
-          x: 20, y: 4, w: 60, h: 5,
-          tamanho: 48, tamanhoMinimo: 30, peso: 800,
-          fonte: "body", cor: PAPEL, espacamento: -0.02,
-          alinhamento: "center", alinhamentoVertical: "center",
-          ajuste: "cortar",
-        },
-        3,
-      ),
+      // O logotipo, e não o nome em texto (05/10/2026). Imagem fixa, versão de
+      // fundo escuro, porque o topo da peça é o degradê preto da forma acima.
+      // `contain` e não `cover`: cortar o logotipo para encher a caixa não serve.
+      {
+        ...blocoNovo("imagem", 3),
+        x: 35, y: 4.5, w: 30, h: 4,
+        imagem: "fixa", imagemUrl: MARCA.logoEscuro, encaixe: "contain",
+      } as Bloco,
 
       texto(
         {

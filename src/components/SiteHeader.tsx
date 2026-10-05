@@ -22,12 +22,16 @@ export function BrandMark({ dark = false }: { dark?: boolean }) {
         A versão escura ainda é o arquivo antigo, porque a do eua.journal não
         existe: o azul-marinho do "eua" e a estrela sumiriam no fundo escuro,
         então ela precisa ser desenhada, não derivada.
+
+        Em 05/10/2026 o dono entregou as duas versões desenhadas. O logotipo
+        novo é mais largo e não tem a linha com a estrela embaixo, então a
+        letra ocupa a altura toda: h-7 aqui dá o mesmo peso que h-8 dava.
       */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={logoDoSite(dark)}
         alt={MARCA.nome}
-        className="h-8 w-auto transition-transform group-hover:scale-[1.03]"
+        className="h-7 w-auto transition-transform group-hover:scale-[1.03]"
       />
     </Link>
   );
@@ -51,6 +55,11 @@ export function SiteHeader({ ctaHref = "#inscrever" }: { ctaHref?: string }) {
   );
 }
 
+/*
+ * O rodapé que usa esta marca tem fundo quase branco (#fafafa), e não
+ * azul-marinho. Com a versão escura, o "eua" saía branco sobre branco e
+ * sobrava só o ".journal". Visto em 05/10/2026, ao trocar o logotipo.
+ */
 export function FooterBrandMark() {
-  return <BrandMark dark />;
+  return <BrandMark />;
 }

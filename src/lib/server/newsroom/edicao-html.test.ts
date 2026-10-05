@@ -75,6 +75,18 @@ describe("HTML da edição", () => {
     expect(html).toContain(MARCA.tintaEscura);
   });
 
+  /*
+   * O e-mail tem fundo branco, então leva a versão de fundo claro, por
+   * endereço absoluto: o cliente de e-mail não sabe de qual origem a mensagem
+   * veio. A altura vai no atributo porque o Outlook ignora `height:auto`.
+   */
+  it("o cabeçalho leva o logotipo de fundo claro, com altura declarada", () => {
+    const html = renderEditionToHtml(EDICAO, new Map());
+
+    expect(html).toContain(`<img src="${MARCA.logoClaro}" alt="${MARCA.nome}" width="200" height="36"`);
+    expect(MARCA.logoClaro.startsWith("https://")).toBe(true);
+  });
+
   it("o Instagram vive no rodapé, como ícone e nome", () => {
     const html = renderEditionToHtml(EDICAO, new Map());
 

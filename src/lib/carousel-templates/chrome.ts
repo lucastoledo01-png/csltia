@@ -1,5 +1,5 @@
 import { MARCA } from "@/lib/marca";
-import { pad2 } from "./util";
+import { esc, pad2 } from "./util";
 
 /**
  * Cabeçalho e rodapé — o "chrome" que emoldura todo slide não sangrado.
@@ -28,6 +28,29 @@ export type ChromeKind = "editorial" | "social";
  */
 const HANDLE = MARCA.instagramHandle;
 const EDITORIAL_TAGLINE = `${MARCA.nome.toUpperCase()} &middot; EUA SEM RUÍDO`;
+
+/*
+ * Qual versão do logotipo o cabeçalho social desenha, pela cor do fundo.
+ *
+ * Até 05/10/2026 este cabeçalho escrevia o nome em texto na cor de acento. O
+ * logotipo tem duas versões, e quem decide qual é o fundo do slide, que vem
+ * dos tokens do painel e pode ser claro ou escuro conforme o formato. Aqui o
+ * fundo é cor chapada e conhecida no servidor, então a conta é feita aqui; a
+ * capa de jornal mede no navegador porque o fundo dela é uma foto.
+ */
+export function logoParaOFundo(fundoHex: string): string {
+  const hex = fundoHex.trim().replace(/^#/, "");
+  const cheio = hex.length === 3 ? hex.split("").map((c) => c + c).join("") : hex;
+  const n = Number.parseInt(cheio, 16);
+  if (cheio.length !== 6 || Number.isNaN(n)) return MARCA.logoClaro;
+  const canal = (v: number) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const luminancia = 0.2126 * canal((n >> 16) & 255) + 0.7152 * canal((n >> 8) & 255) + 0.0722 * canal(n & 255);
+  // 0.18 é onde o contraste com branco e com preto se igualam.
+  return luminancia > 0.18 ? MARCA.logoClaro : MARCA.logoEscuro;
+}
 
 /**
  * Ícones em SVG inline. O design de origem usa a biblioteca Iconify por
@@ -69,12 +92,12 @@ export function cantosEditorial(): string {
  *
  * A marca e a assinatura ficam: elas não prometem nada.
  */
-export function chromeHeader(kind: ChromeKind, slideIndex: number, total: number): string {
+export function chromeHeader(kind: ChromeKind, slideIndex: number, total: number, fundo = "#ffffff"): string {
   const paginacao = total > 1;
 
   if (kind === "social") {
     return `<div class="c-head social">
-<span class="mark">${MARCA.nome}</span>
+<img class="mark" src="${esc(logoParaOFundo(fundo))}" alt="${esc(MARCA.nome)}" />
 ${paginacao ? `<span class="pill">${pad2(slideIndex)}<i>/</i>${pad2(total)}</span>` : ""}
 </div>`;
   }

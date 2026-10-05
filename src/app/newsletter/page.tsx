@@ -1,7 +1,7 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/SiteHeader";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { newsletterBenefits } from "@/lib/editorial";
-import { MARCA } from "@/lib/marca";
 
 export default function NewsletterPage() {
   return (
@@ -9,7 +9,7 @@ export default function NewsletterPage() {
       <div className="mx-auto min-h-screen max-w-3xl px-5 py-16 text-center">
         <header>
           <div className="mb-16 flex items-center justify-between text-sm">
-            <Link className="font-bold tracking-[-0.03em] font-sans text-xl text-black" href="/">{MARCA.nome}</Link>
+            <BrandMark />
             <Link className="font-medium hover:text-[#E4344A]" href="/artigos">Artigos</Link>
           </div>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#E4344A]">Newsletter</p>

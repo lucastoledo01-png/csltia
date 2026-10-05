@@ -110,9 +110,19 @@ function CardDoProjeto({ projeto }: { projeto: ProjetoDoPainel }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="truncate text-[17px] font-semibold text-slate-900">
-            {projeto.marca.nome || projeto.nome}
-          </div>
+          {/* Mesma regra da barra do projeto: logotipo do banco, ou o nome. */}
+          {projeto.marca.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={projeto.marca.logoUrl}
+              alt={projeto.marca.nome || projeto.nome}
+              className="block h-6 w-auto max-w-full"
+            />
+          ) : (
+            <div className="truncate text-[17px] font-semibold text-slate-900">
+              {projeto.marca.nome || projeto.nome}
+            </div>
+          )}
           {/*
             O nicho do eua.journal é um parágrafo editorial inteiro, e impresso
             solto ele tomava quatro linhas do card. Aqui ele é uma linha, com o

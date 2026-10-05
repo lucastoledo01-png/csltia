@@ -3,7 +3,7 @@ import Link from "next/link";
 import { FooterBrandMark, SiteHeader } from "@/components/SiteHeader";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { articles as artigosDeBase, type Article } from "@/lib/editorial";
-import { MARCA } from "@/lib/marca";
+import { logoDoSite, MARCA } from "@/lib/marca";
 
 const faqs = [
   {
@@ -28,10 +28,13 @@ function Hero() {
   return (
     <section className="mx-auto max-w-[760px] px-4 pb-16 pt-12 text-center sm:px-6 md:pb-24 md:pt-20" id="inscrever">
       <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-[#e5e7eb] bg-[#fafafa] px-3.5 py-1 text-xs font-semibold text-[#374151]">
-        <span className="flex items-center gap-1.5 font-mono">
-          <span className="flex h-4 w-4 items-center justify-center rounded-md bg-[#E4344A] text-[10px] font-black text-white">b.</span>
-          {MARCA.nome}
-        </span>
+        {/*
+          O logotipo no lugar do selo "b." com o nome em texto: o selo era da
+          marca desbuguei e sobreviveu a três trocas de nome. A pílula tem fundo
+          quase branco, então a versão é a de fundo claro.
+        */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logoDoSite()} alt={MARCA.nome} className="h-3.5 w-auto" />
         <span className="text-gray-300">•</span>
         <span className="text-[#E4344A]">edição diária</span>
       </div>

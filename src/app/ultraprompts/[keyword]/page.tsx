@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { BrandMark } from "@/components/SiteHeader";
 import { notFound } from "next/navigation";
 import { UltraPromptLeadForm } from "@/components/UltraPromptLeadForm";
 import { loadLandingCampaign, recordFunnelEvent } from "@/lib/server/prompt-system/landing";
@@ -55,9 +55,7 @@ export default async function UltraPromptLanding({ params }: Props) {
     <main className="the-news-shell">
       <div className="mx-auto min-h-screen max-w-3xl px-5 py-16">
         <div className="mb-14 flex items-center justify-between text-sm">
-          <Link className="font-sans text-xl font-bold tracking-[-0.03em] text-black" href="/">
-            {MARCA.nome}
-          </Link>
+          <BrandMark />
           <span className="rounded-full bg-black px-3 py-1 font-mono text-[11px] font-bold tracking-[0.14em] text-white">
             {campanha.keyword}
           </span>

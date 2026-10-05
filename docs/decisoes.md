@@ -53,6 +53,17 @@ Se a conta for renomeada de novo, três campos do `marca.ts` mudam juntos:
 conferência é uma chamada à Graph API, nunca a memória de ninguém nem um
 documento antigo.
 
+**O logotipo** é o que o dono entregou em 05/10/2026, em duas versões
+desenhadas: `public/marca/eua-journal-fundo-claro.png` ("eua" azul-marinho,
+para fundo branco) e `eua-journal-fundo-escuro.png` ("eua" branco, para
+azul-marinho e foto escura). O ".journal" é vermelho nas duas. Até essa data os
+arquivos que o `marca.ts` apontava ainda desenhavam "usa.journal" com a
+estrela, e a arte escrevia a marca em texto em quatro lugares. A regra é uma
+só: quem desenha a marca usa a imagem, escolhida pela cor do fundo onde ela
+fica, e o endereço sai de `MARCA.logoClaro` ou `MARCA.logoEscuro`. Os
+arquivos `-alta` são o original sem margem, em resolução cheia, para quem
+precisar refazer um tamanho.
+
 **O domínio continua `casaloti.ia.br`**, por decisão do dono. É ele que serve o
 site, as imagens do e-mail e o alvo do cron.
 
@@ -646,3 +657,9 @@ Ficam aqui para não serem redescobertas como novidade.
 - **Multiprojeto**: o cron executa um projeto e não itera; o design de carrossel
   não tem `project_id`.
 - **Versão escura do logotipo** foi gerada recolorindo o azul, não desenhada.
+  FECHADO em 05/10/2026: o dono entregou as duas versões desenhadas. Ver
+  "O logotipo" em Produto e marca.
+- **Ícone quadrado da marca.** O favicon do site ainda é o padrão do Next, e o
+  logotipo é uma assinatura horizontal que não cabe em 16 por 16. Precisa de
+  uma marca quadrada desenhada (o "e" ou o ponto vermelho, por exemplo); o
+  avatar do Instagram é candidato, mas tem detalhe demais para o tamanho.

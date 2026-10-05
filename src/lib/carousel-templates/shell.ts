@@ -62,7 +62,7 @@ export function renderShell(
     ? `<div class="slide full">${cantos}${out.body}${tira}</div>`
     : `<div class="slide">
 ${cantos}
-${chromeHeader(chrome, opts.slideIndex, opts.molduraDiscreta ? 1 : opts.total)}
+${chromeHeader(chrome, opts.slideIndex, opts.molduraDiscreta ? 1 : opts.total, opts.tokens.colors.bg)}
 ${out.body}
 ${chromeFooter(chrome, opts.slideIndex, opts.total, opts.affordance)}
 ${tira}
@@ -82,7 +82,16 @@ ${tira}
   return `<!DOCTYPE html><html lang="pt-BR"${rootClass}><head><meta charset="UTF-8">${fontLink}${style}</head><body>${inner}<script>${SCRIPT_DE_AJUSTE}</script></body></html>`;
 }
 
+/*
+ * O logotipo, e não o nome em texto ao lado de um selo "us".
+ *
+ * Trocado em 05/10/2026, com o logotipo desenhado pelo dono. As três capas que
+ * chamam isto são sangradas, com foto e degradê escuro por cima, então a
+ * versão é sempre a de fundo escuro. O arquivo vem pelo endereço absoluto,
+ * igual ao da capa de jornal: o render carrega a peça por `setContent`, sem
+ * origem, e caminho relativo não resolveria.
+ */
 /** Marca da conta sem contador — usada nas sobreposições das capas. */
 export function overlayBrand(): string {
-  return `<div class="s-header plain"><div class="s-brand"><span class="s-badge">us</span><span class="s-wordmark">${MARCA.nome}</span></div></div>`;
+  return `<div class="s-header plain"><img class="s-logo" src="${esc(MARCA.logoEscuro)}" alt="${esc(MARCA.nome)}" /></div>`;
 }

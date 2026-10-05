@@ -433,7 +433,7 @@ export function renderEditionToHtml(
                 imagem por padrão mostra o texto alternativo, então o
                 cabeçalho continua legível mesmo sem carregar nada.
               */ ""}
-              <img src="${MARCA.logoClaro}" alt="${MARCA.nome}" width="200"
+              <img src="${MARCA.logoClaro}" alt="${MARCA.nome}" width="200" height="${Math.round(200 / MARCA.logoProporcao)}"
                 style="width:200px;max-width:60%;height:auto;display:block;margin:0 auto 20px auto;border:0;" />
               <h1 class="hero" style="font-family:${fonte};font-size:30px;line-height:1.22;font-weight:800;letter-spacing:-0.03em;color:${TINTA};margin:0 0 12px 0;">
                 ${escapeHtml(edition.headline)}

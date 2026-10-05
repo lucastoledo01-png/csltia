@@ -39,6 +39,10 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 .s-counter{background:var(--s-border);color:var(--s-stone);font-size:18px;font-weight:700;
   padding:8px 20px;border-radius:22px;font-variant-numeric:tabular-nums;}
 .on-dark .s-wordmark,.on-dark .s-counter{color:#fff;}
+/* Desde 05/10/2026 a sobreposicao das capas desenha o logotipo, e nao o selo
+   com o nome. A altura e a mesma da capa de jornal, para as pecas do feed
+   terem a marca do mesmo tamanho. */
+.s-logo{height:44px;width:auto;display:block;filter:drop-shadow(0 2px 7px rgba(0,0,0,0.45));}
 .on-dark .s-counter{background:rgba(255,255,255,0.16);}
 
 /* ---- eyebrow ---- */
@@ -156,6 +160,7 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 /* ---- chrome social ---- */
 .c-head.social .mark{font-family:var(--s-font-body);font-size:21px;font-weight:800;
   letter-spacing:2.4px;text-transform:uppercase;color:var(--s-accent);}
+.c-head.social img.mark{height:34px;width:auto;display:block;}
 .c-head.social .pill{font-family:var(--s-font-mono);font-size:18px;font-weight:700;color:var(--s-ink);
   background:rgba(255,255,255,0.10);border:1px solid var(--s-border);border-radius:999px;padding:8px 20px;}
 .c-head.social .pill i{opacity:0.45;font-style:normal;margin:0 4px;}

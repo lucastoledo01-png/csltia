@@ -23,8 +23,13 @@ export function TopoDoPortal() {
     <header className="bg-[#0A3161] text-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-4 py-3.5 sm:px-6">
         <Link href="/" aria-label={MARCA.nome} className="shrink-0">
+          {/*
+            h-6 e não h-7 desde o logotipo de 05/10/2026: ele não tem mais a
+            linha da estrela embaixo, então a letra ocupa a altura inteira e
+            ficaria maior que a do desenho anterior na mesma altura.
+          */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logoDoSite(true)} alt={MARCA.nome} className="h-7 w-auto" />
+          <img src={logoDoSite(true)} alt={MARCA.nome} className="h-6 w-auto" />
         </Link>
 
         <nav aria-label="Editorias" className="hidden items-center gap-6 md:flex">
@@ -56,7 +61,7 @@ export function RodapeDoPortal() {
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[2fr_1fr_1fr]">
         <div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logoDoSite(true)} alt={MARCA.nome} className="h-8 w-auto" />
+          <img src={logoDoSite(true)} alt={MARCA.nome} className="h-7 w-auto" />
           <p className="mt-4 max-w-sm text-[13px] leading-[1.6]">{MARCA.descricao}</p>
           <a
             href={MARCA.instagram}

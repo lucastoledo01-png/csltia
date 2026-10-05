@@ -151,9 +151,24 @@ function AreaDoProjeto({ slug }: { slug: string }) {
           <Link href="/admin" className="text-[11px] text-slate-400 hover:text-slate-900">
             Projetos
           </Link>
-          <span className="mt-1 block text-[15px] font-medium text-slate-900">
-            {projeto.marca.nome || projeto.nome}
-          </span>
+          {/*
+            O logotipo vem de `projects.brand_logo_url`, e não do `marca.ts`:
+            o painel é de vários projetos, e o arquivo do código é a marca de
+            um só. Sem logotipo no banco, o nome em texto, como sempre foi. A
+            barra é branca, então a URL gravada deve ser a versão de fundo claro.
+          */}
+          {projeto.marca.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={projeto.marca.logoUrl}
+              alt={projeto.marca.nome || projeto.nome}
+              className="mt-2 block h-6 w-auto max-w-full"
+            />
+          ) : (
+            <span className="mt-1 block text-[15px] font-medium text-slate-900">
+              {projeto.marca.nome || projeto.nome}
+            </span>
+          )}
         </div>
 
         <nav aria-label="Seções do projeto" className="flex-1 space-y-0.5 px-3">

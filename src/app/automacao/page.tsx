@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/SiteHeader";
 import { automationPrinciples, automationStages, safeSources } from "@/lib/automation";
 import { MARCA } from "@/lib/marca";
 
@@ -8,7 +9,7 @@ export default function AutomationPage() {
       <div className="editorial-container">
         <header className="mb-16 text-center md:mb-24">
           <div className="mb-10 flex items-center justify-between text-sm text-[var(--casaloti-secondary)]">
-            <Link className="font-semibold text-[var(--casaloti-primary)]" href="/">{MARCA.nome}</Link>
+            <BrandMark />
             <Link className="smooth-link hover:text-[var(--casaloti-primary)]" href="/artigos">Blog</Link>
           </div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--casaloti-meta)]">Sistema editorial</p>
