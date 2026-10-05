@@ -9,6 +9,7 @@ import type { ResultadoDosFinalistas } from "../editorial/finalistas";
 import { criarCandidatosStore } from "../editorial/candidatos-store";
 import { resolveVisualAsset } from "../visual/resolver";
 import { carregarConfigSocial } from "./selecao";
+import { limitarTetoDoDia, poolDoInstagram } from "../ramos/selecao";
 import { criarSocialPostsStore } from "./social-posts-store";
 import { modoDoPipelineSocial } from "./modo";
 import type { ModoSocial, ResumoVisualDoDia } from "./modo";
@@ -109,6 +110,28 @@ export type OpcoesDoSocialDoDia = {
    * exatamente como lia antes da plataforma multi-projeto existir.
    */
   projeto?: ProjetoComCapacidades | null;
+  /**
+   * Teto de posts do dia no ramo próprio do Instagram (RF-15, 05/10/2026).
+   *
+   * Ausente, vale `SOCIAL_POSTS_MAX_PER_DAY` como sempre. Presente, só pode
+   * BAIXAR o teto: o ramo pede cinco, e um ambiente que já pede menos continua
+   * valendo.
+   */
+  tetoDoDia?: number;
+  /**
+   * Candidatas que não vieram da coleta do dia: perfis de referência e fontes
+   * do feed, construídos em paralelo. Entram no pool e passam pela mesma
+   * verificação e composição. Ausente, o pool é o de sempre.
+   */
+  candidatasExtras?: PautaAvaliada[];
+  /**
+   * Sem pacote factual, sem post (RF-05).
+   *
+   * No fluxo de antes, a pauta cujo pacote falhava ia para a copy com o texto
+   * cru da matéria. No ramo próprio o pacote é a única matéria-prima, então a
+   * pauta sem ele sai do dia. Ausente, o comportamento é o de antes.
+   */
+  exigirPacoteFactual?: boolean;
   /*
    * Injetados só em teste, pelas mesmas razões de sempre: um abre navegador e
    * escreve no Storage, o outro lê `prompt_campaigns` no banco. Em produção os
@@ -180,12 +203,15 @@ export async function rodarSocialDoDia(
   const env = opcoes.env ?? process.env;
   const fetcher = opcoes.fetcher ?? fetch;
   const modo = opcoes.modoForcado ?? modoDoPipelineSocial(env, opcoes.projeto);
+  if (opcoes.candidatasExtras?.length) {
+    approvedEditorialPool = poolDoInstagram(approvedEditorialPool, opcoes.candidatasExtras);
+  }
   const diagnostico = diagnosticoSocialAusente(modo);
   diagnostico.candidates = approvedEditorialPool.length;
 
   if (modo === "off") return { diagnostico, ciclo: null, conferencia: null };
 
-  const configSocial = carregarConfigSocial(env);
+  const configSocial = limitarTetoDoDia(carregarConfigSocial(env), opcoes.tetoDoDia);
   const candidatosStore = criarCandidatosStore(opcoes.client);
 
   /*
@@ -255,6 +281,16 @@ export async function rodarSocialDoDia(
     for (const [url, pacote] of construcao.pacotes.entries()) {
       const storyId = porUrl.get(url);
       if (storyId) pacotes.set(storyId, pacote);
+    }
+  }
+
+  if (opcoes.exigirPacoteFactual) {
+    const semPacote = conferencia.confirmadas.filter((p) => !pacotes.has(p.storyId));
+    if (semPacote.length > 0) {
+      conferencia.confirmadas = conferencia.confirmadas.filter((p) => pacotes.has(p.storyId));
+      diagnostico.skipped += semPacote.length;
+      diagnostico.skippedReasons.NO_FACTUAL_PACKAGE = semPacote.length;
+      diagnostico.verified = conferencia.confirmadas.length;
     }
   }
 

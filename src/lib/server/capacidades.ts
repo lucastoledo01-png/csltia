@@ -46,6 +46,15 @@ export const CAPACIDADES = [
   "keyword",
   /** Landing page do funil. */
   "landing",
+  /**
+   * Os três ramos independentes: newsletter, artigo do portal e post.
+   *
+   * Decisão do dono em 05/10/2026: cada canal tem seleção, redação, auditor e
+   * fila próprios, e nenhum herda o texto do outro. Não declarado vale `off`,
+   * que é o fluxo de antes (a newsletter compõe e o portal regrava o e-mail).
+   * Ver `ramos/modo.ts`.
+   */
+  "ramos",
 ] as const;
 
 export type Capacidade = (typeof CAPACIDADES)[number];

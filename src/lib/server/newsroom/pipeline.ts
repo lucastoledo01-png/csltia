@@ -82,6 +82,34 @@ export type PipelineResult = {
    * foi retirada em vez de derrubar a edição inteira.
    */
   pautasRemovidas: Array<{ indice: number; titulo: string; motivo: string }>;
+  /**
+   * O que não bloqueia e precisa chegar a quem aprova.
+   *
+   * Vazio no fluxo de antes. Com `notaDeAviso`, a nota baixa do auditor vem
+   * para cá em vez de ir para `bloqueios` (decisão do dono, 05/10/2026).
+   */
+  avisos: string[];
+  /** O custo da edição separado por etapa, para o livro do dia (RNF-14). */
+  custosPorEtapa: { redacao: number; auditoria_qa: number; auditoria_claims: number };
+};
+
+/**
+ * Como o portão trata o que não é fato inventado.
+ *
+ * Opcional e vazio por padrão: sem ele, o pipeline decide exatamente como
+ * antes.
+ */
+export type OpcoesDoPortao = {
+  /**
+   * Nota abaixo da qual o auditor gera AVISO, e não bloqueio.
+   *
+   * O dono decidiu em 05/10/2026 que nota baixa de QA vira aviso para quem
+   * aprova, e que o risco de alucinação continua bloqueando sozinho. É a
+   * divergência que ficou registrada em 18/09 ("ou o piso sai, ou o documento
+   * é corrigido"): o piso sai do portão e vai para a fila de aprovação. Quem
+   * passa isto passa também `notaMinimaDeQA = 0`.
+   */
+  notaDeAviso?: number;
 };
 
 /**
@@ -371,6 +399,7 @@ export async function runNewsroomPipeline(
    * qualidade percebida, que é opinião graduada e não detecção de invenção.
    */
   notaMinimaDeQA: number = 0,
+  opcoesDoPortao: OpcoesDoPortao = {},
 ): Promise<PipelineResult> {
   const config = getAIProviderConfig(env);
 
@@ -422,6 +451,7 @@ export async function runNewsroomPipeline(
   let totalPromptTokens = 0;
   let totalCompletionTokens = 0;
   let totalCostUsd = 0;
+  const custosPorEtapa = { redacao: 0, auditoria_qa: 0, auditoria_claims: 0 };
 
   const userWritingPrompt = `
 Por favor, redija a edição de hoje da ${marca.nome} no estilo do "The News", 100% autossuficiente (o leitor recebe a informação completa dentro do e-mail sem precisar clicar em links para ler mais).
@@ -479,6 +509,7 @@ Requisitos obrigatórios:
     totalPromptTokens += resposta.usage.promptTokens;
     totalCompletionTokens += resposta.usage.completionTokens;
     totalCostUsd += resposta.usage.estimatedCostUsd;
+    custosPorEtapa.redacao += resposta.usage.estimatedCostUsd;
 
     try {
       // Antes da validação: o travessão é removido em toda string da edição.
@@ -637,6 +668,7 @@ Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
     totalPromptTokens += resposta.usage.promptTokens;
     totalCompletionTokens += resposta.usage.completionTokens;
     totalCostUsd += resposta.usage.estimatedCostUsd;
+    custosPorEtapa.auditoria_qa += resposta.usage.estimatedCostUsd;
 
     return QAResultSchema.parse(resposta.data);
   };
@@ -665,6 +697,7 @@ Avalie os pontos abaixo e responda EXCLUSIVAMENTE com o JSON:
 
     const r = await auditarClaims(auditaveis, env, fetcher);
     totalCostUsd += r.custoUsd;
+    custosPorEtapa.auditoria_claims += r.custoUsd;
     return r;
   };
 
@@ -882,6 +915,13 @@ Retorne EXCLUSIVAMENTE a edição inteira no mesmo formato JSON.
   const bloqueios = bloqueia(ancoragem, parsedQA, semantica);
   const aprovado = bloqueios.length === 0;
 
+  const avisos: string[] = [];
+  const notaDeAviso = opcoesDoPortao.notaDeAviso ?? 0;
+  if (notaDeAviso > 0 && parsedQA.score < notaDeAviso) {
+    avisos.push(`QA_LOW_SCORE: nota ${parsedQA.score} abaixo de ${notaDeAviso} (aviso, não bloqueia)`);
+  }
+  if (semantica.erro) avisos.push(`auditoria de conclusões não rodou: ${semantica.erro}`);
+
   return {
     edition: parsedEdition,
     qaResult: parsedQA,
@@ -894,6 +934,8 @@ Retorne EXCLUSIVAMENTE a edição inteira no mesmo formato JSON.
     problemasRestantes: problemas,
     selectedCandidates,
     pautasRemovidas,
+    avisos,
+    custosPorEtapa,
     totalUsage: {
       promptTokens: totalPromptTokens,
       completionTokens: totalCompletionTokens,
