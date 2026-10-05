@@ -124,6 +124,7 @@ describe("o cardápio de capacidades", () => {
       "visual",
       "keyword",
       "landing",
+      "perfis_referencia",
     ]);
   });
 });

@@ -46,6 +46,13 @@ export const CAPACIDADES = [
   "keyword",
   /** Landing page do funil. */
   "landing",
+  /**
+   * Perfis de referência do Instagram como SINAL de pauta (RF-16, RF-17).
+   *
+   * Entrou em 05/10/2026. Não tem variável de ambiente por trás: não declarada
+   * é `off`, então subir o código não muda o ciclo de nenhum projeto.
+   */
+  "perfis_referencia",
 ] as const;
 
 export type Capacidade = (typeof CAPACIDADES)[number];
