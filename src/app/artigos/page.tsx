@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { RodapeDoPortal, TopoDoPortal } from "@/components/PortalChrome";
+import { CaixaDeAssinatura, MolduraDoPortal } from "@/components/PortalChrome";
 import { MARCA } from "@/lib/marca";
 import { Article } from "@/lib/editorial";
 import { getPublishedArticles } from "@/lib/server/articles-service";
@@ -18,46 +18,36 @@ import { getPublishedArticles } from "@/lib/server/articles-service";
  */
 export const revalidate = 300;
 
+/**
+ * O card da lista, na mesma gramática da linha do feed da home: foto à
+ * esquerda numa caixa de medida fixa, chapéu vermelho, título, duas linhas
+ * de resumo e a data. No celular a foto vai para cima, em 16:9.
+ */
 function SubstackFeedCard({ article }: { article: Article }) {
   return (
-    <article className="group border-b border-[#f3f4f6] pb-8 pt-6 transition-all">
-      <div className="grid gap-6 md:grid-cols-[1fr_240px] items-center">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#E4344A]">
-            <span>{article.category}</span>
-            <span className="text-gray-300">•</span>
-            <span className="text-[#6b7280] font-normal lowercase">{article.readTime}</span>
-          </div>
-
-          <h2 className="mt-2 font-serif text-2xl font-bold tracking-tight text-[#111827] group-hover:text-[#E4344A] transition-colors">
-            <Link href={`/artigos/${article.slug}`}>{article.title}</Link>
-          </h2>
-
-          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[#4b5563]">
-            {article.description}
-          </p>
-
-          <div className="mt-4 flex items-center gap-4 text-xs font-medium text-[#6b7280]">
-            <span>{article.date}</span>
-            <span>•</span>
-            <Link className="font-semibold text-[#111827] hover:text-[#E4344A]" href={`/artigos/${article.slug}`}>
-              Ler artigo →
-            </Link>
-          </div>
-        </div>
-
+    <article className="group py-8 first:pt-4">
+      <Link href={`/artigos/${article.slug}`} className="flex flex-col gap-5 md:flex-row md:gap-6">
         {article.image ? (
-          <Link className="block overflow-hidden rounded-xl border border-[#eaecf0]" href={`/artigos/${article.slug}`}>
+          <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-xl bg-[#F4F4F5] md:aspect-auto md:h-40 md:w-56">
             <Image
               alt={article.imageAlt || article.title}
-              className="aspect-[16/10] h-auto w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              height={480}
+              className="object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none"
+              fill
+              sizes="(min-width: 768px) 224px, 100vw"
               src={article.image}
-              width={720}
             />
-          </Link>
+          </div>
         ) : null}
-      </div>
+
+        <div className="min-w-0 flex-1">
+          <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-marca-texto">{article.category}</span>
+          <h2 className="mt-2 text-xl font-semibold leading-snug text-[#0A0A0A] transition-colors group-hover:text-marca-texto md:text-2xl md:leading-tight">
+            {article.title}
+          </h2>
+          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[#52525B]">{article.description}</p>
+          <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.12em] text-[#71717A]">{article.date}</p>
+        </div>
+      </Link>
     </article>
   );
 }
@@ -66,28 +56,30 @@ export default async function ArticlesPage() {
   const publishedArticles = await getPublishedArticles();
 
   return (
-    <main className="min-h-screen bg-white text-[#111827]">
-      <TopoDoPortal />
-      <section aria-label="lista editorial de artigos" className="mx-auto max-w-[760px] px-4 pb-20 pt-6 sm:px-6 md:pt-10" id="inscrever">
-        <div className="border-b border-[#111827] pb-4">
-          {/*
-            O título e a linha de apoio eram da vertical anterior: "Leitura
-            quinzenal sobre IA, produtos e tecnologia sem hype" num portal de
-            imigração para os Estados Unidos.
-          */}
-          <h1 className="font-serif text-3xl font-bold tracking-tight text-[#111827]">Edições</h1>
-          <p className="mt-1 text-sm text-[#6b7280]">
-            Todas as edições do {MARCA.nome}, da mais recente para a mais antiga.
-          </p>
-        </div>
+    <MolduraDoPortal>
+      <main>
+        <section aria-label="lista editorial de artigos" className="mx-auto max-w-[760px] px-5 pb-16 pt-8 sm:px-6 md:pt-12" id="inscrever">
+          <div className="border-b-2 border-[#0A0A0A] pb-4">
+            {/*
+              O título e a linha de apoio eram da vertical anterior: "Leitura
+              quinzenal sobre IA, produtos e tecnologia sem hype" num portal de
+              imigração para os Estados Unidos.
+            */}
+            <h1 className="text-3xl font-semibold tracking-[-0.02em] text-[#0A0A0A] md:text-4xl">Edições</h1>
+            <p className="mt-2 text-sm text-[#52525B]">
+              Todas as edições do {MARCA.nome}, da mais recente para a mais antiga.
+            </p>
+          </div>
 
-        <div className="mt-4 divide-y divide-[#f3f4f6]">
-          {publishedArticles.map((article) => (
-            <SubstackFeedCard article={article} key={article.slug} />
-          ))}
-        </div>
-      </section>
-      <RodapeDoPortal />
-    </main>
+          <div className="divide-y divide-[#F4F4F5]">
+            {publishedArticles.map((article) => (
+              <SubstackFeedCard article={article} key={article.slug} />
+            ))}
+          </div>
+
+          <CaixaDeAssinatura origem="portal-edicoes" className="mt-8" />
+        </section>
+      </main>
+    </MolduraDoPortal>
   );
 }

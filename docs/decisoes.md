@@ -830,6 +830,35 @@ as matérias publicadas às pautas das edições, mais recente primeiro, sem o
 artigo que é a própria edição e sem a pauta da edição cuja fonte já tem matéria
 própria.
 
+## O portal veste Sora (05/10/2026)
+
+O dono desenhou a referência no Superdesign, e ela está guardada em
+`docs/design/portal-sora-2026-10-05/`, com as capturas do resultado. Letra
+Sora em tudo, página branca, barra preta com a data, cabeçalho branco fixo no
+computador e preto no celular, rodapé preto. A letra vem do `next/font`, que
+serve o arquivo da nossa origem.
+
+**O desenho foi adaptado, não copiado, e cada adaptação é deliberada:**
+
+- A referência punha o logotipo de fundo escuro no cabeçalho branco, onde o
+  "eua" branco some. Vale a regra da marca: a versão sai da cor do fundo.
+- O vermelho é o do ".journal" do logotipo (#E91C32), e não o rose-600 do
+  Tailwind. Texto vermelho pequeno usa #C8102E, porque o tom do logotipo dá
+  4,49 de contraste sobre branco, abaixo do mínimo para letra miúda.
+- "Mais lidas" virou "O mais novo de cada editoria": não existe contagem de
+  leitura por pauta, e lista ordenada por um número que não existe é mentira
+  com cara de dado.
+- Saíram "Entrar", assinatura paga, busca, "Carregar mais", Facebook, Twitter
+  e as páginas institucionais. Nada disso existe no produto, e link para o
+  que não existe é pior que link nenhum.
+- Tempo de leitura só aparece no artigo, medido nas palavras do corpo. O
+  campo `reading_minutes` nasce com 5 e não é medida.
+- A pauta sem foto é peça tipográfica com a faixa de cor da editoria, nunca
+  caixa vazia. A peça fica por baixo de toda foto, então arquivo lento ou
+  quebrado também cai nela.
+- Cada página do portal tem UMA caixa de assinatura (`id="newsletter"`), que
+  é o fluxo real da newsletter. Barra de topo e rodapé apontam para ela.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

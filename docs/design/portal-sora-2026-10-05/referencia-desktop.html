@@ -1,0 +1,189 @@
+<!DOCTYPE html><html lang="pt-br"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>USA Journal Redesign</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Bespoke+Serif:wght@400;700&display=swap');
+    :root { --accent: #e11d48; --bg-primary: #ffffff; --bg-secondary: #f8f9fa; --text-main: #0a0a0a; --text-muted: #64748b; }
+    body { font-family: 'Sora', sans-serif; color: var(--text-main); background-color: var(--bg-primary); }
+    .serif-title { font-family: 'Sora', sans-serif; font-weight: 600; }
+    .headline-sora { font-family: 'Sora', sans-serif; }
+    .article-card:hover .article-image { transform: scale(1.03); }
+  </style>
+</head>
+<body>
+  <div class="min-h-screen flex flex-col">
+    <!-- Top Bar -->
+    <div class="bg-black text-white py-2 px-6 flex justify-between items-center text-[10px] uppercase tracking-widest font-bold">
+      <span>Sexta-feira, 24 de Outubro, 2024</span>
+      <div class="flex gap-6">
+        <a href="#">Entrar</a>
+        <a href="#" class="text-rose-500">Assine Agora</a>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <header class="sticky top-0 z-50 bg-white border-b border-gray-100">
+      <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+        <div class="flex items-center gap-12">
+          <a href="#" class="block"><img src="LOGO_FUNDO_ESCURO" alt="USA Journal Logo" class="h-10 w-auto"></a>
+          <nav class="hidden lg:flex items-center gap-8 text-sm font-semibold text-gray-500">
+            <a href="#" class="hover:text-black transition-colors">Economia</a>
+            <a href="#" class="hover:text-black transition-colors">Tecnologia</a>
+            <a href="#" class="hover:text-black transition-colors">Estilo de Vida</a>
+            <a href="#" class="hover:text-black transition-colors">Política</a>
+            <a href="#" class="hover:text-black transition-colors">Mundo</a>
+          </nav>
+        </div>
+        <div class="flex items-center gap-6">
+          <button class="p-2 hover:bg-gray-100 rounded-full transition-colors"><iconify-icon icon="lucide:search" class="text-xl"></iconify-icon></button>
+          <button class="lg:hidden p-2"><iconify-icon icon="lucide:menu" class="text-2xl"></iconify-icon></button>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
+      <!-- Hero Section -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-10 mb-16">
+        <div class="lg:col-span-8 group cursor-pointer">
+          <div class="relative aspect-[16/9] overflow-hidden rounded-2xl mb-6">
+            <img src="https://images.unsplash.com/photo-1449824913935-59a10b8d2000?q=80&w=1440" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105">
+            <div class="absolute top-6 left-6"><span class="bg-rose-600 text-white text-[10px] font-bold px-3 py-1 uppercase tracking-widest rounded-sm">Política</span></div>
+          </div>
+          <div>
+            <h1 class="text-4xl lg:text-5xl font-semibold headline-sora leading-tight mb-4 group-hover:text-rose-600 transition-colors">Los Angeles pode eleger uma urbanista para prefeita em votação histórica</h1>
+            <p class="text-gray-600 text-lg leading-relaxed mb-4 max-w-3xl">A eleição municipal de 2024 marca um ponto de virada para a infraestrutura urbana. Especialistas acreditam que a nova liderança pode remodelar o transporte público e a habitação social no centro da cidade.</p>
+            <div class="flex items-center gap-3 text-sm text-gray-400 font-medium">
+              <span>Por Redação USA Journal</span><span class="w-1 h-1 bg-gray-300 rounded-full"></span><span>5 min de leitura</span>
+            </div>
+          </div>
+        </div>
+        <!-- Side List -->
+        <div class="lg:col-span-4 flex flex-col gap-8">
+          <div class="border-b border-gray-100 pb-8">
+            <h3 class="text-xs font-bold uppercase tracking-widest text-rose-600 mb-4">Destaques</h3>
+            <div class="flex flex-col gap-6">
+              <a href="#" class="group"><span class="text-[10px] font-bold text-gray-400 uppercase">Trabalho</span>
+                <h4 class="text-lg font-medium headline-sora leading-snug group-hover:underline decoration-rose-200 decoration-2 underline-offset-4 mt-1">Emprego nos EUA quase não muda em setembro com dados estagnados</h4></a>
+              <a href="#" class="group"><span class="text-[10px] font-bold text-gray-400 uppercase">Economia</span>
+                <h4 class="text-lg font-medium headline-sora leading-snug group-hover:underline decoration-rose-200 decoration-2 underline-offset-4 mt-1">Hollywood nos EUA atrai capital privado para filmes independentes</h4></a>
+              <a href="#" class="group"><span class="text-[10px] font-bold text-gray-400 uppercase">Tecnologia</span>
+                <h4 class="text-lg font-medium headline-sora leading-snug group-hover:underline decoration-rose-200 decoration-2 underline-offset-4 mt-1">Próximo mandato começa com juros altos e economia em desaceleração</h4></a>
+            </div>
+          </div>
+          <!-- Newsletter Box -->
+          <div class="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+            <h3 class="text-lg font-semibold headline-sora mb-2">Daily Briefing</h3>
+            <p class="text-sm text-gray-500 mb-4">Receba as notícias mais importantes diretamente no seu e-mail todas as manhãs.</p>
+            <form class="flex flex-col gap-3">
+              <input type="email" placeholder="Seu melhor e-mail" class="w-full px-4 py-3 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500">
+              <button class="w-full bg-black text-white py-3 rounded-lg text-sm font-bold hover:bg-rose-600 transition-colors">Inscrever-se</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Grid -->
+      <section class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+        <div class="group cursor-pointer">
+          <div class="aspect-[4/3] rounded-xl overflow-hidden mb-4"><img src="https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?q=80&w=800" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"></div>
+          <span class="text-[10px] font-bold text-rose-600 uppercase tracking-widest">Política</span>
+          <h3 class="text-xl font-semibold headline-sora mt-2 leading-tight">Administração Federal é impedida de construir muro no Big Bend, no Texas</h3>
+        </div>
+        <!-- (two more cards with the same structure) -->
+      </section>
+
+      <!-- Main News Feed Layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+        <div class="lg:col-span-8">
+          <h2 class="text-2xl font-semibold headline-sora border-b-2 border-black inline-block mb-10 pb-1">Últimas Notícias</h2>
+          <div class="flex flex-col gap-10">
+            <!-- Horizontal Article Card -->
+            <div class="flex flex-col md:flex-row gap-6 group cursor-pointer">
+              <div class="w-full md:w-56 h-40 flex-shrink-0 overflow-hidden rounded-xl"><img src="https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=800" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"></div>
+              <div class="flex-1">
+                <span class="text-[10px] font-bold text-rose-600 uppercase tracking-widest">Trabalho</span>
+                <h3 class="text-2xl font-semibold headline-sora my-2 group-hover:text-rose-600">Engenheiros da Boeing aprovam contrato com alta de 10%</h3>
+                <p class="text-gray-500 text-sm line-clamp-2">Engenheiros e trabalhadores técnicos da Boeing aprovaram um contrato de quatro anos e evitaram uma possível greve histórica no setor.</p>
+                <div class="flex items-center gap-3 mt-4 text-[10px] text-gray-400 font-bold uppercase tracking-wider"><span>CNBC</span><span>•</span><span>02/10/2026</span></div>
+              </div>
+            </div>
+            <!-- (more horizontal cards) -->
+            <!-- Small Grid Inside Feed -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-6 border-t border-gray-100">
+              <div class="group"><span class="text-[10px] font-bold text-rose-600 uppercase">Economia</span>
+                <h4 class="text-xl font-semibold headline-sora mt-2">Coréia do Sul planeja investir US$ 200 bilhões nos EUA</h4>
+                <p class="text-gray-500 text-xs mt-2">O investimento será focado em infraestrutura e inovação industrial.</p></div>
+              <div class="group"><span class="text-[10px] font-bold text-rose-600 uppercase">Brasil</span>
+                <h4 class="text-xl font-semibold headline-sora mt-2">Dívida pública do Brasil chega a 82,90% do PIB</h4>
+                <p class="text-gray-500 text-xs mt-2">Dados do Banco Central mostram pressão no cenário macroeconômico.</p></div>
+            </div>
+            <button class="w-full py-4 border-2 border-black font-bold uppercase tracking-widest text-xs hover:bg-black hover:text-white transition-all rounded-lg">Carregar mais notícias</button>
+          </div>
+        </div>
+        <!-- Right Sidebar (Most Read) -->
+        <aside class="lg:col-span-4">
+          <div class="sticky top-28">
+            <h2 class="text-xl font-semibold headline-sora mb-8 flex items-center gap-2"><iconify-icon icon="lucide:trending-up" class="text-rose-600"></iconify-icon>Mais Lidas</h2>
+            <div class="flex flex-col gap-6">
+              <div class="flex gap-4"><span class="text-3xl font-semibold text-gray-100 headline-sora">01</span>
+                <div><h4 class="text-sm font-bold leading-snug hover:text-rose-600 cursor-pointer transition-colors">Engenheiros da Boeing aprovam contrato com alta histórica de 10%</h4>
+                <span class="text-[10px] text-gray-400 font-bold uppercase mt-1 block">Trabalho</span></div></div>
+              <!-- 02..04 same -->
+            </div>
+            <!-- Banner Ad / Promo -->
+            <div class="mt-12 p-8 bg-black rounded-2xl text-center">
+              <iconify-icon icon="lucide:zap" class="text-rose-600 text-4xl mb-4"></iconify-icon>
+              <h3 class="text-white font-semibold headline-sora text-xl mb-2">Seja Premium</h3>
+              <p class="text-gray-400 text-sm mb-6">Acesso ilimitado a análises exclusivas e reportagens especiais.</p>
+              <a href="#" class="inline-block bg-white text-black px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-colors">Assinar agora</a>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <!-- Categories Section (Visual grid) -->
+    <section class="bg-gray-50 py-20 px-6">
+      <div class="max-w-7xl mx-auto">
+        <div class="flex justify-between items-end mb-10">
+          <h2 class="text-3xl font-semibold headline-sora">Seções em Foco</h2>
+          <a href="#" class="text-xs font-bold uppercase tracking-widest border-b-2 border-rose-600 pb-1">Ver tudo</a>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div class="bg-white p-2 rounded-2xl border border-gray-100">
+            <div class="aspect-video rounded-xl overflow-hidden mb-4"><img src="https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?q=80&w=800" class="w-full h-full object-cover"></div>
+            <div class="p-4"><h3 class="font-semibold headline-sora mb-2">Mercados</h3><p class="text-xs text-gray-500">Análise diária dos principais índices e moedas globais.</p></div>
+          </div>
+          <!-- Tecnologia, Carreira, Política: same structure -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-black text-white py-16 px-6">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+          <div>
+            <a href="#" class="block"><img src="LOGO_FUNDO_ESCURO" alt="USA Journal Logo" class="h-12 w-auto"></a>
+            <p class="mt-6 text-gray-400 text-sm leading-relaxed">Jornalismo independente para um mundo em constante transformação. Notícias em tempo real sobre economia, política e tecnologia.</p>
+            <div class="flex gap-4 mt-8"><!-- facebook, twitter, instagram icons --></div>
+          </div>
+          <div><h4 class="font-bold uppercase tracking-widest text-xs mb-6">Editorias</h4>
+            <ul class="flex flex-col gap-4 text-sm text-gray-400"><li><a href="#" class="hover:text-white transition-colors">Economia</a></li><li>Tecnologia</li><li>Mundo</li><li>Política</li></ul></div>
+          <div><h4 class="font-bold uppercase tracking-widest text-xs mb-6">Institucional</h4>
+            <ul class="flex flex-col gap-4 text-sm text-gray-400"><li>Sobre Nós</li><li>Anuncie</li><li>Contato</li><li>Privacidade</li></ul></div>
+          <div><h4 class="font-bold uppercase tracking-widest text-xs mb-6">Nossa Newsletter</h4>
+            <p class="text-sm text-gray-400 mb-6">Assine para receber o resumo das notícias mais lidas.</p>
+            <form class="flex border-b border-gray-700 pb-2"><input type="email" placeholder="E-mail" class="bg-transparent border-none focus:outline-none flex-1 text-sm py-2"><button class="text-rose-600 font-bold uppercase text-[10px] tracking-widest">OK</button></form></div>
+        </div>
+        <div class="pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+          <span>© 2026 USA Journal Media Group. Todos os direitos reservados.</span>
+          <div class="flex gap-6 mt-4 md:mt-0"><span>Termos de Uso</span><span>Privacidade</span><span>Cookies</span></div>
+        </div>
+      </div>
+    </footer>
+  </div>
+</body></html>
