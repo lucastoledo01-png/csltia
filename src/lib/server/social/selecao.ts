@@ -72,7 +72,9 @@ export function carregarConfigSocial(
      */
     minimoPorDia: numeroDoAmbiente("SOCIAL_POSTS_MIN_PER_DAY", 0, env),
     maximoPorEixo: numeroDoAmbiente("SOCIAL_MAX_POR_EIXO", 3, env),
-    maximoDeImigracao: numeroDoAmbiente("SOCIAL_MAX_IMIGRACAO", 3, env),
+    // Zero desde 05/10/2026, quando imigração saiu da pauta. O classificador
+    // já recusa antes; isto é o cinto para o que escapar dele.
+    maximoDeImigracao: numeroDoAmbiente("SOCIAL_MAX_IMIGRACAO", 0, env),
     maximoDePoliticaBrasileira: numeroDoAmbiente("SOCIAL_MAX_POLITICA_BR", 2, env),
     maximoPorPrograma: numeroDoAmbiente("SOCIAL_MAX_POR_PROGRAMA", 2, env),
     maximoPorOrganizacao: numeroDoAmbiente("SOCIAL_MAX_POR_ORGANIZACAO", 2, env),

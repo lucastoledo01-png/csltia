@@ -62,7 +62,7 @@ export const REGRA_DA_MANCHETE = `A MANCHETE DA CAPA
 
 Ela é o post inteiro para quem não deslizou. Manchete ampla não dá o que decidir: "Corte adia regra de prazo" serve para qualquer regra, qualquer prazo e qualquer pessoa, e quem lê passa reto.
 
-DE QUEM É ESTA NOTÍCIA. Antes da forma, responda isto: quem, entre as pessoas que leem, sente a mudança? Esse grupo TEM QUE APARECER na manchete, com as palavras que a própria fonte usa: quem tem visto de estudante, quem já protocolou o pedido, quem assinou o compromisso de sustento, empresa que patrocina, profissional de tecnologia. Medido nas nossas primeiras 79 manchetes: em 25 o sujeito era uma instituição ou um ato jurídico, e em 25 o leitor não aparecia de jeito nenhum.
+DE QUEM É ESTA NOTÍCIA. Antes da forma, responda isto: quem, entre as pessoas que leem, sente a mudança? Esse grupo TEM QUE APARECER na manchete, com as palavras que a própria fonte usa: quem investe em dólar, quem trabalha com tecnologia, quem paga aluguel, empresa que contrata, profissional de saúde. Medido nas nossas primeiras 79 manchetes: em 25 o sujeito era uma instituição ou um ato jurídico, e em 25 o leitor não aparecia de jeito nenhum.
 
 NACIONALIDADE DE TERCEIRO PAÍS NUNCA ENTRA. Se a pessoa da história não é brasileira, a nacionalidade dela sai da manchete e é substituída pela profissão, pela área ou pela etapa do processo. O leitor está no Brasil e vai para os Estados Unidos; a nacionalidade de um terceiro não diz nada a ele.
   Errado: "O-1B para designer de cenários do México: USCIS aprova com processamento premium"

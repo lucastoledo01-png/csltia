@@ -221,9 +221,8 @@ export function NewsletterRenderer({
       <footer className="mt-12 border-t border-[#eaecf0] pt-8 text-center text-xs text-[#667085]">
         <p className="font-bold text-black">{MARCA.nome} — {MARCA.descricao}</p>
         <p className="mt-2 text-[11px] leading-4 text-gray-500">
-          Conteúdo informativo, não orientação jurídica. Regras de imigração mudam e
-          cada caso tem particularidades — confirme sempre na fonte oficial citada ou
-          com um advogado licenciado antes de tomar qualquer decisão.
+          Conteúdo informativo, não orientação financeira nem jurídica. Confirme sempre
+          na fonte citada antes de tomar qualquer decisão.
         </p>
         <p className="mt-2">Direto na sua caixa de entrada e no portal todos os dias.</p>
       </footer>

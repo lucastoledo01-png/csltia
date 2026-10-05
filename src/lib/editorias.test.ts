@@ -9,21 +9,18 @@ import { editoriaDaPauta, EDITORIAS } from "./editorias";
  */
 describe("editoria da pauta", () => {
   it("o mais específico vence o mais geral", () => {
-    // "profissional" também aparece em Trabalho, e não pode roubar esta.
-    expect(editoriaDaPauta("Green card profissional")).toBe("green-card");
+    // "empresa" também aparece em Economia, e não pode roubar esta.
+    expect(editoriaDaPauta("Startup de inteligência artificial vira empresa bilionária")).toBe("tecnologia");
   });
 
   it.each([
-    ["Boletim de vistos", "vistos"],
-    ["Vistos profissionais", "vistos"],
-    ["Vistos e família", "vistos"],
     ["Trabalho nos EUA", "trabalho"],
-    ["Fiscalização do ICE", "fiscalizacao"],
-    ["Responsabilidade no ICE", "fiscalizacao"],
-    ["Detenção e Saúde", "fiscalizacao"],
+    ["Salário de engenheiro", "trabalho"],
+    ["Juros do Fed", "economia"],
+    ["Inteligência artificial", "tecnologia"],
+    ["Aluguel em Miami", "custo-de-vida"],
     ["Brasil e câmbio", "brasil"],
     ["Brasil", "brasil"],
-    ["USCIS", "vistos"],
     ["Governo dos EUA", "governo"],
   ])("%s cai em %s", (rotulo, esperada) => {
     expect(editoriaDaPauta(rotulo)).toBe(esperada);
@@ -34,7 +31,12 @@ describe("editoria da pauta", () => {
     expect(EDITORIAS.map((e) => e.id)).toContain(editoriaDaPauta("Produtividade"));
   });
 
+  it("pauta antiga de imigração cai na editoria padrão, e não some", () => {
+    // Imigração saiu da pauta em 05/10/2026, mas o portal ainda mostra o que já saiu.
+    expect(EDITORIAS.map((e) => e.id)).toContain(editoriaDaPauta("Boletim de vistos"));
+  });
+
   it("o título ajuda quando o rótulo é vago", () => {
-    expect(editoriaDaPauta("Análise", "O que muda no H1B em 2026")).toBe("vistos");
+    expect(editoriaDaPauta("Análise", "O que muda no aluguel em 2026")).toBe("custo-de-vida");
   });
 });

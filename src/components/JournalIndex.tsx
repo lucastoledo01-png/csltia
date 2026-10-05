@@ -8,7 +8,7 @@ import { MARCA } from "@/lib/marca";
 const faqs = [
   {
     q: "O que eu vou receber ao me inscrever?",
-    a: `Uma edição diária da ${MARCA.nome} com o que mudou em imigração para os Estados Unidos: regras, prazos, decisões e o que isso significa para brasileiros — sempre com a fonte oficial ao lado.`,
+    a: `Uma edição diária da ${MARCA.nome} sobre os Estados Unidos para brasileiros que sonham em morar, trabalhar ou investir lá: economia, trabalho, tecnologia e custo de vida, sempre com a fonte ao lado.`,
   },
   {
     q: "A newsletter é gratuita?",

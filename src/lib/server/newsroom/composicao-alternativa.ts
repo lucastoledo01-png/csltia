@@ -169,7 +169,7 @@ export const FEEDS_DIRETOS: NewsSourceConfig[] = [
     name: "Wolfsdorf Rosenthal, imigração",
     type: "rss",
     url: "https://www.wolfsdorf.com/feed/",
-    enabled: true,
+    enabled: false, // imigração saiu da pauta em 05/10/2026
     priority: 2,
     category: "us_media",
     region: "global",
@@ -180,7 +180,7 @@ export const FEEDS_DIRETOS: NewsSourceConfig[] = [
     name: "National Law Review",
     type: "rss",
     url: "https://www.natlawreview.com/feed",
-    enabled: true,
+    enabled: false, // imigração saiu da pauta em 05/10/2026
     priority: 2,
     category: "us_media",
     region: "global",
@@ -191,7 +191,7 @@ export const FEEDS_DIRETOS: NewsSourceConfig[] = [
     name: "JD Supra, canal Immigration Law",
     type: "rss",
     url: "https://www.jdsupra.com/resources/syndication/docsRSSfeed.aspx?ftype=ImmigrationLaw&premium=1",
-    enabled: true,
+    enabled: false, // imigração saiu da pauta em 05/10/2026
     priority: 2,
     category: "us_media",
     region: "global",
@@ -202,7 +202,7 @@ export const FEEDS_DIRETOS: NewsSourceConfig[] = [
     name: "Ogletree Deakins, imigração",
     type: "rss",
     url: "https://ogletree.com/insights-resources/blog-posts/feed/",
-    enabled: true,
+    enabled: false, // imigração saiu da pauta em 05/10/2026
     priority: 2,
     category: "us_media",
     region: "global",
@@ -213,7 +213,7 @@ export const FEEDS_DIRETOS: NewsSourceConfig[] = [
     name: "RN Law Group",
     type: "rss",
     url: "https://www.rnlawgroup.com/feed/",
-    enabled: true,
+    enabled: false, // imigração saiu da pauta em 05/10/2026
     priority: 2,
     category: "us_media",
     region: "global",

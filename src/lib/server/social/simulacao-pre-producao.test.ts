@@ -124,10 +124,10 @@ function pauta(id: string, titulo: string, ator = "USCIS") {
     },
     pontuacao: { total: 70, partes: {}, explicacao: "" },
     classificacao: {
-      eixo: "imigracao",
+      eixo: "economia",
       pais: "EUA",
       relevancia: 7,
-      imigracao: true,
+      imigracao: false,
       atores: [ator],
       lugares: [],
       acontecimento: `acontecimento de ${id}`,

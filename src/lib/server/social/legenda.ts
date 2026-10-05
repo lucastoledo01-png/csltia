@@ -374,9 +374,13 @@ const GATILHOS = {
    *
    * "petição" ficou fora de propósito: no Brasil é peça de processo judicial, e
    * um despacho do STF não é assunto de imigração.
+   *
+   * "morar nos eua" e "mudar para os eua" saíram em 05/10/2026. Desde que o
+   * leitor passou a ser quem SONHA com os EUA, essa é a frase do post comum, e
+   * ela marcava como imigração, com #ImigracaoEUA, um post sobre salário.
    */
   imigracao:
-    /\bimigra[cnrv]|\bmigrator|\bvisto\b|\bvistos\b|\bgreen card\b|\bgreencard\b|\bresidencia permanente\b|\bresidente permanente\b|\bresidentes permanentes\b|\bcidadania\b|\bnaturalizac|\bdeportac|\basilo\b|\buscis\b|\bconsulado\b|\bembaixada\b|\bfronteira\b|\bniw\b|\beb 1\b|\beb 2\b|\beb 3\b|\beb 5\b|\bh1b\b|\bh 1b\b|\bo 1\b|\bmorar nos eua\b|\bmudar para os eua\b/,
+    /\bimigra[cnrv]|\bmigrator|\bvisto\b|\bvistos\b|\bgreen card\b|\bgreencard\b|\bresidencia permanente\b|\bresidente permanente\b|\bresidentes permanentes\b|\bcidadania\b|\bnaturalizac|\bdeportac|\basilo\b|\buscis\b|\bconsulado\b|\bembaixada\b|\bfronteira\b|\bniw\b|\beb 1\b|\beb 2\b|\beb 3\b|\beb 5\b|\bh1b\b|\bh 1b\b|\bo 1\b/,
   visto: /\bvisto\b|\bvistos\b|\bvisa\b|\bconsulado\b|\bembaixada\b|\buscis\b|\bgreen card\b|\bgreencard\b|\bniw\b/,
   /*
    * Estudo é vida de estudante, não diploma no currículo.
