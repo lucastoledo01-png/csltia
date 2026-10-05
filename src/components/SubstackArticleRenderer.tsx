@@ -11,6 +11,8 @@ type SubstackArticleRendererProps = {
   category?: string;
   readTime?: string;
   coverImage?: string | null;
+  /** O crédito da foto da capa, que a licença CC BY exige visível junto da obra. */
+  coverCredit?: string | null;
   contentHtml?: string;
   sections?: Array<{ heading: string; paragraphs: string[] }>;
   quote?: string;
@@ -25,6 +27,7 @@ export function SubstackArticleRenderer({
   category = "Notícias",
   readTime,
   coverImage,
+  coverCredit,
   contentHtml,
   sections,
   quote,
@@ -97,6 +100,7 @@ export function SubstackArticleRenderer({
               className="object-cover"
             />
           </div>
+          {coverCredit ? <figcaption className="mt-2 text-xs text-[#71717A]">{coverCredit}</figcaption> : null}
         </figure>
       ) : null}
 

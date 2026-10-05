@@ -299,6 +299,9 @@ const MARCAS_DE_PAIS = [
   "departamento de estado", "departamento do trabalho", "suprema corte",
   "census", "irs", "fbi", "medicare", "medicaid", "green card",
   "trump", "biden", "powell",
+  // Termo que só existe lá (regra 8 do modelo de título), medido em 05/10/2026
+  // no título "Hollywood atrai capital privado", que já situa sem "nos EUA".
+  "hollywood", "dow jones", "nasdaq",
   // Brasil, que é o outro lado da comparação e situa igual
   "brasil", "brasileiro", "brasileira", "brasileiros", "brasileiras",
   "sao paulo", "rio de janeiro", "brasilia", "minas gerais",
@@ -501,7 +504,7 @@ const LIMIAR_DE_REDUNDANCIA = 0.6;
  * Jaccard pune a linha longa por ser longa. Contenção pergunta o que interessa:
  * o leitor que já leu a linha de cima ganha alguma coisa lendo a de baixo?
  */
-function contencao(deCima: string, deBaixo: string): number {
+export function contencao(deCima: string, deBaixo: string): number {
   const cima = new Set(palavrasChave(deCima));
   if (cima.size === 0) return 0;
   const baixo = new Set(palavrasChave(deBaixo));

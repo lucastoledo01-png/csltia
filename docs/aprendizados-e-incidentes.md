@@ -1313,6 +1313,25 @@ duas frentes escrevem no mesmo estado (`scheduled`), cada uma traz a sua regra
 de quem sai. A integração não é juntar os arquivos, é procurar todo escritor do
 estado que vai ao ar e fazê-los perguntar ao mesmo lugar.
 
+### A capa e, logo abaixo, a mesma foto de novo
+
+**Sintoma.** O dono abriu uma matéria em 05/10/2026 e viu a foto da capa e,
+embaixo dela, a mesma foto outra vez.
+
+**Causa.** A edição publicada como artigo traz o HTML do e-mail, que põe a
+foto da primeira pauta dentro do corpo, e a página desenha essa foto como capa
+por cima. Comparar endereço não pegava: a mesma foto chega como original, como
+miniatura do Commons, com `&amp;` ou com `?w=600`.
+
+**Corrigido.** `identidadeDaImagem` compara o ARQUIVO, e
+`semImagemDaCapaNoCorpo` tira do corpo a foto igual à capa; o crédito colado
+nela vira legenda da capa. O desmonte das edições passou a nunca pôr a capa no
+corpo e a levar o crédito marcado.
+
+**Lição.** É a de "A mesma foto em quatro posts" em outro lugar: identidade de
+imagem é o arquivo sem os parâmetros de entrega, e comparar URL inteira acha
+duas fotos onde há uma.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta
