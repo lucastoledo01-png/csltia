@@ -39,6 +39,12 @@ import {
   reivindicarVaga,
 } from "./publicacao-segura";
 import { formatError, sendAlert } from "../../alerts";
+import {
+  conferirPostNoWorker,
+  ehMensagemDoPortao,
+  hashDosArtefatosConferidos,
+  segurarPostNaFila,
+} from "../../aprovacao/integracao";
 import type { CarouselFormat, InstagramCarouselContent } from "./schemas";
 import type { AITokenUsage } from "../../newsroom/ai-provider";
 
@@ -386,6 +392,14 @@ type PreparoDaPublicacao = {
   carousel?: InstagramCarouselContent;
   /** Só no carrossel: o que já foi criado na Meta e onde registrar o resto. */
   filhos?: EstadoDosFilhos;
+  /**
+   * Só no V2: o SHA-256 de cada arquivo baixado e conferido, na ordem.
+   *
+   * É com eles que o worker pergunta ao portão da fila pela segunda vez: a
+   * versão aprovada tem de ser a versão que está nas mãos do worker AGORA, e
+   * não a que o manifesto diz que deveria estar.
+   */
+  hashesConferidos?: string[];
 };
 
 /**
@@ -589,7 +603,12 @@ async function prepararV2(
     },
   };
 
-  return { legenda: carga.legenda, slides, filhos: carga.formato === "carousel" ? filhos : undefined };
+  return {
+    legenda: carga.legenda,
+    slides,
+    filhos: carga.formato === "carousel" ? filhos : undefined,
+    hashesConferidos: artefatos.map((a) => a.sha256),
+  };
 }
 
 /** Quanto tempo uma vaga pode ficar em `generated` antes de ser considerada órfã. */
@@ -886,6 +905,22 @@ export async function processScheduledPost(
     }
 
     const project = await requireActiveProject(projectId);
+
+    /*
+     * O portão da fila de aprovação, primeira pergunta (05/10/2026, RF-20).
+     *
+     * Antes de reivindicar a vaga e antes de gerar ou baixar qualquer coisa:
+     * post sem aprovação registrada da versão que está na linha não sai. Com a
+     * fila desligada no projeto a função não lê o banco e libera, que é o
+     * worker de antes. Quando segura, lança com o prefixo do portão, e o
+     * `catch` abaixo devolve o post para `draft` em vez de marcá-lo `failed`.
+     *
+     * Vale para as três origens de `scheduled`, inclusive o carrossel de
+     * campanha do Sistema PROMPT, que está congelado e grava sem perguntar: é
+     * aqui que ele é barrado.
+     */
+    await conferirPostNoWorker(supabase, project, { ...linha, id: socialPostId });
+
     const editionDate = post.edition_date as string;
     const meta = (post.content_json ?? {}) as Record<string, unknown>;
 
@@ -907,6 +942,23 @@ export async function processScheduledPost(
       : await prepararLegado(supabase, meta, project, editionDate, socialPostId, env, fetcher);
 
     const slides = preparo.slides;
+
+    /*
+     * Segunda pergunta ao portão, agora com os bytes na mão.
+     *
+     * A primeira comparou a aprovação com o manifesto da linha. Esta compara
+     * com o hash de cada arquivo que o worker baixou e conferiu, mais a legenda
+     * que vai para a Meta. Arquivo trocado depois da aprovação não chega a
+     * virar container (cenário 3 do PRD).
+     */
+    if (ehV2 && preparo.hashesConferidos) {
+      await conferirPostNoWorker(
+        supabase,
+        project,
+        { id: socialPostId },
+        hashDosArtefatosConferidos(preparo.legenda, preparo.hashesConferidos),
+      );
+    }
 
     const autoPost = options.autoPost ?? env.INSTAGRAM_AUTO_POST !== "false";
 
@@ -1005,6 +1057,26 @@ export async function processScheduledPost(
      * vencedor acabou de reivindicar, e o desfecho seria uma linha marcada como
      * falha com um post no ar. A disputa resolvida não é falha de ninguém.
      */
+    /*
+     * O portão da fila segurou o post: isto não é falha (cenário 2 do PRD).
+     *
+     * A linha volta para `draft` com o motivo, sai do caminho do worker, e
+     * só volta a `scheduled` quando a fila a liberar. Marcar `failed` aqui
+     * misturaria "esperando o editor" com "a Meta recusou" na mesma coluna.
+     */
+    if (ehMensagemDoPortao(message)) {
+      await segurarPostNaFila(supabase, socialPostId, message);
+      console.log(`[INSTAGRAM WORKER] ${socialPostId} segurado pela fila de aprovação: ${message}`);
+      return {
+        ok: true,
+        projectId,
+        socialPostId,
+        status: "aguardando_aprovacao",
+        error: message,
+        executionTimeMs: Date.now() - startTime,
+      };
+    }
+
     if (message.startsWith(MOTIVO_VAGA_DISPUTADA)) {
       console.log(`[INSTAGRAM WORKER] ${socialPostId}: ${message}`);
       return {

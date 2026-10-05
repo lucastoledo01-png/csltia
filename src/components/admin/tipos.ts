@@ -40,6 +40,7 @@ export const ROTULO_DA_CAPACIDADE: Record<string, string> = {
   visual: "Imagem com licença",
   keyword: "Funil de keyword",
   landing: "Landing page",
+  aprovacao: "Fila de aprovação",
 };
 
 export const ROTULO_DO_ESTADO: Record<EstadoDeCapacidade, string> = {

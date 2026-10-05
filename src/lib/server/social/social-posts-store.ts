@@ -7,6 +7,8 @@ import type { ArtefatoDeSlide } from "./artefato";
 import type { FormatoDoPost } from "./carrossel/formato";
 import { varianteDaCapa } from "./arte";
 import type { GramaticaDaCapa } from "./arte";
+import { statusDeEntradaDoPost } from "../aprovacao/portao";
+import type { OpcoesDaFilaNoStore } from "../aprovacao/integracao";
 
 /**
  * Onde um post do social V2 vira linha.
@@ -188,7 +190,16 @@ export type SocialPostsStore = {
   gravar(posts: PostParaGravar[]): Promise<ResultadoDaGravacaoSocial>;
 };
 
-export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore {
+/**
+ * O store, opcionalmente amarrado à fila de aprovação (05/10/2026).
+ *
+ * Sem `fila`, grava `scheduled` exatamente como antes. Com a fila em
+ * `enforce`, o status de entrada vem do portão (`draft`) e cada post gravado é
+ * enfileirado com o hash dos arquivos congelados. Quem decide o status é
+ * `statusDeEntradaDoPost`, e não este arquivo: é a regra com dono único.
+ */
+export function criarSocialPostsStore(client: SupabaseClient, fila: OpcoesDaFilaNoStore = {}): SocialPostsStore {
+  const statusDeEntrada = fila.statusDeEntrada ?? statusDeEntradaDoPost("off");
   return {
     async doDia(projectId, editionDate) {
       const { data, error } = await client
@@ -295,7 +306,7 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
           edition_date: p.editionDate,
           platform: "instagram",
           post_type: "carousel",
-          status: "scheduled",
+          status: statusDeEntrada,
           dry_run: false,
           idempotency_key: chave,
 
@@ -497,16 +508,26 @@ export function criarSocialPostsStore(client: SupabaseClient): SocialPostsStore 
       const { data, error } = await client
         .from("social_posts")
         .upsert(linhas, { onConflict: "project_id,idempotency_key", ignoreDuplicates: true })
-        .select("id");
+        .select("id, idempotency_key");
 
       if (error) {
         resultado.erros.push(error.message);
         return resultado;
       }
 
-      const ids = ((data ?? []) as Array<{ id: string }>).map((r) => r.id);
+      const devolvidas = (data ?? []) as Array<{ id: string; idempotency_key?: string }>;
+      const ids = devolvidas.map((r) => r.id);
       resultado.gravados = ids.length;
       resultado.ids = ids;
+
+      if (fila.aoGravar && devolvidas.length > 0) {
+        const porChave = new Map(linhas.map((l) => [String(l.idempotency_key), l]));
+        await fila.aoGravar(
+          devolvidas
+            .map((r, i) => ({ id: r.id, linha: (r.idempotency_key ? porChave.get(r.idempotency_key) : linhas[i]) ?? linhas[i] }))
+            .filter((g): g is { id: string; linha: Record<string, unknown> } => Boolean(g.linha)),
+        );
+      }
 
       return resultado;
     },

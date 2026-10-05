@@ -46,6 +46,13 @@ export const CAPACIDADES = [
   "keyword",
   /** Landing page do funil. */
   "landing",
+  /**
+   * Fila de aprovação humana antes da publicação (05/10/2026).
+   *
+   * Sem fallback de ambiente: ausente vale `off`, que é publicar como antes.
+   * Ver `aprovacao/modo.ts`.
+   */
+  "aprovacao",
 ] as const;
 
 export type Capacidade = (typeof CAPACIDADES)[number];

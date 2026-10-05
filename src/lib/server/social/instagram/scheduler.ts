@@ -2,6 +2,8 @@ import type { EditionStory } from "../../newsroom/schemas";
 import type { Project } from "../../projects";
 import { getSupabaseAdminClient } from "../../supabase-admin";
 import { zonedTimeToUtc } from "../../time";
+import { modoDaFila } from "../../aprovacao/modo";
+import { statusDeEntradaDoPost } from "../../aprovacao/portao";
 
 /**
  * Agendamento dos posts do dia.
@@ -57,6 +59,16 @@ export async function scheduleEditionPosts(options: {
   const supabase = getSupabaseAdminClient();
   const agendados: ScheduledPostSlot[] = [];
 
+  /*
+   * O status de entrada é do portão, não deste arquivo (05/10/2026).
+   *
+   * Fila desligada: `scheduled`, como sempre foi. Fila em `enforce`: `draft`,
+   * e a vaga legada nunca é promovida, porque o roteiro dela só é gerado pelo
+   * worker na hora de publicar e não existe versão para alguém aprovar. Com a
+   * fila ligada, quem publica é o Social V2.
+   */
+  const statusDeEntrada = statusDeEntradaDoPost(modoDaFila(project));
+
   /**
    * Espaçamento mínimo entre posts, em minutos.
    *
@@ -102,7 +114,7 @@ export async function scheduleEditionPosts(options: {
           platform: "instagram",
           post_type: "carousel",
           title: story.title,
-          status: "scheduled",
+          status: statusDeEntrada,
           scheduled_at: scheduledAt,
           idempotency_key: idempotencyKey,
           // O worker preenche o roteiro; aqui fica só a pauta escolhida.

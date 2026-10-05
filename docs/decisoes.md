@@ -617,6 +617,51 @@ para o dono rodar: o nicho e o briefing editorial do projeto, o evergreen
 desligado (os 66 temas do catálogo são todos de imigração) e as quatro fontes
 ativas dedicadas a imigração. Nada foi apagado.
 
+## A fila de aprovação e o portão de publicação (05/10/2026)
+
+O MVP põe uma pessoa entre a pauta e o ar (RF-20 a RF-29). O código está em
+`src/lib/server/aprovacao/`, as tabelas na migration
+`20261005120000_fila_de_aprovacao.sql`, e a tela em `/admin/<projeto>/aprovacao`.
+
+**Uma função decide se uma peça sai: `decidirPublicacao`, em `portao.ts`.** O
+worker do Instagram, o disparo da newsletter e a publicação do artigo
+perguntam a ela, e quem grava `scheduled` também (`statusDeEntradaDoPost`,
+`tentarLiberar`, em `fila.ts`). É a lição da "mesma regra em
+três cópias": antes, três escritores de `social_posts` eram três decisões de
+publicar.
+
+**A aprovação é da VERSÃO, não da peça.** Cada linha de `aprovacoes` guarda o
+SHA-256 do que vai ao ar (legenda mais o hash de cada arquivo congelado; assunto
+mais HTML; título mais HTML). O worker pergunta duas vezes: antes de reivindicar
+a vaga, com o manifesto, e depois de baixar os arquivos, com os bytes. Mudou
+depois de aprovado, não sai.
+
+**Peça segurada não é falha.** O worker devolve o post para `draft` com o motivo
+do portão em `error_message`, e não marca `failed`. Ficar em `scheduled` faria
+cinco posts esperando aprovação bloquearem os aprovados, porque `findDuePosts`
+pega os cinco mais antigos.
+
+**O interruptor é `settings.capacidades.aprovacao`, sem fallback de ambiente.**
+Ausente vale `off`, que é publicar como antes. `dry_run` registra a fila e só
+escreve no log o que seria segurado. `enforce` segura. Manual ou automático é
+por ramo, em `settings.aprovacao.<ramo>`, e só a sessão do painel troca. Nem o
+automático aprova peça com aviso de QA.
+
+**O carrossel de campanha do Sistema PROMPT continua gravando `scheduled`
+sozinho**, porque está congelado. Ele é barrado no worker, e há teste das três
+origens. O caminho legado e a campanha geram a peça na hora de publicar, então
+não têm versão para aprovar: com a fila em `enforce`, quem publica é o Social V2.
+
+**A refação é por etapa, e os ganchos começam vazios.** Reprovar a imagem chama
+imagem e arte, nunca o texto; a terceira reprovação descarta. As funções de
+cada etapa existem, mas pedem a pauta avaliada inteira, que não está gravada na
+linha do post. Até alguém registrar o gancho em `GANCHOS_DE_PRODUCAO`, a peça
+reprovada fica em `refazendo` com o motivo no painel.
+
+**Regra fixa só com o dono.** O mesmo erro três vezes, na mesma etapa, vira
+PROPOSTA em `regras_propostas`. Só a aprovada entra no bloco "não repetir"
+de `errosRecentesDaEtapa`, que é a função que os redatores chamam.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

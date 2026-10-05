@@ -188,6 +188,10 @@ function AreaDoProjeto({ slug }: { slug: string }) {
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            {/* A fila mora numa URL própria, para abrir do celular sem passar pelas abas (05/10/2026). */}
+            <Link href={`/admin/${projeto.slug}/aprovacao`} className="admin-botao">
+              Fila de aprovação
+            </Link>
             <Link
               href={projeto.siteUrl || "/"}
               target="_blank"
