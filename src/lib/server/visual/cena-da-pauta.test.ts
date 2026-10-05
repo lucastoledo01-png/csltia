@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cenaDaPauta, consultaProibida } from "./cena-da-pauta";
+import { cenaDaPauta, consultaProibida, tagValida } from "./cena-da-pauta";
 
 /**
  * "Compradores de imóvel ganham margem não tem entidade fotografável, isso
@@ -231,5 +231,70 @@ describe("o que a revisão adversarial pegou", () => {
     for (const q of ["businessmen shaking hands", "men walking downtown", "women in an office"]) {
       expect(consultaProibida(q), q).not.toBeNull();
     }
+  });
+});
+
+/**
+ * A tag do acervo próprio (decisão de 29/09/2026): o mesmo modelo que lê a
+ * matéria escolhe a cena de um cardápio fechado. E só quando pedido, para o
+ * prompt de produção não mudar enquanto o acervo estiver desligado.
+ */
+describe("a tag do acervo", () => {
+  function capturando(conteudo: unknown) {
+    const corpos: string[] = [];
+    const fetcher = (async (_url: string, init?: RequestInit) => {
+      corpos.push(String(init?.body ?? ""));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ choices: [{ message: { content: JSON.stringify(conteudo) } }], usage: {} }),
+        text: async () => "",
+      };
+    }) as unknown as typeof fetch;
+    return { fetcher, corpos };
+  }
+
+  it("sem pedido, o prompt não traz o cardápio e a resposta não traz tag", async () => {
+    const { fetcher, corpos } = capturando({
+      objeto: "rua",
+      consulta: "american residential street",
+      tag: "moradia/rua_residencial",
+    });
+    const cena = await cenaDaPauta(PAUTA, { env: ENV, fetcher });
+    expect(corpos[0]).not.toContain("TAG DO ACERVO");
+    expect(cena).not.toHaveProperty("tag");
+  });
+
+  it("com pedido, devolve a tag do cardápio", async () => {
+    const { fetcher, corpos } = capturando({
+      objeto: "rua",
+      consulta: "american residential street",
+      tag: "moradia/rua_residencial",
+    });
+    const cena = await cenaDaPauta(PAUTA, { env: ENV, fetcher, comTag: true });
+    expect(corpos[0]).toContain("TAG DO ACERVO");
+    expect(cena.tag).toBe("moradia/rua_residencial");
+  });
+
+  it("tag inventada fora do cardápio vira null, e não uma busca por algo que não existe", async () => {
+    const { fetcher } = capturando({
+      objeto: "rua",
+      consulta: "american residential street",
+      tag: "moradia/mansao_de_luxo",
+    });
+    const cena = await cenaDaPauta(PAUTA, { env: ENV, fetcher, comTag: true });
+    expect(cena.tag).toBeNull();
+  });
+
+  it("'nenhuma' é resposta válida", () => {
+    expect(tagValida("nenhuma")).toBeNull();
+    expect(tagValida(" Moradia/Rua_Residencial ")).toBe("moradia/rua_residencial");
+  });
+
+  it("a tag sobrevive à consulta recusada: o acervo é nosso, o filtro é para banco de terceiro", async () => {
+    const { fetcher } = capturando({ objeto: "casa", consulta: "house for sale sign", tag: "moradia/casa_suburbio" });
+    const cena = await cenaDaPauta(PAUTA, { env: ENV, fetcher, comTag: true });
+    expect(cena.falhou).toBe(true);
+    expect(cena.tag).toBe("moradia/casa_suburbio");
   });
 });

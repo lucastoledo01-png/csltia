@@ -1,4 +1,5 @@
 import { callOpenAIJSON, getAIProviderConfig } from "../newsroom/ai-provider";
+import { cardapioParaOModelo, tagDoCatalogo } from "./acervo/catalogo-de-cenas";
 
 /**
  * O que fotografar quando a pauta não tem entidade nomeada.
@@ -52,6 +53,14 @@ export type CenaDaPauta = {
    * fosse medir o efeito da mudança não teria com o que comparar.
    */
   custoUsd: number;
+  /**
+   * A tag do acervo próprio, escolhida de uma lista fechada (29/09/2026).
+   *
+   * Só existe quando quem chama pede (`comTag`), e é `null` quando o modelo
+   * não achou cena no cardápio ou devolveu algo fora dele. Opcional no tipo
+   * para os literais que já existem continuarem compilando.
+   */
+  tag?: string | null;
 };
 
 export type PautaParaCena = {
@@ -72,6 +81,14 @@ export type OpcoesDaCena = {
   env?: Record<string, string | undefined>;
   fetcher?: typeof fetch;
   modelo?: string;
+  /**
+   * Pede também a tag do acervo próprio.
+   *
+   * Desligado por padrão, e é isso que mantém o prompt de produção byte a byte
+   * igual enquanto a capacidade `acervo` não estiver ligada no projeto: quem
+   * pede é o resolvedor, e só quando recebeu um acervo.
+   */
+  comTag?: boolean;
 };
 
 /**
@@ -135,7 +152,39 @@ Responda só com JSON:
 { "objeto": "o objeto ou cena, em português, em poucas palavras",
   "consulta": "a busca em inglês" }`;
 
-type RespostaDoModelo = { objeto?: unknown; consulta?: unknown };
+/**
+ * O pedaço que só entra quando o acervo próprio está ligado.
+ *
+ * O modelo que já lê a matéria escolhe a tag de um cardápio fechado. Modelo
+ * escolhendo de cardápio é confiável; lista de palavras adivinhando pelo título
+ * não é (decisão de 29/09/2026, depois de "ice" casar dentro de "justice").
+ * "nenhuma" é resposta válida e preferível a uma tag forçada: tag errada põe
+ * no ar uma foto do acervo que não é da pauta, e a conferência visual não
+ * reabre foto do acervo.
+ */
+export function instrucaoDaTag(): string {
+  return `
+
+TAG DO ACERVO
+Escolha também a cena do nosso acervo que melhor ilustra a pauta, do cardápio
+abaixo. Cada linha é um grupo e suas cenas; a tag é "grupo/cena", exatamente
+como escrito (ex.: "moradia/rua_residencial"). Se nenhuma cena do cardápio
+mostra o assunto, devolva "nenhuma": tag forçada é pior que tag nenhuma.
+
+${cardapioParaOModelo()}
+
+Com a tag, a resposta fica:
+{ "objeto": "...", "consulta": "...", "tag": "grupo/cena ou nenhuma" }`;
+}
+
+/** A tag devolvida, se ela estiver no cardápio. Qualquer outra coisa é `null`. */
+export function tagValida(valor: unknown): string | null {
+  const t = texto(valor).toLowerCase().replace(/\s+/g, "");
+  if (!t || t === "nenhuma") return null;
+  return tagDoCatalogo(t) ? t : null;
+}
+
+type RespostaDoModelo = { objeto?: unknown; consulta?: unknown; tag?: unknown };
 
 function texto(valor: unknown): string {
   return typeof valor === "string" ? valor.trim() : "";
@@ -216,7 +265,7 @@ export async function cenaDaPauta(
   try {
     const { data, usage } = await callOpenAIJSON<RespostaDoModelo>(
       [
-        { role: "system", content: SISTEMA },
+        { role: "system", content: opcoes.comTag ? SISTEMA + instrucaoDaTag() : SISTEMA },
         { role: "user", content: entrada },
       ],
       modelo,
@@ -248,15 +297,22 @@ export async function cenaDaPauta(
 
   const consulta = texto(resposta.consulta).replace(/["']/g, "").slice(0, 120);
   const objeto = texto(resposta.objeto).slice(0, 120);
+  /*
+   * A tag sobrevive à consulta recusada (05/10/2026). A consulta vai para
+   * banco de terceiro e por isso passa pelo filtro de pessoa e placa; a tag
+   * aponta para o NOSSO acervo, que foi conferido na entrada. Perder a tag
+   * porque a busca em inglês pediu "sign" jogaria fora a foto que já temos.
+   */
+  const comTag = opcoes.comTag ? { tag: tagValida(resposta.tag) } : {};
 
   if (consulta.split(/\s+/).filter(Boolean).length < 2) {
-    return naoDeuParaPerguntar("consulta devolvida curta demais para buscar", custoUsd);
+    return { ...naoDeuParaPerguntar("consulta devolvida curta demais para buscar", custoUsd), ...comTag };
   }
 
   const proibida = consultaProibida(consulta);
   if (proibida) {
-    return naoDeuParaPerguntar(`consulta pedia "${proibida}", que a regra proíbe`, custoUsd);
+    return { ...naoDeuParaPerguntar(`consulta pedia "${proibida}", que a regra proíbe`, custoUsd), ...comTag };
   }
 
-  return { consulta, objeto, falhou: false, motivo: "", custoUsd };
+  return { consulta, objeto, falhou: false, motivo: "", custoUsd, ...comTag };
 }

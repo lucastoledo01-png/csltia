@@ -84,6 +84,12 @@ export type FonteDeImagem =
   | "openverse"
   | "banco_conceitual"
   | "biblioteca_interna"
+  /**
+   * O acervo próprio (decisão de 29/09/2026), consultado antes de qualquer
+   * fonte externa. Fica separado de `biblioteca_interna` porque aquela guarda
+   * o que veio de FORA e foi aprovado; este é o que nós produzimos.
+   */
+  | "acervo_proprio"
   /** A bandeira da publicação, quando nem o banco conceitual entregou nada. */
   | "ultimo_recurso";
 
