@@ -273,6 +273,46 @@ export async function pautasRecentes(
 }
 
 /** As pautas separadas nos blocos que a home desenha. */
+/**
+ * A manchete fixada pelo dono, em `projects.settings.portal.destaque` (o slug).
+ *
+ * Entrou em 05/10/2026 para pôr a matéria-modelo da auditoria de SEO no alto da
+ * home sem mexer na data dela: trocar `published_at` faria uma pauta de 24/09
+ * aparecer como de hoje. A matéria fixada vai para o começo da lista, e
+ * `montarHome` a escolhe como manchete porque ela tem foto. Sem a chave, slug
+ * que não existe ou matéria fora do ar, a home é a de sempre.
+ */
+export async function comDestaqueFixado(
+  pautas: PautaDoPortal[],
+  projeto: { settings?: Record<string, unknown> | null } | null,
+  ler: (slug: string) => Promise<{
+    title: string;
+    excerpt?: string | null;
+    category?: string | null;
+    cover_image?: string | null;
+    published_at?: string | null;
+  } | null> = async (slug) => (await import("./articles-service")).getArticleBySlug(slug),
+): Promise<PautaDoPortal[]> {
+  const portal = (projeto?.settings as Record<string, unknown> | null | undefined)?.portal;
+  const slug = portal && typeof portal === "object" ? (portal as Record<string, unknown>).destaque : null;
+  if (typeof slug !== "string" || !slug.trim()) return pautas;
+  const artigo = await ler(slug.trim()).catch(() => null);
+  if (!artigo?.title) return pautas;
+  const href = `/artigos/${slug.trim()}`;
+  const fixada: PautaDoPortal = {
+    id: `destaque:${slug.trim()}`,
+    titulo: artigo.title,
+    resumo: artigo.excerpt ?? "",
+    rotulo: artigo.category ?? "",
+    editoria: editoriaDaPauta(artigo.category ?? "", artigo.title),
+    imagem: artigo.cover_image ?? null,
+    fonte: "",
+    data: artigo.published_at ?? "",
+    href,
+  };
+  return [fixada, ...pautas.filter((p) => p.href !== href && p.titulo !== artigo.title)];
+}
+
 export function montarHome(pautas: PautaDoPortal[]) {
   const comFoto = pautas.filter((p) => p.imagem);
 

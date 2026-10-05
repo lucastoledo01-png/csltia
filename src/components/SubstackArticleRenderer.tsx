@@ -138,7 +138,7 @@ export function SubstackArticleRenderer({
       {/* 5. Módulo de Interação de Leitura */}
       <div className="my-10 border-t border-b border-[#f3f4f6] py-6 text-center">
         <p className="text-xs font-semibold uppercase tracking-wider text-[#6b7280]">
-          O que você achou desta edição?
+          O que você achou desta matéria?
         </p>
 
         {pollVoted ? (
