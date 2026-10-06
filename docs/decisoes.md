@@ -2048,6 +2048,122 @@ where p.slug = 'desbuguei'
   estão no fim da auditoria, com a recomendação de cada uma. Nenhuma foi
   mudada no código.
 
+ATUALIZADO no mesmo dia: a repetição do Instagram foi consertada em
+`fix/repeticao-no-instagram` (ver "O feed repetia a pauta de ontem" em
+`aprendizados-e-incidentes.md`), e o dono decidiu as perguntas de linha. Ver
+"A linha quente: as decisões do dono sobre a notícia quente".
+
+## A linha quente: as decisões do dono sobre a notícia quente (06/10/2026)
+
+O dono aprovou as nove recomendações do fim da auditoria
+(`docs/auditorias/noticia-quente-2026-10-06.md`), com UMA mudança na primeira:
+a política brasileira entra inteira, inclusive notícia e bastidor de campanha,
+e não só quando mexe com o dólar. Nas palavras dele: "acho que podemos colocar
+fofoca de campanha também por enquanto pois é política agora no Brasil,
+segundo turno etc". Isso muda, por enquanto, a frase "notícia positiva dos EUA
+e notícia ruim do Brasil": a política brasileira entra em qualquer tom.
+
+**A linha mora num lugar só, e o recorte do dono é contrato, não texto do
+painel.** `editorial/linha-editorial.ts` ganhou `regraDoRecorte(linha)`, que o
+classificador e o verificador leem, DEPOIS da régua de relevância editável e
+dizendo que vale sobre ela. Não passa pelo painel porque cada regra tem um
+campo do schema ou um ramo de `decidirPauta` que depende dela; o projeto está
+com `instrucoes` em `enforce`, e um texto do painel que contradissesse o
+código seria a recusa silenciosa de 23 a 28/09 outra vez. O modo do projeto
+mora em `editorial/linha-do-projeto.ts` (sem os textos, para a config não
+arrastar o contexto das instruções).
+
+| decisão | como ficou |
+|---|---|
+| 1. Política brasileira e eleição entram, campanha inclusive | `settings.linha.politica_brasileira`: `"eleicao"`, `"so_mercado"` ou `"fora"`. Ausente ou torto vale `so_mercado`, que é a linha de antes byte a byte na decisão. Em `eleicao`, `decidirPauta` aprova com `APPROVED_BRAZIL_POLITICS` a pauta marcada como política brasileira (campo novo `politica_brasileira`, ou país Brasil com eixo `politica`), em qualquer tom e qualquer país (Trump comentando o segundo turno sai "EUA"), e a fala dela não tem o teto de declaração. O verificador do Instagram é avisado de que, na abertura, a fala de candidato é adequada |
+| 2. Geopolítica do mundo fora, salvo com os EUA como ator | Regra no prompt: sem os EUA no centro, país "outro" e relevância 0; "outro" já era recusado |
+| 3. Citação de famoso entra, como formato | Campos novos `citacao_de_famoso` e `quem_fala`. CEO, bilionário, chefe de governo ou de banco central falando de economia, trabalho, tecnologia, mercado ou os EUA, com o nome de quem fala: sem teto de declaração, motivo `APPROVED_FAMOUS_QUOTE`. Literal: o pacote factual extrai as falas entre aspas e o código guarda só as que estão no texto de origem (`citacoesLiterais`); a ancoragem bloqueia fala de 5 palavras ou mais entre aspas que não esteja no texto, num original ou numa tradução conferida. Atribuída: `SOCIAL_REJECT_QUOTE_ATTRIBUTION` quando o post não nomeia quem falou. Foto: quem fala vai à frente dos atores que o resolvedor procura (`atoresParaAFoto`) |
+| 4. Esporte só como negócio, audiência ou recorde | Regra no prompt: placar, resultado, classificação, escalação e lesão valem 0 |
+| 5. Notícia ruim dos EUA e imigração continuam fora | Inalterado em `decidirPauta`, e as duas recusas vêm ANTES da abertura eleitoral e da citação: nenhum modo as abre |
+| 6. Limiar de 0.65 para contar veículos no calor | `LIMIAR_DE_VEICULOS_DO_CALOR` em `calor.ts` (ambiente `CALOR_LIMIAR_VEICULOS`). Só a contagem de veículos do calor; o agrupamento do dia (0.70) e a repetição histórica (0.85) não mudaram |
+| 7. Publicar a notícia quente no mesmo dia | Ciclo da tarde, só do Instagram (`social/quente-da-tarde.ts`, rota `/api/cron/quente-da-tarde`), atrás da capacidade própria `quente_da_tarde` |
+| 8. Desligar as buscas fixas do Google News | SQL, ver abaixo |
+| 9. Ligar as fontes quentes dos grupos 1 e 2 | SQL, ver abaixo |
+
+**A abertura eleitoral é TEMPORÁRIA.** Para fechar depois do segundo turno, o
+dono troca o modo no projeto, e nada mais precisa mudar:
+
+```sql
+update public.projects
+set settings = jsonb_set(settings, '{linha,politica_brasileira}', '"so_mercado"'), updated_at = now()
+where id = '00000000-0000-4000-8000-000000000001';
+```
+
+O modo entra no texto do prompt, e por isso na assinatura da classificação
+persistida e na impressão da régua do verificador: abrir ou fechar reclassifica
+as candidatas da janela e reverifica as finalistas, em vez de reaproveitar o
+veredito da régua anterior. O teto de política brasileira do feed
+(`SOCIAL_MAX_POLITICA_BR`, 2 por dia) e o de pautas do Brasil na newsletter
+(`EDITORIAL_MAX_PAUTAS_BRASIL`, 1) continuam valendo: a eleição entra, e não
+ocupa o feed inteiro.
+
+**O ciclo da tarde.** A causa do "frio" medida na auditoria era o tempo: 31
+horas de mediana da fonte ao post. Às 15:30 (hora do projeto, editável em
+`settings.quente_da_tarde.horario`), o ciclo coleta de novo, passa pela mesma
+guarda (a classificação da manhã é reaproveitada pela assinatura), calcula o
+calor, fica com as pautas publicadas na fonte nas últimas 10 horas e com calor
+35 ou mais, e manda ao ciclo social de sempre com a grade reduzida às vagas
+livres de hoje: horário do Instagram que ainda não passou, sem post a menos de
+45 minutos, e não mais que o que sobra do teto do dia nem que 2 posts. O
+histórico do feed é lido INCLUINDO hoje, para o post da manhã não voltar à
+tarde com outra manchete; a fila de aprovação, a regra da foto e a
+idempotência por pauta e acontecimento são as do ciclo social. Dia que o
+Instagram não publica na cadência, nada. Em `dry_run` o social roda em ensaio
+(nenhuma linha em `social_posts`); todo desfecho, inclusive "sem vaga" e "nada
+quente", vai para `platform_events` (`quente_da_tarde`). A busca dinâmica do
+Google News não entra na coleta da tarde: a tendência chega pelo calor.
+
+A linha do crontab (VPS, usuário `deploy`), com o segredo redigido:
+
+```
+*/15 * * * * /usr/bin/curl -fsS -m 60 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" "https://casaloti.ia.br/api/cron/quente-da-tarde?relogio=1" >> /home/deploy/quente-da-tarde-cron.log 2>&1
+```
+
+Com a capacidade em `off` a rota responde sem fazer nada, então a linha pode
+entrar antes de a capacidade ser ligada.
+
+**A ordem de ligar.** `supabase/2026-10-06-linha-quente.sql`, um arquivo,
+uma transação, idempotente: política brasileira em `eleicao`, `calor` e
+`quente_da_tarde` em `dry_run` (com a configuração da tarde explícita), as 27
+fontes quentes inseridas com os grupos 1 e 2 ligados (as 14 responderam HTTP
+200 com XML em 06/10/2026), e as 7 buscas fixas do Google News desligadas, com
+uma conferência no fim. Depois de uns dias lendo `calor_da_selecao` e
+`quente_da_tarde`, `enforce`.
+
+**As buscas de tendência do Google News não dão para medir em separado.** A
+candidata não grava de que busca veio (`source_key` nulo nas 3.857 da semana).
+O que se mede: 1.734 candidatas do Google News em 7 dias, fixas e de tendência
+juntas, nenhuma aprovada, e as 361 que passaram da linha morreram em poucos
+fatos ou fonte não resolvida, porque o link do agregador não chega à matéria.
+A recomendação é desligar as de tendência também (`EDITORIAL_BUSCA_DINAMICA=off`
+no serviço web, o que desliga junto as de calendário), e decisão do dono.
+
+**Ensaio sem gravar, 48 horas de candidatas** (`npx tsx
+src/scripts/ensaiar-linha-quente.ts`): 555 candidatas fora do Google News,
+reclassificadas no modo `eleicao`. Antes, 36 aprovadas; com a linha nova, 184.
+É a decisão da LINHA, antes de a guarda buscar a matéria e conferir a
+repetição: parte das novas ainda cairia por poucos fatos ou por repetida, como
+cairia hoje.
+Das 153 novas, 85 são política brasileira (o primeiro turno inteiro: Flávio à
+frente de Lula, a bancada feminina recorde, Erika Hilton, Nikolas, a abstenção
+recorde, o mercado reagindo, Trump e Milei comentando), 4 são citação de
+famoso (Bessent, Sam Altman, o CEO da Hyundai, Trump) e 56 são dos EUA. As 56
+foram reclassificadas também com o prompt ANTERIOR, com o mesmo texto: 34
+aprovam igual, então são a diferença entre o resumo do feed e a releitura com
+a matéria que a produção fez, e não a linha nova. Imigração: 13 recusadas,
+nenhuma aprovada; notícia ruim dos EUA: 65 lidas como desfavoráveis, nenhuma
+aprovada. Esporte: nenhum placar aprovado. O verificador do Instagram
+confirmou 8 de 8 das novas de política com texto, e recusou 8 sem texto (o
+ensaio não enriquece a matéria; a produção sim). O ensaio mostrou que a régua
+da eleição vazava para a campanha dos EUA, e o bloco ganhou a linha "a
+abertura é SÓ para a política do Brasil". Custo: US$ 1,86 na estimativa do
+código.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

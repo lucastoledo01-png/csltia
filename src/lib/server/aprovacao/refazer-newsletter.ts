@@ -80,8 +80,8 @@ export async function reescreverNewsletter(
   const { carregarConfigEditorial } = await import("../editorial/config");
   const { vozesDosRamos } = await import("../ramos/vozes");
 
-  const config = carregarConfigEditorial(env);
   const projeto = e.projeto;
+  const config = carregarConfigEditorial(env, projeto as { settings?: Record<string, unknown> | null });
   const vozes = await vozesDosRamos(projeto.id);
   const ranked: RankedCandidate[] = e.pautas.map((p, i) => ({
     group: pautaAvaliadaDoContexto(p).grupo,

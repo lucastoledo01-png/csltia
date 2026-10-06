@@ -222,6 +222,32 @@ Devolva JSON:
 `;
 }
 
+/**
+ * As falas conferidas do pacote e, quando a pauta é citação de famoso, o
+ * formato (06/10/2026). Usado pela peça única e pelo carrossel.
+ *
+ * A fala vai com o original E a tradução que o pacote conferiu: a guarda só
+ * aceita entre aspas o que está numa das duas (ou no texto de origem), então
+ * pedir "traduza a fala" sem dar a tradução seria pedir uma recusa.
+ */
+export function blocoDaCitacao(pauta: PautaAvaliada, pacote: PacoteFactual | null): string[] {
+  const citacoes = pacote?.citacoes ?? [];
+  if (citacoes.length === 0) return [];
+  const linhas = [
+    "",
+    "CITAÇÕES CONFERIDAS (só estas falas podem ir entre aspas, com as palavras exatas do campo traducao ou original, e sempre com o nome de quem falou no post):",
+    JSON.stringify(citacoes.map((c) => ({ quem: c.autor, traducao: c.traducao, original: c.original })), null, 2),
+  ];
+  const quem = pauta.classificacao.citacao_de_famoso ? pauta.classificacao.quem_fala?.trim() : "";
+  if (quem) {
+    linhas.push(
+      "",
+      `FORMATO: CITAÇÃO DE FAMOSO. A manchete é a fala de ${quem} entre aspas, copiada LETRA POR LETRA de uma citação conferida acima (a tradução, em português), seguida ou precedida do nome de quem falou. Não resuma, não melhore e não junte duas falas dentro das mesmas aspas; para encurtar, corte com reticências. A legenda diz onde e quando a fala aconteceu, se o pacote disser.`,
+    );
+  }
+  return linhas;
+}
+
 function montarUser(pauta: PautaAvaliada, pacote: PacoteFactual | null): string {
   const p = pauta.grupo.primary;
 
@@ -249,6 +275,7 @@ function montarUser(pauta: PautaAvaliada, pacote: PacoteFactual | null): string 
         null,
         2,
       ),
+      ...blocoDaCitacao(pauta, pacote),
     );
   } else {
     partes.push("", "TEXTO DA MATÉRIA:", (pauta.enriquecimento?.texto ?? "").slice(0, 3000));

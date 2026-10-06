@@ -5,6 +5,7 @@ import { criarProvedorOpenAI, type Vetor } from "./embeddings";
 import { coletarTendencias } from "./tendencias";
 import { agenteDaWikimedia } from "../visual/wikidata";
 import {
+  LIMIAR_DE_VEICULOS_DO_CALOR,
   bonusDoCalor,
   contarVeiculos,
   dominiosDaPauta,
@@ -62,7 +63,7 @@ export type CalorDoDia = {
 export type OpcoesDoCalor = {
   fontes: FontesDoCalor;
   agoraMs?: number;
-  /** O limiar de "mesmo acontecimento". É o de sempre, `EDITORIAL_LIMIAR_AGRUPAMENTO`. */
+  /** O limiar de "mesmo fato" para contar veículos. Ausente, `LIMIAR_DE_VEICULOS_DO_CALOR` (0.65). */
   limiar?: number;
   /**
    * Quantas pautas, das de maior nota, perguntam a fama ao Wikidata. As de
@@ -83,7 +84,7 @@ async function tentar<T>(nome: string, f: () => Promise<T>, avisos: string[], va
 
 export async function calcularCalorDoDia(pool: PautaAvaliada[], opcoes: OpcoesDoCalor): Promise<CalorDoDia> {
   const agoraMs = opcoes.agoraMs ?? Date.now();
-  const limiar = opcoes.limiar ?? 0.7;
+  const limiar = opcoes.limiar ?? LIMIAR_DE_VEICULOS_DO_CALOR;
   const avisos: string[] = [];
   const porStory = new Map<string, Calor>();
   if (pool.length === 0) return { porStory, avisos, linhas: [] };

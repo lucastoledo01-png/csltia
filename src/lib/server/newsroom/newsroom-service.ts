@@ -51,6 +51,7 @@ import { pautaDoContexto } from "../aprovacao/contexto-de-producao";
 import { rodarSocialDoDia, diagnosticoSocialAusente } from "../social/ciclo-do-dia";
 import { calorNaAberturaDaNewsletter } from "../social/calor-no-feed";
 import { fontesPadraoDoCalor, modoDoCalor } from "../editorial/calor-do-dia";
+import { limiarDeVeiculosDoCalor } from "../editorial/calor";
 import type { DiagnosticoSocialDoDia } from "../social/ciclo-do-dia";
 import { gravarDiagnosticoDoSocial, montarRegistroDoSocial } from "../social/diagnostico-gravado";
 import { descreverModo, modoDaGuarda } from "../editorial/modo";
@@ -1291,7 +1292,9 @@ async function executarRedacaoDoDia(
    * piso e a seleção vira a ordem do feed. A chave existe para o período de
    * validação, não para ser um modo de operação permanente.
    */
-  const configEditorial = carregarConfigEditorial(env);
+  // A linha do projeto entra aqui (06/10/2026): é a mesma config que a
+  // guarda, o verificador e o social recebem.
+  const configEditorial = carregarConfigEditorial(env, project);
   const modo = modoDaGuarda(env, project);
   console.log(`[NEWSROOM] Guarda editorial ${descreverModo(modo)} (EDITORIAL_GUARD=${modo}).`);
 
@@ -1869,7 +1872,8 @@ async function executarRedacaoDoDia(
           client: dryRun ? null : getSupabaseAdminClient(),
           projectId: project.id,
           editionDate: todayStr,
-          limiar: configEditorial.limiarDeAgrupamento,
+          // Contar veículos usa 0.65 desde 06/10/2026, e não o 0.70 da composição.
+          limiar: limiarDeVeiculosDoCalor(env),
         });
         selecionadasDaNewsletter = abertura.escolhidas;
         for (const l of abertura.linhas) console.log(l);

@@ -19,7 +19,7 @@ import { limparVicios } from "../../newsroom/anti-vicios";
 import { REGRA_DO_DOLAR } from "../../editorial/dolar-em-portugues";
 import type { PacoteFactual } from "../../editorial/pacote-factual";
 import type { PautaAvaliada } from "../../editorial/guarda";
-import { CopyDoPostSchema, ctaDaPosicao, levaCta, type MarcaSocial } from "../copy";
+import { CopyDoPostSchema, blocoDaCitacao, ctaDaPosicao, levaCta, type MarcaSocial } from "../copy";
 import {
   ehEstruturaDaNoticia,
   papeisDoModelo,
@@ -273,6 +273,7 @@ function montarUserDoCarrossel(pauta: PautaAvaliada, pacote: PacoteFactual | nul
         null,
         2,
       ),
+      ...blocoDaCitacao(pauta, pacote),
     );
   } else {
     partes.push("", "TEXTO DA FONTE:", (pauta.enriquecimento?.texto ?? "").slice(0, 3000));

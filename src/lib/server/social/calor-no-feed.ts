@@ -10,6 +10,7 @@ import {
   type FontesDoCalor,
 } from "../editorial/calor-do-dia";
 import { comporFeedSocial, type ConfigSocial } from "./selecao";
+import { limiarDeVeiculosDoCalor } from "../editorial/calor";
 
 /**
  * O calor na porta de entrada do Instagram (06/10/2026).
@@ -40,7 +41,9 @@ export async function calorNoPoolDoInstagram(
   const calor = await calcularCalorDoDia(pool, {
     fontes: entrada.fontes,
     agoraMs: entrada.agoraMs,
-    limiar: entrada.configSocial.limiarDeAgrupamento,
+    // O limiar de contar veículos, 0.65 (06/10/2026), e não o 0.70 da
+    // composição: ver `LIMIAR_DE_VEICULOS_DO_CALOR`.
+    limiar: limiarDeVeiculosDoCalor(),
   });
   const aquecido = aquecerPool(pool, calor.porStory);
 

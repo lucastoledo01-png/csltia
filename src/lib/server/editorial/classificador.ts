@@ -2,7 +2,18 @@ import { z } from "zod";
 import { callOpenAIJSON } from "../newsroom/ai-provider";
 import type { ConfigEditorial } from "./config";
 import { MOTIVOS } from "./config";
-import { REGRA_EIXO, REGRA_LEITURA, REGRA_PAIS, leitorVigente, relevanciaVigente } from "./linha-editorial";
+import {
+  EIXOS_DA_CITACAO,
+  LINHA_PADRAO,
+  REGRA_EIXO,
+  REGRA_LEITURA,
+  REGRA_PAIS,
+  eixosDoBrasil,
+  leitorVigente,
+  regraDoRecorte,
+  relevanciaVigente,
+  type LinhaDoProjeto,
+} from "./linha-editorial";
 import type { Motivo } from "./config";
 import type { Entidades } from "./fingerprint";
 
@@ -137,6 +148,25 @@ export const ClassificacaoSchema = z.object({
    * um deles é fato novo.
    */
   natureza: z.enum(["official_action", "political_statement", "outro"]).default("outro"),
+  /*
+   * Os três campos do recorte de 06/10/2026 (`linha-editorial.ts`).
+   *
+   * Opcionais, e não `.default(false)`: `.default()` torna o campo
+   * obrigatório no tipo de SAÍDA e quebra todo literal de classificação que
+   * já existe (armadilha registrada em `decisoes.md`). E a classificação
+   * persistida antes desta data não os tem; ausente é `false`, que é a linha
+   * de antes. O `.catch` aceita o `null` que o modelo às vezes devolve.
+   */
+  /** A notícia é, no essencial, a fala entre aspas de uma pessoa famosa. */
+  citacao_de_famoso: z.boolean().optional().catch(undefined),
+  /** Quem fala, quando é citação de famoso: é a foto que o post procura. */
+  quem_fala: z.string().optional().catch(undefined),
+  /**
+   * O assunto é política ou eleição brasileira, inclusive quando quem fala é
+   * de fora (Trump comentando o segundo turno). É o que a abertura eleitoral
+   * lê, porque nesse caso o país da notícia pode sair "EUA".
+   */
+  politica_brasileira: z.boolean().optional().catch(undefined),
   /** 0 a 10, o quanto interessa a um brasileiro que acompanha os EUA. */
   relevancia: z.number().min(0).max(10),
   atores: listaDeTexto,
@@ -159,7 +189,13 @@ export type PautaClassificavel = {
   url: string;
 };
 
-export function montarSystemDoClassificador(): string {
+/*
+ * O prompt recebe a linha do PROJETO (06/10/2026), e ela entra na assinatura
+ * da classificação persistida (`assinaturaDoClassificador` hasheia este
+ * texto): abrir ou fechar a política brasileira reclassifica as candidatas
+ * da janela, em vez de reaproveitar o veredito da régua anterior.
+ */
+export function montarSystemDoClassificador(linha: LinhaDoProjeto = LINHA_PADRAO): string {
   return `
 Você classifica notícias.
 
@@ -177,7 +213,11 @@ ${REGRA_EIXO}
 
 ${relevanciaVigente()}
 
-O que decide a nota é o fato, não a conclusão. Não force leitura negativa: se a notícia brasileira traz um dado bom ou neutro, classifique como está. A publicação compara Brasil e Estados Unidos com números, não com adjetivos, e não adota lado partidário: nenhum partido, nenhum político e nenhuma corrente são o assunto. O assunto é o efeito prático sobre a vida de quem decide ficar ou sair.
+${regraDoRecorte(linha)}
+
+politica_brasileira: true quando o assunto é política ou eleição brasileira (governo, Congresso, partidos, candidatos, campanha, TSE, STF decidindo sobre política), inclusive quando quem fala é de fora do Brasil. false nos demais casos.
+
+O que decide a nota é o fato, não a conclusão. Não force leitura negativa: se a notícia brasileira traz um dado bom ou neutro, classifique como está. A publicação compara Brasil e Estados Unidos com números, não com adjetivos, e não adota lado partidário: o texto não torce por partido, político nem corrente. Fora da abertura eleitoral descrita abaixo, o assunto é o efeito prático sobre a vida de quem decide ficar ou sair.
 
 natureza: o que a notícia registra.
 - "official_action": um ato. Decisão, assinatura, sanção, votação, publicação de regra, anúncio oficial de órgão ou autoridade sobre a própria competência, dado estatístico divulgado, medida que entrou em vigor. Vale a relevância do fato, que pode ser alta.
@@ -277,7 +317,9 @@ const CHAMADAS_EM_PARALELO = 4;
 export async function classificarPautas(
   pautas: PautaClassificavel[],
   env: Record<string, string | undefined> = process.env,
-  fetcher: typeof fetch = fetch
+  fetcher: typeof fetch = fetch,
+  /** A linha do projeto (06/10/2026). Ausente, a de antes. */
+  linha: LinhaDoProjeto = LINHA_PADRAO,
 ): Promise<{
   classificacoes: Map<string, Classificacao>;
   custoUsd: number;
@@ -338,7 +380,7 @@ export async function classificarPautas(
     try {
       const { data, usage } = await callOpenAIJSON<unknown>(
         [
-          { role: "system", content: montarSystemDoClassificador() },
+          { role: "system", content: montarSystemDoClassificador(linha) },
           { role: "user", content: montarUserDoClassificador(lote) },
         ],
         modelo,
@@ -489,6 +531,15 @@ export function decidirPauta(c: Classificacao, config: ConfigEditorial): Decisao
   }
 
   /*
+   * O recorte do projeto (06/10/2026, `linha-editorial.ts`). Calculado aqui,
+   * depois das duas recusas que nenhum modo abre: imigração e notícia ruim
+   * dos EUA continuam fora, inclusive na eleição e na citação de famoso.
+   */
+  const linha = config.linha ?? LINHA_PADRAO;
+  const politicaAberta = linha.politicaBrasileira === "eleicao" && ehPoliticaBrasileira(c);
+  const citacao = ehCitacaoDeFamoso(c);
+
+  /*
    * Fala não vale o que o ato vale.
    *
    * A régua não é "declaração é irrelevante": anúncio oficial também sai da
@@ -496,9 +547,18 @@ export function decidirPauta(c: Classificacao, config: ConfigEditorial): Decisao
    * eleitoral enche o feed e leva a publicação para dentro da disputa
    * partidária. O teto deixa passar a fala que for excepcional e mantém o
    * resto abaixo do piso.
+   *
+   * Duas falas deixaram de ter teto em 06/10/2026, por decisão do dono: a
+   * citação de famoso sobre economia, trabalho, tecnologia ou os EUA, que é
+   * formato próprio (25% do Not Journal), e a política brasileira durante a
+   * abertura eleitoral, em que a fala do candidato É a notícia. As duas
+   * continuam precisando do piso de relevância.
    */
+  const falaQueEntra = c.natureza === "political_statement" && (citacao || politicaAberta);
   const relevanciaEfetiva =
-    c.natureza === "political_statement" ? Math.min(c.relevancia, config.tetoDeDeclaracao) : c.relevancia;
+    c.natureza === "political_statement" && !falaQueEntra
+      ? Math.min(c.relevancia, config.tetoDeDeclaracao)
+      : c.relevancia;
 
   const piso = config.relevanciaMinima;
   if (relevanciaEfetiva < piso) {
@@ -514,19 +574,31 @@ export function decidirPauta(c: Classificacao, config: ConfigEditorial): Decisao
     };
   }
 
+  /*
+   * A abertura eleitoral vale qualquer que seja o país que o modelo deu: o
+   * Trump comentando o segundo turno sai "EUA", e a reação de alguém de fora,
+   * "outro". O que decide é o assunto, e o assunto é a política brasileira.
+   */
+  if (politicaAberta) {
+    return {
+      aprovada: true,
+      motivo: MOTIVOS.APROVADO_POLITICA_BRASIL,
+      explicacao: `política brasileira na abertura eleitoral, país ${c.pais}, eixo ${c.eixo}, leitura ${c.leitura}, relevância ${c.relevancia}`,
+    };
+  }
+
   if (c.pais === "Brasil") {
     // Assunto brasileiro só entra pelo eixo que interessa ao leitor que
     // pensa em sair: instituição, tributo, economia, segurança. Notícia
-    // brasileira qualquer não é pauta desta publicação.
-    const noEixo =
-      c.eixo === "brasil" ||
-      c.eixo === "custo_de_vida" ||
-      c.eixo === "economia";
+    // brasileira qualquer não é pauta desta publicação. Desde 06/10/2026 os
+    // eixos dependem do modo do projeto (`eixosDoBrasil`); o padrão é a
+    // lista de sempre.
+    const noEixo = eixosDoBrasil(linha).has(c.eixo);
     if (!noEixo) {
       return {
         aprovada: false,
         motivo: MOTIVOS.REJEITADO_EIXO_BRASIL,
-        explicacao: `Brasil fora do eixo editorial (eixo ${c.eixo})`,
+        explicacao: `Brasil fora do eixo editorial (eixo ${c.eixo}, política brasileira "${linha.politicaBrasileira}")`,
       };
     }
     return {
@@ -540,10 +612,20 @@ export function decidirPauta(c: Classificacao, config: ConfigEditorial): Decisao
   }
 
   if (c.pais === "outro") {
+    // Geopolítica do mundo sem os EUA no centro fica fora (06/10/2026): é o
+    // classificador quem diz "outro" quando os EUA não são o ator.
     return {
       aprovada: false,
       motivo: MOTIVOS.REJEITADO_SEM_CLASSIFICACAO,
       explicacao: "fora de EUA e Brasil",
+    };
+  }
+
+  if (falaQueEntra && citacao) {
+    return {
+      aprovada: true,
+      motivo: MOTIVOS.APROVADO_CITACAO_DE_FAMOSO,
+      explicacao: `citação de ${c.quem_fala}, eixo ${c.eixo}, relevância ${c.relevancia}`,
     };
   }
 
@@ -552,6 +634,23 @@ export function decidirPauta(c: Classificacao, config: ConfigEditorial): Decisao
     motivo: MOTIVOS.APROVADO_OPORTUNIDADE_EUA,
     explicacao: `EUA, leitura ${c.leitura}, eixo ${c.eixo}, relevância ${c.relevancia}`,
   };
+}
+
+/**
+ * Política brasileira, pelo campo próprio OU pelo par país e eixo: o modelo às
+ * vezes marca um e esquece o outro, a mesma razão do booleano de imigração.
+ */
+export function ehPoliticaBrasileira(c: Pick<Classificacao, "politica_brasileira" | "pais" | "eixo">): boolean {
+  return c.politica_brasileira === true || (c.pais === "Brasil" && c.eixo === "politica");
+}
+
+/**
+ * Citação de famoso que entra como formato: marcada, com quem fala nomeado, e
+ * num eixo da publicação. Sem o nome não há foto da pessoa nem atribuição, e
+ * o formato não existe sem os dois.
+ */
+export function ehCitacaoDeFamoso(c: Pick<Classificacao, "citacao_de_famoso" | "quem_fala" | "eixo">): boolean {
+  return c.citacao_de_famoso === true && Boolean(c.quem_fala?.trim()) && EIXOS_DA_CITACAO.has(c.eixo);
 }
 
 /* ------------------------------------------------------------------ */

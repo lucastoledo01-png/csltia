@@ -1,5 +1,11 @@
 -- Fontes quentes para o eua.journal (06/10/2026).
 --
+-- ATUALIZADO no mesmo dia: o dono aprovou os dois grupos (e a política
+-- brasileira entrou na linha). Rode 2026-10-06-linha-quente.sql, que insere
+-- estas mesmas fontes, LIGA os dois grupos e desliga as buscas fixas do
+-- Google News. Este arquivo fica como registro da conferência das URLs; rodar
+-- os dois, em qualquer ordem, dá o mesmo resultado.
+--
 -- Para o DONO rodar no SQL Editor. Nada aqui foi executado.
 --
 -- Todas entram DESLIGADAS (enabled = false). O motivo está na auditoria

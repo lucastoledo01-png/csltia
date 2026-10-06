@@ -22,7 +22,8 @@ import type { PautaAvaliada } from "./guarda";
  * Os cinco sinais são deterministas, e quatro deles não custam modelo nenhum:
  *
  *   veículos    quantos domínios distintos contaram o mesmo fato nas últimas
- *               24h (vetor do título, limiar de agrupamento de sempre)
+ *               24h (vetor do título, limiar de 0.65 desde 06/10/2026;
+ *               ver `LIMIAR_DE_VEICULOS_DO_CALOR`)
  *   tendência   o assunto aparece no Google Trends (EUA e Brasil) ou entre os
  *               mais lidos da Wikipédia (inglês e português)
  *   fama        a pessoa, empresa ou instituição no centro tem muitas línguas
@@ -40,6 +41,29 @@ import type { PautaAvaliada } from "./guarda";
 
 export const PESOS_DO_CALOR = { veiculos: 30, tendencia: 25, fama: 25, recencia: 10, numero: 10 } as const;
 export const PESO_DO_CALOR = 0.35;
+
+/**
+ * O limiar de "mesmo fato" para CONTAR VEÍCULOS, e só para isso (06/10/2026).
+ *
+ * Decisão do dono sobre a medição da auditoria: no vetor só do título, que é
+ * o que existe para toda candidata, o 0.70 é mais severo do que no vetor de
+ * título mais resumo em que foi medido. Nas 127 aprovadas da semana, 0.70 via
+ * 7 histórias com três veículos ou mais e 0.65 via 14; a faixa de 0.65 a 0.70
+ * era quase toda o mesmo fato ("Trump, top AI leaders agree to voluntary AI
+ * standards" e "AI firms agree to 'morally binding' self-policing", 0.685), e
+ * a de 0.60 a 0.65 já misturava vizinhos.
+ *
+ * NÃO é o limiar da composição: o agrupamento das pautas do mesmo dia
+ * (`EDITORIAL_LIMIAR_AGRUPAMENTO`, 0.70) e a repetição histórica (0.85)
+ * continuam onde estão. Errar aqui custa uma pauta um pouco mais quente do que
+ * devia; errar lá custa a edição dizendo a mesma coisa duas vezes.
+ */
+export const LIMIAR_DE_VEICULOS_DO_CALOR = 0.65;
+
+export function limiarDeVeiculosDoCalor(env: Record<string, string | undefined> = process.env): number {
+  const n = Number(env.CALOR_LIMIAR_VEICULOS);
+  return Number.isFinite(n) && n > 0 && n < 1 ? n : LIMIAR_DE_VEICULOS_DO_CALOR;
+}
 
 export type SinaisDeCalor = {
   /** Domínios distintos com o mesmo fato em 24h, contando o da própria pauta. */

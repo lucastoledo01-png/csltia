@@ -35,6 +35,7 @@
  */
 
 import { instrucaoVigente } from "../instrucoes";
+import { LINHA_PADRAO, type LinhaDoProjeto, type PoliticaBrasileira } from "./linha-do-projeto";
 
 export const LEITOR = `
 A publicação é brasileira e é sobre os ESTADOS UNIDOS: economia, trabalho, custo de vida, política, tecnologia, cultura, segurança e cidades. Imigração NÃO é assunto da publicação: visto, green card, processo migratório, deportação e fronteira ficam fora.
@@ -93,4 +94,68 @@ export function leitorVigente(): string {
 
 export function relevanciaVigente(): string {
   return instrucaoVigente("linha_editorial_relevancia", REGRA_RELEVANCIA);
+}
+
+/* ------------------------------------------------------------------ */
+/* O recorte do dono de 06/10/2026                                     */
+/* ------------------------------------------------------------------ */
+
+/*
+ * As decisões do dono sobre a auditoria da notícia quente
+ * (`docs/auditorias/noticia-quente-2026-10-06.md`, seção 5), na parte que é
+ * LINHA: o que entra e o que fica fora. Moram aqui pela razão do topo deste
+ * arquivo: classificador e verificador leem o mesmo texto, ou a divergência
+ * entre os dois volta a ser régua contra régua.
+ *
+ * Não passam pelo painel (RF-26) de propósito. Cada regra abaixo tem um campo
+ * do schema ou um ramo de `decidirPauta` que depende dela
+ * (`citacao_de_famoso`, `quem_fala`, o modo da política brasileira), e um
+ * texto reescrito no painel que contradissesse o código viraria a mesma
+ * recusa silenciosa de 23 a 28/09. Pelo mesmo motivo o bloco vem DEPOIS da
+ * régua de relevância editável, e diz que vale sobre ela.
+ */
+
+export {
+  EIXOS_DA_CITACAO,
+  LINHA_PADRAO,
+  MODOS_DA_POLITICA_BRASILEIRA,
+  eixosDoBrasil,
+  linhaDoProjeto,
+  type LinhaDoProjeto,
+  type PoliticaBrasileira,
+} from "./linha-do-projeto";
+
+const POLITICA_BRASILEIRA: Record<PoliticaBrasileira, string> = {
+  so_mercado: `
+POLÍTICA BRASILEIRA: entra só quando o fato mexe com dólar, Bolsa, juros, imposto, regra do jogo ou a relação com os EUA. Disputa partidária, campanha, pesquisa eleitoral e declaração de político seguem a régua de relevância acima (1 a 3).
+`.trim(),
+  eleicao: `
+POLÍTICA BRASILEIRA E ELEIÇÃO, abertura temporária do período eleitoral (segundo turno). Esta regra vale SOBRE a régua de relevância acima para notícia do Brasil:
+- Política brasileira e eleição ENTRAM em qualquer tom, boa ou ruim: candidatos, segundo turno, pesquisa, debate, apoio, aliança, bastidor e notícia de campanha, decisão do TSE e do STF sobre a eleição, reação do mercado ao resultado.
+- Rotule com pais "Brasil" e eixo "politica". Declaração de candidato ou de político sobre a eleição é "political_statement", e mesmo assim entra.
+- Relevância: notícia central da eleição (resultado, pesquisa nacional, debate, apoio decisivo, fala de candidato que repercutiu) vale 6 a 8; bastidor e fofoca de campanha com nome conhecido nacionalmente vale 5 a 6; nota de candidato a vereador ou deputado sem alcance nacional vale 1 a 3.
+- A abertura é SÓ para a política do Brasil. Campanha, pesquisa, arrecadação e disputa partidária dos EUA (midterms, aprovação do presidente, voto de um grupo) seguem a régua de relevância de sempre.
+`.trim(),
+  fora: `
+POLÍTICA BRASILEIRA: fica FORA. Notícia do Brasil só entra quando o fato mexe com o bolso (eixo "economia" ou "custo_de_vida"). Campanha, eleição, disputa e decisão institucional valem 0 a 2.
+`.trim(),
+};
+
+/**
+ * O que vale para todo projeto desde 06/10/2026, qualquer que seja o modo da
+ * política brasileira.
+ */
+export const REGRA_DO_RECORTE = `
+GEOPOLÍTICA DO MUNDO: guerra, eleição, protesto e chefe de governo de outro país só entram quando os EUA são o protagonista ou o ator (decisão americana, tropas americanas, acordo assinado pelos EUA, sanção americana). Nesse caso pais "EUA". Sem os EUA no centro, pais "outro" e relevância 0, por maior que seja a história.
+
+CITAÇÃO DE FAMOSO, formato próprio. citacao_de_famoso: true quando a notícia é, no essencial, a FALA de uma pessoa famosa (CEO de empresa grande, bilionário, chefe de governo ou de Estado, presidente de banco central) sobre economia, trabalho, tecnologia, mercado ou os EUA, e a matéria traz a fala entre aspas. quem_fala: o nome dessa pessoa como aparece na matéria. A citação assim NÃO perde nota por ser fala: vale a relevância do assunto (o CEO da Nvidia dizendo que data centers vão criar 1 milhão de empregos nos EUA vale 6 a 7). Ataque, ofensa e reação a adversário em campanha nos EUA não são citação de famoso. Fora do formato, citacao_de_famoso false e quem_fala vazio.
+
+ESPORTE: só entra como negócio, audiência ou recorde (o jogo mais assistido, o preço do anúncio do Super Bowl, a venda de um time, o contrato recorde, a NFL no Brasil como negócio). Resultado de partida, placar, classificação, escalação e lesão valem 0.
+
+NOTÍCIA RUIM DOS EUA E IMIGRAÇÃO continuam FORA, qualquer que seja o alcance: execução, ICE, batida, tiroteio e crise nos EUA são leitura "desfavoravel"; visto, deportação, fronteira e status migratório são "imigracao".
+`.trim();
+
+/** O bloco do recorte para o modo do projeto, o mesmo nos dois prompts. */
+export function regraDoRecorte(linha: LinhaDoProjeto = LINHA_PADRAO): string {
+  return `${POLITICA_BRASILEIRA[linha.politicaBrasileira]}\n\n${REGRA_DO_RECORTE}`;
 }

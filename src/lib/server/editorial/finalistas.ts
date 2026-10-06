@@ -3,6 +3,7 @@ import type { PautaAvaliada } from "./guarda";
 import type { CandidatosStore, VerificacaoPersistida } from "./candidatos-store";
 import { hashDaVerificacao, paraPersistir, verificacaoAindaVale } from "./candidatos-store";
 import { impressaoDaReguaDoVerificador, verificarFinalistas } from "./verificador";
+import type { LinhaDoProjeto } from "./linha-editorial";
 import type { FinalistaParaVerificar, Verificacao } from "./verificador";
 
 /**
@@ -70,7 +71,7 @@ function paraVerificar(p: PautaAvaliada): FinalistaParaVerificar {
   };
 }
 
-export function hashDaPauta(p: PautaAvaliada): string {
+export function hashDaPauta(p: PautaAvaliada, linha?: LinhaDoProjeto): string {
   return hashDaVerificacao({
     titulo: p.grupo.primary.title,
     fonte: p.grupo.primary.source_name,
@@ -81,7 +82,9 @@ export function hashDaPauta(p: PautaAvaliada): string {
       eixo: p.classificacao.eixo,
       relevancia: p.classificacao.relevancia,
     },
-    regua: impressaoDaReguaDoVerificador(),
+    // A linha do projeto entra na régua (06/10/2026): abrir a eleição invalida
+    // a verificação dada com a linha fechada.
+    regua: impressaoDaReguaDoVerificador(linha),
   });
 }
 
@@ -126,7 +129,7 @@ export async function conferirFinalistas(
         if (anterior?.id) idPorStory.set(f.storyId, anterior.id);
         if (!anterior?.verificacao) continue;
 
-        if (!verificacaoAindaVale(anterior.verificacao, hashDaPauta(f))) continue;
+        if (!verificacaoAindaVale(anterior.verificacao, hashDaPauta(f, opcoes.config.linha))) continue;
 
         const v = anterior.verificacao;
         jaVerificadas.set(f.storyId, {
@@ -184,7 +187,7 @@ export async function conferirFinalistas(
       const id = idPorStory.get(f.storyId);
       if (id) {
         try {
-          await opcoes.store.gravarVerificacao(id, paraPersistir(v, opcoes.canal, hashDaPauta(f)));
+          await opcoes.store.gravarVerificacao(id, paraPersistir(v, opcoes.canal, hashDaPauta(f, opcoes.config.linha)));
         } catch (erro) {
           linhas.push(`[FINALISTAS] verificação de ${f.storyId} não gravada: ${(erro as Error).message}`);
         }

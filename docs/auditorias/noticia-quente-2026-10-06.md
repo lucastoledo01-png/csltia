@@ -356,6 +356,11 @@ O calor não salva o que a linha recusou: ele só reordena o que passou.
 
 ## 5. Perguntas que os dados levantam para o dono
 
+> **Decididas no mesmo dia.** O dono aprovou as nove recomendações, com uma
+> mudança na primeira: a política brasileira entra inteira, fofoca de campanha
+> inclusive, como abertura temporária do segundo turno. Ver "A linha quente"
+> em `docs/decisoes.md`.
+
 | pergunta | o que os dados dizem | recomendação |
 |---|---|---|
 | Política brasileira e eleição entram? | 25% do Not Journal é Brasil, 28 de 50 posts são política; Flávio, Lula, Moraes, Nikolas e Erika Hilton estão entre os mais curtidos. A linha hoje só aceita "notícia ruim do Brasil" e com eixo. | Entrar quando o fato mexe com dólar, Bolsa ou a relação com os EUA (Ibovespa e dólar depois do turno, Trump comentando a eleição, Musk reagindo). Fofoca de campanha continua fora. |

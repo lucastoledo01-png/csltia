@@ -19,6 +19,7 @@ import { modoDoPipelineSocial } from "./modo";
 import type { ModoSocial, ResumoVisualDoDia } from "./modo";
 import type { ProjetoComCapacidades } from "../capacidades";
 import { rodarCicloSocial } from "./pipeline-v2";
+import { ehCitacaoDeFamoso } from "../editorial/classificador";
 import { calorNoPoolDoInstagram } from "./calor-no-feed";
 import { fontesPadraoDoCalor, modoDoCalor, type FontesDoCalor } from "../editorial/calor-do-dia";
 import { comHistoricoDoFeed, foraDoFeed, lerHistoricoDoFeed } from "./historico-do-feed";
@@ -232,6 +233,18 @@ export type ResultadoDoSocialDoDia = {
  * token gasto, nenhum navegador aberto. É o que torna a integração inócua
  * enquanto a flag não for ligada.
  */
+/**
+ * Os atores na ordem em que a foto os procura. Na citação de famoso, quem fala
+ * primeiro, uma vez só; nos demais casos, a ordem do classificador.
+ */
+export function atoresParaAFoto(pauta: Pick<PautaAvaliada, "classificacao">): string[] {
+  const atores = pauta.classificacao.atores ?? [];
+  const quem = ehCitacaoDeFamoso(pauta.classificacao) ? pauta.classificacao.quem_fala!.trim() : "";
+  if (!quem) return atores;
+  const chave = quem.toLowerCase();
+  return [quem, ...atores.filter((a) => a.toLowerCase() !== chave)];
+}
+
 export async function rodarSocialDoDia(
   approvedEditorialPool: PautaAvaliada[],
   opcoes: OpcoesDoSocialDoDia,
@@ -524,7 +537,13 @@ export async function rodarSocialDoDia(
     resumo: pauta.enriquecimento?.texto ?? "",
     categoria: pauta.classificacao.eixo,
     classificacao: {
-      atores: pauta.classificacao.atores,
+      /*
+       * Na citação de famoso, quem fala vai à frente (06/10/2026): o formato
+       * pede a foto da PESSOA, e o resolvedor procura a entidade pela ordem
+       * dos atores. Sem isto, a fala de Jensen Huang sobre data centers
+       * podia sair com a foto da Nvidia ou de um galpão.
+       */
+      atores: atoresParaAFoto(pauta),
       lugares: pauta.classificacao.lugares,
       acontecimento: pauta.classificacao.acontecimento,
       pais: pauta.classificacao.pais,
