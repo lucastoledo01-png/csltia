@@ -190,6 +190,13 @@ function AreaDoProjeto({ slug }: { slug: string }) {
               {item.rotulo}
             </button>
           ))}
+          {/* Os autores moram numa rota própria (06/10/2026), como a fila: o menu leva até lá. */}
+          <Link
+            href={`/admin/${projeto.slug}/autores`}
+            className="admin-sidebar-link flex w-full items-center px-4 py-2.5 text-left text-[13px]"
+          >
+            Autores
+          </Link>
         </nav>
 
         <div className="border-t border-slate-200 p-3">
@@ -248,6 +255,9 @@ function AreaDoProjeto({ slug }: { slug: string }) {
               {item.rotulo}
             </button>
           ))}
+          <Link href={`/admin/${projeto.slug}/autores`} className="admin-sidebar-link shrink-0 px-3 py-1.5 text-[12px]">
+            Autores
+          </Link>
         </nav>
 
         <main className="flex-1 space-y-8 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">

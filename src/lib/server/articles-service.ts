@@ -29,6 +29,9 @@ export type AdminArticleRecord = {
   manual_review_status?: string;
   /** Perguntas e respostas: a página as mostra e só então as marca como FAQPage. */
   aeo_questions?: unknown;
+  /** O autor cadastrado (06/10/2026). Nulo, a matéria é da Redação. */
+  author_id?: string | null;
+  project_id?: string | null;
 };
 
 function sectionsToHtml(title: string, sections: Array<{ heading: string; paragraphs: string[] }>): string {
@@ -89,6 +92,8 @@ export async function getAllArticlesForAdmin(): Promise<AdminArticleRecord[]> {
           editorial_score: row.editorial_score || 85,
           manual_review_status: row.manual_review_status || "approved",
           aeo_questions: row.aeo_questions ?? [],
+          author_id: row.author_id ?? null,
+          project_id: row.project_id ?? null,
         };
       });
     }

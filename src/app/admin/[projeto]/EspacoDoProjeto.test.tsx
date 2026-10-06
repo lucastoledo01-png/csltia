@@ -101,6 +101,15 @@ describe("área do projeto", () => {
     }
   });
 
+  it("o menu leva à tela de autores do projeto (06/10/2026)", async () => {
+    vi.stubGlobal("fetch", responder());
+
+    render(<EspacoDoProjeto slug="desbuguei" />);
+
+    const nav = within(await screen.findByRole("navigation", { name: "Seções do projeto" }));
+    expect(nav.getByRole("link", { name: "Autores" })).toHaveAttribute("href", "/admin/desbuguei/autores");
+  });
+
   it("slug desconhecido não abre painel nenhum", async () => {
     vi.stubGlobal("fetch", responder());
 

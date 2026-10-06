@@ -251,7 +251,10 @@ export function faltasNoJsonLd(blocos: unknown[]): string[] {
   }
   const autor = materia.author as NoDoGrafo | NoDoGrafo[] | undefined;
   const autores = Array.isArray(autor) ? autor : autor ? [autor] : [];
-  if (!autores.some((a) => temTipo(a, "Organization") && typeof a.name === "string")) faltas.push("author Organization");
+  // Person desde 06/10/2026: a matéria atribuída a um autor cadastrado sai com ele; sem autor, a Redação (Organization).
+  if (!autores.some((a) => (temTipo(a, "Organization") || temTipo(a, "Person")) && typeof a.name === "string")) {
+    faltas.push("author Organization ou Person");
+  }
   if (!nos.some((n) => temTipo(n, "BreadcrumbList"))) faltas.push("BreadcrumbList");
   return faltas;
 }
