@@ -13,6 +13,7 @@ import {
 import type { FilaStore } from "./fila-store";
 import { conferirEdicao, type ProblemaDaEdicao } from "./guarda-da-edicao";
 import { proporRegrasDaEtapa } from "./memoria-de-reprovacao";
+import { detalhesDaReprovacao, type ExtrasDaPeca } from "../aprendizado/detalhes";
 import { horariosDaNewsletter, modoDaFila, modoDoRamo } from "./modo";
 import { decidirPublicacao, type DecisaoDoPortao } from "./portao";
 import { etapaSemGancho, MOTIVO_SEM_REGENERACAO, type GanchosDeRefazer } from "./refazer";
@@ -46,6 +47,12 @@ export type PecaLida = {
   material: string[];
   /** A keyword do CTA, para a guarda da legenda. */
   keyword?: string;
+  /**
+   * A foto de fundo e a arte, para a reprovação gravar o que a peça TINHA
+   * (06/10/2026, `aprendizado/detalhes.ts`). Ausente: a reprovação grava só o
+   * que a linha da fila sabe.
+   */
+  extras?: ExtrasDaPeca;
 };
 
 export type ResultadoDoDespacho = { ok: true; detalhe: string } | { ok: false; motivo: string };
@@ -329,11 +336,13 @@ export async function reprovar(
     motivo: motivoLimpo,
     textoReprovado: peca?.texto ?? atual.resumo.texto ?? atual.resumo.titulo ?? "",
     decididoPor: quem,
+    // O que a peça tinha na etapa culpada: é disso que a etapa do canal aprende (06/10/2026).
+    detalhes: detalhesDaReprovacao(atual, etapa, peca?.extras ?? null, opcoes.alvo ?? null),
   });
 
   // A proposta de regra é consequência, e falhar nela não desfaz a reprovação.
   try {
-    await proporRegrasDaEtapa(deps.store, projeto.id, etapa);
+    await proporRegrasDaEtapa(deps.store, projeto.id, atual.ramo, etapa);
   } catch (erro) {
     console.warn(`[FILA] proposta de regra não gravada: ${erro instanceof Error ? erro.message : String(erro)}`);
   }
@@ -495,6 +504,28 @@ export async function editarTexto(
     ["aguardando", "aprovada"],
   );
   if (!devolvida) return { ok: false, motivo: "outra decisão chegou antes desta edição" };
+
+  /*
+   * A edição vira aprendizado (06/10/2026): o antes e o depois vão para
+   * `edicoes_do_editor`, e o resumo semanal lê dali os padrões de cada canal.
+   * Consequência, como a proposta de regra: falhar aqui não desfaz a edição.
+   */
+  if (peca.texto.trim() !== novoTexto.trim()) {
+    try {
+      await deps.store.registrarEdicao({
+        projectId: projeto.id,
+        ramo: atual.ramo,
+        pecaId: atual.pecaId,
+        aprovacaoId: atual.id,
+        etapa: "texto",
+        antes: peca.texto,
+        depois: novoTexto,
+        editadoPor: quem,
+      });
+    } catch (erro) {
+      console.warn(`[FILA] edição não gravada para o aprendizado: ${erro instanceof Error ? erro.message : String(erro)}`);
+    }
+  }
   return { ok: true, aprovacao: devolvida };
 }
 

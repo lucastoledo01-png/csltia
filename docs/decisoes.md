@@ -827,6 +827,8 @@ Listmonk e o artigo recebem. Sem véspera, vale `settings.aprovacao`, como era.
 `errosRecentesDaEtapa(projeto, "texto")`, que já inclui as regras fixas
 aprovadas pelo dono, vai no fim da voz da newsletter, do artigo e do post, só
 com a fila fora de `off`.
+ATUALIZADO em 06/10/2026: o bloco é do CANAL, e não mais um só para os três.
+Ver "O aprendizado da fila, por etapa e por canal".
 
 **Refação ligada onde há o que refazer.** Texto e imagem do artigo (a pauta e
 o pacote factual passaram a ser gravados no `resumo` da fila, em
@@ -1327,6 +1329,48 @@ manchete de uma peça na arte de outra; a saída é cancelar. O painel mostra
 que é a edição da newsletter, `edicao-AAAA-MM-DD`; o carrossel gravado antes
 desta data, sem a forma; a edição antiga sem a foto no histórico, para refazer
 o texto), e a terceira reprovação, que descarta como sempre.
+
+## O aprendizado da fila, por etapa e por canal (06/10/2026)
+
+O dono: "de nada adianta esse esforço manual se não houver aprendizado". Até
+aqui a memória de reprovação só chegava ao texto, e misturada: o erro apontado
+na legenda do post entrava na voz da newsletter. O código está em
+`src/lib/server/aprendizado/`, as tabelas na migration
+`20261006120000_aprendizado_da_fila.sql`, e a tela em
+`/admin/<projeto>/aprendizado` (também na seção "Aprendizado" do projeto).
+
+**Canal é canal, sempre.** `errosRecentesDaEtapa(projeto, ramo, etapa)` lê só
+as reprovações daquele canal, as regras têm `ramo` NOT NULL, e cada voz recebe
+o bloco do próprio canal. Nada lê o aprendizado com a fila em `off`.
+
+**Cada etapa aprende com a reprovação dela.** A reprovação grava em
+`reprovacoes.detalhes` o que a peça tinha (a pauta, a foto de fundo, o molde):
+
+| etapa | o que aprende | onde |
+|---|---|---|
+| seleção | cada recusa parecida (fonte, ator, eixo) tira 8 pontos da nota, até 24; fonte ou ator recusado 3 vezes em 30 dias sai do canal; pauta recusada nunca volta ao canal. O eixo nunca bloqueia | `aprenderNaSelecao` na newsletter, no portal e no Instagram; a troca de pauta da refação também |
+| texto | erros recentes, regras aprovadas e exemplos aprovados de primeira, do canal | `vozesDosRamosComMemoria` |
+| imagem | a foto recusada no canal nunca mais é escolhida nele; o motivo vai para a pergunta da cena | `fotosDoCanal`, `comFotoDoCanal`, `recusasDoEditor` |
+| arte | molde recusado 3 vezes sai da escolha do feed (o jornal nunca sai); a refação da arte troca a decisão recusada e grava o porquê em `content_json.arte.aprendizado` | `moldesComAprendizado`, `arteNaRefacao` |
+
+A foto de uma pauta continua resolvida uma vez para os três canais. O bloqueio
+de um canal entra DEPOIS dessa resolução: só aquele canal resolve outra.
+
+**A aprovação de primeira vira exemplo.** Até 5 por tipo (assunto da
+newsletter; manchete e abertura da legenda do post; título e linha fina da
+matéria), num orçamento de 1.600 caracteres, só do canal, só aprovadas pelo
+editor sem refação nem edição à mão, dos últimos 30 dias, nada antes de
+05/10/2026 e nada com vocabulário de imigração.
+
+**A edição à mão vira proposta.** O antes e o depois vão para
+`edicoes_do_editor`. Toda segunda às 08:00 (`/api/cron/aprendizado`) e no botão
+do painel, UMA chamada de modelo lê as edições da semana por canal e devolve
+padrões; a proposta precisa de duas edições do mesmo canal, a citação de outro
+canal é descartada na validação, e tudo nasce `proposta`, com origem `edicoes`.
+Nada vira regra sem o dono aprovar.
+
+**A taxa do painel conta edição como retrabalho.** Aprovada de primeira é sem
+refação E sem edição à mão.
 
 ## Armadilhas que já custaram tempo
 

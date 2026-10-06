@@ -9,6 +9,7 @@ import { enfileirar, type DepsDaFila, type ProjetoDaFila } from "./fila";
 import { errosRecentesDaEtapa } from "./memoria-de-reprovacao";
 import { modoDaFila } from "./modo";
 import { executarRefacao } from "./refazer";
+import { aprendizadoDoCanal } from "../aprendizado/do-canal";
 
 /**
  * O processador das refações, fora do clique (06/10/2026).
@@ -189,12 +190,19 @@ async function rodarRefacao(
   refacao: EstadoDaRefacao,
   deps: DepsDaFila,
 ): Promise<DesfechoDaRefacao> {
-  const naoRepetir = await errosRecentesDaEtapa(projeto.id, refacao.etapa, undefined, deps.store);
+  /*
+   * A memória é do CANAL da peça (06/10/2026): a refação do post lê só o que o
+   * editor recusou em posts, e a da newsletter só o da newsletter.
+   */
+  const [naoRepetir, aprendizado] = await Promise.all([
+    errosRecentesDaEtapa(projeto.id, a.ramo, refacao.etapa, undefined, deps.store),
+    aprendizadoDoCanal(deps.store, projeto.id, a.ramo, agoraDe(deps)),
+  ]);
 
   let r: Awaited<ReturnType<typeof executarRefacao>>;
   try {
     r = await executarRefacao(
-      { aprovacao: a, etapa: refacao.etapa, motivo: refacao.motivo, naoRepetir, alvo: refacao.alvo ?? null },
+      { aprovacao: a, etapa: refacao.etapa, motivo: refacao.motivo, naoRepetir, alvo: refacao.alvo ?? null, aprendizado },
       deps.ganchos ?? {},
     );
   } catch (erro) {

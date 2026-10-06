@@ -114,6 +114,11 @@ export type ResumoDaPeca = {
   campanhaListmonk?: number | null;
   /** Ramo artigo: o endereço no portal. */
   slug?: string | null;
+  /**
+   * Ramo artigo: a linha fina, para a aprovação de primeira virar exemplo do
+   * redator (06/10/2026, `aprendizado/exemplos.ts`). Ausente nas anteriores.
+   */
+  linhaFina?: string | null;
   /** Quando a refação não pôde rodar sozinha, o motivo vai aqui para o painel. */
   refacaoPendente?: string | null;
   /**

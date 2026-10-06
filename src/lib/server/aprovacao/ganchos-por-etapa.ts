@@ -20,6 +20,8 @@ import type { ContextoDaRefacao, GanchoDeEtapa, ResultadoDaEtapa } from "./refaz
 import { hashDoArtigo, hashDoPostDaLinha } from "./hash";
 import { avisosDoPost, resumoDoPostDaLinha } from "./resumo-do-post";
 import { resumoDoArtigo } from "./ramos-na-fila";
+import { fotoNovaServe, imagemNaRefacao } from "../aprendizado/imagem";
+import { avaliarPauta, padroesVazios, tracosDaCandidata, type PadroesDaSelecao } from "../aprendizado/selecao";
 import {
   motivoDeFora,
   ordenarPeloPool,
@@ -73,7 +75,7 @@ export type MundoDaRefacao = {
   /** Uma foto NOVA, só para esta peça (`ignorarReuso`). Ver `ganchos-de-producao.ts`. */
   imagem: (
     pauta: PautaParaImagem,
-    ctx: { client: SupabaseClient; projeto: Project; evitar: string[] },
+    ctx: { client: SupabaseClient; projeto: Project; evitar: string[]; recusas?: string[] },
   ) => Promise<ResultadoVisual>;
   marcaDoPost: (projeto: Project, instrucao: string) => Promise<MarcaSocial>;
   gerarPost: (
@@ -336,9 +338,19 @@ const ROTULO_DE_FORA: Record<MotivoDeFora, string> = {
   REPETIDA_NO_CANAL: "já publicada no canal",
 };
 
-function resumoDasQuedas(quedas: Map<MotivoDeFora | "SEM_FOTO" | "SEM_PACOTE" | "NAO_SAIU", number>): string {
+type Queda = MotivoDeFora | "SEM_FOTO" | "SEM_PACOTE" | "NAO_SAIU" | "RECUSA_DO_EDITOR";
+
+function resumoDasQuedas(quedas: Map<Queda, number>): string {
   const rotulo = (k: string) =>
-    k === "SEM_FOTO" ? "sem foto" : k === "SEM_PACOTE" ? "sem pacote factual" : k === "NAO_SAIU" ? "não passou na redação" : ROTULO_DE_FORA[k as MotivoDeFora];
+    k === "SEM_FOTO"
+      ? "sem foto"
+      : k === "SEM_PACOTE"
+        ? "sem pacote factual"
+        : k === "NAO_SAIU"
+          ? "não passou na redação"
+          : k === "RECUSA_DO_EDITOR"
+            ? "fonte ou ator recusado pelo editor neste canal"
+            : ROTULO_DE_FORA[k as MotivoDeFora];
   return [...quedas.entries()].map(([k, n]) => `${n} ${rotulo(k)}`).join(", ");
 }
 
@@ -349,13 +361,18 @@ function resumoDasQuedas(quedas: Map<MotivoDeFora | "SEM_FOTO" | "SEM_PACOTE" | 
  * antiga, sem pool gravado, usa as aprovadas em volta da data. Fora ficam as
  * que o canal já tem no dia, as que a seleção já recusou nesta vaga, e o que
  * `motivoDeFora` recusa.
+ *
+ * E o que o canal aprendeu (06/10/2026): a fonte ou o ator recusado três
+ * vezes na seleção DESTE canal sai, e a candidata parecida com as recusadas
+ * vai para o fim da fila, sem sair dela.
  */
 async function elegiveisDoCanal(
   mundo: MundoDaRefacao,
   projectId: string,
   contexto: ContextoDeProducao,
   canal: { storyIds: string[]; impressoes?: string[]; historico: RegistroHistorico["canal"] },
-): Promise<{ elegiveis: CandidataPersistida[]; quedas: Map<MotivoDeFora | "SEM_FOTO" | "SEM_PACOTE" | "NAO_SAIU", number>; conferidas: number }> {
+  padroes: PadroesDaSelecao = padroesVazios(),
+): Promise<{ elegiveis: CandidataPersistida[]; quedas: Map<Queda, number>; conferidas: number }> {
   const config = mundo.config();
   const pool = contexto.pool?.length
     ? await mundo.candidatasPorStory(projectId, contexto.pool)
@@ -363,8 +380,9 @@ async function elegiveisDoCanal(
   const noCanal = new Set([...canal.storyIds, ...(contexto.recusadas ?? [])]);
   const vetoresDoCanal = await mundo.candidatasPorStory(projectId, [...noCanal]);
   const historico = await mundo.historico(projectId);
-  const quedas = new Map<MotivoDeFora | "SEM_FOTO" | "SEM_PACOTE" | "NAO_SAIU", number>();
+  const quedas = new Map<Queda, number>();
   const elegiveis: CandidataPersistida[] = [];
+  const penalidades = new Map<string, number>();
   const ordenadas = ordenarPeloPool(contexto.pool, pool);
   for (const c of ordenadas) {
     const fora = motivoDeFora(
@@ -377,9 +395,25 @@ async function elegiveisDoCanal(
       { registros: historico, canal: canal.historico, config },
       config.limiarDeAgrupamento,
     );
-    if (fora) quedas.set(fora, (quedas.get(fora) ?? 0) + 1);
-    else elegiveis.push(c);
+    if (fora) {
+      quedas.set(fora, (quedas.get(fora) ?? 0) + 1);
+      continue;
+    }
+    const aprendida = avaliarPauta(tracosDaCandidata(c), padroes);
+    if (aprendida.bloqueio) {
+      quedas.set("RECUSA_DO_EDITOR", (quedas.get("RECUSA_DO_EDITOR") ?? 0) + 1);
+      continue;
+    }
+    elegiveis.push(c);
+    penalidades.set(c.storyId, aprendida.penalidade);
   }
+  // Estável: sem penalidade nenhuma, a ordem é a do pool, como antes.
+  const ordem = new Map(elegiveis.map((c, i) => [c.storyId, i] as const));
+  elegiveis.sort(
+    (a, b) =>
+      (penalidades.get(a.storyId) ?? 0) - (penalidades.get(b.storyId) ?? 0) ||
+      (ordem.get(a.storyId) ?? 0) - (ordem.get(b.storyId) ?? 0),
+  );
   return { elegiveis, quedas, conferidas: ordenadas.length };
 }
 
@@ -520,6 +554,7 @@ function selecaoDoPost(mundo: MundoDaRefacao): GanchoDeEtapa {
         impressoes: doDia.map((p) => String(p.event_fingerprint ?? "")).filter(Boolean),
         historico: "instagram",
       },
+      ctx.aprendizado?.selecao,
     );
     if (elegiveis.length === 0) {
       return falha(
@@ -582,6 +617,7 @@ function selecaoDoArtigo(mundo: MundoDaRefacao): GanchoDeEtapa {
       projeto.id,
       { ...cx.contexto, recusadas },
       { storyIds: [...doCanal.values()].map((c) => c.storyId), historico: "article" },
+      ctx.aprendizado?.selecao,
     );
 
     let tentadas = 0;
@@ -749,13 +785,14 @@ function imagemDaNewsletter(mundo: MundoDaRefacao): GanchoDeEtapa {
     const alvos = apontada ? [apontada] : cx.contexto.pautas;
     const imagens = { ...(cx.contexto.imagens ?? {}) };
     const legendas = { ...(cx.contexto.legendas ?? {}) };
-    const evitar = Object.values(imagens).filter(Boolean);
+    // As fotos da edição, e as que a newsletter já recusou; a cena recebe o porquê (06/10/2026).
+    const { evitar, recusas } = imagemNaRefacao(Object.values(imagens), ctx.motivo, ctx.aprendizado?.imagem);
     const trocadas: string[] = [];
     const semOutra: string[] = [];
     for (const p of alvos) {
-      const r = await mundo.imagem(paraImagem(p), { client, projeto, evitar });
+      const r = await mundo.imagem(paraImagem(p), { client, projeto, evitar, recusas });
       const nova = temFotoDaPauta(r) ? (r.asset?.imageUrl ?? "") : "";
-      if (!nova || nova === imagens[p.storyId]) {
+      if (!fotoNovaServe(nova, [imagens[p.storyId] ?? ""], evitar)) {
         semOutra.push(p.titulo);
         continue;
       }
@@ -819,6 +856,7 @@ function selecaoDaNewsletter(mundo: MundoDaRefacao): GanchoDeEtapa {
       projeto.id,
       { ...cx.contexto, recusadas },
       { storyIds: cx.contexto.pautas.map((p) => p.storyId), historico: "newsletter" },
+      ctx.aprendizado?.selecao,
     );
 
     let entra: { pc: PautaDoContexto; pacote: PacoteFactual; foto: string; credito: string } | null = null;

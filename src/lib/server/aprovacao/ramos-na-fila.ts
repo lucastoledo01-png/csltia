@@ -68,6 +68,8 @@ export function resumoDoArtigo(peca: PecaPronta<ConteudoDoArtigo>): { resumo: Re
       titulo: c.artigo.titulo,
       texto: c.artigo.titulo,
       slug: c.slug,
+      // Para a aprovação de primeira virar exemplo da linha fina (06/10/2026).
+      linhaFina: c.artigo.subtitulo || null,
       imagens: c.capa ? [c.capa] : [],
       fonteUrl: c.fonte.url || null,
       pacoteFactual: (c.origem?.pacote.verified_facts ?? []).slice(0, 12),

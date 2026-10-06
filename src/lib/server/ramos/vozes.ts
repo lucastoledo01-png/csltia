@@ -3,6 +3,7 @@ import { instrucaoDaEtapa } from "../instrucoes";
 import type { ProjetoComCapacidades } from "../capacidades";
 import { modoDaFila } from "../aprovacao/modo";
 import { errosRecentesDaEtapa } from "../aprovacao/memoria-de-reprovacao";
+import { RAMOS, type Ramo } from "../aprovacao/contrato";
 
 /**
  * A voz de cada canal, escrita separada.
@@ -93,11 +94,20 @@ export async function vozesDosRamos(projetoId: string): Promise<VozesDosRamos> {
  * Fica DEPOIS da voz porque é correção, não identidade: a voz diz como o canal
  * fala, e o bloco diz o que o editor já recusou falando assim.
  */
-export function vozesComMemoria(vozes: VozesDosRamos, naoRepetir: string): VozesDosRamos {
-  const bloco = naoRepetir.trim();
-  if (!bloco) return vozes;
-  const juntar = (voz: string) => (voz ? `${voz}\n\n${bloco}` : bloco);
-  return { newsletter: juntar(vozes.newsletter), artigo: juntar(vozes.artigo), post: juntar(vozes.post) };
+export function vozesComMemoria(vozes: VozesDosRamos, blocos: Partial<Record<Ramo, string>>): VozesDosRamos {
+  const juntar = (voz: string, bloco: string | undefined) => {
+    const b = (bloco ?? "").trim();
+    if (!b) return voz;
+    return voz ? `${voz}\n\n${b}` : b;
+  };
+  const saida = {
+    newsletter: juntar(vozes.newsletter, blocos.newsletter),
+    artigo: juntar(vozes.artigo, blocos.artigo),
+    post: juntar(vozes.post, blocos.post),
+  };
+  return saida.newsletter === vozes.newsletter && saida.artigo === vozes.artigo && saida.post === vozes.post
+    ? vozes
+    : saida;
 }
 
 /**
@@ -105,18 +115,40 @@ export function vozesComMemoria(vozes: VozesDosRamos, naoRepetir: string): Vozes
  *
  * Fila em `off`: a memória nem é lida, e as vozes são as de `vozesDosRamos`,
  * byte a byte. Fora de `off` (inclusive `dry_run`, que já registra
- * reprovações), o bloco da etapa "texto" entra no fim de cada voz. Falha de
- * leitura da memória já devolve vazio dentro de `errosRecentesDaEtapa`.
+ * reprovações), cada voz recebe no fim o bloco do SEU canal (06/10/2026):
+ * os erros recentes da etapa "texto" e as regras fixas aprovadas daquele
+ * canal, e os exemplos aprovados de primeira daquele canal. Até esta data o
+ * bloco era um só para as três, e o erro da legenda do post entrava na voz da
+ * newsletter. Falha de leitura já devolve vazio dentro de cada leitor.
  */
 export async function vozesDosRamosComMemoria(
   projeto: ProjetoComCapacidades & { id: string },
   deps: {
     vozes?: (projetoId: string) => Promise<VozesDosRamos>;
-    memoria?: (projetoId: string, etapa: "texto") => Promise<string>;
+    memoria?: (projetoId: string, ramo: Ramo, etapa: "texto") => Promise<string>;
+    exemplos?: (projetoId: string, ramo: Ramo) => Promise<string>;
   } = {},
 ): Promise<VozesDosRamos> {
   const vozes = await (deps.vozes ?? vozesDosRamos)(projeto.id);
   if (modoDaFila(projeto) === "off") return vozes;
-  const memoria = deps.memoria ?? ((id: string, etapa: "texto") => errosRecentesDaEtapa(id, etapa));
-  return vozesComMemoria(vozes, await memoria(projeto.id, "texto"));
+  const memoria = deps.memoria ?? ((id: string, ramo: Ramo, etapa: "texto") => errosRecentesDaEtapa(id, ramo, etapa));
+  const exemplos =
+    deps.exemplos ??
+    (async (id: string, ramo: Ramo) => {
+      const [{ exemplosAprovadosDoCanal }, { criarFilaStore }, { getSupabaseAdminClient }] = await Promise.all([
+        import("../aprendizado/exemplos"),
+        import("../aprovacao/fila-store"),
+        import("../supabase-admin"),
+      ]);
+      return exemplosAprovadosDoCanal(criarFilaStore(getSupabaseAdminClient()), id, ramo);
+    });
+  const blocos: Partial<Record<Ramo, string>> = {};
+  await Promise.all(
+    RAMOS.map(async (ramo) => {
+      const [naoRepetir, aprovados] = await Promise.all([memoria(projeto.id, ramo, "texto"), exemplos(projeto.id, ramo)]);
+      // A correção antes do exemplo: o que não fazer pesa mais que o que imitar.
+      blocos[ramo] = [naoRepetir, aprovados].map((b) => b.trim()).filter(Boolean).join("\n\n");
+    }),
+  );
+  return vozesComMemoria(vozes, blocos);
 }

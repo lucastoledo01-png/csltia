@@ -89,7 +89,23 @@ export type OpcoesDaCena = {
    * pede é o resolvedor, e só quando recebeu um acervo.
    */
   comTag?: boolean;
+  /**
+   * Por que o editor recusou fotos do canal que pergunta (06/10/2026,
+   * aprendizado da fila). Entra na ENTRADA, e não na instrução, para a
+   * instrução continuar a mesma para todo canal; ausente, a entrada também.
+   */
+  recusasDoEditor?: string[];
 };
+
+/** O trecho da entrada com as recusas do editor. Vazio quando não há o que dizer. */
+export function trechoDasRecusas(recusas: string[] | undefined): string {
+  const limpas = (recusas ?? []).map((r) => r.replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 4);
+  if (limpas.length === 0) return "";
+  return [
+    "O EDITOR DESTE CANAL JÁ RECUSOU FOTOS ASSIM. Escolha outra cena, que não caia no mesmo motivo:",
+    ...limpas.map((r) => `- ${r.slice(0, 160)}`),
+  ].join("\n");
+}
 
 /**
  * As duas proibições são do dono, ditas com essas palavras em 18/09/2026:
@@ -256,6 +272,7 @@ export async function cenaDaPauta(
     pauta.resumo ? `RESUMO: ${pauta.resumo.slice(0, 600)}` : "",
     pauta.categoria ? `EDITORIA: ${pauta.categoria}` : "",
     pauta.pais ? `PAÍS DA PAUTA: ${pauta.pais}` : "",
+    trechoDasRecusas(opcoes.recusasDoEditor),
   ]
     .filter(Boolean)
     .join("\n");

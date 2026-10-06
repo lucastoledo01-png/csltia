@@ -1,5 +1,6 @@
 import { getSupabaseAdminClient } from "../supabase-admin";
-import { REPETICOES_PARA_PROPOR_REGRA, ROTULO_DA_ETAPA, type Etapa } from "./contrato";
+import { REPETICOES_PARA_PROPOR_REGRA, ROTULO_DA_ETAPA, type Etapa, type Ramo } from "./contrato";
+import { ROTULO_DO_RAMO } from "../aprendizado/contrato";
 import { criarFilaStore, type FilaStore, type Reprovacao } from "./fila-store";
 
 /**
@@ -39,17 +40,19 @@ export function montarBlocoNaoRepetir(
   etapa: Etapa,
   erros: Pick<Reprovacao, "motivo" | "textoReprovado">[],
   regrasAprovadas: string[] = [],
+  ramo?: Ramo,
 ): string {
   const linhas: string[] = [];
+  const onde = ramo ? `"${ROTULO_DA_ETAPA[etapa]}" do canal ${ROTULO_DO_RAMO[ramo]}` : `"${ROTULO_DA_ETAPA[etapa]}"`;
 
   if (regrasAprovadas.length > 0) {
-    linhas.push(`REGRAS FIXAS DA ETAPA "${ROTULO_DA_ETAPA[etapa]}", aprovadas pelo dono:`);
+    linhas.push(`REGRAS FIXAS DA ETAPA ${onde}, aprovadas pelo dono:`);
     for (const r of regrasAprovadas) linhas.push(`- ${r}`);
   }
 
   if (erros.length > 0) {
     if (linhas.length > 0) linhas.push("");
-    linhas.push(`NÃO REPETIR. Erros recentes apontados pelo editor na etapa "${ROTULO_DA_ETAPA[etapa]}":`);
+    linhas.push(`NÃO REPETIR. Erros recentes apontados pelo editor na etapa ${onde}:`);
     for (const e of erros) {
       const trecho = e.textoReprovado.trim()
         ? ` Trecho reprovado: "${cortar(e.textoReprovado, TAMANHO_DO_TRECHO)}"`
@@ -62,16 +65,21 @@ export function montarBlocoNaoRepetir(
 }
 
 /**
- * Os erros recentes da etapa como bloco de prompt.
+ * Os erros recentes da etapa, NO CANAL, como bloco de prompt.
  *
  * Assinatura pedida pelo PRD: `errosRecentesDaEtapa(projeto, etapa, limite)`.
- * O quarto parâmetro é só para teste. Falha de leitura devolve string vazia e
- * não derruba quem chama: escrever sem a memória é o comportamento de antes, e
+ * Desde 06/10/2026 o canal entra antes da etapa, e é obrigatório: até ali a
+ * memória era do projeto, e o erro apontado na legenda do post entrava na voz
+ * da newsletter. Os três canais comunicam de jeitos diferentes (decisão do
+ * dono), e o que o editor recusou num não é regra do outro. O último
+ * parâmetro é só para teste. Falha de leitura devolve string vazia e não
+ * derruba quem chama: escrever sem a memória é o comportamento de antes, e
  * perder a pauta do dia porque a memória não respondeu seria trocar um defeito
  * pequeno por um grande.
  */
 export async function errosRecentesDaEtapa(
   projeto: { id: string } | string,
+  ramo: Ramo,
   etapa: Etapa,
   limite: number = LIMITE_PADRAO_DE_ERROS,
   store?: FilaStore,
@@ -80,17 +88,19 @@ export async function errosRecentesDaEtapa(
   try {
     const s = store ?? criarFilaStore(getSupabaseAdminClient());
     const [erros, regras] = await Promise.all([
-      s.reprovacoesDaEtapa(projectId, etapa, Math.max(0, limite)),
-      s.regras(projectId, { etapa, estado: "aprovada" }),
+      s.reprovacoesDaEtapa(projectId, ramo, etapa, Math.max(0, limite)),
+      s.regras(projectId, { ramo, etapa, estado: "aprovada" }),
     ]);
     return montarBlocoNaoRepetir(
       etapa,
-      erros,
-      regras.map((r) => r.regra),
+      // O filtro do banco já é por canal; conferir de novo custa uma linha e é o defeito que isto impede.
+      erros.filter((e) => e.ramo === ramo),
+      regras.filter((r) => r.ramo === ramo).map((r) => r.regra),
+      ramo,
     );
   } catch (erro) {
     console.warn(
-      `[FILA] memória de reprovação indisponível para ${etapa}: ${erro instanceof Error ? erro.message : String(erro)}`,
+      `[FILA] memória de reprovação indisponível para ${ramo}/${etapa}: ${erro instanceof Error ? erro.message : String(erro)}`,
     );
     return "";
   }
@@ -182,14 +192,23 @@ export function errosRepetidos(
 /**
  * Depois de cada reprovação: o erro já se repetiu o bastante para virar proposta?
  *
- * Lê as últimas 50 da etapa. É janela, e não histórico inteiro, de propósito:
- * um erro que parou de acontecer há meses não precisa de regra.
+ * Lê as últimas 50 da etapa NO CANAL (06/10/2026: três recusas da mesma coisa
+ * no post e na newsletter juntos não são padrão de canal nenhum). É janela, e
+ * não histórico inteiro, de propósito: um erro que parou de acontecer há
+ * meses não precisa de regra. Vale para toda etapa, não só o texto: a regra
+ * de seleção, de imagem e de arte aprovada pelo dono entra no bloco da etapa
+ * dela, que a refação daquela etapa recebe.
  */
-export async function proporRegrasDaEtapa(store: FilaStore, projectId: string, etapa: Etapa): Promise<ErroRepetido[]> {
-  const recentes = await store.reprovacoesDaEtapa(projectId, etapa, 50);
+export async function proporRegrasDaEtapa(
+  store: FilaStore,
+  projectId: string,
+  ramo: Ramo,
+  etapa: Etapa,
+): Promise<ErroRepetido[]> {
+  const recentes = (await store.reprovacoesDaEtapa(projectId, ramo, etapa, 50)).filter((r) => r.ramo === ramo);
   const repetidos = errosRepetidos(recentes);
   for (const r of repetidos) {
-    await store.proporRegra({ projectId, etapa, ...r });
+    await store.proporRegra({ projectId, ramo, etapa, ...r, origem: "reprovacoes" });
   }
   return repetidos;
 }

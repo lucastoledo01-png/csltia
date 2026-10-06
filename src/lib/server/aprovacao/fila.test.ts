@@ -381,11 +381,11 @@ describe("reprovar e refazer (RF-22, RF-29)", () => {
     expect(propostas[0].estado).toBe("proposta");
     expect(propostas[0].ocorrencias).toBe(3);
 
-    const antes = await errosRecentesDaEtapa("proj-1", "texto", 5, m.store);
+    const antes = await errosRecentesDaEtapa("proj-1", "post", "texto", 5, m.store);
     expect(antes).not.toMatch(/REGRAS FIXAS/);
 
     await m.store.decidirRegra(propostas[0].id, "aprovada", "dono");
-    const depois = await errosRecentesDaEtapa("proj-1", "texto", 5, m.store);
+    const depois = await errosRecentesDaEtapa("proj-1", "post", "texto", 5, m.store);
     expect(depois).toMatch(/REGRAS FIXAS/);
     expect(depois).toMatch(/sigla em inglês/);
   });

@@ -107,7 +107,7 @@ describe("a memória de reprovação", () => {
         throw new Error("Gateway Timeout");
       },
     };
-    expect(await errosRecentesDaEtapa("proj-1", "texto", 5, quebrado)).toBe("");
+    expect(await errosRecentesDaEtapa("proj-1", "post", "texto", 5, quebrado)).toBe("");
   });
 
   it("agrupa por sentido e não por igualdade de texto", () => {

@@ -1,5 +1,6 @@
 import type { Aprovacao, Etapa, Ramo, ResumoDaPeca } from "./contrato";
 import type { PecaParaFila } from "./fila";
+import type { AprendizadoDoCanal } from "../aprendizado/do-canal";
 
 /**
  * O despacho da refação: refazer SÓ a etapa culpada (RF-22), 05/10/2026.
@@ -32,6 +33,19 @@ export type ContextoDaRefacao = {
   motivo: string;
   /** Newsletter: a pauta que o editor apontou (`storyId`), quando apontou. */
   alvo?: string | null;
+  /**
+   * O que o CANAL desta peça aprendeu com as reprovações dele (06/10/2026): a
+   * seleção evita a fonte e o ator recusados, a imagem evita a foto recusada
+   * e leva o motivo para a cena, a arte troca a decisão recusada. Ausente,
+   * cada etapa refaz como antes.
+   */
+  aprendizado?: AprendizadoDoCanal;
+  /**
+   * A etapa que o editor CULPOU. `etapa` é a que está rodando agora: a arte
+   * roda depois do texto e da imagem, e só deve trocar a decisão de arte
+   * quando foi ela a recusada.
+   */
+  culpada?: Etapa;
 };
 
 /**
@@ -109,7 +123,7 @@ export async function executarRefacao(
         motivo: `${MOTIVO_SEM_REGENERACAO}: a etapa "${etapa}" do ramo ${ramo} ainda não tem regeneração automática`,
       };
     }
-    const r = await gancho({ ...ctx, etapa });
+    const r = await gancho({ ...ctx, etapa, culpada: ctx.culpada ?? ctx.etapa });
     if (!r.ok) return { ok: false, executadas, falhou: etapa, motivo: r.motivo };
     executadas.push(etapa);
     resumo = { ...resumo, ...(r.resumo ?? {}) };
