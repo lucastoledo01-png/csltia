@@ -2,7 +2,7 @@ import { MARCA } from "@/lib/marca";
 import { editoriaPeloNome, hrefDaEditoria } from "@/lib/editorias";
 import { escapeHtml } from "./html";
 import { camposDeIndexacaoNoJsonLd, indexacaoValidadaDoArtigo } from "@/lib/indexacao-do-artigo";
-import { imagemParaCompartilhar, imagensDaCapaParaJsonLd, semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
+import { imagensDaCapaParaJsonLd, semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
 import { ASSINATURA_DA_REDACAO, areaDoAutor, pessoaDoAutor, urlDoAutor, type Autor, type AutorDaAssinatura } from "@/lib/autores";
 
 /**
