@@ -37,6 +37,14 @@ export type IndexacaoDaMateria = {
 
 /** Teto da fileira "Assuntos" e de `keywords` (decisão do dono, 06/10/2026). */
 export const LIMITE_DE_ASSUNTOS = 5;
+/**
+ * Piso da fileira "Assuntos" (auditoria de SEO, 05/10/2026), e piso que NÃO
+ * inventa: a matéria que não chega a dois com o que o texto sustenta sai com o
+ * que tem, e o ramo registra o aviso. Medido no banco nesta data: 61 das 62
+ * matérias publicadas tinham zero assuntos, e uma fileira de um item só não
+ * agrupa nada nem diz ao buscador de que a página trata.
+ */
+export const MINIMO_DE_ASSUNTOS = 2;
 /** Entidades ocupam no máximo isto da fileira, para sobrar lugar a um tema. */
 const LIMITE_DE_ENTIDADES_NOS_ASSUNTOS = 3;
 const LIMITE_DE_MENCOES = 10;
@@ -170,6 +178,8 @@ export type AssuntosValidados = {
   assuntos: string[];
   /** O que o validador tirou, com o motivo, para quem chamou registrar. */
   descartados: AssuntoDescartado[];
+  /** Menos que `MINIMO_DE_ASSUNTOS` mesmo depois de completar: vira aviso, nunca invenção. */
+  abaixoDoMinimo: boolean;
 };
 
 export type ContextoDosAssuntos = {
@@ -181,6 +191,12 @@ export type ContextoDosAssuntos = {
   texto?: string;
   /** A entidade central (`sobre`) entra sozinha na fileira. Padrão: sim. */
   incluirSobre?: boolean;
+  /**
+   * Abaixo do piso, completa com as entidades CITADAS (`menciona`) que o
+   * texto final nomeia, na ordem do pacote, sem passar do teto de entidades.
+   * Só quem escreve liga isto; a página não completa nada na leitura.
+   */
+  completarAteOMinimo?: boolean;
 };
 
 function idDaEditoria(e: ContextoDosAssuntos["editoria"]): EditoriaId | null {
@@ -253,9 +269,24 @@ export function validarAssuntos(propostos: readonly string[] | null | undefined,
 
   const fileiraDeEntidades = entidades.slice(0, LIMITE_DE_ENTIDADES_NOS_ASSUNTOS);
   for (const e of entidades.slice(LIMITE_DE_ENTIDADES_NOS_ASSUNTOS)) descartados.push({ termo: e, motivo: "acima do teto" });
+
+  // O piso (05/10/2026): completa com quem o texto cita, nunca com palavra nova.
+  if (ctx.completarAteOMinimo) {
+    for (const e of ctx.entidades ?? []) {
+      if (fileiraDeEntidades.length + temas.length >= MINIMO_DE_ASSUNTOS) break;
+      if (fileiraDeEntidades.length >= LIMITE_DE_ENTIDADES_NOS_ASSUNTOS) break;
+      const forma = limpo(e.nome);
+      const k = chave(forma);
+      if (!k || vistos.has(k)) continue;
+      vistos.add(k);
+      fileiraDeEntidades.push(forma);
+    }
+  }
+
   const todos = [...fileiraDeEntidades, ...temas];
   for (const t of todos.slice(LIMITE_DE_ASSUNTOS)) descartados.push({ termo: t, motivo: "acima do teto" });
-  return { assuntos: todos.slice(0, LIMITE_DE_ASSUNTOS), descartados };
+  const assuntos = todos.slice(0, LIMITE_DE_ASSUNTOS);
+  return { assuntos, descartados, abaixoDoMinimo: assuntos.length < MINIMO_DE_ASSUNTOS };
 }
 
 /** Uma linha de log por descarte, no formato que os scripts e o ramo imprimem. */

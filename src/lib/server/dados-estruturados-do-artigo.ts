@@ -2,6 +2,7 @@ import { MARCA } from "@/lib/marca";
 import { editoriaPeloNome, hrefDaEditoria } from "@/lib/editorias";
 import { escapeHtml } from "./html";
 import { camposDeIndexacaoNoJsonLd, indexacaoValidadaDoArtigo } from "@/lib/indexacao-do-artigo";
+import { imagemParaCompartilhar } from "@/lib/imagem-da-capa";
 
 /**
  * O que a busca e os assistentes leem da matéria, montado num lugar só
@@ -50,6 +51,88 @@ export type ArtigoParaBusca = {
 };
 
 export type PerguntaVisivel = { pergunta: string; resposta: string };
+
+export const ID_DA_ORGANIZACAO = `${MARCA.site}/#organizacao`;
+export const ID_DO_SITE = `${MARCA.site}/#site`;
+
+/**
+ * A organização que publica, a mesma em toda página (auditoria de SEO,
+ * 05/10/2026): o logotipo com a medida do arquivo (800 por 142) e o perfil do
+ * Instagram em `sameAs`, que é o único perfil oficial que existe hoje. Perfil
+ * que não existe não entra.
+ */
+export function organizacaoDoSite(): Record<string, unknown> {
+  return {
+    "@type": "Organization",
+    "@id": ID_DA_ORGANIZACAO,
+    name: MARCA.nome,
+    url: MARCA.site,
+    logo: { "@type": "ImageObject", url: MARCA.logoClaro, width: 800, height: 142 },
+    sameAs: [MARCA.instagram],
+  };
+}
+
+/** O site, para a home: sem `SearchAction`, porque o portal não tem busca. */
+export function siteDoPortal(): Record<string, unknown> {
+  return {
+    "@type": "WebSite",
+    "@id": ID_DO_SITE,
+    name: MARCA.nome,
+    url: MARCA.site,
+    description: MARCA.descricao,
+    inLanguage: "pt-BR",
+    publisher: { "@id": ID_DA_ORGANIZACAO },
+  };
+}
+
+/** O grafo da home: o site e quem o publica. */
+export function dadosEstruturadosDaHome(): Record<string, unknown> {
+  return { "@context": "https://schema.org", "@graph": [organizacaoDoSite(), siteDoPortal()] };
+}
+
+/**
+ * O grafo da página de uma editoria: CollectionPage com a lista das matérias
+ * que ela mostra (só as que têm página no portal) e o caminho de navegação.
+ */
+export function dadosEstruturadosDaEditoria(
+  editoria: { nome: string; descricao: string; url: string },
+  materias: Array<{ url: string; titulo: string }>,
+): Record<string, unknown> {
+  const lista = materias.slice(0, 30);
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      organizacaoDoSite(),
+      {
+        "@type": "CollectionPage",
+        "@id": `${editoria.url}#pagina`,
+        url: editoria.url,
+        name: `${editoria.nome} | ${MARCA.nome}`,
+        description: editoria.descricao,
+        inLanguage: "pt-BR",
+        isPartOf: { "@id": ID_DO_SITE },
+        publisher: { "@id": ID_DA_ORGANIZACAO },
+        breadcrumb: { "@id": `${editoria.url}#caminho` },
+        ...(lista.length
+          ? {
+              mainEntity: {
+                "@type": "ItemList",
+                itemListElement: lista.map((m, i) => ({ "@type": "ListItem", position: i + 1, url: m.url, name: m.titulo })),
+              },
+            }
+          : {}),
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": `${editoria.url}#caminho`,
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Início", item: MARCA.site },
+          { "@type": "ListItem", position: 2, name: editoria.nome, item: editoria.url },
+        ],
+      },
+    ],
+  };
+}
 
 /** Folga entre publicar e "modificar": gravações da mesma rodada não contam. */
 const FOLGA_DE_MODIFICACAO_MS = 10 * 60 * 1000;
@@ -120,6 +203,33 @@ export function corpoComPerguntas(html: string, perguntas: PerguntaVisivel[]): s
   return fonte >= 0 ? `${html.slice(0, fonte)}${secao}${html.slice(fonte)}` : `${html}${secao}`;
 }
 
+/**
+ * O "Leia também" para a matéria que nasceu sem ele (auditoria de SEO,
+ * 05/10/2026).
+ *
+ * Medido no banco: 61 das 62 matérias publicadas vieram do desmonte das
+ * edições e não têm link para nenhuma outra matéria no corpo, só o menu. O
+ * bloco é o mesmo que `renderizarArtigoHtml` escreve (mesma classe, para a
+ * auditoria e a indexação o ignorarem igual), montado na página com as
+ * relacionadas lidas do banco, antes das perguntas e da fonte. Corpo que já
+ * tem o bloco não muda; sem relacionada e sem editoria, nada entra.
+ */
+export function corpoComLeiaTambem(
+  html: string,
+  relacionadas: ReadonlyArray<{ slug: string; titulo: string }>,
+  editoria: { nome: string; href: string } | null,
+): string {
+  if (/<section[^>]*class="leia-tambem"/i.test(html)) return html;
+  if (relacionadas.length === 0 && !editoria) return html;
+  const lista = relacionadas.length
+    ? `<ul>${relacionadas.map((r) => `<li><a href="/artigos/${encodeURIComponent(r.slug)}">${escapeHtml(r.titulo)}</a></li>`).join("")}</ul>`
+    : "";
+  const mais = editoria ? `<p class="mais-da-editoria"><a href="${escapeHtml(editoria.href)}">Mais de ${escapeHtml(editoria.nome)}</a></p>` : "";
+  const secao = `<section class="leia-tambem"><h2>Leia também</h2>${lista}${mais}</section>`;
+  const antes = html.search(/<section[^>]*class="perguntas"|<p[^>]*class="fonte"|<section[^>]*class="fontes"/i);
+  return antes >= 0 ? `${html.slice(0, antes)}${secao}${html.slice(antes)}` : `${html}${secao}`;
+}
+
 function iso(d: string | null | undefined): string | undefined {
   if (!d) return undefined;
   const t = Date.parse(d);
@@ -133,6 +243,18 @@ export function dataDeModificacao(publicada: string | null | undefined, atualiza
   if (!p) return u;
   if (!u) return p;
   return Date.parse(u) - Date.parse(p) > FOLGA_DE_MODIFICACAO_MS ? u : p;
+}
+
+/**
+ * O `<title>` com a marca só quando ela cabe (auditoria de SEO, 05/10/2026).
+ * Medido: 34 das 62 matérias têm título de busca acima de 60 caracteres, e
+ * com " | eua.journal" (14) quase todas passavam do corte do Google, que
+ * comia o fim do título, que é onde fica a jurisdição (regra 4 do
+ * `modelo-de-titulo.md`). O nome do site o Google tira do WebSite do JSON-LD.
+ */
+export function tituloDaAba(tituloDeBusca: string): string {
+  const comMarca = `${tituloDeBusca} | ${MARCA.nome}`;
+  return comMarca.length <= 60 ? comMarca : tituloDeBusca;
 }
 
 export function urlDoArtigo(slug: string): string {
@@ -154,9 +276,10 @@ export function dadosEstruturadosDoArtigo(
   const url = urlDoArtigo(a.slug);
   const editoria = editoriaPeloNome(a.category);
   const secao = editoria?.nome ?? (a.category || undefined);
-  const capa = (a.cover_image ?? "").trim();
+  // Limpa (`&amp%3B` do Pexels) e na miniatura de 1280 do Commons, nunca o original de 9 MB.
+  const capa = imagemParaCompartilhar(a.cover_image);
   const publicada = iso(a.published_at);
-  const idOrganizacao = `${MARCA.site}/#organizacao`;
+  const idOrganizacao = ID_DA_ORGANIZACAO;
 
   const caminho: Array<{ "@type": string; position: number; name: string; item: string }> = [
     { "@type": "ListItem", position: 1, name: "Início", item: MARCA.site },
@@ -167,13 +290,8 @@ export function dadosEstruturadosDoArtigo(
   caminho.push({ "@type": "ListItem", position: caminho.length + 1, name: a.title, item: url });
 
   const grafo: Record<string, unknown>[] = [
-    {
-      "@type": "Organization",
-      "@id": idOrganizacao,
-      name: MARCA.nome,
-      url: MARCA.site,
-      logo: { "@type": "ImageObject", url: MARCA.logoClaro },
-    },
+    organizacaoDoSite(),
+    siteDoPortal(),
     {
       "@type": "NewsArticle",
       "@id": `${url}#materia`,
@@ -194,6 +312,7 @@ export function dadosEstruturadosDoArtigo(
       url,
       inLanguage: "pt-BR",
       isAccessibleForFree: true,
+      isPartOf: { "@id": ID_DO_SITE },
     },
     { "@type": "BreadcrumbList", "@id": `${url}#caminho`, itemListElement: caminho },
   ];

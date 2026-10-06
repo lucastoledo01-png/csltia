@@ -5,6 +5,7 @@ import {
   entidadesPresentesNoTexto,
   indexacaoDasTags,
   indexacaoValidadaDoArtigo,
+  MINIMO_DE_ASSUNTOS,
   validarAssuntos,
   tagsDeIndexacao,
   tagsSemIndexacao,
@@ -129,5 +130,37 @@ describe("about e mentions só com quem o texto final nomeia (06/10/2026)", () =
     });
     expect(ix.entidades.map((x) => x.nome)).toEqual(["Chicago"]);
     expect(ix.assuntos).toEqual([]);
+  });
+});
+
+describe("piso de assuntos (auditoria de SEO, 05/10/2026)", () => {
+  const ENTIDADES = [
+    { papel: "sobre" as const, nome: "Chicago" },
+    { papel: "menciona" as const, nome: "Brandon Johnson" },
+    { papel: "menciona" as const, nome: "Bill Conway" },
+  ];
+
+  it("abaixo de dois, completa com quem o texto cita, e não com palavra nova", () => {
+    const r = validarAssuntos(["energia"], { entidades: ENTIDADES, completarAteOMinimo: true });
+    expect(r.assuntos).toEqual(["Chicago", "Brandon Johnson"]);
+    expect(r.abaixoDoMinimo).toBe(false);
+  });
+
+  it("sem completar, a leitura da página não acrescenta nada", () => {
+    const r = validarAssuntos([], { entidades: ENTIDADES });
+    expect(r.assuntos).toEqual(["Chicago"]);
+    expect(r.abaixoDoMinimo).toBe(true);
+  });
+
+  it("sem entidade e sem tema no texto, fica abaixo do piso e diz isso, sem inventar", () => {
+    const r = validarAssuntos(["água", "governo"], { entidades: [], texto: "Um texto curto sem tema da lista.", completarAteOMinimo: true });
+    expect(r.assuntos).toEqual([]);
+    expect(r.abaixoDoMinimo).toBe(true);
+    expect(MINIMO_DE_ASSUNTOS).toBe(2);
+  });
+
+  it("acima do piso, completar não mexe em nada", () => {
+    const r = validarAssuntos(["data centers", "conta de luz"], { entidades: ENTIDADES, completarAteOMinimo: true });
+    expect(r.assuntos).toEqual(["Chicago", "data centers", "conta de luz"]);
   });
 });

@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { PortalHome } from "@/components/PortalHome";
+import { MARCA, TITULO_DO_SITE } from "@/lib/marca";
+import { dadosEstruturadosDaHome, jsonLdSeguro } from "@/lib/server/dados-estruturados-do-artigo";
 import { comDestaqueFixado, montarHome, pautasRecentes } from "@/lib/server/portal";
 import { DEFAULT_PROJECT_ID, getProjectById } from "@/lib/server/projects";
 import { modoDosRamos } from "@/lib/server/ramos/modo";
@@ -22,6 +25,27 @@ import { modoDosRamos } from "@/lib/server/ramos/modo";
  */
 export const dynamic = "force-dynamic";
 
+/*
+ * Canônico, Open Graph e JSON-LD da home (auditoria de SEO, 05/10/2026).
+ * Ela herdava só título e descrição do layout: sem canônico, e
+ * `www.casaloti.ia.br` respondia 200 com a mesma página, sem dizer qual das
+ * duas é a original.
+ */
+export const metadata: Metadata = {
+  title: { absolute: TITULO_DO_SITE },
+  description: MARCA.descricao,
+  alternates: { canonical: MARCA.site },
+  openGraph: {
+    type: "website",
+    title: TITULO_DO_SITE,
+    description: MARCA.descricao,
+    url: MARCA.site,
+    siteName: MARCA.nome,
+    locale: "pt_BR",
+    images: [{ url: MARCA.avatar, alt: MARCA.nome }],
+  },
+};
+
 /**
  * A home é um jornal, e a unidade dela é a pauta.
  *
@@ -44,5 +68,10 @@ export default async function Home() {
     timezone: projeto?.timezone,
   }).catch(() => []);
 
-  return <PortalHome dados={montarHome(await comDestaqueFixado(pautas, projeto))} />;
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdSeguro(dadosEstruturadosDaHome()) }} />
+      <PortalHome dados={montarHome(await comDestaqueFixado(pautas, projeto))} />
+    </>
+  );
 }
