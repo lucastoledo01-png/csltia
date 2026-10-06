@@ -1255,6 +1255,29 @@ render (regra de 05/10). Os três recortes de 05/10 nasceram às 09:21, antes do
 interruptor. O recorte também deixou de carregar a segunda foto: ele não
 desenha bolha, e o campo ia preenchido assim mesmo.
 
+## A cadência se edita no painel, e o relógio da produção é da rota (06/10/2026)
+
+**A tela é `/admin/<projeto>/cadencia`**, com link no menu do projeto, ao lado
+dos perfis de referência e do acervo. Ela edita `settings.cadencia` inteiro:
+dias, horários e volume de cada canal, mais produção e aprovação, e mostra a
+prévia da semana seguinte. Grava por `PUT /api/admin/projetos/<id>/cadencia`,
+com sessão do painel, tocando só a chave `cadencia` do jsonb.
+
+**Campo inválido é gravado como veio**, e na leitura cai no padrão daquele
+campo com aviso, que é a regra de 05/10. Normalizar antes de gravar apagaria o
+aviso: o painel diria "gravado" e o campo voltaria ao padrão em silêncio. O
+formulário calcula a prévia e os avisos a cada tecla com os MESMOS validadores
+da esteira (`cadencia-no-painel.ts` é puro e o cliente o importa).
+
+**O horário da produção é decidido pela rota, não pelo crontab.** Com
+`?relogio=1`, `/api/cron/producao` é chamada de 15 em 15 minutos e só produz no
+primeiro disparo entre o horário gravado e 15 minutos depois. Fora da janela
+não grava linha, não pinga o watchdog e não alerta. Sem o parâmetro a rota
+continua produzindo quando é chamada, então a linha antiga das 20:00 UTC segue
+funcionando até ser trocada; o painel avisa quando o horário gravado não bate
+com ela. O portal tem o mesmo aviso para `/api/cron/portal`, que já é segura de
+chamar a qualquer hora.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

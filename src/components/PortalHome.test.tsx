@@ -69,11 +69,18 @@ describe("home do portal (redesenho Sora)", () => {
   it("usa o logotipo de fundo claro no cabeçalho branco e o de fundo escuro no preto", () => {
     const { container } = render(<PortalHome dados={dados()} />);
     const header = container.querySelector("header")!;
-    const fontes = Array.from(header.querySelectorAll("img")).map((i) => i.getAttribute("src"));
+    /*
+     * Desde 06/10/2026 é um `<picture>`, para o navegador baixar UMA versão:
+     * a de fundo claro na tela larga, onde o cabeçalho é branco, e a de fundo
+     * escuro no celular, onde ele é preto. As duas pelo otimizador.
+     */
+    const fonte = header.querySelector('picture source[media="(min-width: 768px)"]')!;
+    const img = header.querySelector("picture img")!;
 
-    expect(fontes).toContain("/marca/eua-journal-fundo-claro.png");
-    expect(fontes).toContain("/marca/eua-journal-fundo-escuro.png");
-    expect(within(header).getAllByAltText(MARCA.nome).length).toBe(2);
+    expect(decodeURIComponent(fonte.getAttribute("srcset") ?? "")).toContain("/marca/eua-journal-fundo-claro.png");
+    expect(decodeURIComponent(img.getAttribute("src") ?? "")).toContain("/marca/eua-journal-fundo-escuro.png");
+    expect(decodeURIComponent(img.getAttribute("srcset") ?? "")).not.toContain("fundo-claro");
+    expect(within(header).getAllByAltText(MARCA.nome).length).toBe(1);
   });
 
   it("Seções em foco é UMA fileira de cards de tema, um por editoria, cada um levando à página dela", () => {

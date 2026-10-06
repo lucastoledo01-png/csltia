@@ -101,6 +101,27 @@ describe("área do projeto", () => {
     }
   });
 
+  /*
+   * As telas de endereço próprio (06/10/2026) só eram alcançáveis por quem
+   * sabia a URL. Agora são links do menu, nas duas navegações.
+   */
+  it("leva às telas de endereço próprio: cadência, perfis de referência e acervo", async () => {
+    vi.stubGlobal("fetch", responder());
+
+    render(<EspacoDoProjeto slug="desbuguei" />);
+
+    const lateral = within(await screen.findByRole("navigation", { name: "Seções do projeto" }));
+    const movel = within(screen.getByRole("navigation", { name: "Seções do projeto, no celular" }));
+    for (const nav of [lateral, movel]) {
+      expect(nav.getByRole("link", { name: "Cadência" })).toHaveAttribute("href", "/admin/desbuguei/cadencia");
+      expect(nav.getByRole("link", { name: "Perfis de referência" })).toHaveAttribute(
+        "href",
+        "/admin/desbuguei/perfis-de-referencia",
+      );
+      expect(nav.getByRole("link", { name: "Acervo de imagens" })).toHaveAttribute("href", "/admin/desbuguei/acervo");
+    }
+  });
+
   it("slug desconhecido não abre painel nenhum", async () => {
     vi.stubGlobal("fetch", responder());
 

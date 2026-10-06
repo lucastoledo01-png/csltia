@@ -2,7 +2,7 @@ import { BotaoVoltar } from "@/components/BotaoVoltar";
 import { ArticleComments } from "@/components/ArticleComments";
 import { CaixaDeAssinatura, MolduraDoPortal } from "@/components/PortalChrome";
 import { SubstackArticleRenderer } from "@/components/SubstackArticleRenderer";
-import { creditoDoCommons, enderecoLimpoDaImagem, miniaturaDoCommons, semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
+import { creditoDoCommons, enderecoLimpoDaImagem, fotoNaLargura, miniaturaDoCommons, semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
 import { editoriaPeloNome, hrefDaEditoria } from "@/lib/editorias";
 import { indexacaoValidadaDoArtigo } from "@/lib/indexacao-do-artigo";
 import {
@@ -103,9 +103,15 @@ function datasDaMateria(a: MateriaDaPagina): { publicada?: { iso: string; texto:
  */
 function corpoComMiniaturas(html: string | undefined): string | undefined {
   if (!html) return html;
-  return html.replace(/(<img[^>]+src=")([^"]+)(")/g, (_, antes: string, src: string, depois: string) =>
-    `${antes}${miniaturaDoCommons(src.replace(/&amp;/g, "&"), 1280)}${depois}`,
-  );
+  /*
+   * E carregadas só perto da tela (06/10/2026): a foto do corpo vem depois da
+   * capa, que é o LCP, e não deve disputar banda com ela.
+   */
+  return html
+    .replace(/(<img[^>]+src=")([^"]+)(")/g, (_, antes: string, src: string, depois: string) =>
+      `${antes}${miniaturaDoCommons(src.replace(/&amp;/g, "&"), 1280)}${depois}`,
+    )
+    .replace(/<img\b(?![^>]*\bloading=)/gi, '<img loading="lazy" decoding="async"');
 }
 
 function semMarcas(s: string): string {
@@ -205,7 +211,7 @@ export function PaginaDaMateria({
             category={article.category}
             categoryHref={editoria ? hrefDaEditoria(editoria.id) : undefined}
             readTime={minutos ? `${minutos} min` : undefined}
-            coverImage={capa ? miniaturaDoCommons(capa, 1280) : null}
+            coverImage={capa ? fotoNaLargura(capa, 1280) : null}
             coverCredit={creditoDaCapa ?? creditoPadrao?.texto}
             coverCreditHref={creditoPadrao?.href}
             coverDescription={legendaDaCapa}

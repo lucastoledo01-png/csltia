@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getImageProps } from "next/image";
 import { logoDoSite, MARCA } from "@/lib/marca";
 import { EDITORIAS, hrefDaEditoria } from "@/lib/editorias";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
@@ -73,6 +74,40 @@ export function dataDeHoje(agora: Date = new Date()): { longa: string; curta: st
  * versão de fundo escuro. A referência punha a versão de fundo escuro no
  * cabeçalho branco, o que deixaria o "eua" branco invisível.
  */
+/*
+ * O logotipo pelo otimizador, numa largura que a tela usa (06/10/2026).
+ *
+ * Os dois PNGs têm 800px de largura e uns 68 KB cada, e aparecem com cerca de
+ * 180px. Eram dois `<img>`, um escondido por CSS conforme a tela, e o
+ * navegador baixava e pré-carregava os dois em toda página, disputando banda
+ * com a capa, que é o LCP. Agora é um `<picture>`: o navegador escolhe UMA
+ * versão pela largura da tela e a baixa em WebP do tamanho certo.
+ */
+const LARGURA_DO_LOGO = "180px";
+
+function propsDoLogo(escuro: boolean, carregamento: "eager" | "lazy") {
+  return getImageProps({
+    src: logoDoSite(escuro),
+    alt: MARCA.nome,
+    width: 800,
+    height: 143,
+    sizes: LARGURA_DO_LOGO,
+    loading: carregamento,
+  }).props;
+}
+
+function LogoDoTopo() {
+  const { srcSet: claro } = propsDoLogo(false, "eager");
+  const escuro = propsDoLogo(true, "eager");
+  return (
+    <picture>
+      <source media="(min-width: 768px)" srcSet={claro} sizes={LARGURA_DO_LOGO} />
+      {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
+      <img {...escuro} className="h-7 w-auto md:h-8" />
+    </picture>
+  );
+}
+
 export function TopoDoPortal() {
   const hoje = dataDeHoje();
 
@@ -94,10 +129,7 @@ export function TopoDoPortal() {
         <div className="relative mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-4 sm:px-6 md:h-20">
           <div className="flex items-center gap-10 lg:gap-12">
             <Link href="/" aria-label={`${MARCA.nome}, página inicial`} className="block shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={logoDoSite(true)} alt={MARCA.nome} width={800} height={143} className="h-7 w-auto md:hidden" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={logoDoSite(false)} alt={MARCA.nome} width={800} height={142} className="hidden h-8 w-auto md:block" />
+              <LogoDoTopo />
             </Link>
 
             <nav aria-label="Editorias" className="hidden items-center gap-6 md:flex lg:gap-8">
@@ -167,8 +199,8 @@ export function RodapeDoPortal() {
       <div className="mx-auto grid max-w-7xl grid-cols-2 gap-10 px-5 pb-12 pt-14 sm:px-6 lg:grid-cols-[2fr_1fr_1fr_1.4fr] lg:gap-12 lg:py-16">
         <div className="col-span-2 lg:col-span-1">
           <Link href="/" aria-label={`${MARCA.nome}, página inicial`} className="inline-block">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logoDoSite(true)} alt={MARCA.nome} width={800} height={143} className="h-8 w-auto lg:h-9" />
+            {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
+            <img {...propsDoLogo(true, "lazy")} className="h-8 w-auto lg:h-9" />
           </Link>
           <p className="mt-6 max-w-sm text-sm leading-relaxed text-[#A1A1AA]">{MARCA.descricao}</p>
           <a

@@ -64,6 +64,18 @@ const SECOES: Array<{ id: Secao; rotulo: string; descricao: string }> = [
   { id: "avancado", rotulo: "Avançado", descricao: "Etapas ligadas e ferramentas arquivadas." },
 ];
 
+/*
+ * As telas do projeto que moram em endereço próprio (06/10/2026). Nasceram
+ * fora deste arquivo de propósito, para várias frentes não disputarem o mesmo
+ * menu, e ficavam alcançáveis só por quem sabia a URL. Aqui viram links, sem
+ * entrar em `SECOES`, que são as abas desta página.
+ */
+const PAGINAS: Array<{ caminho: string; rotulo: string }> = [
+  { caminho: "cadencia", rotulo: "Cadência" },
+  { caminho: "perfis-de-referencia", rotulo: "Perfis de referência" },
+  { caminho: "acervo", rotulo: "Acervo de imagens" },
+];
+
 function secaoDaUrl(): Secao {
   if (typeof window === "undefined") return "publicacoes";
   const alvo = window.location.hash.replace("#", "");
@@ -190,6 +202,17 @@ function AreaDoProjeto({ slug }: { slug: string }) {
               {item.rotulo}
             </button>
           ))}
+          <div className="mt-3 border-t border-slate-100 pt-3">
+            {PAGINAS.map((p) => (
+              <Link
+                key={p.caminho}
+                href={`/admin/${projeto.slug}/${p.caminho}`}
+                className="admin-sidebar-link flex w-full items-center px-4 py-2.5 text-left text-[13px]"
+              >
+                {p.rotulo}
+              </Link>
+            ))}
+          </div>
         </nav>
 
         <div className="border-t border-slate-200 p-3">
@@ -247,6 +270,15 @@ function AreaDoProjeto({ slug }: { slug: string }) {
             >
               {item.rotulo}
             </button>
+          ))}
+          {PAGINAS.map((p) => (
+            <Link
+              key={p.caminho}
+              href={`/admin/${projeto.slug}/${p.caminho}`}
+              className="admin-sidebar-link shrink-0 px-3 py-1.5 text-[12px]"
+            >
+              {p.rotulo}
+            </Link>
           ))}
         </nav>
 

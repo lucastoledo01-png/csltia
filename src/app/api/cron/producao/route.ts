@@ -3,7 +3,9 @@ import type { NextRequest } from "next/server";
 import { requireCron } from "@/lib/server/api-auth";
 import { formatError, pingHealthcheck, sendAlert } from "@/lib/server/alerts";
 import { produzirNaVespera, type DesfechoDaProducao } from "@/lib/server/producao-vespera";
-import { DEFAULT_PROJECT_ID, getProjectBySlug } from "@/lib/server/projects";
+import { DEFAULT_PROJECT_ID, getProjectById, getProjectBySlug } from "@/lib/server/projects";
+import { cadenciaDoProjeto } from "@/lib/server/cadencia";
+import { chegouAHoraDaProducao } from "@/lib/server/cadencia-no-painel";
 
 export const maxDuration = 300;
 
@@ -55,6 +57,29 @@ async function handle(req: NextRequest) {
     const projeto = await getProjectBySlug(slug).catch(() => null);
     if (!projeto) return NextResponse.json({ ok: false, error: `projeto "${slug}" não encontrado` }, { status: 404 });
     projetoId = projeto.id;
+  }
+
+  /*
+   * `?relogio=1` (06/10/2026): o crontab chama de 15 em 15 minutos e a rota
+   * decide pela hora gravada em `settings.cadencia.producao.horario`, que o
+   * dono edita no painel. Sem o parâmetro, a rota produz quando é chamada,
+   * como antes, e o horário de verdade é o da linha do crontab.
+   *
+   * Fora da janela não grava linha, não pinga o watchdog e não alerta: seriam
+   * 95 linhas por dia sem nada a dizer. A linha do dia continua existindo,
+   * gravada pela chamada que cai na janela, inclusive nos dias que não
+   * produzem. Projeto ilegível aqui responde 503 sem produzir: o watchdog da
+   * produção, que espera o ping do dia, é quem avisa se a janela passar assim.
+   */
+  if (req.nextUrl.searchParams.get("relogio") === "1") {
+    const projeto = await getProjectById(projetoId).catch(() => null);
+    if (!projeto) {
+      return NextResponse.json({ ok: false, error: "projeto ilegível; nada produzido neste disparo" }, { status: 503 });
+    }
+    const hora = chegouAHoraDaProducao(cadenciaDoProjeto(projeto), new Date(), projeto.timezone);
+    if (!hora.naJanela) {
+      return NextResponse.json({ ok: true, produzido: false, motivo: "FORA_DO_HORARIO", ...hora }, { status: 200 });
+    }
   }
 
   void pingHealthcheck(healthcheck, "start");

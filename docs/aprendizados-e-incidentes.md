@@ -1380,6 +1380,39 @@ recorte não recebe mais a segunda foto.
 **Lição.** É a "linha gravada mentindo" de 16/09 outra vez: campo que descreve
 uma decisão precisa ser escrito por quem a EXECUTA, não por quem a pediu.
 
+### Uma classe `font-mono` baixava a Inter inteira em toda matéria (06/10/2026)
+
+**Sintoma.** Medindo a matéria, 99 KB de fonte numa página que só desenha
+Sora. A Inter (48 KB) chegava mesmo com o portal inteiro trocado para Sora.
+
+**Causa.** O contador de comentários era `<span class="font-mono">(0)</span>`,
+e no tema `--font-mono` aponta para a Inter: um parêntese com um zero puxava o
+arquivo inteiro. E a Inter ainda era PRÉ-CARREGADA em toda página, junto com o
+segundo arquivo da Sora (`latin-ext`), disputando banda com a capa, que é o LCP.
+
+**Corrigido.** `tabular-nums` no lugar de `font-mono`; Inter sem `preload`;
+Sora pré-carregando só `latin` (o `latin-ext` continua declarado e só baixa se
+aparecer letra dele na página).
+
+**Lição.** Fonte se audita no navegador (`document.fonts`, as carregadas), não
+no CSS: classe utilitária que aponta para outra família não aparece numa busca
+pelo nome da fonte.
+
+### O React pré-carregava os dois logotipos, inclusive o escondido (06/10/2026)
+
+**Sintoma.** Dois `<link rel=preload as=image>` de 68 KB cada no topo de toda
+página do portal, um deles para um `<img>` com `display: none`.
+
+**Causa.** O React 19 emite pré-carga para `<img>` renderizado no servidor sem
+olhar o CSS. O cabeçalho tinha uma versão do logotipo para o celular e outra
+para o computador, alternadas por `hidden` e `md:block`.
+
+**Corrigido.** Um `<picture>` com `<source media>`: o navegador escolhe uma
+versão, e ela passa pelo otimizador (8 KB em WebP).
+
+**Lição.** Alternar imagem por breakpoint com classe baixa as duas. Para
+escolher imagem pela tela, `<picture>`.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

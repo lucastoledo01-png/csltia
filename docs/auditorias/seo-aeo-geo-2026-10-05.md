@@ -275,3 +275,41 @@ Código, sem tocar no banco. `npx vitest run` (2.312 testes, 207 arquivos) e
 - Assuntos: `MINIMO_DE_ASSUNTOS` e `completarAteOMinimo`, aviso no ramo e na
   reescrita.
 - Auditoria: `estrutura-da-materia.ts` e `auditar-artigos.ts --estrutura`.
+
+## 10. Desempenho, medido depois (06/10/2026)
+
+Os itens 23, 24 e 26 e o que a seção 8 deixou sem medir, feitos no PR
+`perf/portal-e-painel`. Medição com Playwright (Chromium headless), celular
+emulado (412x823 a 1,75x, CPU 4x mais lenta, rede "Slow 4G" do Lighthouse:
+150 ms, 1,6 Mbps), `next start` local lendo o banco de produção só para
+leitura, mediana de 5 carregamentos frios por página, janela de 10 s depois
+do `load`. O Lighthouse não foi instalado (o pacote com dependências passa de
+50 MB). Bytes são os transferidos, comprimidos.
+
+| Página | Medida | Antes | Depois |
+|---|---|---|---|
+| Matéria | LCP | 2.880 ms | 2.120 ms |
+| Matéria | Total transferido | 543 KB | 379 KB |
+| Matéria | JavaScript | 194 KB | 167 KB |
+| Matéria | Fontes | 99 KB (Inter, Sora latin e latin-ext) | 34 KB (Sora latin) |
+| Matéria | Imagens | 219 KB | 144 KB |
+| Home | LCP | 7.680 ms | 4.400 ms |
+| Home | Total transferido | 852 KB | 512 KB |
+| Home | Imagens | 507 KB | 249 KB |
+| Lista `/artigos` | LCP | 2.688 ms | 1.840 ms |
+| Lista `/artigos` | Total transferido | 526 KB | 312 KB |
+| Todas | CLS | 0 | 0 |
+
+O Turnstile saiu do carregamento: o carregador (28 KB) é o que a conta de
+JavaScript acima enxerga, mas o widget inteiro, iframe incluído, são 11
+pedidos e cerca de 800 KB que toda página do portal baixava em segundo plano.
+Agora só com foco, toque ou envio na caixa de assinatura.
+
+A leitura da matéria no banco: `select *` da tabela inteira devolvia 653 KB em
+857 ms (mediana de 7), e a página fazia isso duas vezes (metadados e corpo). A
+leitura por slug devolve 10 KB em 233 ms, uma vez.
+
+O TTFB da home ficou entre 2,0 e 2,9 s nos dois lados e domina o LCP dela: a
+home é renderizada por requisição e lê 20 edições com o HTML inteiro (423 KB)
+para achar as fotos das pautas. Não mexido aqui; é o próximo item de
+desempenho.
