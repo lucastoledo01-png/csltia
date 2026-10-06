@@ -1,3 +1,4 @@
+import { conferirAlcance, type BuscaDeEntidade } from "./alcance";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DeduplicatedGroup } from "../newsroom/deduplicator";
 import type { Classificacao } from "./classificador";
@@ -166,6 +167,24 @@ export type OpcoesDaGuarda = {
   provedorDeVetor?: ProvedorDeEmbedding | null;
   env?: Record<string, string | undefined>;
   fetcher?: typeof fetch;
+  /**
+   * Só as classificações que já estão no banco, nenhuma nova (06/10/2026).
+   *
+   * Para refazer a newsletter de um dia cuja produção já rodou
+   * (`produzirSoANewsletter`): a edição sai do material que a produção da
+   * véspera classificou, e não de uma segunda leitura do dia. Classificar de
+   * novo o que chegou depois custou US$ 1,70 no ensaio de 06/10/2026 (657
+   * candidatas) e mudaria o pool sobre o qual o resto do dia foi planejado.
+   * Sem a camada persistida, ou com a leitura dela falhando, nada é
+   * classificado e a edição não fecha: é o lado barato do erro.
+   */
+  soReaproveitadas?: boolean;
+  /**
+   * O piso de alcance nacional das pautas centradas em gente (06/10/2026,
+   * `alcance.ts`). Ausente, nada é conferido: os scripts de medição e os
+   * testes seguem sem rede. O ciclo de verdade passa `buscaDeEntidadePadrao`.
+   */
+  alcance?: BuscaDeEntidade | null;
 };
 
 export async function avaliarPautas(
@@ -261,6 +280,10 @@ export async function avaliarPautas(
       });
 
       reuso.classificacoesReaproveitadas = reaproveitadas.size;
+      if (opcoes.soReaproveitadas) {
+        linhas.push(`[GUARDA] só as já classificadas: ${paraClassificar.length} candidata(s) nova(s) ficam de fora`);
+        paraClassificar = [];
+      }
       linhas.push(
         `[GUARDA] ${persistidas.size} candidata(s) já no banco, ` +
           `${reaproveitadas.size} classificação(ões) reaproveitada(s), ${paraClassificar.length} a classificar`,
@@ -271,8 +294,12 @@ export async function avaliarPautas(
       reuso.erros.push(texto);
       reuso.errosDeLeitura.push(texto);
       linhas.push(`[GUARDA] camada persistida indisponível, classificando tudo: ${textoDoErro(erro)}`);
-      paraClassificar = grupos;
+      paraClassificar = opcoes.soReaproveitadas ? [] : grupos;
     }
+  }
+  if (opcoes.soReaproveitadas && !(store && projectId)) {
+    linhas.push("[GUARDA] só as já classificadas, e sem camada persistida: nada é classificado");
+    paraClassificar = [];
   }
 
   const { classificacoes, custoUsd, tokens, lotesComFalha } = await classificarPautas(
@@ -339,6 +366,37 @@ export async function avaliarPautas(
     }
 
     aprovadasNoFiltro.push({ grupo, classificacao: c, motivo: decisao.motivo });
+  }
+
+  /*
+   * Alcance nacional (06/10/2026). Depois da linha, antes do enriquecimento:
+   * a pauta de candidato regional não paga busca de página nem pacote.
+   * Wikipédia fora do ar deixa passar, com a linha no log: a regra de texto
+   * do classificador continua valendo, e a eleição do dia não cai por isso.
+   */
+  if (opcoes.alcance) {
+    const ficam: typeof aprovadasNoFiltro = [];
+    for (const a of aprovadasNoFiltro) {
+      try {
+        const v = await conferirAlcance({ classificacao: a.classificacao, motivo: a.motivo }, opcoes.alcance);
+        if (v.confere && !v.passa) {
+          linhas.push(`[GUARDA] não ${v.motivo} :: ${a.grupo.primary.title.slice(0, 70)} :: ${v.explicacao}`);
+          recusadas.push({
+            titulo: a.grupo.primary.title,
+            url: a.grupo.primary.url,
+            fonte: a.grupo.primary.source_name,
+            motivo: v.motivo as Motivo,
+            explicacao: v.explicacao,
+          });
+          continue;
+        }
+      } catch (erro) {
+        linhas.push(`[GUARDA] alcance não conferido (${textoDoErro(erro)}), segue :: ${a.grupo.primary.title.slice(0, 70)}`);
+      }
+      ficam.push(a);
+    }
+    aprovadasNoFiltro.length = 0;
+    aprovadasNoFiltro.push(...ficam);
   }
 
   /*

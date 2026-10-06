@@ -2612,6 +2612,131 @@ do deploy, `--aplicar`, que REPROVA cada peça na fila com o retorno do dono com
 motivo (texto; arte para a da Anthropic, cujo texto estava certo). A reprovação
 ensina o canal, e o relógio da fila refaz com o código novo.
 
+## O alcance nacional da pauta centrada em gente (06/10/2026)
+
+O dono, revendo a fila de 07/10, sobre um post aprovado pela abertura
+eleitoral ("Douglas Ruas pode vencer no primeiro turno se votos de Garotinho
+forem anulados no RJ"): "pensando na massa, muito segmentada, muito
+específica; candidato pouco conhecido, não faz sentido explorar esse tipo de
+notícia". A regra: política brasileira, e qualquer pauta centrada em gente,
+precisa de ALCANCE NACIONAL para o público de massa (disputa presidencial,
+figura nacional, instituição nacional, efeito no mercado). Disputa estadual ou
+municipal e candidato pouco conhecido ficam fora, salvo com uma figura nacional
+como protagonista.
+
+**Duas peneiras, e a de código é piso, não régua.** O classificador e o
+verificador ganharam a regra de texto ("ALCANCE NACIONAL", no bloco da abertura
+eleitoral de `linha-editorial.ts`, e a definição de "famosa" na citação). Depois
+da linha, a guarda confere o protagonista na Wikipédia (`editorial/alcance.ts`,
+`conferirAlcance`), pela mesma busca do calor, e recusa com
+`REJECT_LOW_REACH`, gravado na candidata. Só confere o que a abertura eleitoral
+ou a citação de famoso aprovou; o resto passa sem consulta. Wikipédia fora do
+ar deixa passar, com a linha no log: a regra de texto continua valendo.
+
+**Os números, medidos em 06/10/2026 (Wikipédias com artigo):**
+
+| nome | Wikipédias | |
+|---|---|---|
+| Lula | 128 | passa |
+| Flávio Bolsonaro | 29 | passa |
+| Fernando Haddad | 28 | passa |
+| Alexandre de Moraes | 16 | passa |
+| Erika Hilton | 16 | passa |
+| Ronaldo Caiado | 11 | passa |
+| Tarcísio de Freitas | 10 | passa |
+| Nikolas Ferreira | 7 | passa |
+| Douglas Ruas | 5 | cai |
+| Anthony Garotinho | 5 | cai |
+| Washington Reis | 4 | cai |
+| Hugo Motta (presidente da Câmara) | 5 | passa pelo cargo |
+| Nunes Marques (STF) | 4 | passa pelo cargo |
+
+O piso da pessoa é 6. A margem é curta (Nikolas 7, Ruas 5), e por isso a
+medida é piso e a regra de texto é a primeira peneira. Quem está no comando do
+Congresso ou no STF e a Wikipédia ainda não mede entra por uma lista curta e
+datada (`NACIONAIS_ABAIXO_DO_PISO`). As visualizações da Wikipédia em português
+NÃO servem: na eleição Douglas Ruas teve 88 mil em 30 dias, mais que Moraes. O
+cargo no Wikidata (P39) também não: Garotinho aparece como governador "atual".
+
+**Instituição salva a pauta só no centro, e nunca por cima de uma disputa
+regional.** Pessoa nacional em qualquer dos três primeiros atores salva; pessoa
+regional sem nenhuma nacional derruba, mesmo com TSE na lista ("RJ: 204 mil
+eleitores votaram 13 para governador", com TSE, TSE e Garotinho); sem pessoa,
+instituição nacional como primeiro ator salva ("Mulheres são 37% das
+candidaturas", com TSE, Câmara e IBGE). Instituição nacional é lista
+(`INSTITUICOES_NACIONAIS`: tribunais superiores, Congresso, Planalto, Banco
+Central, partidos nacionais), porque a sigla cai na página de desambiguação
+("TSE" 12 sem tipo, "PL" sem artigo).
+
+**A citação de famoso tem piso 20.** O formato vive do rosto e do nome que o
+leitor reconhece. Bret Taylor (presidente do conselho da OpenAI) tem 10
+Wikipédias e 60 visitas em 30 dias na Wikipédia em português: o leitor
+brasileiro não sabe quem é, e a citação só funcionaria apresentada pela
+empresa, e aí a notícia é da empresa. Passam Musk 164, Bezos 101, Altman 66,
+Nadella 56, Huang 48, Powell 39, Bessent 32, Warsh 24. A notícia da empresa não
+some: sem o formato, a fala volta à régua de sempre de declaração, e o fato da
+empresa entra pelo fato.
+
+**O ensaio** (`npx tsx src/scripts/ensaiar-alcance.ts 48`, só leitura, sem
+modelo), sobre as 42 pautas aprovadas pela abertura eleitoral nas 48 horas até
+06/10/2026: caem 8. As duas do Rio com Garotinho, a renovação da Alesp, a morte
+por aposta no Pará, o cientista político do "terceiro turno", e três que
+merecem o olho do dono: a proibição de precatórios no Conselho da Justiça
+Federal (que entrou na lista de instituições depois do ensaio), as concessões
+na mira dos governadores eleitos e "por que metade do Brasil ainda prefere o
+bolsonarismo", que não têm pessoa nem instituição nos atores.
+
+**Custo:** a regra de texto muda o prompt do classificador, e com ele a
+assinatura da classificação. O primeiro ciclo depois do deploy reclassifica a
+janela uma vez (no ensaio de 06/10/2026, 657 candidatas novas custaram US$ 1,70
+na estimativa do código).
+
+## A newsletter que falta, e só ela (06/10/2026)
+
+A produção das 17:00 de 06/10/2026 fez e enfileirou os posts e as matérias de
+07/10, e a edição da newsletter foi barrada pelo QA (risco de alucinação, QA 94,
+dois reparos). Ver o incidente em `aprendizados-e-incidentes.md`.
+
+**Barrada, a edição é escrita de novo** (`newsroom/nova-redacao.ts`): até duas
+redações novas, com 15 e 30 segundos de espera, só com a guarda em `enforce`. O
+portão é o mesmo em toda tentativa; o que muda é o sorteio. Quando o auditor
+aponta UMA matéria (pelo título, por um trecho entre aspas que só aparece nela,
+ou por "a segunda matéria"), ela sai da redação seguinte, se a edição mantiver o
+mínimo; quando aponta várias, só a última tentativa tira todas, porque a lista
+do auditor mistura alucinação com imprecisão. O custo de todas as tentativas é
+somado no livro do dia, e a peça diz quantas redações a edição teve.
+
+**Só a newsletter barrada é desfecho parcial, não falha da produção.** A linha
+`failed` do run continua (a edição não saiu), mas a produção devolve `ok` com
+`newsletterAusente`, e o fim da produção manda o aviso `newsletter_ausente`
+(crítico, um por edição) com o motivo do portão e o comando que produz só a
+newsletter, e depois a fila pronta com o que entrou. Até aqui o dono recebia
+"Produção da véspera falhou" e nenhum aviso de que havia posts e matérias para
+aprovar. Qualquer outra falha continua sendo falha.
+
+**Produzir só a newsletter de um dia**:
+`npx tsx src/scripts/produzir-newsletter.ts --data AAAA-MM-DD` (ensaio) e
+`--aplicar`. É o caminho da véspera (`produzirSoANewsletter`) com
+`somenteNewsletter`: o ciclo do Instagram, o ramo do portal, a edição como
+artigo, o agendador legado, os perfis de referência e o Listmonk não rodam, e
+só a peça da newsletter chega à fila. A edição usa SÓ as classificações que já
+estão no banco (`soReaproveitadas`): o material que a véspera classificou, sem
+pagar de novo. O envio planejado é o da cadência (06:07).
+
+- O ensaio trava toda escrita no banco (`travarEscritasDoBanco`, em
+  `supabase-admin.ts`: insert, upsert, update, delete, rpc e Storage voltam
+  como erro, e o fim do ensaio lista o que foi recusado) e tira a credencial
+  do Telegram.
+- O `--aplicar` recusa com a fila fora de `enforce` (sem ela a redação
+  dispararia a campanha), com newsletter do dia já em `aprovacoes`, e com a
+  edição do dia já em `news_editions`. A chave do run é
+  `daily-edition-<data>#so-newsletter`: o prefixo do dia para os leitores por
+  prefixo, e a idempotência impede o segundo `--aplicar`.
+- O script preenche `EDITORIAL_GUARD`, `VISUAL_RESOLVER_V2` e
+  `SOCIAL_PIPELINE_V2` com `enforce` quando o ambiente local não declara: sem
+  eles a guarda cai em observação, e sairia outra newsletter, pelo ranker
+  antigo.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

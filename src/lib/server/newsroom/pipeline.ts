@@ -100,6 +100,14 @@ export type PipelineResult = {
   avisos: string[];
   /** O custo da edição separado por etapa, para o livro do dia (RNF-14). */
   custosPorEtapa: { redacao: number; auditoria_qa: number; auditoria_claims: number };
+  /**
+   * As pautas como o auditor as leu na ÚLTIMA conferência, na ordem dele e
+   * antes de qualquer retirada (06/10/2026). Os apontamentos do auditor dizem
+   * "a segunda matéria" contando por esta lista, e não pela edição final, que
+   * já pode ter perdido uma pauta. É o que `nova-redacao.ts` usa para saber
+   * qual pauta tirar da próxima redação.
+   */
+  pautasAuditadas: Array<{ url: string; titulo: string; texto: string }>;
 };
 
 /**
@@ -935,6 +943,12 @@ Retorne EXCLUSIVAMENTE a edição inteira no mesmo formato JSON.
    * alucinação e nota do auditor são julgamentos sobre a edição inteira, e
    * não apontam para uma matéria que dê para remover.
    */
+  const pautasAuditadas = parsedEdition.stories.map((story, i) => ({
+    url: topRanked[i]?.group.primary.url ?? story.source_url,
+    titulo: story.title,
+    texto: textoDaPauta(story),
+  }));
+
   const comProblema = new Set<number>();
   for (const a of ancoragem) if (!a.ancorado) comProblema.add(a.indice);
   for (const c of semantica.naoSustentadas) if (c.pauta >= 0) comProblema.add(c.pauta);
@@ -1046,6 +1060,7 @@ Retorne EXCLUSIVAMENTE a edição inteira no mesmo formato JSON.
     pautasRemovidas,
     avisos,
     custosPorEtapa,
+    pautasAuditadas,
     totalUsage: {
       promptTokens: totalPromptTokens,
       completionTokens: totalCompletionTokens,

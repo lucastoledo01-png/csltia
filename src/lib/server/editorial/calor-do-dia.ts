@@ -415,15 +415,20 @@ async function temPropriedade(
  * ser humano (Q5); organização é o que declara sede (P159) ou setor (P452),
  * que é o que empresa, órgão e banco central declaram e lugar não declara.
  */
-async function ehPessoaOuOrganizacao(
+async function tipoDaEntidade(
   qid: string,
   fetcher: typeof fetch,
   cabecalho: Record<string, string>,
-): Promise<boolean> {
-  if ((await temPropriedade(qid, "P31", fetcher, cabecalho)).includes("Q5")) return true;
-  if ((await temPropriedade(qid, "P159", fetcher, cabecalho)).length > 0) return true;
-  return (await temPropriedade(qid, "P452", fetcher, cabecalho)).length > 0;
+): Promise<TipoDaEntidade> {
+  if ((await temPropriedade(qid, "P31", fetcher, cabecalho)).includes("Q5")) return "pessoa";
+  if ((await temPropriedade(qid, "P159", fetcher, cabecalho)).length > 0) return "organizacao";
+  return (await temPropriedade(qid, "P452", fetcher, cabecalho)).length > 0 ? "organizacao" : "outro";
 }
+
+export type TipoDaEntidade = "pessoa" | "organizacao" | "outro";
+
+/** O que a Wikipédia sabe de um nome: o artigo, em quantas línguas, e se é gente. */
+export type EntidadeNaWikipedia = { nome: string; sitelinks: number; tipo: TipoDaEntidade };
 
 /**
  * Em quantas Wikipédias o nome tem artigo.
@@ -445,6 +450,24 @@ export async function famaNoWikidata(
   fetcher: typeof fetch,
   agente: string,
 ): Promise<{ nome: string; sitelinks: number } | null> {
+  const e = await entidadeNaWikipedia(nome, fetcher, agente);
+  return e && e.tipo !== "outro" ? { nome: e.nome, sitelinks: e.sitelinks } : null;
+}
+
+/**
+ * A mesma busca de `famaNoWikidata`, devolvendo também o TIPO (06/10/2026).
+ *
+ * O piso de alcance (`alcance.ts`) precisa saber se o protagonista é uma
+ * pessoa: o calor só quer um número para ordenar, e o alcance quer saber se
+ * quem está no centro da pauta é gente que o país conhece. `null` é "não há
+ * artigo com este nome"; erro de rede LANÇA, para quem chama não confundir
+ * "não consegui olhar" com "não existe".
+ */
+export async function entidadeNaWikipedia(
+  nome: string,
+  fetcher: typeof fetch,
+  agente: string,
+): Promise<EntidadeNaWikipedia | null> {
   const cabecalho = { "User-Agent": agente, Accept: "application/json" };
   for (const wiki of ["pt", "en"]) {
     const busca = new URL(`https://${wiki}.wikipedia.org/w/api.php`);
@@ -473,10 +496,10 @@ export async function famaNoWikidata(
     if (!r2.ok) throw new Error(`wikidata ${r2.status}`);
     const corpo = (await r2.json()) as { entities?: Record<string, { sitelinks?: Record<string, unknown> }> };
     const links = corpo.entities?.[qid]?.sitelinks ?? {};
-    if (!(await ehPessoaOuOrganizacao(qid, fetcher, cabecalho))) return null;
+    const tipo = await tipoDaEntidade(qid, fetcher, cabecalho);
     // Só as Wikipédias: commons, wikiquote e afins inflariam a conta.
     const sitelinks = Object.keys(links).filter((k) => /wiki$/.test(k) && !PROJETOS_QUE_NAO_SAO_WIKIPEDIA.has(k)).length;
-    return { nome: achado.title, sitelinks };
+    return { nome: achado.title, sitelinks, tipo };
   }
   return null;
 }

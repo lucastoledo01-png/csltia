@@ -10,6 +10,8 @@ import { DEFAULT_PROJECT_ID, projectToday, requireActiveProject, type Project } 
 import { getSupabaseAdminClient } from "./supabase-admin";
 import type { RunNewsroomOptions } from "./newsroom/newsroom-service";
 import { ligacoesDoCiclo, type LigacoesDoCiclo } from "./newsroom/ligacoes-do-ciclo";
+import { modoDaFila } from "./aprovacao/modo";
+import { limitesDoDia } from "./avisos/avisos";
 
 /**
  * A produção na véspera (RF-01, PRD de 05/10/2026).
@@ -48,6 +50,11 @@ export type DesfechoDaProducao = {
   erro?: string;
   /** A linha de garantia que este módulo gravou, quando gravou. */
   linhaDeGarantia?: string | null;
+  /**
+   * A newsletter do alvo foi barrada pelo QA, e só ela (06/10/2026). Posts e
+   * matérias seguiram para a fila; o aviso `newsletter_ausente` sai daqui.
+   */
+  newsletterAusente?: { data: string; motivo: string };
 };
 
 type LinhaDoRun = {
@@ -128,6 +135,31 @@ function resumoDoResultado(resultado: unknown): { status: LinhaDoRun["status"]; 
   }
   const detalhe = typeof r.detail === "string" ? ` ${r.detail}` : "";
   return { status: "cancelled", motivo: `${reason.toUpperCase()}:${detalhe}` };
+}
+
+/**
+ * Os horários de publicação da edição de `alvo`, pela cadência do projeto.
+ *
+ * Canal que não publica no alvo não tem horário. A newsletter cai no primeiro
+ * horário do portal e vice-versa; sem nenhum dos dois, o portal sai junto do
+ * primeiro post. Nunca "agora": publicar agora o conteúdo de amanhã é
+ * exatamente o erro que a produção na véspera não pode cometer.
+ *
+ * Função própria desde 06/10/2026: a produção só da newsletter
+ * (`produzirSoANewsletter`) precisa do MESMO horário que a véspera daria.
+ */
+export function agendamentoDaEdicao(
+  projeto: Project,
+  alvo: string,
+): { newsletterEm: string; portalEm: string } {
+  const newsletter = agendaDoCanal(projeto, "newsletter", alvo)[0];
+  const portal = agendaDoCanal(projeto, "portal", alvo)[0];
+  const primeiroPost = agendaDoCanal(projeto, "instagram", alvo)[0];
+  const reserva = newsletter ?? portal ?? primeiroPost;
+  return {
+    newsletterEm: (newsletter ?? reserva).quandoIso,
+    portalEm: (portal ?? reserva).quandoIso,
+  };
 }
 
 /**
@@ -232,21 +264,7 @@ export async function produzirNaVespera(
   }
 
   const ensaio = modo === "dry_run";
-  const newsletter = agendaDoCanal(projeto, "newsletter", decisao.alvo)[0];
-  const portal = agendaDoCanal(projeto, "portal", decisao.alvo)[0];
-
-  /*
-   * Canal que não publica no alvo não tem horário. A newsletter cai no primeiro
-   * horário do portal e vice-versa; sem nenhum dos dois, o portal sai junto do
-   * primeiro post. Nunca "agora": publicar agora o conteúdo de amanhã é
-   * exatamente o erro que a produção na véspera não pode cometer.
-   */
-  const primeiroPost = agendaDoCanal(projeto, "instagram", decisao.alvo)[0];
-  const reserva = newsletter ?? portal ?? primeiroPost;
-  const agendamento = {
-    newsletterEm: (newsletter ?? reserva).quandoIso,
-    portalEm: (portal ?? reserva).quandoIso,
-  };
+  const agendamento = agendamentoDaEdicao(projeto, decisao.alvo);
 
   const options: RunNewsroomOptions = {
     projectId: projeto.id,
@@ -311,7 +329,9 @@ export async function produzirNaVespera(
     // ensaio a redação não grava a própria falha, e no primeiro ensaio, em
     // 05/10/2026, a linha ficou só com "1 conclusão", sem dizer qual.
     // Import dinâmico: este módulo só importa tipos da redação, e continua assim.
-    const { detalheDoBloqueioDoErro, resumoDoBloqueio } = await import("./newsroom/newsroom-service");
+    const { detalheDoBloqueioDoErro, resumoDoBloqueio, motivoDoErro, MOTIVO_QA_BLOQUEOU } = await import(
+      "./newsroom/newsroom-service"
+    );
     const detalhe = detalheDoBloqueioDoErro(e);
     const erro =
       (e instanceof Error ? e.message : String(e)) + (detalhe ? `\n${resumoDoBloqueio(detalhe)}` : "");
@@ -319,6 +339,235 @@ export async function produzirNaVespera(
     // gravação é melhor esforço. Se ela não estiver lá, esta está.
     const prefixo = ensaio ? `producao-${decisao.alvo}` : chave;
     const linha = await garantir("failed", `RUN_FAILED: ${erro}`, prefixo, ensaio ? "ensaio-falha" : "falha", ensaio);
+
+    /*
+     * Só a NEWSLETTER foi barrada (06/10/2026). O portão do QA sai por `throw`
+     * no fim da redação, DEPOIS de o Instagram e o portal terem produzido e
+     * enfileirado as peças deles. Tratar isso como "a produção falhou" mandava
+     * um alerta crítico genérico e calava a fila pronta, e o dono não sabia
+     * que tinha posts e matérias esperando, nem que faltava só a newsletter.
+     *
+     * Agora o desfecho é parcial: a linha `failed` do run continua gravada
+     * (a edição de fato não saiu), e o aviso de operação diz qual newsletter
+     * falta, por quê, e o comando que produz só ela. A fila pronta segue o
+     * caminho de sempre com o que entrou.
+     */
+    if (motivoDoErro(e) === MOTIVO_QA_BLOQUEOU) {
+      return {
+        ok: true,
+        projeto: projeto.slug,
+        modo,
+        decisao,
+        erro,
+        linhaDeGarantia: linha,
+        newsletterAusente: { data: decisao.alvo, motivo: erro },
+      };
+    }
     return { ok: false, projeto: projeto.slug, modo, decisao, erro, linhaDeGarantia: linha };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Só a newsletter de uma edição (06/10/2026)
+// ---------------------------------------------------------------------------
+
+/**
+ * Por que existe: em 06/10/2026 a produção das 17:00 escreveu e enfileirou os
+ * posts e as matérias de 07/10, e a edição da newsletter foi barrada pelo QA
+ * (risco de alucinação). A linha do run ficou `failed`, e com a fila em
+ * `enforce` a newsletter do dia simplesmente não existiria. Rodar a produção
+ * inteira de novo criaria posts e matérias em dobro.
+ *
+ * Esta função refaz SÓ a edição, pelo mesmo caminho da véspera: a mesma
+ * redação (`runNewsroom` com `somenteNewsletter`), o mesmo horário da cadência
+ * (`agendamentoDaEdicao`), a mesma entrada na fila e o mesmo Listmonk (que,
+ * com a fila em `enforce`, só é chamado na liberação). Ensaio por padrão.
+ *
+ * O que ela NUNCA faz, por construção, e há teste de cada um: rodar o ciclo do
+ * Instagram, rodar o ramo do portal, gravar a edição como artigo, chamar o
+ * agendador legado de posts, ler os perfis de referência, ou mandar post e
+ * matéria para a fila.
+ */
+export type PedidoDeSoNewsletter = {
+  projetoId?: string;
+  /** A data da edição, AAAA-MM-DD no fuso do projeto. */
+  data: string;
+  /** Sem isto é ensaio: nada é gravado, nada é enfileirado, nada é enviado. */
+  aplicar?: boolean;
+};
+
+export type DesfechoDaSoNewsletter = {
+  ok: boolean;
+  projeto: string;
+  data: string;
+  aplicar: boolean;
+  /** Por que não rodou, quando não rodou. */
+  recusa?: string;
+  agendamento?: { newsletterEm: string; portalEm: string };
+  resultado?: unknown;
+  erro?: string;
+};
+
+export type DependenciasDaSoNewsletter = {
+  carregarProjeto?: (id: string) => Promise<Project>;
+  rodarRedacao?: (
+    options: RunNewsroomOptions,
+    env: Record<string, string | undefined>,
+  ) => Promise<unknown>;
+  ligacoes?: (projeto: Project, env: Record<string, string | undefined>) => Promise<LigacoesDoCiclo>;
+  /** A edição deste dia já está gravada em `news_editions`? */
+  edicaoExistente?: (projetoId: string, data: string) => Promise<{ existe: boolean; erro?: string }>;
+  /** Já existe linha de newsletter em `aprovacoes` com envio neste dia? */
+  newsletterNaFila?: (projetoId: string, inicioIso: string, fimIso: string) => Promise<{ existe: boolean; erro?: string }>;
+  env?: Record<string, string | undefined>;
+};
+
+/** A chave do run só da newsletter: prefixo do dia, para os leitores por prefixo a verem. */
+export function chaveDaSoNewsletter(data: string): string {
+  return `${chaveDaEdicao(data)}#so-newsletter`;
+}
+
+async function edicaoNoBanco(projetoId: string, data: string): Promise<{ existe: boolean; erro?: string }> {
+  const { data: linhas, error } = await getSupabaseAdminClient()
+    .from("news_editions")
+    .select("id")
+    .eq("project_id", projetoId)
+    .eq("edition_date", data)
+    .limit(1);
+  // Não conseguir olhar NÃO é "não existe": aqui o erro barato é recusar,
+  // porque gravar por cima da edição de alguém seria trocar o que está na fila.
+  if (error) return { existe: false, erro: error.message };
+  return { existe: (linhas ?? []).length > 0 };
+}
+
+async function newsletterNaFilaNoBanco(
+  projetoId: string,
+  inicioIso: string,
+  fimIso: string,
+): Promise<{ existe: boolean; erro?: string }> {
+  const { data: linhas, error } = await getSupabaseAdminClient()
+    .from("aprovacoes")
+    .select("id")
+    .eq("project_id", projetoId)
+    .eq("ramo", "newsletter")
+    .gte("publicar_em", inicioIso)
+    .lt("publicar_em", fimIso)
+    .limit(1);
+  if (error) return { existe: false, erro: error.message };
+  return { existe: (linhas ?? []).length > 0 };
+}
+
+export async function produzirSoANewsletter(
+  pedido: PedidoDeSoNewsletter,
+  deps: DependenciasDaSoNewsletter = {},
+): Promise<DesfechoDaSoNewsletter> {
+  const aplicar = pedido.aplicar === true;
+  const env = deps.env ?? process.env;
+  const projetoId = pedido.projetoId ?? DEFAULT_PROJECT_ID;
+  const base = { projeto: projetoId, data: pedido.data, aplicar };
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(pedido.data)) {
+    return { ...base, ok: false, recusa: `data inválida: "${pedido.data}". Esperado AAAA-MM-DD.` };
+  }
+
+  const projeto = await (deps.carregarProjeto ?? requireActiveProject)(projetoId);
+  const comProjeto = { ...base, projeto: projeto.slug };
+
+  if (agendaDoCanal(projeto, "newsletter", pedido.data).length === 0) {
+    return { ...comProjeto, ok: false, recusa: `a cadência do projeto não publica newsletter em ${pedido.data}.` };
+  }
+
+  /*
+   * A edição gravada é a que está (ou esteve) na fila. Gravar outra por cima
+   * trocaria o assunto e o HTML de uma peça que alguém pode ter aprovado, e o
+   * upsert de `news_editions` casa por (projeto, data). Só no `--aplicar`: o
+   * ensaio não grava, então pode rodar com a edição já lá, para comparar.
+   */
+  if (aplicar) {
+    /*
+     * Só com a fila em `enforce`. É ela que garante que nada sai antes da
+     * aprovação: com a fila em `enforce` a redação NÃO chama o Listmonk, e a
+     * campanha só nasce na liberação. Fora dele a redação dispararia (ou
+     * agendaria) a campanha sozinha, e "refazer a newsletter" viraria enviar.
+     */
+    if (modoDaFila(projeto) !== "enforce") {
+      return {
+        ...comProjeto,
+        ok: false,
+        recusa: `a fila de aprovação do projeto não está em enforce (${modoDaFila(projeto)}): sem ela, a edição seria enviada sem aprovação.`,
+      };
+    }
+    // Uma newsletter na fila para o dia (aguardando, aprovada ou já liberada) é a do dia: não se cria outra.
+    const { inicioIso, fimIso } = limitesDoDia(pedido.data, projeto.timezone);
+    const naFila = await (deps.newsletterNaFila ?? newsletterNaFilaNoBanco)(projeto.id, inicioIso, fimIso);
+    if (naFila.erro) {
+      return { ...comProjeto, ok: false, recusa: `não deu para conferir a fila de aprovação: ${naFila.erro}` };
+    }
+    if (naFila.existe) {
+      return {
+        ...comProjeto,
+        ok: false,
+        recusa: `já existe newsletter de ${pedido.data} na fila de aprovação. Nada foi feito.`,
+      };
+    }
+    const existente = await (deps.edicaoExistente ?? edicaoNoBanco)(projeto.id, pedido.data);
+    if (existente.erro) {
+      return { ...comProjeto, ok: false, recusa: `não deu para conferir se a edição já existe: ${existente.erro}` };
+    }
+    if (existente.existe) {
+      return {
+        ...comProjeto,
+        ok: false,
+        recusa: `a edição de ${pedido.data} já está gravada em news_editions. Nada foi feito.`,
+      };
+    }
+  }
+
+  const agendamento = agendamentoDaEdicao(projeto, pedido.data);
+  const options: RunNewsroomOptions = {
+    projectId: projeto.id,
+    dryRun: !aplicar,
+    publishToPortal: false,
+    createNewsletterCampaign: aplicar,
+    autoSend: aplicar,
+    editionDate: pedido.data,
+    idempotencyKey: chaveDaSoNewsletter(pedido.data),
+    agendamento,
+    somenteNewsletter: true,
+  };
+
+  const envDaCadencia = ambientePelaCadencia(cadenciaDoProjeto(projeto), env);
+  // Cinto: mesmo que algum caminho chegasse ao social, o teto do dia é zero.
+  envDaCadencia.SOCIAL_POSTS_MAX_PER_DAY = "0";
+
+  if (aplicar) {
+    try {
+      const ligar =
+        deps.ligacoes ??
+        ((p: Project, e: Record<string, string | undefined>) => ligacoesDoCiclo(p, { env: e, semPerfis: true }));
+      const ligacoes = await ligar(projeto, envDaCadencia);
+      // Só a fila. Candidata extra do Instagram não tem o que fazer aqui.
+      if (ligacoes.aoProduzirPeca) options.aoProduzirPeca = ligacoes.aoProduzirPeca;
+    } catch (e) {
+      console.error(`[SO NEWSLETTER] ligação com a fila não entrou: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  const rodar =
+    deps.rodarRedacao ??
+    (async (o: RunNewsroomOptions, e: Record<string, string | undefined>) => {
+      const { runNewsroom } = await import("./newsroom/newsroom-service");
+      return runNewsroom(o, e);
+    });
+
+  try {
+    const resultado = await rodar(options, envDaCadencia);
+    const r = (resultado ?? {}) as Record<string, unknown>;
+    return { ...comProjeto, ok: r.ok === true, agendamento, resultado };
+  } catch (e) {
+    const { detalheDoBloqueioDoErro, resumoDoBloqueio } = await import("./newsroom/newsroom-service");
+    const detalhe = detalheDoBloqueioDoErro(e);
+    const erro = (e instanceof Error ? e.message : String(e)) + (detalhe ? `\n${resumoDoBloqueio(detalhe)}` : "");
+    return { ...comProjeto, ok: false, agendamento, erro };
   }
 }

@@ -1,3 +1,4 @@
+import { buscaDeEntidadePadrao } from "../editorial/alcance";
 import { getSupabaseAdminClient } from "../supabase-admin";
 import { getProjectNewsSources, projectToday, requireActiveProject } from "../projects";
 import { collectAllNews } from "../newsroom/collector";
@@ -104,6 +105,8 @@ export async function rodarQuenteDaTarde(
       env,
       fetcher,
       candidatos: { client, projectId: projeto.id },
+      // O mesmo piso de alcance nacional do ciclo da manhã (06/10/2026, `alcance.ts`).
+      alcance: buscaDeEntidadePadrao(env, fetcher),
     });
     console.log(
       `[TARDE] ${coleta.candidates.length} candidatas, ${uniqueGroups.length} grupos, ${guarda.approvedEditorialPool.length} aprovadas na linha`,

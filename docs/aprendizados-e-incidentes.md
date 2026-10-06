@@ -1731,6 +1731,48 @@ a régua diz "não" com o espaço comum de volta (108 valores partidos).
 quebra de palavra longa esconde do encaixe que ela não cabe. Ao juntar texto,
 medir com a rede desligada.
 
+### 06/10/2026: a newsletter de 07/10 não existiu, e o resto do dia sim
+
+**Sintoma.** A produção das 17:00 de 06/10 gravou `newsroom_runs` como
+`failed` às 20:26 UTC: "Edição bloqueada depois de 2 tentativa(s) de correção
+(QA 94): REJECT_EDITORIAL_QA: hallucination_risk". O auditor apontou o título
+que dizia que o padrão aberto para agentes de IA foi criado "nos EUA" (o pacote
+não localizava o padrão) e "estaleiro de submarinos" para uma fábrica de
+componentes. Os 5 posts e as 3 matérias de 07/10 estavam na fila; a newsletter,
+não. O Telegram disse "Produção da véspera falhou", e nada mais.
+
+**Causa, em três camadas.** (1) O laço de reparo reescreve "somente o
+necessário" e repete a frase: duas tentativas não bastaram. (2) O portão sai
+por `throw` no FIM da redação, depois de Instagram e portal terem produzido, e a
+produção tratava isso como falha da produção inteira: alerta crítico genérico e
+nenhum aviso de fila pronta. (3) Não havia como refazer só a newsletter: rodar
+a produção de novo criaria posts e matérias em dobro.
+
+**Um detalhe que muda a leitura do bloqueio.** A matéria do "nos EUA" já tinha
+sido RETIRADA pela régua de conclusões depois do último reparo, e o risco de
+alucinação continuava valendo para a edição: o auditor julga a edição antes da
+retirada, e ninguém o pergunta de novo depois.
+
+**Corrigido.** A edição barrada ganha redação nova (até duas, com espera),
+tirando a matéria que o auditor aponta quando a edição mantém o mínimo; só a
+newsletter barrada vira desfecho parcial com o aviso `newsletter_ausente`; e
+`src/scripts/produzir-newsletter.ts` refaz só a edição, com ensaio que trava
+toda escrita no banco. O portão não mudou. Ver "A newsletter que falta, e só
+ela" em `decisoes.md`.
+
+**Medido no ensaio da mesma noite** (só leitura): a primeira redação foi
+barrada de novo (QA 86, risco de alucinação), e a segunda passou (QA 94, sem
+risco), com a mesma Anduril abrindo. O sorteio, e não a régua, era o problema.
+
+**O que custou o primeiro ensaio.** Ele classificou de novo as 657 candidatas
+que chegaram depois das 17:00, US$ 1,70 na estimativa do código, acima do teto
+pedido, e foi interrompido antes da redação. Daí `soReaproveitadas`: refazer a
+newsletter de um dia usa o material que a véspera classificou.
+
+**Lição.** Portão que sai por exceção no fim de um ciclo que já produziu outras
+coisas precisa dizer o que ficou de pé, e não só o que caiu. E todo canal que
+pode ser barrado sozinho precisa de um caminho para ser refeito sozinho.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

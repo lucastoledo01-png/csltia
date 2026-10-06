@@ -69,6 +69,12 @@ export async function ligacoesDoCiclo(
     fetcher?: typeof fetch;
     client?: () => SupabaseClient;
     deps?: DepsDasLigacoes;
+    /**
+     * Sem a rodada dos perfis de referência (06/10/2026). A produção só da
+     * newsletter não faz post, e uma rodada de perfis gravaria leituras do
+     * dia em dobro para nada. Só a ligação com a fila fica.
+     */
+    semPerfis?: boolean;
   } = {},
 ): Promise<LigacoesDoCiclo> {
   if (!projeto) return {};
@@ -81,7 +87,7 @@ export async function ligacoesDoCiclo(
    * fora de `enforce`. O `try` aqui é o cinto: o import dinâmico, ou um
    * contrato quebrado amanhã, não pode custar o ciclo do dia.
    */
-  try {
+  if (!opcoes.semPerfis) try {
     const extras = await (opcoes.deps?.candidatos ?? ((p) => candidatosReais(p, env, fetcher)))(projeto);
     if (extras.length > 0) saida.candidatasExtrasDoInstagram = extras;
   } catch (erro) {

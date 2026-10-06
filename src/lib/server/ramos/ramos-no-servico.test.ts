@@ -58,7 +58,8 @@ describe("os ramos no ciclo do dia", () => {
    * verdade liga a régua no lugar certo, ANTES da redação.
    */
   it("a seleção com foto da newsletter e do portal acontece antes de a edição ser escrita", () => {
-    const redacao = servico.indexOf("const pipelineResult = await runNewsroomPipeline(");
+    // Desde 06/10/2026 a redação é uma função, chamada de novo quando a edição é barrada (`nova-redacao.ts`).
+    const redacao = servico.indexOf("const redigirEdicao = (lista: RankedCandidate[]) =>");
     expect(redacao).toBeGreaterThan(0);
     const antes = servico.slice(0, redacao);
     // Desde 06/10/2026 a newsletter seleciona sobre o pool com o aprendizado DELA, e vê a foto pelo filtro dela.
