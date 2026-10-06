@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { CaixaDeAssinatura, MolduraDoPortal } from "@/components/PortalChrome";
@@ -17,6 +18,24 @@ import { getPublishedArticles } from "@/lib/server/articles-service";
  * página em cache na quase totalidade dos acessos.
  */
 export const revalidate = 300;
+
+/*
+ * Título, descrição e canônico próprios (auditoria de SEO, 05/10/2026): a
+ * lista herdava o título da home, e duas páginas com o mesmo título disputam
+ * o mesmo resultado de busca.
+ */
+export const metadata: Metadata = {
+  title: `Todas as matérias | ${MARCA.nome}`,
+  description: `Todas as matérias do ${MARCA.nome}, da mais recente para a mais antiga: economia, trabalho, tecnologia, custo de vida, política e Brasil.`,
+  alternates: { canonical: `${MARCA.site}/artigos` },
+  openGraph: {
+    type: "website",
+    title: `Todas as matérias | ${MARCA.nome}`,
+    url: `${MARCA.site}/artigos`,
+    siteName: MARCA.nome,
+    locale: "pt_BR",
+  },
+};
 
 /**
  * O card da lista, na mesma gramática da linha do feed da home: foto à

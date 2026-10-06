@@ -143,3 +143,66 @@ export function usoDasCapas(capas: Array<string | null | undefined>): Map<string
   }
   return uso;
 }
+
+/*
+ * O endereço da foto para fora da página (auditoria de SEO, 05/10/2026).
+ *
+ * Medido no ar: 15 das 62 matérias publicadas gravaram a capa do Pexels com
+ * `&amp%3Bcs=tinysrgb&amp%3Bdpr=2...`, o `&amp;` do HTML do e-mail com o
+ * ponto e vírgula já codificado. O banco de imagem ignora os parâmetros
+ * tortos e devolve a foto, mas o endereço sai assim no `og:image`, no
+ * `twitter:image` e no `image` do NewsArticle. E 41 capas são o ORIGINAL do
+ * Commons, que chega a 9 MB (a foto de Wall Street que está em 32 matérias):
+ * pesado demais para a prévia do WhatsApp e do Facebook.
+ */
+
+/** O endereço sem `&amp;` e sem `&amp%3B`, em quantas camadas houver. */
+export function enderecoLimpoDaImagem(src: string | null | undefined): string {
+  let atual = (src ?? "").trim();
+  for (let i = 0; i < 4; i++) {
+    const proximo = atual.replace(/&amp(?:;|%3B)/gi, "&");
+    if (proximo === atual) break;
+    atual = proximo;
+  }
+  return atual;
+}
+
+/**
+ * A foto do Wikimedia Commons na largura pedida, e não o original.
+ *
+ * O caminho da miniatura é o do próprio Commons:
+ * `/commons/thumb/a/ab/Arquivo.jpg/1280px-Arquivo.jpg`. Use larguras da escada
+ * padrão do Commons (960, 1280, 1920): medido em 05/10/2026, 1200 responde 400
+ * e 1280 responde 200, inclusive para original menor que isso. SVG e TIFF
+ * ficam como estão, porque a miniatura deles muda de extensão.
+ */
+export function miniaturaDoCommons(src: string, largura: number): string {
+  const m = src.match(/^https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\/([0-9a-f])\/([0-9a-f]{2})\/([^/?#]+\.(?:jpe?g|png|webp))(?:[?#].*)?$/i);
+  if (!m) return src;
+  const [, a, ab, arquivo] = m;
+  return `https://upload.wikimedia.org/wikipedia/commons/thumb/${a}/${ab}/${arquivo}/${largura}px-${arquivo}`;
+}
+
+/** A capa como vai para `og:image`, `twitter:image` e o `image` do JSON-LD: limpa, e miniatura de 1280 no Commons. */
+export function imagemParaCompartilhar(src: string | null | undefined): string {
+  const limpo = enderecoLimpoDaImagem(src);
+  return limpo ? miniaturaDoCommons(limpo, 1280) : "";
+}
+
+/**
+ * O crédito mínimo de uma foto do Commons sem crédito gravado.
+ *
+ * Medido em 05/10/2026: 41 das 62 matérias publicadas têm capa do Commons e
+ * NENHUMA mostra crédito, e a foto mais usada (Wall Street, em 32 matérias) é
+ * CC BY-SA 4.0, que exige atribuição. Sem o autor e a licença à mão, o mínimo
+ * honesto é o link para a página do arquivo, onde os dois estão. Quem grava
+ * crédito de verdade (`credito-da-foto` no corpo) continua vencendo.
+ */
+export function creditoDoCommons(src: string | null | undefined): { texto: string; href: string } | null {
+  const limpo = enderecoLimpoDaImagem(src);
+  const m =
+    limpo.match(/^https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\/thumb\/[0-9a-f]\/[0-9a-f]{2}\/([^/?#]+)\//i) ??
+    limpo.match(/^https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\/[0-9a-f]\/[0-9a-f]{2}\/([^/?#]+)/i);
+  if (!m) return null;
+  return { texto: "Foto: Wikimedia Commons (autor e licença na página do arquivo)", href: `https://commons.wikimedia.org/wiki/File:${m[1]}` };
+}

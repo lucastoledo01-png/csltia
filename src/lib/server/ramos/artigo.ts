@@ -13,7 +13,7 @@ import { regrarEssencial } from "./essencial";
 import { escapeHtml, safeHttpUrl } from "../html";
 import { editoriaDaPauta, nomeDaEditoria } from "@/lib/editorias";
 import { temasParaOPrompt } from "@/lib/temas";
-import { descreverDescartes, entidadesDoPacote, validarAssuntos, type AssuntoDescartado, type EntidadeDaMateria } from "@/lib/indexacao-do-artigo";
+import { MINIMO_DE_ASSUNTOS, descreverDescartes, entidadesDoPacote, validarAssuntos, type AssuntoDescartado, type EntidadeDaMateria } from "@/lib/indexacao-do-artigo";
 import type { LivroDeCustos } from "./custos";
 
 /**
@@ -271,6 +271,8 @@ export type IndexacaoDoArtigoEscrito = {
   assuntos: string[];
   entidades: EntidadeDaMateria[];
   descartados: AssuntoDescartado[];
+  /** Menos de dois assuntos com o que o texto sustenta (piso de 05/10/2026). */
+  abaixoDoMinimo: boolean;
 };
 
 /**
@@ -287,8 +289,14 @@ export function indexacaoDoArtigoEscrito(
 ): IndexacaoDoArtigoEscrito {
   const texto = textoDoArtigo(artigo);
   const entidades = entidadesDoPacote(pacote, artigo.titulo, opcoes.excluir ?? [], texto);
-  const { assuntos, descartados } = validarAssuntos(artigo.assuntos ?? [], { entidades, texto, editoria: opcoes.editoria ?? null });
-  return { assuntos, entidades, descartados };
+  // Abaixo do piso de dois, completa com quem o texto cita; nunca inventa tema.
+  const { assuntos, descartados, abaixoDoMinimo } = validarAssuntos(artigo.assuntos ?? [], {
+    entidades,
+    texto,
+    editoria: opcoes.editoria ?? null,
+    completarAteOMinimo: true,
+  });
+  return { assuntos, entidades, descartados, abaixoDoMinimo };
 }
 
 export type UnidadeReprovada = { id: string; campo: CampoDaUnidade; texto: string; motivo: string };
@@ -676,7 +684,12 @@ ${JSON.stringify(artigo, null, 2)}
       ...veredicto,
       aprovado: true,
       bloqueios: [],
-      avisos: [...veredicto.avisos, ...poda.removidas.map((r) => `APAGADO ${r.id}: ${r.motivo}`), ...descreverDescartes(indexacao.descartados)],
+      avisos: [
+        ...veredicto.avisos,
+        ...poda.removidas.map((r) => `APAGADO ${r.id}: ${r.motivo}`),
+        ...descreverDescartes(indexacao.descartados),
+        ...(indexacao.abaixoDoMinimo ? [`ASSUNTOS ABAIXO DO MÍNIMO: ${indexacao.assuntos.length} de ${MINIMO_DE_ASSUNTOS}, o texto não sustenta mais`] : []),
+      ],
     },
     tentativas,
     erro: null,

@@ -1167,6 +1167,17 @@ frase da linha editorial que diz o que está fora, e as listas de detecção do
 `leitor.ts`. O `modelo-de-titulo.md` continua com o texto de 16/09, que é
 registro histórico.
 
+## Piso de dois assuntos, que não inventa (05/10/2026)
+
+Da auditoria de SEO, AEO e GEO (`docs/auditorias/seo-aeo-geo-2026-10-05.md`):
+61 das 62 matérias publicadas tinham zero assunto, e não havia piso, só o
+teto de cinco. **O piso é dois** (`MINIMO_DE_ASSUNTOS`). Quem escreve completa
+com as entidades CITADAS que o texto final nomeia, nunca com tema que o texto
+não trata nem com palavra genérica; abaixo de dois mesmo assim, a matéria sai
+com o que tem e o ramo registra `ASSUNTOS ABAIXO DO MÍNIMO`. Não bloqueia,
+porque bloquear empurraria o redator a inventar. A página não completa nada
+na leitura.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

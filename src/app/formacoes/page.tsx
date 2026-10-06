@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { BrandMark } from "@/components/SiteHeader";
+
+/*
+ * Fora do índice (auditoria de SEO, 05/10/2026): página da vertical antiga de
+ * IA, que respondia 200 com o título da home. Desligada da busca, não apagada.
+ */
+export const metadata: Metadata = { robots: { index: false, follow: true } };
 
 export default function FormacoesPage() {
   return (

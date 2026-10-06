@@ -1,6 +1,35 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /*
+   * Um endereço só para cada página (auditoria de SEO, 05/10/2026).
+   * `www.casaloti.ia.br` respondia 200 com o mesmo conteúdo, e o
+   * rastreador via duas cópias do portal. O `www` vai para o domínio sem ele,
+   * de forma permanente, com o mesmo caminho.
+   */
+  async redirects() {
+    return [
+      {
+        source: "/:caminho*",
+        has: [{ type: "host", value: "www.casaloti.ia.br" }],
+        destination: "https://casaloti.ia.br/:caminho*",
+        permanent: true,
+      },
+    ];
+  },
+
+  /*
+   * Painel e API fora do índice por cabeçalho, que vale até para resposta
+   * que não é HTML (JSON da API). O `robots.txt` só pede para não rastrear.
+   */
+  async headers() {
+    return [
+      { source: "/admin/:caminho*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
+      { source: "/admin", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
+      { source: "/api/:caminho*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
+    ];
+  },
+
   // Empacota o servidor com apenas as dependências que ele realmente usa.
   // A imagem final não precisa de node_modules inteiro nem do código-fonte.
   output: "standalone",

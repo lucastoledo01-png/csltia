@@ -214,6 +214,7 @@ async function reescrever(a: LinhaDoArtigo, opcoes: { trocarTitulo: boolean }): 
   // pelo validador (entidade ou tema da lista fechada de `temas.ts`).
   const ix = indexacaoDoArtigoEscrito(artigoFinal, pacote, { excluir: [...fonte.metadados.autores, fonte.metadados.veiculo, veiculo], editoria: categoria });
   for (const linha of descreverDescartes(ix.descartados)) console.log(`   ${linha}`);
+  if (ix.abaixoDoMinimo) console.log(`   ASSUNTOS ABAIXO DO MÍNIMO: ${ix.assuntos.length}, o texto não sustenta mais`);
   const entidades = await comSameAs(ix.entidades, `${tituloFinal} ${(artigo.abertura ?? []).join(" ")}`);
   const tags = [...tagsSemIndexacao(a.tags), ...tagsDeIndexacao({ assuntos: ix.assuntos, entidades })];
 

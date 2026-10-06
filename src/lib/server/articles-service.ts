@@ -159,6 +159,15 @@ export async function getArticleBySlug(slug: string) {
    */
   if (found) return found.status === "published" ? found : null;
 
+  /*
+   * O artigo estático só sai quando o banco NÃO respondeu (auditoria de SEO,
+   * 05/10/2026). Antes, slug que não estava no banco caía nos três artigos de
+   * `editorial.ts`, da vertical de imigração, servidos com `published_at` de
+   * agora: "o-que-pesa-na-decisao-de-sair-do-brasil" estava no ar assim. Com
+   * o banco lendo, slug que ele não tem é 404.
+   */
+  if (all.length > 0 && all.some((a) => a.id)) return null;
+
   const staticArt = staticArticles.find((a) => a.slug === slug);
   if (!staticArt) return null;
 

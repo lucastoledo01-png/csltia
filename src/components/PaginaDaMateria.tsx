@@ -2,12 +2,14 @@ import { BotaoVoltar } from "@/components/BotaoVoltar";
 import { ArticleComments } from "@/components/ArticleComments";
 import { CaixaDeAssinatura, MolduraDoPortal } from "@/components/PortalChrome";
 import { SubstackArticleRenderer } from "@/components/SubstackArticleRenderer";
-import { miniaturaDoCommons } from "@/components/PortalPecas";
-import { semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
+import { creditoDoCommons, enderecoLimpoDaImagem, miniaturaDoCommons, semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
+import { editoriaPeloNome, hrefDaEditoria } from "@/lib/editorias";
 import { indexacaoValidadaDoArtigo } from "@/lib/indexacao-do-artigo";
 import {
+  corpoComLeiaTambem,
   corpoComPerguntas,
   dadosEstruturadosDoArtigo,
+  dataDeModificacao,
   jsonLdSeguro,
   perguntasDoArtigo,
   perguntasVisiveisDoArtigo,
@@ -63,18 +65,35 @@ function minutosDeLeitura(a: MateriaDaPagina): number | null {
   return Math.max(1, Math.round(palavras / 200));
 }
 
-/** A data de publicação por extenso, no fuso do projeto, ou nada. */
-function dataPorExtenso(a: MateriaDaPagina): string | undefined {
-  if (!a.published_at) return undefined;
-  const d = new Date(a.published_at);
+/** Uma data por extenso, no fuso do projeto, ou nada. */
+function porExtenso(iso: string | null | undefined): string | undefined {
+  if (!iso) return undefined;
+  const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return undefined;
   return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "numeric", month: "long", year: "numeric" });
 }
 
 /**
+ * As datas que o leitor vê, iguais às do JSON-LD (auditoria de SEO,
+ * 05/10/2026): a de publicação sempre, e "Atualizado em" só quando a
+ * modificação honesta (`dataDeModificacao`, a mesma do NewsArticle) cai em
+ * outro DIA. Mesmo dia é ruído; dia diferente o leitor precisa saber.
+ */
+function datasDaMateria(a: MateriaDaPagina): { publicada?: { iso: string; texto: string }; atualizada?: { iso: string; texto: string } } {
+  const textoPublicada = porExtenso(a.published_at);
+  if (!a.published_at || !textoPublicada) return {};
+  const publicada = { iso: new Date(a.published_at).toISOString(), texto: textoPublicada };
+  const modificada = dataDeModificacao(a.published_at, a.updated_at);
+  const textoModificada = porExtenso(modificada);
+  if (!modificada || !textoModificada || textoModificada === textoPublicada) return { publicada };
+  return { publicada, atualizada: { iso: modificada, texto: textoModificada } };
+}
+
+/**
  * As fotos do corpo e a capa pela miniatura do Commons, e não pelo original.
- * O motivo e o caminho estão em `miniaturaDoCommons`. Só a tela muda: o
- * JSON-LD e o Open Graph continuam com o endereço gravado.
+ * O motivo e o caminho estão em `miniaturaDoCommons`. Desde a auditoria de
+ * SEO de 05/10/2026 o JSON-LD e o Open Graph também usam a miniatura (1280),
+ * por `imagemParaCompartilhar`.
  */
 function corpoComMiniaturas(html: string | undefined): string | undefined {
   if (!html) return html;
@@ -105,8 +124,19 @@ function linhaFinaQueAcrescenta(descricao: string | undefined, corpo: string | u
   return primeiro.startsWith(fina) ? undefined : descricao;
 }
 
-export function PaginaDaMateria({ article, comComentarios = true }: { article: MateriaDaPagina; comComentarios?: boolean }) {
-  const capa = (article.cover_image ?? "").trim();
+export function PaginaDaMateria({
+  article,
+  comComentarios = true,
+  relacionadas = [],
+}: {
+  article: MateriaDaPagina;
+  comComentarios?: boolean;
+  /** Para o "Leia também" da matéria que nasceu sem ele. Lidas pela rota; vazio não acrescenta nada. */
+  relacionadas?: ReadonlyArray<{ slug: string; titulo: string }>;
+}) {
+  // Limpa do `&amp%3B` que 15 capas do Pexels gravaram (auditoria de 05/10/2026).
+  const capa = enderecoLimpoDaImagem(article.cover_image);
+  const editoria = editoriaPeloNome(article.category);
 
   /*
    * A capa não se repete no corpo (05/10/2026). A edição antiga publicada
@@ -122,7 +152,18 @@ export function PaginaDaMateria({ article, comComentarios = true }: { article: M
    * corpo já traz a seção (o ramo a escreve no HTML), nada é acrescentado.
    */
   const perguntasGravadas = perguntasDoArtigo(article.aeo_questions);
-  const corpo = corpoSemCapa ? corpoComPerguntas(corpoSemCapa, perguntasGravadas) : corpoSemCapa;
+  const comPerguntas = corpoSemCapa ? corpoComPerguntas(corpoSemCapa, perguntasGravadas) : corpoSemCapa;
+  const corpo = comPerguntas
+    ? corpoComLeiaTambem(comPerguntas, relacionadas, editoria ? { nome: editoria.nome, href: hrefDaEditoria(editoria.id) } : null)
+    : comPerguntas;
+
+  /*
+   * Foto do Commons sem crédito gravado ganha o link para a página do
+   * arquivo, onde estão autor e licença (auditoria de 05/10/2026: 41 capas
+   * do Commons, nenhuma com crédito, e a mais usada é CC BY-SA 4.0).
+   */
+  const creditoPadrao = creditoDaCapa ? null : creditoDoCommons(capa);
+  const datas = datasDaMateria(article);
   const perguntasNaPagina = perguntasVisiveisDoArtigo({ aeo_questions: article.aeo_questions, content_html: corpo });
 
   /*
@@ -150,11 +191,16 @@ export function PaginaDaMateria({ article, comComentarios = true }: { article: M
           <SubstackArticleRenderer
             title={article.title}
             subtitle={linhaFinaQueAcrescenta(article.description, corpo)}
-            date={dataPorExtenso(article)}
+            date={datas.publicada?.texto}
+            dateTime={datas.publicada?.iso}
+            updated={datas.atualizada?.texto}
+            updatedTime={datas.atualizada?.iso}
             category={article.category}
+            categoryHref={editoria ? hrefDaEditoria(editoria.id) : undefined}
             readTime={minutos ? `${minutos} min` : undefined}
             coverImage={capa ? miniaturaDoCommons(capa, 1280) : null}
-            coverCredit={creditoDaCapa}
+            coverCredit={creditoDaCapa ?? creditoPadrao?.texto}
+            coverCreditHref={creditoPadrao?.href}
             coverDescription={legendaDaCapa}
             shareUrl={urlDoArtigo(article.slug)}
             topics={indexacaoValidadaDoArtigo(article).assuntos}

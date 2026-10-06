@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { PaginaDaMateria } from "@/components/PaginaDaMateria";
-import { articles as staticArticles } from "@/lib/editorial";
 import { destinoDoLinkDaEdicao, getArticleBySlug } from "@/lib/server/articles-service";
 import { MARCA } from "@/lib/marca";
-import { dataDeModificacao } from "@/lib/server/dados-estruturados-do-artigo";
+import { imagemParaCompartilhar } from "@/lib/imagem-da-capa";
+import { dataDeModificacao, tituloDaAba } from "@/lib/server/dados-estruturados-do-artigo";
+import { buscarRelacionadas } from "@/lib/server/materias-relacionadas";
+import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
+import { DEFAULT_PROJECT_ID } from "@/lib/server/projects";
 
 /**
  * A listagem sai do banco, e o banco muda depois do build.
@@ -28,7 +31,9 @@ type ArtigoDaPagina = Awaited<ReturnType<typeof getArticleBySlug>>;
 
 function capaDoArtigo(a: NonNullable<ArtigoDaPagina>): string {
   const r = a as { cover_image?: string | null; image?: string };
-  return (r.cover_image || r.image || "").trim();
+  // Limpa e, no Commons, a miniatura de 1280: o original chega a 9 MB, e a
+  // prévia do WhatsApp e do Facebook não carrega isso (auditoria de 05/10/2026).
+  return imagemParaCompartilhar(r.cover_image || r.image || "");
 }
 
 /** O que vai para a aba e para o resultado de busca, com o SEO na frente. */
@@ -67,7 +72,7 @@ export async function generateMetadata({
   const modificada = dataDeModificacao(datas.published_at, datas.updated_at);
 
   return {
-    title: `${tituloDeBusca(article)} | ${MARCA.nome}`,
+    title: { absolute: tituloDaAba(tituloDeBusca(article)) },
     description: descricao,
     alternates: { canonical: `${MARCA.site}/artigos/${article.slug}` },
     openGraph: {
@@ -85,8 +90,30 @@ export async function generateMetadata({
   };
 }
 
-export function generateStaticParams() {
-  return staticArticles.map((article) => ({ slug: article.slug }));
+/*
+ * Sem `generateStaticParams` desde a auditoria de SEO de 05/10/2026. Ele
+ * pré-gerava os três artigos estáticos de `editorial.ts`, da vertical de
+ * imigração, e um deles ("o-que-pesa-na-decisao-de-sair-do-brasil") estava no
+ * ar com `datePublished` de AGORA a cada build, fora do sitemap e fora da
+ * linha editorial. A página agora só serve o que o banco publicou.
+ *
+ * A lista vazia mantém a página em cache incremental (cinco minutos, o
+ * `revalidate` acima), gerada na primeira visita: sem a função o Next a
+ * trataria como dinâmica e leria o banco a cada visita.
+ */
+export function generateStaticParams(): Array<{ slug: string }> {
+  return [];
+}
+
+/** O "Leia também" da matéria que nasceu sem ele. Falha de leitura é lista vazia, nunca página quebrada. */
+async function relacionadasDaMateria(article: NonNullable<ArtigoDaPagina>) {
+  const a = article as { slug: string; title: string; category?: string | null; content_html?: string; tags?: string[] | null };
+  if (!a.category || /<section[^>]*class="leia-tambem"/i.test(a.content_html ?? "")) return [];
+  try {
+    return await buscarRelacionadas(getSupabaseAdminClient(), DEFAULT_PROJECT_ID, { slug: a.slug, categoria: a.category, texto: a.title });
+  } catch {
+    return [];
+  }
 }
 
 export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
@@ -103,5 +130,5 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
     notFound();
   }
 
-  return <PaginaDaMateria article={article} />;
+  return <PaginaDaMateria article={article} relacionadas={await relacionadasDaMateria(article)} />;
 }

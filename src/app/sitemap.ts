@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 import { MARCA } from "@/lib/marca";
 import { EDITORIAS, hrefDaEditoria } from "@/lib/editorias";
-import { getPublishedArticles } from "@/lib/server/articles-service";
+import { materiasDoSitemap } from "@/lib/server/arquivos-para-maquinas";
+import { dataDeModificacao } from "@/lib/server/dados-estruturados-do-artigo";
 
 /**
  * O mapa do site, montado a partir do que está publicado.
@@ -37,13 +38,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
    * inteiro. Um sitemap incompleto é recuperável na próxima passada; um
    * sitemap quebrado custa confiança.
    */
-  const artigos = await getPublishedArticles().catch(() => []);
+  const artigos = await materiasDoSitemap().catch(() => []);
 
   return [
     ...fixas,
     ...artigos.map((a) => ({
       url: `${MARCA.site}/artigos/${a.slug}`,
-      ...dataValida(a.date),
+      ...dataValida(dataDeModificacao(a.published_at, a.updated_at)),
       changeFrequency: "weekly" as const,
       priority: 0.7,
     })),
@@ -53,12 +54,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 /**
  * `lastModified` só entra quando a data é uma data.
  *
- * O campo `date` do artigo vem formatado para leitura, no estilo
- * "16 de set. de 2026". `new Date()` disso devolve Invalid Date, e o Next chama
- * `toISOString()` em cima ao montar o XML: a rota inteira responde 500, e um
- * sitemap que responde 500 é lido pelo rastreador como erro do site.
- *
- * Data ausente no sitemap é omissão aceitável. Sitemap quebrado não é.
+ * A primeira versão lia a data formatada para leitura ("16 de set. de 2026"),
+ * `new Date()` disso devolvia Invalid Date, e o Next chama `toISOString()` em
+ * cima ao montar o XML: a rota inteira respondia 500. Desde a auditoria de
+ * 05/10/2026 a data vem crua do banco, e é a MESMA modificação honesta do
+ * `dateModified` do NewsArticle (`dataDeModificacao`). A conferência fica:
+ * data ausente no sitemap é omissão aceitável, sitemap quebrado não é.
  */
 function dataValida(bruta: string | undefined): { lastModified?: Date } {
   if (!bruta) return {};
