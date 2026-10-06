@@ -3,7 +3,9 @@ import {
   JANELAS,
   avisarCandidatasNaoGravadas,
   avisarFimDaProducao,
+  avisarLeituraDeCandidatasFalhou,
   textoCandidatasNaoGravadas,
+  textoLeituraDeCandidatasFalhou,
   cicloDosAvisos,
   classificarMotivo,
   contarPorRamo,
@@ -524,5 +526,69 @@ describe("candidatas não gravadas", () => {
     expect(t.length).toBeLessThanOrEqual(900);
     expect(textoCandidatasNaoGravadas({ dia: "2026-10-06", erros: [ERRO, ERRO], postsGravados: 1 })).toContain("(e mais 1)");
     expect(textoCandidatasNaoGravadas({ dia: "2026-10-06", erros: [ERRO], postsGravados: 1 })).toContain("1 post gravado");
+  });
+});
+
+/*
+ * A leitura das candidatas falhou e a notícia do Instagram ficou segurada
+ * (decisão do dono, 06/10/2026). O bloqueio continua; o aviso é o que impede
+ * o dia sem post de passar em silêncio, como passou em 06/10.
+ */
+describe("leitura de candidatas que falhou", () => {
+  const ERRO =
+    "leitura de candidatas falhou: Candidatas, leitura da janela falhou: fetch failed causa: Connect Timeout Error code: UND_ERR_CONNECT_TIMEOUT";
+
+  it("manda um aviso curto: o que foi segurado, por quê, o erro inteiro e o que fazer", async () => {
+    const m = mundo({ agora: sp("2026-10-06", "06:11") });
+    const enviado = await avisarLeituraDeCandidatasFalhou({ id: "p1" }, { dia: "2026-10-06", erros: [ERRO], postsSegurados: 4 }, m.deps);
+
+    expect(enviado).toBe(true);
+    expect(m.enviados).toHaveLength(1);
+    const t = m.enviados[0].texto;
+    expect(m.enviados[0].nivel).toBe("warning");
+    expect(t).toContain("Instagram de 06/10");
+    expect(t).toContain("os posts de notícia foram segurados (4 posts calculados ficaram de fora)");
+    expect(t).toContain("a leitura do histórico de pautas candidatas no banco falhou");
+    expect(t).toContain("Newsletter e portal não são afetados");
+    expect(t).toContain("leva-social-extra.ts");
+    // O erro vai inteiro, com o código que diz o que houve.
+    expect(t).toContain(ERRO);
+    expect(t).not.toContain(String.fromCharCode(0x2014));
+    expect(m.registros[0]).toMatchObject({ chave: "leitura_de_candidatas_falhou:2026-10-06", enviado: true });
+  });
+
+  it("um por dia: a tarde que falha de novo não repete o aviso da manhã", async () => {
+    const m = mundo({ agora: sp("2026-10-06", "06:11") });
+    const falha = { dia: "2026-10-06", erros: [ERRO], postsSegurados: 2 };
+    await avisarLeituraDeCandidatasFalhou({ id: "p1" }, falha, m.deps);
+    expect(await avisarLeituraDeCandidatasFalhou({ id: "p1" }, falha, m.deps)).toBe(false);
+    expect(m.enviados).toHaveLength(1);
+  });
+
+  it("não se confunde com o aviso da gravação: as chaves são outras", async () => {
+    const m = mundo({ agora: sp("2026-10-06", "06:11") });
+    await avisarCandidatasNaoGravadas({ id: "p1" }, { dia: "2026-10-06", erros: ["gravação falhou"], postsGravados: 1 }, m.deps);
+    await avisarLeituraDeCandidatasFalhou({ id: "p1" }, { dia: "2026-10-06", erros: [ERRO], postsSegurados: 1 }, m.deps);
+    expect(m.registros.map((r) => r.chave)).toEqual([
+      "candidatas_nao_gravadas:2026-10-06",
+      "leitura_de_candidatas_falhou:2026-10-06",
+    ]);
+  });
+
+  it("envio que falha fica gravado com o motivo do Telegram", async () => {
+    const m = mundo({ agora: sp("2026-10-06", "06:11"), envioFalha: true });
+    await avisarLeituraDeCandidatasFalhou({ id: "p1" }, { dia: "2026-10-06", erros: [ERRO], postsSegurados: 1 }, m.deps);
+    expect(m.registros[0]).toMatchObject({ enviado: false, motivo: "telegram_recusou" });
+  });
+
+  it("sem erro, nada", async () => {
+    const m = mundo({ agora: sp("2026-10-06", "06:11") });
+    expect(await avisarLeituraDeCandidatasFalhou({ id: "p1" }, { dia: "2026-10-06", erros: [], postsSegurados: 3 }, m.deps)).toBe(false);
+    expect(m.enviados).toHaveLength(0);
+  });
+
+  it("singular, e o texto cabe numa mensagem do Telegram", () => {
+    expect(textoLeituraDeCandidatasFalhou({ dia: "2026-10-06", erros: [ERRO], postsSegurados: 1 })).toContain("1 post calculado ficou de fora");
+    expect(textoLeituraDeCandidatasFalhou({ dia: "2026-10-06", erros: [ERRO.repeat(100)], postsSegurados: 1 }).length).toBeLessThanOrEqual(3500);
   });
 });

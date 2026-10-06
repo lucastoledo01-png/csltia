@@ -182,12 +182,25 @@ export async function rodarQuenteDaTarde(
     });
     for (const l of social.ciclo?.linhasDeLog ?? []) console.log(l);
 
+    /*
+     * A leitura das candidatas que falhou fecha a tarde como fecha a manhã
+     * (decisão do dono, 06/10/2026). O aviso no Telegram sai de dentro de
+     * `rodarSocialDoDia`, com a mesma chave do dia; aqui o desfecho só grava
+     * o bloqueio e o erro, para a linha da tarde explicar o zero.
+     */
+    const bloqueio = social.ciclo?.composicao?.bloqueio ?? null;
+    const naoLidas = social.diagnostico.candidatasNaoLidas;
+
     return registrar({
       ok: true,
       modo,
       data,
       motivo: "RODOU",
-      explicacao: `${social.diagnostico.selected} post(s) ${modo === "enforce" ? "gravado(s)" : "que sairiam"}, de ${escolhidas.length} quente(s)`,
+      explicacao:
+        `${social.diagnostico.selected} post(s) ${modo === "enforce" ? "gravado(s)" : "que sairiam"}, de ${escolhidas.length} quente(s)` +
+        (bloqueio ? `; bloqueado: ${bloqueio}` : ""),
+      ...(bloqueio ? { bloqueio } : {}),
+      ...(naoLidas?.length ? { candidatasNaoLidas: naoLidas } : {}),
       vagas,
       quentes,
       posts: {

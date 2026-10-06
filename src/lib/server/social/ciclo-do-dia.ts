@@ -11,7 +11,7 @@ import { imagemDaPauta } from "../visual/acervo/imagem-da-pauta";
 import { acervoDoProjeto } from "../visual/acervo/acervo";
 import { buscarSegundaFoto } from "../visual/resolver";
 import { detectarRostos } from "../visual/rostos-na-foto";
-import { carregarConfigSocial } from "./selecao";
+import { carregarConfigSocial, SOCIAL_PERSISTENCE_UNAVAILABLE } from "./selecao";
 import { limitarTetoDoDia, poolDoInstagram } from "../ramos/selecao";
 import { criarSocialPostsStore } from "./social-posts-store";
 import { opcoesDaFilaParaOStore, projetoDaFila } from "../aprovacao/integracao";
@@ -50,8 +50,8 @@ import type { MarcaSocial } from "./copy";
 import type { OpcoesDoCiclo, ResultadoDoCicloSocial } from "./pipeline-v2";
 import { bancosOficiaisLigados } from "../visual/bancos-oficiais/modo";
 import type { CandidataPersistida } from "../editorial/candidatos-store";
-import type { CandidatasNaoGravadas } from "../avisos/avisos";
-import { avisarCandidatasNaoGravadasNoBanco } from "../avisos/candidatas";
+import type { CandidatasNaoGravadas, LeituraDeCandidatasFalhou } from "../avisos/avisos";
+import { avisarCandidatasNaoGravadasNoBanco, avisarLeituraDeCandidatasFalhouNoBanco } from "../avisos/candidatas";
 
 /**
  * O dia do Instagram, a partir do trabalho editorial que a newsletter também usa.
@@ -99,6 +99,12 @@ export type DiagnosticoSocialDoDia = {
    * (06/10/2026). Os erros com o texto do banco; ausente quando gravou.
    */
   candidatasNaoGravadas?: string[];
+  /**
+   * A LEITURA das candidatas falhou nesta execução (06/10/2026), com o texto
+   * do banco. Com ela a notícia do dia fica fechada (decisão do dono), e o
+   * campo diz por quê ao lado do `bloqueio` gravado. Ausente quando leu.
+   */
+  candidatasNaoLidas?: string[];
 };
 
 export function diagnosticoSocialAusente(mode: ModoSocial = "off"): DiagnosticoSocialDoDia {
@@ -145,13 +151,19 @@ export type OpcoesDoSocialDoDia = {
    */
   candidatasNaoGravadas?: string[];
   /**
-   * Os erros da LEITURA das candidatas, com o texto do banco. Só vão para o
+   * Os erros da LEITURA das candidatas, com o texto do banco. Vão para o
    * diagnóstico, para o bloqueio `SOCIAL_PERSISTENCE_UNAVAILABLE` gravar o
    * porquê junto: em 06/10/2026 ele foi gravado sem erro nenhum.
+   *
+   * ATUALIZADO no mesmo dia, por decisão do dono: o bloqueio continua, e
+   * quando ele de fato segura os posts o Telegram recebe um aviso por dia.
+   * Ver `leituraDasCandidatasNoDia`, no fim deste arquivo.
    */
   candidatasNaoLidas?: string[];
   /** Quem manda o aviso. Injetável no teste; ausente, o de verdade (`avisos/candidatas.ts`). */
   avisarCandidatasNaoGravadas?: (falha: CandidatasNaoGravadas) => Promise<unknown>;
+  /** Quem manda o aviso da leitura que falhou. Injetável no teste; ausente, o de verdade. */
+  avisarLeituraDeCandidatasFalhou?: (falha: LeituraDeCandidatasFalhou) => Promise<unknown>;
   env?: Record<string, string | undefined>;
   fetcher?: typeof fetch;
   /** Relógio, só para simulação de dia passado. Ausente em produção. */
@@ -280,6 +292,7 @@ export async function rodarSocialDoDia(
   opcoes: OpcoesDoSocialDoDia,
 ): Promise<ResultadoDoSocialDoDia> {
   const resultado = await cicloSocialDoDia(approvedEditorialPool, opcoes);
+  await leituraDasCandidatasNoDia(resultado, opcoes);
   await candidatasNaoGravadasNoDia(resultado, opcoes);
   return resultado;
 }
@@ -298,7 +311,6 @@ async function candidatasNaoGravadasNoDia(
 ): Promise<void> {
   const d = resultado.diagnostico;
   if (d.mode === "off") return;
-  for (const e of opcoes.candidatasNaoLidas ?? []) d.errors.push(`candidatas não lidas: ${e}`);
 
   const erros = opcoes.candidatasNaoGravadas ?? [];
   if (erros.length === 0) return;
@@ -313,6 +325,57 @@ async function candidatasNaoGravadasNoDia(
       ((f: CandidatasNaoGravadas) => avisarCandidatasNaoGravadasNoBanco(opcoes.client, opcoes.projectId, f)))(falha);
   } catch (erro) {
     console.warn(`[SOCIAL V2] aviso de candidatas não gravadas falhou: ${(erro as Error)?.message ?? erro}`);
+  }
+}
+
+/**
+ * A leitura das candidatas falhou, e a notícia do dia ficou fechada
+ * (decisão do dono, 06/10/2026).
+ *
+ * O bloqueio fica: sem a leitura o pool é reclassificado do zero, e o sorteio
+ * do classificador volta a decidir o que vai ao ar. O que não fica é o
+ * silêncio. Em 06/10 o mesmo bloqueio custou o dia inteiro, e o motivo só
+ * apareceu por eliminação.
+ *
+ * O erro vai sempre para o diagnóstico (fora de `off`). O aviso só sai quando
+ * o bloqueio SEGUROU os posts de verdade, e isso só acontece em `enforce`: a
+ * composição só acende `SOCIAL_PERSISTENCE_UNAVAILABLE` quando vai publicar
+ * (`paraPublicar`). Em ensaio nada seria publicado de qualquer jeito, então
+ * dizer "os posts foram segurados" seria mentir, que é a regra dos avisos; é
+ * a mesma escolha do aviso de candidatas não gravadas. Leitura que falhou num
+ * dia em que o ciclo nem chegou à composição (pool vazio, feed ilegível)
+ * também não avisa: não havia post para segurar, e o diagnóstico guarda o erro.
+ *
+ * Vale para a manhã e para a tarde (`quente-da-tarde-ciclo.ts`), que passam
+ * pelo mesmo `rodarSocialDoDia`; a chave `tipo:dia` faz as duas falhas do
+ * mesmo dia virarem uma mensagem. O aviso nunca derruba o ciclo.
+ */
+async function leituraDasCandidatasNoDia(
+  resultado: ResultadoDoSocialDoDia,
+  opcoes: OpcoesDoSocialDoDia,
+): Promise<void> {
+  const d = resultado.diagnostico;
+  if (d.mode === "off") return;
+
+  const erros = opcoes.candidatasNaoLidas ?? [];
+  if (erros.length === 0) return;
+
+  d.candidatasNaoLidas = erros;
+  for (const e of erros) d.errors.push(`candidatas não lidas: ${e}`);
+
+  const composicao = resultado.ciclo?.composicao;
+  if (d.mode !== "enforce" || composicao?.bloqueio !== SOCIAL_PERSISTENCE_UNAVAILABLE) return;
+
+  const falha: LeituraDeCandidatasFalhou = {
+    dia: opcoes.editionDate,
+    erros,
+    postsSegurados: composicao.escolhidas.length,
+  };
+  try {
+    await (opcoes.avisarLeituraDeCandidatasFalhou ??
+      ((f: LeituraDeCandidatasFalhou) => avisarLeituraDeCandidatasFalhouNoBanco(opcoes.client, opcoes.projectId, f)))(falha);
+  } catch (erro) {
+    console.warn(`[SOCIAL V2] aviso de leitura de candidatas falhou: ${(erro as Error)?.message ?? erro}`);
   }
 }
 
