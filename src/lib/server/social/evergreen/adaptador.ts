@@ -2,7 +2,9 @@ import type { PautaAvaliada } from "../../editorial/guarda";
 import type { PacoteFactual } from "../../editorial/pacote-factual";
 import { MOTIVOS } from "../../editorial/config";
 import { identidadeDoItem } from "./tipos";
-import type { FamiliaEvergreen, ItemEvergreen } from "./tipos";
+import type { ItemEvergreen } from "./tipos";
+import type { EditoriaId } from "../../../editorias";
+import { temaPeloSlug } from "../../../temas";
 
 /**
  * O item evergreen vestindo a roupa da pauta de notícia.
@@ -39,15 +41,31 @@ import type { FamiliaEvergreen, ItemEvergreen } from "./tipos";
  * material é da editoria de imigração, e disputa espaço com economia,
  * trabalho e cultura como qualquer outro.
  */
-const EIXO_DA_FAMILIA: Record<FamiliaEvergreen, "imigracao" | "outro"> = {
-  visa_explainer: "imigracao",
-  glossary: "imigracao",
-  faq: "imigracao",
-  comparison: "imigracao",
-  process_explainer: "imigracao",
-  evidence_education: "imigracao",
-  professional_education: "imigracao",
+/*
+ * ATUALIZADO em 06/10/2026: imigração saiu da pauta (05/10) e o catálogo
+ * novo não tem um tópico dela. O eixo deixou de sair da família, que diz a
+ * FORMA do post, e passou a sair da editoria do tópico, que diz o ASSUNTO. É
+ * o eixo que o chapéu da arte imprime, que a gramática lê e que a diversidade
+ * do feed conta, então ele precisa ser o mesmo vocabulário do classificador.
+ *
+ * Nenhuma editoria mapeia para `imigracao`, e há teste disso: um evergreen
+ * marcado assim seria recusado pela linha editorial, e com razão.
+ */
+const EIXO_DA_EDITORIA: Record<EditoriaId, EixoDoEvergreen> = {
+  economia: "economia",
+  trabalho: "trabalho",
+  tecnologia: "tecnologia",
+  "custo-de-vida": "custo_de_vida",
+  governo: "politica",
+  brasil: "brasil",
 };
+
+type EixoDoEvergreen = "economia" | "trabalho" | "tecnologia" | "custo_de_vida" | "politica" | "brasil" | "outro";
+
+/** Tópico sem editoria reconhecida cai em "outro", que não tem chapéu, e nunca em imigração. */
+export function eixoDoTopico(item: ItemEvergreen): EixoDoEvergreen {
+  return EIXO_DA_EDITORIA[item.topico.editoria] ?? "outro";
+}
 
 /**
  * O título que entra no lugar da manchete.
@@ -89,20 +107,30 @@ export function pautaDoEvergreen(item: ItemEvergreen, pacote: PacoteFactual): Pa
     classificacao: {
       id: storyId,
       pais: "EUA",
-      imigracao: true,
+      /*
+       * Falso, e não por omissão: o catálogo de 06/10/2026 não tem tópico de
+       * imigração, e é com `false` que as réguas da linha nova (sem
+       * imigração, foto obrigatória, bolha) tratam o evergreen como tratam
+       * qualquer pauta. Até 05/10 era `true` para tudo.
+       */
+      imigracao: false,
       leitura: "neutra",
-      eixo: EIXO_DA_FAMILIA[item.topico.familia],
+      eixo: eixoDoTopico(item),
       natureza: "official_action",
       relevancia: 5,
       /*
-       * Atores é o programa, e é ele que a diversidade do dia conta. Sem
-       * programa (glossário, processo), a lista fica vazia em vez de receber
-       * "USCIS": marcar o órgão faria metade do catálogo disputar o mesmo teto.
+       * Atores é a instituição que o tópico cita, e só ela.
+       *
+       * Até 05/10 ia o código do programa ("PERM", "EB-2 NIW"), e foi assim
+       * que a sigla virou busca de entidade e achou uma cidade russa. Órgão
+       * ("Federal Reserve", "Internal Revenue Service") tem fachada e acervo, e
+       * é o que a foto e a bolha procuram. A diversidade do dia continua
+       * contando o `programa`, em `selecao.ts`, direto do catálogo.
        */
-      atores: item.topico.programa ? [item.topico.programa] : [],
+      atores: item.topico.entidade ? [item.topico.entidade] : [],
       lugares: ["Estados Unidos"],
       acontecimento: [item.topico.nome],
-      justificativa: `conteúdo permanente, família ${item.topico.familia}`,
+      justificativa: `conteúdo permanente, família ${item.topico.familia}, editoria ${item.topico.editoria}`,
     },
     enriquecimento: {
       texto: pacote.texto_de_origem,
@@ -125,6 +153,8 @@ export function pautaDoEvergreen(item: ItemEvergreen, pacote: PacoteFactual): Pa
         item.angulo.pergunta,
         item.topico.resumo,
         item.topico.programa ?? "",
+        // Os temas da lista fechada, pelo nome: é o assunto declarado, não inferido.
+        ...(item.topico.temas ?? []).map((slug) => temaPeloSlug(slug)?.nome ?? ""),
       ]
         .filter(Boolean)
         .join(". "),
@@ -170,17 +200,67 @@ export function pautaDoEvergreen(item: ItemEvergreen, pacote: PacoteFactual): Pa
   };
 }
 
-/** "uscis.gov" vira "USCIS". Nome de fonte é o que sai impresso no post. */
-function fonteLegivel(url: string): string {
+/**
+ * "bls.gov" vira "BLS". Nome de fonte é o que sai impresso no post.
+ *
+ * Trocada com o catálogo em 06/10/2026: os nomes de imigração saíram junto com
+ * os domínios. Ordem importa: o mais específico antes do que o contém
+ * ("fiscaldata.treasury.gov" antes de "treasury.gov").
+ */
+const NOMES_DAS_FONTES: Array<[string, string]> = [
+  ["federalreserve.gov", "Federal Reserve"],
+  ["fiscaldata.treasury.gov", "Tesouro americano"],
+  ["treasurydirect.gov", "Tesouro americano"],
+  ["treasury.gov", "Tesouro americano"],
+  ["sec.gov", "SEC"],
+  ["investor.gov", "SEC"],
+  ["fdic.gov", "FDIC"],
+  ["consumerfinance.gov", "CFPB"],
+  ["ftc.gov", "FTC"],
+  ["bls.gov", "BLS"],
+  ["bea.gov", "BEA"],
+  ["census.gov", "Census Bureau"],
+  ["eia.gov", "EIA"],
+  ["usda.gov", "USDA"],
+  ["doleta.gov", "Departamento do Trabalho"],
+  ["dol.gov", "Departamento do Trabalho"],
+  ["opm.gov", "OPM"],
+  ["irs.gov", "IRS"],
+  ["ssa.gov", "Social Security"],
+  ["sbir.gov", "SBIR"],
+  ["sba.gov", "SBA"],
+  ["healthcare.gov", "HealthCare.gov"],
+  ["medicare.gov", "Medicare"],
+  ["huduser.gov", "HUD"],
+  ["hud.gov", "HUD"],
+  ["nces.ed.gov", "NCES"],
+  ["studentaid.gov", "Departamento de Educação"],
+  ["ed.gov", "Departamento de Educação"],
+  ["nist.gov", "NIST"],
+  ["uspto.gov", "USPTO"],
+  ["nasa.gov", "NASA"],
+  ["fueleconomy.gov", "Departamento de Energia"],
+  ["energy.gov", "Departamento de Energia"],
+  ["cisa.gov", "CISA"],
+  ["usa.gov", "USA.gov"],
+  ["archives.gov", "Arquivo Nacional dos EUA"],
+  ["house.gov", "Câmara dos EUA"],
+  ["uscourts.gov", "Justiça federal dos EUA"],
+  ["comptroller.texas.gov", "Controladoria do Texas"],
+  ["cdtfa.ca.gov", "Califórnia (CDTFA)"],
+  ["boe.ca.gov", "Califórnia (BOE)"],
+  ["tax.ny.gov", "Nova York (Tributação)"],
+  ["dor.wa.gov", "Washington (Receita)"],
+  ["tn.gov", "Tennessee (Receita)"],
+  ["gov.br", "Governo Federal (gov.br)"],
+];
+
+export function fonteLegivel(url: string): string {
   try {
     const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
-    if (host.includes("uscis")) return "USCIS";
-    if (host.includes("travel.state") || host.includes("state.gov")) return "Departamento de Estado";
-    if (host.includes("dol.gov")) return "Departamento do Trabalho";
-    if (host.includes("federalregister")) return "Federal Register";
-    if (host.includes("irs.gov")) return "IRS";
-    if (host.includes("cbp.gov")) return "CBP";
-    if (host.includes("ssa.gov")) return "Social Security";
+    for (const [dominio, nome] of NOMES_DAS_FONTES) {
+      if (host === dominio || host.endsWith(`.${dominio}`)) return nome;
+    }
     return host;
   } catch {
     return "fonte oficial";

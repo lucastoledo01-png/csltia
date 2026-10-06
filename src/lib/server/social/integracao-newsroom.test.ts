@@ -734,7 +734,7 @@ describe("J. o compositor único, com os quatro exemplos do pedido", () => {
   const CATALOGO_GRANDE = ASSUNTOS.map((nome, i) => ({
     id: `topico-${i}`,
     nome,
-    familia: (i % 2 === 0 ? "process_explainer" : "visa_explainer") as never,
+    familia: (i % 2 === 0 ? "process_explainer" : "explainer") as never,
     programa: undefined,
     resumo: `${nome}: uma etapa do pedido de green card na imigracao americana, nos Estados Unidos.`,
     fontesCanonicas: ["https://www.uscis.gov/x"],

@@ -46,8 +46,25 @@ const LACUNAS_DA_CBP = [
   "A matéria não informa quais atividades diferenciam o uso do B-1 do uso do B-2.",
 ];
 
+/*
+ * O tópico B-1/B-2 saiu do catálogo com a imigração (05/10/2026), e o caso
+ * continua sendo o melhor retrato do defeito que a régua pega. Ele vive aqui
+ * como fixture, com o nome e o programa que tinha no catálogo arquivado.
+ */
+const TOPICO_B1_B2: TopicoEvergreen = {
+  id: "b1-b2",
+  nome: "B-1 e B-2 (negocios e turismo)",
+  familia: "explainer",
+  editoria: "governo",
+  temas: ["politica-externa-americana"],
+  programa: "B-1/B-2",
+  resumo: "O visto de visitante para negocios e turismo.",
+  fontesCanonicas: ["https://www.usa.gov/x"],
+  angulos: [{ id: "b1-vs-b2", pergunta: "O que cada uma dessas letras deixa você fazer, e por que elas vêm juntas?" }],
+};
+
 function item(topicoId: string): ItemEvergreen {
-  const topico = CATALOGO_EVERGREEN.find((t) => t.id === topicoId);
+  const topico = topicoId === TOPICO_B1_B2.id ? TOPICO_B1_B2 : CATALOGO_EVERGREEN.find((t) => t.id === topicoId);
   if (!topico) throw new Error(`tópico ${topicoId} não está no catálogo`);
   return { topico, angulo: topico.angulos[0] };
 }
@@ -56,9 +73,11 @@ function itemSintetico(over: Partial<TopicoEvergreen>): ItemEvergreen {
   const topico: TopicoEvergreen = {
     id: "t",
     nome: "Tema",
-    familia: "visa_explainer",
+    familia: "explainer",
+    editoria: "economia",
+    temas: ["juros-do-fed"],
     resumo: "r",
-    fontesCanonicas: ["https://www.uscis.gov/x"],
+    fontesCanonicas: ["https://www.bls.gov/x"],
     angulos: [{ id: "a", pergunta: "O que e isso?" }],
     ...over,
   };
