@@ -232,9 +232,11 @@ describe("corpoComLeiaTambem", () => {
     expect(saida).toContain('<a href="/editoria/economia">Mais de Economia</a>');
   });
 
-  it("não duplica quando o corpo já tem o bloco, e não inventa sem relacionadas", () => {
+  it("não duplica quando o corpo já tem o bloco (refaz com as atuais), e não inventa sem relacionadas", () => {
     const comBloco = '<p>a</p><section class="leia-tambem"><h2>Leia também</h2></section>';
-    expect(corpoComLeiaTambem(comBloco, relacionadas, editoria)).toBe(comBloco);
+    const saida = corpoComLeiaTambem(comBloco, relacionadas, editoria);
+    expect((saida.match(/class="leia-tambem"/g) ?? []).length).toBe(1);
+    expect(saida).toContain('<a href="/editoria/economia">Mais de Economia</a>');
     expect(corpoComLeiaTambem("<p>a</p>", [], null)).toBe("<p>a</p>");
   });
 });

@@ -15,6 +15,7 @@ import { editoriaDaPauta, nomeDaEditoria } from "@/lib/editorias";
 import { temasParaOPrompt } from "@/lib/temas";
 import { MINIMO_DE_ASSUNTOS, descreverDescartes, entidadesDoPacote, validarAssuntos, type AssuntoDescartado, type EntidadeDaMateria } from "@/lib/indexacao-do-artigo";
 import type { LivroDeCustos } from "./custos";
+import { corpoNaOrdemDoFim, tituloDasPerguntas } from "../dados-estruturados-do-artigo";
 
 /**
  * A matéria do portal, escrita para a busca (RF-13).
@@ -816,7 +817,7 @@ export function renderizarArtigoHtml(artigo: Artigo, fonte: { nome: string; url:
 
   if (artigo.perguntas.length) {
     partes.push(
-      `<section class="perguntas"><h2>Perguntas e respostas</h2>${artigo.perguntas
+      `<section class="perguntas"><h2>${tituloDasPerguntas(artigo.perguntas.length)}</h2>${artigo.perguntas
         .map((p) => `<h3>${escapeHtml(semMarcadorDeLink(p.pergunta))}</h3><p>${paragrafoHtml(p.resposta)}</p>`)
         .join("")}</section>`,
     );
@@ -838,7 +839,8 @@ export function renderizarArtigoHtml(artigo: Artigo, fonte: { nome: string; url:
     partes.push(`<p class="fonte">Fonte: <a href="${safeHttpUrl(fonte.url)}" rel="noopener" target="_blank">${escapeHtml(fonte.nome)}</a></p>`);
   }
 
-  return partes.join("");
+  // A mesma ordem do fim que a página aplica (06/10/2026): perguntas, fontes, "Leia também".
+  return corpoNaOrdemDoFim(partes.join(""));
 }
 
 /**

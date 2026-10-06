@@ -328,10 +328,21 @@ body {
     color: #0a0a0a;
   }
 
-  .artigo-corpo > section.leia-tambem,
   .artigo-corpo > section.fontes {
     border-top: 1px solid #f4f4f5;
     padding-top: 1.25rem;
+  }
+
+  /*
+   * "Leia também" é caixa fechada (06/10/2026): a linha solta em cima, sem
+   * nada embaixo, deixava o bloco sem fim, e o que vinha depois parecia
+   * continuação dele.
+   */
+  .artigo-corpo > section.leia-tambem {
+    background: #fafafa;
+    border: 1px solid #f4f4f5;
+    border-radius: 1rem;
+    padding: 1.25rem 1.25rem 1.1rem;
   }
 
   .artigo-corpo > section.leia-tambem > h2,
