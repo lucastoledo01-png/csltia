@@ -24,6 +24,18 @@ import { autorComBanco, semSufixoDeBanco } from "../visual/bancos-oficiais/credi
  * 2. Depois do corpo, uma linha em branco e "Siga @eua.journal", uma vez só.
  *    Abaixo dele, só a linha do crédito, quando há.
  *
+ *    ATUALIZADO em 06/10/2026, à noite, por escolha explícita do dono depois
+ *    de ler a fila de 07/10: a linha leva SÓ o nome de quem fez a foto. "Fotos:
+ *    Lucio Bernardo Jr./Câmara dos Deputados (CC BY) e Leonardo Prado/Câmara
+ *    dos Deputados (CC BY)" virou "Fotos: Lucio Bernardo Jr. e Leonardo
+ *    Prado". Sem banco nem agência, sem sigla de licença, sem barra, sem o
+ *    "from Washington, DC, USA" do Flickr. Sem pessoa (o banco assina sozinho,
+ *    "NASA"), o nome da instituição. A atribuição inteira continua gravada em
+ *    `content_json.visual` (`attribution`, `license`, `creditosDasFotos`), que
+ *    é onde a licença fica registrada; a legenda é só a linha curta. O texto
+ *    acima, com a sigla entre parênteses, fica como registro do que valeu até
+ *    esta data.
+ *
  * Por que em código, e não no prompt: a instrução editorial é editável no
  * painel e fica gravada no banco como versão ativa. Uma versão antiga (ou uma
  * edição à mão) que pedisse o crédito ou outro fecho venceria o prompt novo.
@@ -209,12 +221,19 @@ export function autorDaFoto(foto: FotoCreditavel): string {
    * a linha não cumpriria a licença. O resolvedor grava esse formato em
    * `attribution` ("Foto: Nome/Banco"), e só os bancos da lista o têm.
    */
+  /*
+   * ATUALIZADO na mesma noite (regra do dono): do "Nome/Banco" fica só o nome.
+   * O banco sozinho, sem fotógrafo, fica: é a instituição que assina.
+   */
   const comBanco = autorComBanco(foto.attribution ?? "");
-  if (comBanco) return comBanco.length > 80 ? comBanco.slice(0, 80) : comBanco;
-  let nome = limparNome(foto.author ?? "");
+  if (comBanco) {
+    const nomeDoCredito = soONomeDoCredito(comBanco);
+    return nomeDoCredito.length > 60 ? nomeDoCredito.slice(0, 60).replace(/\s+\S*$/, "") : nomeDoCredito;
+  }
+  let nome = soONomeDoCredito(limparNome(foto.author ?? ""));
   if (!nome) {
     const atribuicao = limparNome(foto.attribution ?? "");
-    nome = limparNome(atribuicao.split(/\s+\/\s+|,\s*|\s+via\s+/i)[0] ?? "");
+    nome = soONomeDoCredito(limparNome(atribuicao.split(/\s+\/\s+|,\s*|\s+via\s+/i)[0] ?? ""));
   }
   if (!nome || AUTOR_DESCONHECIDO.test(nome)) return "";
   if (/https?:\/\/|www\./i.test(nome)) return "";
@@ -228,22 +247,78 @@ export function autorDaFoto(foto: FotoCreditavel): string {
  * "Fotos: A, B, C e outros". Vazia quando nenhuma foto tem autor conhecido.
  */
 export function linhaDeCredito(fotos: Array<FotoCreditavel | null | undefined>): string {
-  const vistos = new Set<string>();
   const nomes: string[] = [];
   for (const foto of fotos) {
     if (!foto) continue;
     const autor = autorDaFoto(foto);
-    if (!autor) continue;
-    const chave = normalizar(autor);
-    if (vistos.has(chave)) continue;
+    if (autor) nomes.push(autor);
+  }
+  // Sem sigla de licença desde 06/10/2026 à noite (regra do dono): só o nome.
+  return montarLinha(nomes, false);
+}
+
+/** "Foto: A", "Fotos: A e B", "Fotos: A, B e C", "Fotos: A, B, C e outros", sem repetir nome. */
+function montarLinha(brutos: string[], temOutros: boolean): string {
+  const vistos = new Set<string>();
+  const nomes: string[] = [];
+  for (const n of brutos) {
+    const chave = normalizar(n);
+    if (!chave || vistos.has(chave)) continue;
     vistos.add(chave);
-    const sigla = siglaDaLicenca(`${foto.license ?? ""} ${foto.attribution ?? ""}`);
-    nomes.push(sigla ? `${autor} (${sigla})` : autor);
+    nomes.push(n);
   }
   if (nomes.length === 0) return "";
-  if (nomes.length === 1) return `Foto: ${nomes[0]}`;
-  if (nomes.length <= 3) return `Fotos: ${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+  if (nomes.length === 1 && !temOutros) return `Foto: ${nomes[0]}`;
+  if (nomes.length <= 3 && !temOutros) return `Fotos: ${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
   return `Fotos: ${nomes.slice(0, 3).join(", ")} e outros`;
+}
+
+/*
+ * "from Washington, DC, USA": o Flickr escreve de onde o fotógrafo é, e o
+ * Commons copia para o campo de autor. A cauda em caixa alta (DC, USA, UK) é
+ * parte do lugar; o próximo nome, com minúscula depois da inicial, não é.
+ */
+const DE_ONDE = /\s+from\s+[^,()/]+?(?:,\s*\p{Lu}{2,}\.?)*(?=\s*(?:,|\(|\/|\s+e\s|$))/gu;
+
+/**
+ * Só o nome da pessoa que fez a foto, a partir do que o crédito gravado traz
+ * (regra do dono, 06/10/2026, noite): "Lucio Bernardo Jr./Câmara dos
+ * Deputados (CC BY)" vira "Lucio Bernardo Jr."; "Bruno Sanchez-Andrade Nuño
+ * from Washington, DC, USA" vira "Bruno Sanchez-Andrade Nuño". Sem pessoa
+ * antes da barra, fica a instituição depois dela.
+ */
+export function soONomeDoCredito(bruto: string): string {
+  const semParenteses = (bruto || "")
+    .replace(/\s*\([^)]*\)/g, "")
+    .replace(DE_ONDE, "")
+    .replace(/\s+via\s+.*$/i, "")
+    .trim();
+  const partes = semParenteses.split(/\s*\/\s*/).map((p) => p.trim()).filter(Boolean);
+  const nome = (partes[0] ?? "").replace(/[,;:]+$/, "").trim();
+  if (!nome || siglaDaLicenca(nome)) return "";
+  return nome;
+}
+
+/**
+ * A linha de crédito que já existe, reescrita na regra de agora: só os nomes.
+ *
+ * É a rede de quem não tem as fotos na mão e recebe uma linha pronta: a
+ * refação do texto na fila lê `visual.creditoNaLegenda`, que os posts
+ * gravados antes desta noite têm no formato antigo, e a edição à mão do painel
+ * preserva a linha que estava abaixo do fecho. Os dois passam por aqui dentro
+ * de `fecharLegenda`, então nenhum caminho grava o formato antigo de novo.
+ */
+export function linhaDeCreditoSoComNomes(linha: string): string {
+  const m = /^\s*fotos?\s*:\s*(.+)$/i.exec(linha || "");
+  if (!m) return (linha || "").trim();
+  let corpo = m[1].replace(/\s*\([^)]*\)/g, "").replace(DE_ONDE, "").trim();
+  const temOutros = /\s+e\s+outros\s*$/i.test(corpo);
+  if (temOutros) corpo = corpo.replace(/\s+e\s+outros\s*$/i, "");
+  const nomes = corpo
+    .split(/,\s*|\s+e\s+(?=\p{Lu})/u)
+    .map((n) => soONomeDoCredito(n))
+    .filter((n) => n && !AUTOR_DESCONHECIDO.test(n));
+  return montarLinha(nomes, temOutros);
 }
 
 /**
@@ -368,7 +443,8 @@ export function fecharLegenda(texto: string, opcoes: OpcoesDoFecho = {}): FechoD
 
   const tagsFinais =
     opcoes.hashtags === "manter" ? tags : Array.isArray(opcoes.hashtags) ? opcoes.hashtags.filter(Boolean) : [];
-  const credito = (opcoes.credito === "manter" ? creditoExistente : (opcoes.credito ?? "")).trim();
+  // Toda linha de crédito sai só com os nomes, venha de onde vier (regra do dono, 06/10/2026, noite).
+  const credito = linhaDeCreditoSoComNomes((opcoes.credito === "manter" ? creditoExistente : (opcoes.credito ?? "")).trim());
   if (opcoes.credito === "manter" && creditoExistente) {
     removidos.creditos = removidos.creditos.filter((c) => c !== creditoExistente);
   }

@@ -213,6 +213,14 @@ export const SCRIPT_DE_AJUSTE = `
       var tamanho = parseFloat(el.getAttribute('data-max')) || parseFloat(estilo.fontSize);
       el.style.fontSize = tamanho + 'px';
 
+      /*
+       * Durante a medida, palavra nao se parte (06/10/2026). Com o valor colado
+       * ("US$ 1,03 trilhao" vira uma unidade so), a unidade larga demais para a
+       * linha era partida no meio das letras pelo overflow-wrap, nao estourava
+       * a largura, e o encolher achava que cabia. Sem a quebra, ela estoura e
+       * o tipo desce; o break-word volta depois, so como rede no piso.
+       */
+      el.style.overflowWrap = 'normal';
       var voltas = 0;
       while (
         (span.scrollHeight > alturaDisponivel + 1 || span.scrollWidth > larguraDisponivel + 1) &&
@@ -224,6 +232,7 @@ export const SCRIPT_DE_AJUSTE = `
         voltas++;
       }
 
+      el.style.overflowWrap = '';
       if (span.scrollHeight > alturaDisponivel + 1) el.style.overflow = 'hidden';
     }
     escolherMarca(pronto);

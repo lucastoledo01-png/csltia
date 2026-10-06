@@ -140,10 +140,44 @@ const TETOS_DA_MANCHETE = {
   maximo_de_caracteres: FORMA_DA_MANCHETE.maximoDeCaracteres,
 };
 
-/** A regra do código, já com os números. É o texto que valia antes de 05/10/2026. */
-export const REGRA_DA_MANCHETE = preencherMarcadores(MODELO_DA_REGRA_DA_MANCHETE, TETOS_DA_MANCHETE);
 
-/** A regra que vale no ciclo em curso: a versão do painel, se ligada, com os números do código. */
+/**
+ * As regras do dono depois da fila de 07/10/2026, com os pares reais.
+ *
+ * Fora do texto editável de propósito: o dono pediu cada uma "em código, senão
+ * eu vou ficar num loop infinito corrigindo o erro", e uma versão do painel
+ * gravada antes desta data (ou editada à mão) apagaria o pedido. Por isso o
+ * bloco vem DEPOIS da regra vigente, sempre, como o contrato do JSON. A guarda
+ * confere o que dá para conferir sem modelo (`manchete-com-contexto.ts`); este
+ * texto ensina o resto, e os pares são as manchetes que o dono devolveu, com a
+ * reescrita feita a partir do pacote factual de cada uma.
+ */
+export const REGRAS_DO_DONO_PARA_A_MANCHETE = `REGRAS DO DONO, que valem sobre qualquer outra regra de manchete acima:
+
+1. A MANCHETE SE EXPLICA SOZINHA para um brasileiro que não leu a matéria: de quem ou do que ela fala, e por que importa. O sujeito é nomeado (pessoa, empresa, órgão, lugar), nunca um pronome.
+2. PESSOA É APRESENTADA. Quem não é conhecido do grande público brasileiro entra com o cargo ou a empresa famosa ao lado do nome ("Bret Taylor, presidente do conselho da OpenAI,"; "Douglas Ruas, candidato ao governo do Rio,"). Trump, Lula, Musk, Bolsonaro, Moraes e afins dispensam.
+3. FALA ENTRE ASPAS CARREGA O ASSUNTO. Fala que só faz sentido com a matéria do lado é proibida: "tal padrão", "isso", "esse acordo", "eles", "ele" dentro das aspas exigem que a manchete nomeie, FORA das aspas, do que se trata. Sem como nomear, corte a fala com reticências ou escolha outra fala conferida.
+4. VARIAÇÃO DIZ O QUE VARIOU. "Sobe", "cai", "avança", "recua", "dispara", "despenca" com percentual ou valor nomeiam a métrica: as ações, o valor de mercado, a avaliação, a receita, o índice. Vale para a manchete e para o lide da legenda.
+
+Pares reais da fila de 07/10/2026 (o errado foi devolvido pelo dono; o certo foi escrito com o pacote factual da mesma pauta):
+  Errado: "Bret Taylor: “É uma espécie de caos até que tal padrão exista”"
+  Certo:  "Bret Taylor, presidente do conselho da OpenAI, sobre agentes de IA nas empresas: “É uma espécie de caos”"
+  Errado: "SpaceX sobe quase 8%, atinge maior nível desde meados de junho e devolve Musk ao status de trilionário"
+  Certo:  "Ações da SpaceX sobem quase 8% e devolvem Elon Musk ao status de trilionário"
+  Errado: "Douglas Ruas pode vencer no primeiro turno se votos de Garotinho forem anulados no RJ"
+  Certo:  "Votos anulados de Garotinho podem eleger Douglas Ruas governador do Rio sem segundo turno contra Eduardo Paes"
+  Fraco:  "Ronaldo Caiado oficializa apoio a Flávio Bolsonaro no segundo turno em Goiânia"
+  Certo:  "Ronaldo Caiado, derrotado no primeiro turno, oficializa apoio a Flávio Bolsonaro contra Lula"
+  Certo, e fica como está: "Anthropic amplia programa para startups com até US$ 45.000 em descontos e créditos"`;
+
+/**
+ * A regra do código, já com os números. É o texto que valia antes de 05/10/2026,
+ * mais as regras do dono desde 06/10/2026 (o que sai sem painel, byte a byte o
+ * que `regraDaMancheteVigente` devolve).
+ */
+export const REGRA_DA_MANCHETE = `${preencherMarcadores(MODELO_DA_REGRA_DA_MANCHETE, TETOS_DA_MANCHETE)}\n\n${REGRAS_DO_DONO_PARA_A_MANCHETE}`;
+
+/** A regra que vale no ciclo em curso: a versão do painel, se ligada, com os números do código, e as regras do dono. */
 export function regraDaMancheteVigente(): string {
-  return preencherMarcadores(instrucaoVigente("manchete", MODELO_DA_REGRA_DA_MANCHETE), TETOS_DA_MANCHETE);
+  return `${preencherMarcadores(instrucaoVigente("manchete", MODELO_DA_REGRA_DA_MANCHETE), TETOS_DA_MANCHETE)}\n\n${REGRAS_DO_DONO_PARA_A_MANCHETE}`;
 }

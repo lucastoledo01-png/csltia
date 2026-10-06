@@ -289,7 +289,7 @@ export function blocoDaCitacao(pauta: PautaAvaliada, pacote: PacoteFactual | nul
   if (quem) {
     linhas.push(
       "",
-      `FORMATO: CITAÇÃO DE FAMOSO. A manchete é a fala de ${quem} entre aspas, copiada LETRA POR LETRA de uma citação conferida acima (a tradução, em português), seguida ou precedida do nome de quem falou. Não resuma, não melhore e não junte duas falas dentro das mesmas aspas; para encurtar, corte com reticências. A legenda diz onde e quando a fala aconteceu, se o pacote disser.`,
+      `FORMATO: CITAÇÃO DE FAMOSO. A manchete é a fala de ${quem} entre aspas, copiada LETRA POR LETRA de uma citação conferida acima (a tradução, em português), seguida ou precedida do nome de quem falou E, se ${quem} não for conhecido do grande público brasileiro, do cargo ou da empresa famosa que o apresenta ("Bret Taylor, presidente do conselho da OpenAI:"). A fala escolhida carrega o assunto sozinha: se ela tem "tal", "isso", "esse", "eles" apontando para algo de fora, nomeie o assunto na manchete fora das aspas, corte com reticências ou escolha outra fala. Não resuma, não melhore e não junte duas falas dentro das mesmas aspas; para encurtar, corte com reticências. A legenda diz onde e quando a fala aconteceu, se o pacote disser.`,
     );
   }
   return linhas;

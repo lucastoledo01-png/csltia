@@ -17,7 +17,7 @@ import { INSTRUCAO_PADRAO_NEWSLETTER, montarSystemEditorial } from "./newsroom/p
 import { INSTRUCAO_PADRAO_SOCIAL_COPY, montarSystemDaCopy } from "./social/copy";
 import { montarSystemDoCarrossel } from "./social/carrossel/copy";
 import { ESTRUTURAS } from "./social/carrossel/estrutura";
-import { FORMA_DA_MANCHETE, REGRA_DA_MANCHETE, regraDaMancheteVigente } from "./social/manchete";
+import { FORMA_DA_MANCHETE, REGRA_DA_MANCHETE, REGRAS_DO_DONO_PARA_A_MANCHETE, regraDaMancheteVigente } from "./social/manchete";
 import { VOZ_SOCIAL } from "./social/voz";
 import { montarSystemDoClassificador } from "./editorial/classificador";
 import { montarSystemDoVerificador } from "./editorial/verificador";
@@ -126,8 +126,9 @@ describe("com a capacidade no ar, a versão ativa entra e o contrato fica", () =
     const regra = await comInstrucoesDoProjeto(projetoCom("enforce"), async () => regraDaMancheteVigente(), {
       cliente: () => ({ from }) as never,
     });
+    // As regras do dono (06/10/2026) vêm depois da versão editada, sempre: o painel não as apaga.
     expect(regra).toBe(
-      `A manchete tem de ${FORMA_DA_MANCHETE.minimoDePalavras} a ${FORMA_DA_MANCHETE.maximoDePalavras} palavras e começa pelo fato.`,
+      `A manchete tem de ${FORMA_DA_MANCHETE.minimoDePalavras} a ${FORMA_DA_MANCHETE.maximoDePalavras} palavras e começa pelo fato.\n\n${REGRAS_DO_DONO_PARA_A_MANCHETE}`,
     );
   });
 

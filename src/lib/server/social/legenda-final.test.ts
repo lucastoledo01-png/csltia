@@ -8,6 +8,7 @@ import {
   hashtagsLigadasNoProjeto,
   legendaDoInstagram,
   linhaDeCredito,
+  linhaDeCreditoSoComNomes,
   siglaDaLicenca,
 } from "./legenda-final";
 import { montarLegenda, type CopyDoPost } from "./copy";
@@ -103,8 +104,9 @@ describe("crédito escrito no corpo sai, em qualquer formato", () => {
 
   it("tira um crédito velho mesmo abaixo do fecho e põe só o montado", () => {
     const antiga = `${CORPO}\n\n#EconomiaEUA\n\n· Foto: Tony Webster / Wikimedia Commons / CC BY-SA 2.0`;
+    // A linha no formato antigo, com sigla, sai só com o nome (regra do dono, 06/10/2026, noite).
     const t = legendaDoInstagram(antiga, { credito: "Foto: Tony Webster (CC BY-SA 2.0)" });
-    expect(t).toBe(`${CORPO}\n\nSiga @eua.journal\nFoto: Tony Webster (CC BY-SA 2.0)`);
+    expect(t).toBe(`${CORPO}\n\nSiga @eua.journal\nFoto: Tony Webster`);
     expect(t.match(/Foto:/g)).toHaveLength(1);
   });
 
@@ -198,12 +200,12 @@ describe("a linha do crédito, montada das fotos", () => {
     );
   });
 
-  it("CC BY-SA: o nome e a sigla entre parênteses, sem 'via Wikimedia Commons'", () => {
+  it("CC BY-SA: só o nome, sem sigla e sem 'via Wikimedia Commons' (regra do dono, 06/10/2026, noite)", () => {
     expect(
       linhaDeCredito([
         { author: "Gage Skidmore", license: "CC BY-SA 4.0", attribution: "Foto: Gage Skidmore / Wikimedia Commons / CC BY-SA 4.0" },
       ]),
-    ).toBe("Foto: Gage Skidmore (CC BY-SA 4.0)");
+    ).toBe("Foto: Gage Skidmore");
   });
 
   it("domínio público e CC0: só o nome", () => {
@@ -225,7 +227,7 @@ describe("a linha do crédito, montada das fotos", () => {
     expect(autorDaFoto({ author: "<a href='x'>Joe Ravi</a>" })).toBe("Joe Ravi");
   });
 
-  it("várias fotos: 'Fotos: A, B e C', sem repetir, com a sigla só onde a licença exige", () => {
+  it("várias fotos: 'Fotos: A, B e C', sem repetir e sem sigla", () => {
     expect(
       linhaDeCredito([
         { author: "Gage Skidmore", license: "CC BY-SA 2.0" },
@@ -233,7 +235,7 @@ describe("a linha do crédito, montada das fotos", () => {
         { author: "Gage Skidmore", license: "CC BY-SA 2.0" },
         { author: "Daniel Torok", license: "Public Domain" },
       ]),
-    ).toBe("Fotos: Gage Skidmore (CC BY-SA 2.0), Klea Masati e Daniel Torok");
+    ).toBe("Fotos: Gage Skidmore, Klea Masati e Daniel Torok");
   });
 
   it("mais de três nomes: os três primeiros e 'e outros'", () => {
@@ -257,5 +259,61 @@ describe("a linha do crédito, montada das fotos", () => {
     expect(t.endsWith("Siga @eua.journal\nFoto: Daniel Torok")).toBe(true);
     expect(t.match(/Foto:/g)).toHaveLength(1);
     expect(t).not.toMatch(/Wikimedia/);
+  });
+});
+
+/*
+ * A fila de 07/10/2026: o dono leu "Fotos: Lucio Bernardo Jr./Câmara dos
+ * Deputados (CC BY) e Leonardo Prado/Câmara dos Deputados (CC BY)" e pediu só
+ * os nomes. Os créditos abaixo são os gravados nos posts daquele dia.
+ */
+describe("só o nome de quem fez a foto (regra do dono, 06/10/2026, noite)", () => {
+  it("banco oficial: o fotógrafo, sem o banco e sem a sigla", () => {
+    expect(
+      linhaDeCredito([
+        { author: "Lucio Bernardo Jr.", license: "CC BY", attribution: "Foto: Lucio Bernardo Jr./Câmara dos Deputados" },
+        { author: "", license: "CC BY", attribution: "Foto: Leonardo Prado/Câmara dos Deputados / Wikimedia Commons / CC BY" },
+      ]),
+    ).toBe("Fotos: Lucio Bernardo Jr. e Leonardo Prado");
+  });
+
+  it("banco sem fotógrafo: a instituição sozinha", () => {
+    expect(linhaDeCredito([{ author: "", license: "Public Domain", attribution: "Foto: NASA" }])).toBe("Foto: NASA");
+  });
+
+  it("o 'from Washington, DC, USA' do Flickr sai", () => {
+    expect(
+      linhaDeCredito([
+        {
+          author: "Bruno Sanchez-Andrade Nuño from Washington, DC, USA",
+          license: "CC BY",
+          attribution: "Foto: Bruno Sanchez-Andrade Nuño from Washington, DC, USA / Wikimedia Commons / CC BY",
+        },
+      ]),
+    ).toBe("Foto: Bruno Sanchez-Andrade Nuño");
+  });
+
+  it("a linha antiga gravada no post é reescrita no fecho, venha da refação ou do painel", () => {
+    const antiga =
+      "Fotos: Lucio Bernardo Jr./Câmara dos Deputados (CC BY) e Leonardo Prado/Câmara dos Deputados (CC BY)";
+    expect(linhaDeCreditoSoComNomes(antiga)).toBe("Fotos: Lucio Bernardo Jr. e Leonardo Prado");
+    expect(linhaDeCreditoSoComNomes("Foto: Bruno Sanchez-Andrade Nuño from Washington, DC, USA (CC BY)")).toBe(
+      "Foto: Bruno Sanchez-Andrade Nuño",
+    );
+    expect(linhaDeCreditoSoComNomes("Fotos: Ana (CC BY), Bia, Caio e outros")).toBe("Fotos: Ana, Bia, Caio e outros");
+    expect(legendaDoInstagram("Corpo do post.", { credito: antiga })).toBe(
+      "Corpo do post.\n\nSiga @eua.journal\nFotos: Lucio Bernardo Jr. e Leonardo Prado",
+    );
+    // A edição à mão do painel preserva a linha abaixo do fecho, já reescrita.
+    expect(legendaDoInstagram(`Corpo do post.\n\nSiga @eua.journal\n${antiga}`, { credito: "manter" })).toBe(
+      "Corpo do post.\n\nSiga @eua.journal\nFotos: Lucio Bernardo Jr. e Leonardo Prado",
+    );
+  });
+
+  it("é idempotente: a linha nova passa igual", () => {
+    expect(linhaDeCreditoSoComNomes("Fotos: Lucio Bernardo Jr. e Leonardo Prado")).toBe(
+      "Fotos: Lucio Bernardo Jr. e Leonardo Prado",
+    );
+    expect(linhaDeCreditoSoComNomes("Foto: Paloma Lima")).toBe("Foto: Paloma Lima");
   });
 });

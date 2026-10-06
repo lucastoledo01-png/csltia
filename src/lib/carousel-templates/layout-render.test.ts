@@ -224,7 +224,8 @@ describe("realce dentro da manchete", () => {
     // destacada muda de posição a cada notícia.
     const html = comDestaque("Fila do green card cai para 235 mil pedidos", "235 mil");
 
-    expect(html).toContain('<span style="color:#E4344A">235 mil</span>');
+    // "235 mil" sai colado (U+00A0) desde 06/10/2026: valor com unidade não quebra de linha.
+    expect(html).toContain('<span style="color:#E4344A">235\u00a0mil</span>');
     expect(html).toContain("Fila do green card cai para ");
     expect(html).toContain(" pedidos");
   });
