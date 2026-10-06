@@ -22,13 +22,15 @@ function pauta(i: number, extra: Partial<PautaDoPortal> = {}): PautaDoPortal {
 }
 
 function dados(): DadosDaHome {
-  const lista = Array.from({ length: 20 }, (_, i) => pauta(i));
+  const lista = Array.from({ length: 22 }, (_, i) => pauta(i));
   return {
     destaque: lista[0],
     chamadas: lista.slice(1, 7),
     secundarias: lista.slice(7, 10),
-    ultimas: lista.slice(10),
+    ultimas: lista.slice(10, 20),
     porEditoria: [{ editoria: "economia", itens: lista.slice(1, 5) }],
+    // Desde 05/10/2026 o índice só recebe pauta que não está em outro bloco.
+    maisNovaPorEditoria: [{ editoria: "economia", pauta: lista[20] }],
     secoes: [
       { editoria: "economia", imagem: "https://images.pexels.com/photos/9/economia.jpeg", total: 4 },
       { editoria: "trabalho", imagem: null, total: 0 },
