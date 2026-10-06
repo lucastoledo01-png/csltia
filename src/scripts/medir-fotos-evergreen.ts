@@ -7,6 +7,9 @@ import { extrairTextoDeHtml } from "../lib/server/editorial/enriquecimento";
 import type { PacoteFactual } from "../lib/server/editorial/pacote-factual";
 import { buscarSegundaFoto, resolveVisualAsset } from "../lib/server/visual/resolver";
 import type { TopicoEvergreen } from "../lib/server/social/evergreen/tipos";
+import type { PautaParaImagem } from "../lib/server/visual/resolver";
+import { getSupabaseAdminClient } from "../lib/server/supabase-admin";
+import { DEFAULT_PROJECT_ID } from "../lib/server/projects";
 
 /**
  * Quantos tópicos do evergreen morrem por falta de foto, medido só no ramo visual.
@@ -26,6 +29,11 @@ import type { TopicoEvergreen } from "../lib/server/social/evergreen/tipos";
  *
  * `--bolha` também procura a segunda foto (a do círculo) para cada tópico com
  * foto e entidade nomeada, do jeito que o ciclo faz na vez da bolha.
+ *
+ * `--noticias=60 --dias=14` troca o catálogo por pautas REAIS: as aprovadas
+ * pela linha editorial nos últimos dias, lidas de `news_candidates` (só
+ * SELECT), espaçadas para cobrir todos os dias, sem as de imigração. É o
+ * replay de antes e depois da escada da cena.
  */
 
 function carregarEnv(): void {
@@ -82,6 +90,38 @@ const fetchEspacado: typeof fetch = async (entrada, init) => {
   }
 };
 
+/** Pautas aprovadas de verdade, lidas do banco. Nada é gravado. */
+async function pautasReais(quantas: number, dias: number): Promise<Array<{ id: string; pauta: PautaParaImagem }>> {
+  const desde = new Date(Date.now() - dias * 86_400_000).toISOString();
+  const { data, error } = await getSupabaseAdminClient()
+    .from("news_candidates")
+    .select("story_id,title,summary,description,editorial_axis,actors,places,event_terms,country,created_at")
+    .eq("project_id", DEFAULT_PROJECT_ID)
+    .like("decision_reason", "APPROVED%")
+    .gte("created_at", desde)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(`leitura de news_candidates falhou: ${error.message}`);
+  const todas = (data ?? []).filter((r) => r.editorial_axis !== "imigracao");
+  // Espaçadas pela lista inteira, para o replay cobrir todos os dias e não só o mais recente.
+  const passo = Math.max(1, todas.length / quantas);
+  const escolhidas = Array.from({ length: Math.min(quantas, todas.length) }, (_, i) => todas[Math.floor(i * passo)]);
+  return escolhidas.map((r) => ({
+    id: `${String(r.created_at).slice(0, 10)} ${r.story_id}`,
+    pauta: {
+      storyId: r.story_id as string,
+      titulo: r.title as string,
+      resumo: (r.summary as string) || (r.description as string) || "",
+      categoria: (r.editorial_axis as string) || "",
+      classificacao: {
+        atores: (r.actors as string[]) ?? [],
+        lugares: (r.places as string[]) ?? [],
+        acontecimento: (r.event_terms as string[]) ?? [],
+        pais: (r.country as string) || undefined,
+      },
+    },
+  }));
+}
+
 type Linha = {
   topico: string;
   entidadeDeclarada: string | null;
@@ -95,6 +135,7 @@ type Linha = {
   vista: string | null;
   recusas: string[];
   bolha: string | null;
+  degrau: string | null;
 };
 
 async function main() {
@@ -115,20 +156,27 @@ async function main() {
       }),
   );
 
+  const noticias = Number(arg("noticias")) || 0;
+  const reais = noticias ? await pautasReais(noticias, Number(arg("dias")) || 14) : [];
+
   const topicos = CATALOGO_EVERGREEN.filter((t) => soTopicos.length === 0 || soTopicos.includes(t.id)).map((t) =>
     entidades.has(t.id) ? { ...t, entidade: entidades.get(t.id) || undefined } : t,
   );
 
   const linhas: Linha[] = [];
   let proximo = 0;
-  const trabalhador = async () => {
-    while (proximo < topicos.length) {
-      const topico = topicos[proximo++];
-      const item = { topico, angulo: topico.angulos[0] };
-      const texto = await textoDasFontes(topico);
-      const pacote = { texto_de_origem: texto, source_urls: topico.fontesCanonicas } as unknown as PacoteFactual;
-      const pauta = pautaDoEvergreen(item, pacote);
-      const paraImagem = {
+  const total = noticias ? reais.length : topicos.length;
+  const montar = async (i: number): Promise<{ id: string; declarada: string | null; pauta: PautaParaImagem }> => {
+    if (noticias) return { id: reais[i].id, declarada: null, pauta: reais[i].pauta };
+    const topico = topicos[i];
+    const item = { topico, angulo: topico.angulos[0] };
+    const texto = await textoDasFontes(topico);
+    const pacote = { texto_de_origem: texto, source_urls: topico.fontesCanonicas } as unknown as PacoteFactual;
+    const pauta = pautaDoEvergreen(item, pacote);
+    return {
+      id: topico.id,
+      declarada: topico.entidade ?? null,
+      pauta: {
         storyId: pauta.storyId,
         titulo: pauta.grupo.primary.title,
         resumo: pauta.enriquecimento?.texto ?? "",
@@ -139,7 +187,12 @@ async function main() {
           acontecimento: pauta.classificacao.acontecimento,
           pais: pauta.classificacao.pais,
         },
-      };
+      },
+    };
+  };
+  const trabalhador = async () => {
+    while (proximo < total) {
+      const { id, declarada, pauta: paraImagem } = await montar(proximo++);
       const r = await resolveVisualAsset(paraImagem, { somenteLeitura: true, fetcher: fetchEspacado });
       let bolha: string | null = null;
       if (comBolha && r.status === "SELECTED" && r.asset) {
@@ -150,8 +203,8 @@ async function main() {
         }
       }
       const linha: Linha = {
-        topico: topico.id,
-        entidadeDeclarada: topico.entidade ?? null,
+        topico: id,
+        entidadeDeclarada: declarada,
         entidadeVisual: r.entidade?.nome ?? null,
         tipo: r.entidade?.tipo ?? null,
         status: r.status,
@@ -162,11 +215,12 @@ async function main() {
         vista: r.asset?.conferenciaVisual?.descricao ?? null,
         recusas: r.recusados.map((c) => `${c.origem} ${c.motivo}: ${c.detalhe}`.slice(0, 220)),
         bolha,
+        degrau: (r as { degrau?: string }).degrau ?? null,
       };
       linhas.push(linha);
       console.log(
-        `${linha.status === "SELECTED" ? "FOTO" : "SEM "} ${topico.id.padEnd(32)} ` +
-          `${(linha.entidadeVisual ?? "-").slice(0, 34).padEnd(34)} ${linha.fonte ?? linha.motivo} ${linha.caminho ?? ""}` +
+        `${linha.status === "SELECTED" ? "FOTO" : "SEM "} ${id.slice(0, 32).padEnd(32)} ` +
+          `${(linha.entidadeVisual ?? "-").slice(0, 34).padEnd(34)} ${linha.fonte ?? linha.motivo} ${linha.caminho ?? ""} ${linha.degrau ?? ""}` +
           (comBolha ? ` | bolha: ${linha.bolha ? (linha.bolha.startsWith("sem") ? "não" : "sim") : "-"}` : ""),
       );
     }
@@ -179,6 +233,9 @@ async function main() {
   const porCaminho = new Map<string, number>();
   for (const l of linhas) if (l.caminho) porCaminho.set(l.caminho, (porCaminho.get(l.caminho) ?? 0) + 1);
   console.log(`por caminho: ${[...porCaminho].map(([c, n]) => `${c} ${n}`).join(", ") || "-"}`);
+  const porDegrau = new Map<string, number>();
+  for (const l of linhas) if (l.degrau) porDegrau.set(l.degrau, (porDegrau.get(l.degrau) ?? 0) + 1);
+  console.log(`por degrau: ${[...porDegrau].map(([c, n]) => `${c} ${n}`).join(", ") || "-"}`);
   if (comBolha) {
     const comSegunda = linhas.filter((l) => l.bolha && !l.bolha.startsWith("sem")).length;
     console.log(`com segunda foto para a bolha: ${comSegunda} de ${comFoto}`);

@@ -3,6 +3,7 @@ import type {
   AssetVisual,
   CaminhoDaFoto,
   CandidatoRecusado,
+  DegrauDaCena,
   EntidadeVisual,
   ResultadoVisual,
 } from "./tipos";
@@ -111,7 +112,7 @@ export type OpcoesDeResolucao = {
 
 export type Conferente = (
   asset: AssetVisual,
-  pauta: { titulo: string; resumo?: string; eixo?: string; uso?: "fundo" | "bolha" },
+  pauta: { titulo: string; resumo?: string; eixo?: string; uso?: "fundo" | "bolha"; papel?: "assunto" | "cena" },
 ) => Promise<VeredictoVisual>;
 
 export async function resolveVisualAsset(
@@ -614,17 +615,18 @@ export async function resolveVisualAsset(
     });
   }
 
-  const aprovarDaCena = (asset: AssetVisual, id?: string): ResultadoVisual => {
-    const r = aprovar(asset, id, null);
+  const aprovarDaCena = (asset: AssetVisual, degrau: DegrauDaCena): ResultadoVisual => {
+    const r = aprovar(asset, undefined, null);
     return {
       ...r,
       asset: {
         ...r.asset!,
         entityConfidence: entidadeDaCena.confianca,
         entityEvidence: entidadeDaCena.evidencias,
-        metadata: { ...r.asset!.metadata, ...(depoisDaEntidade ? { fallback_de_cena: true } : {}) },
+        metadata: { ...r.asset!.metadata, degrau, ...(depoisDaEntidade ? { fallback_de_cena: true } : {}) },
       },
       caminho: caminhoDaCena,
+      degrau,
     };
   };
 
@@ -667,7 +669,7 @@ export async function resolveVisualAsset(
       try {
         const candidatas = await acervo.porTag(cenaPerguntada.tag, pais);
         const doAcervo = await daPrateleira(candidatas, "cena", cenaPerguntada.tag, pais);
-        if (doAcervo) return { ...doAcervo, caminho: caminhoDaCena };
+        if (doAcervo) return { ...doAcervo, caminho: caminhoDaCena, degrau: "acervo" };
       } catch (erro) {
         fontesConsultadas.push({
           fonte: "acervo_proprio",
@@ -690,174 +692,274 @@ export async function resolveVisualAsset(
   }
 
   /*
-   * 8.2. O banco conceitual, ÚLTIMO de verdade.
+   * 8.2. A ESCADA da cena (06/10/2026).
    *
-   * Foto de banco é metáfora, não fato, e por isso só entra quando nenhuma
-   * fonte de fato entregou foto que passe na régua e na conferência.
+   * Pedido do dono, com estas palavras: "o ideal é que nunca haja falha de
+   * imagem; sempre tem que ter foto de contexto". Até aqui a cena era UMA
+   * busca de três fotos, feitas em três chamadas iguais ao banco, e a pauta
+   * morria quando a conferência recusava as três. Medido no catálogo do
+   * evergreen: todas as pautas que ficaram sem foto tinham exatamente três
+   * candidatas recusadas, e nenhum outro lugar onde procurar.
+   *
+   * Agora a cena desce degraus, do mais específico para o mais largo, e para
+   * no primeiro que entrega foto aprovada:
+   *
+   *   cena        a busca que descreve o objeto da pauta
+   *   cena_ampla  o ambiente do mesmo assunto, mais o tema fixo, e o Openverse
+   *   editoria    o contexto da editoria (o Capitólio para política, servidores
+   *               para tecnologia), que serve a qualquer pauta dela
+   *   reuso       os mesmos pedidos, aceitando foto que saiu nos últimos 30
+   *               dias; nunca a que saiu hoje
+   *
+   * As regras duras NÃO descem com a escada. Toda candidata passa pela mesma
+   * pontuação e pela conferência visual, que abre a imagem e recusa pessoa
+   * identificável, texto como assunto, outro país e logotipo de terceiro. O
+   * que muda é a pergunta: a conferência sabe que a foto é de CONTEXTO
+   * (`papel: "cena"`), e "é genérica" ou "não mostra o órgão" deixam de ser
+   * motivo de recusa, porque não é isso que se pede a uma foto de contexto.
    */
-  const daCena: AssetVisual[] = [];
-  try {
-    /*
-     * A consulta conceitual descreve coisa, não gente.
-     *
-     * Foto de pessoa anônima não tem como ser verificada: escolher alguém
-     * para ilustrar "brasileiros nos EUA" é decidir quem parece brasileiro,
-     * e isso é inferir nacionalidade por aparência. O caminho não é acertar
-     * melhor, é não fazer.
-     */
-    /*
-     * Primeiro perguntar o que fotografar, e só depois cair no tema fixo.
-     *
-     * O tema fixo é uma lista de 16 gavetas casadas por radical de palavra,
-     * na ordem, primeiro que casar vence. Ela erra de três jeitos medidos em
-     * 18/09/2026: radical que não cobre a flexão ("imovel" não casa com
-     * "imóveis"), tema anterior que rouba o assunto ("economia" levando uma
-     * pauta de aluguel para notas de dólar) e assunto que não tem gaveta
-     * nenhuma, caindo no skyline genérico.
-     *
-     * A pergunta olha a matéria. A lista continua embaixo, como rede: quando
-     * a chamada falha, o comportamento é o de antes, e não o vazio.
-     */
-    /*
-     * O mesmo interruptor das duas chamadas de modelo deste módulo.
-     *
-     * `conferenciaVisual: false` desliga a conferência, e o comentário do
-     * tipo diz para que serve: dry-run e medição de capacidade, que rodam
-     * sobre dezenas de pautas reais e não devem gastar chamada cobrada.
-     * A pergunta da cena nasceu sem interruptor, e o `dry-run-imagens` roda
-     * sobre até 40 pautas: seriam 40 chamadas a mais, invisíveis, num script
-     * feito justamente para medir sem custo.
-     *
-     * Reusar o interruptor que existe é melhor que inventar o segundo: quem
-     * desliga as chamadas de modelo do visual desliga as duas, e não fica
-     * uma ligada por descuido.
-     */
-    const cena = cenaPerguntada
-      ? cenaPerguntada
-      : conferir
-      ? await cenaDaPauta(
-          {
-            titulo: pauta.titulo,
-            resumo: pauta.resumo,
-            categoria: pauta.categoria,
-            pais: pauta.classificacao.pais,
-          },
-          { env, fetcher: opcoes.fetcher },
-        )
-      : { consulta: "", objeto: "", falhou: true, motivo: "chamadas de modelo desligadas", custoUsd: 0 };
-    const consulta = cena.falhou
-      ? consultaConceitual(pauta.titulo, pauta.categoria, pauta.classificacao.pais)
-      : cena.consulta;
-
-    /*
-     * Várias candidatas, e não uma só, porque agora alguém confere a foto.
-     *
-     * Com uma candidata, a primeira recusa da conferência visual manda a
-     * pauta direto para a bandeira. Medido em 18/09/2026: a cena pediu
-     * "casas à venda numa rua residencial", o Pexels devolveu uma casa com
-     * placa FOR SALE legível, a conferência recusou pela regra de não ter
-     * texto na imagem, e a peça saiu com bandeira. A foto seguinte da mesma
-     * busca era uma rua residencial limpa.
-     *
-     * Três é teto de custo: cada candidata é uma chamada ao banco, e a
-     * conferência abre no máximo quatro imagens por pauta de qualquer jeito.
-     */
-    const fotos = await buscarFotosDeBanco(consulta, CANDIDATAS_DO_BANCO, {
-      env,
-      fetcher: opcoes.fetcher,
-      evitar: usadasAntes,
-    });
-    fontesConsultadas.push({
-      fonte: "banco_conceitual",
-      encontrados: fotos.length,
-      nota:
-        (depoisDaEntidade ? "fallback de cena: " : "") +
-        (cena.falhou
-          ? `tema fixo, consulta "${consulta}" (a cena não veio: ${cena.motivo})`
-          : `cena da pauta "${cena.objeto}", consulta "${consulta}" ` +
-            `(custo ${cena.custoUsd.toFixed(5)} USD)`),
-    });
-
-    for (const foto of fotos) {
-      const veredicto = avaliarLicenca(
-        foto.credito.provedor === "pexels" ? "Pexels License" : "Unsplash License",
-        env
-      );
-      const agora = new Date().toISOString();
-      daCena.push({
-        entityName: entidadeDaCena.nome,
-        entityNormalized: entidadeDaCena.normalizado,
-        entityType: "conceptual",
-        source: "banco_conceitual",
-        sourceAssetId: foto.imagemUrl,
-        imageUrl: foto.imagemUrl,
-        sourcePageUrl: foto.credito.fotoUrl,
-        author: foto.credito.fotografo,
-        // A licença do provedor não está na allowlist do Commons e não
-        // precisa estar: ela é do provedor, e o que importa é a obrigação de
-        // crédito que ele declara.
-        license: foto.credito.provedor === "pexels" ? "Pexels License" : "Unsplash License",
-        licenseUrl: foto.credito.fotoUrl,
-        attribution: foto.credito.atribuicao ?? "",
-        rightsStatement: veredicto.motivo,
-        rightsStatus: "verified",
-        rightsCheckedAt: agora,
-        sourceLastCheckedAt: agora,
-        width: 1200,
-        height: 800,
-        mimeType: "image/jpeg",
-        storagePath: null,
-        perceptualHash: null,
-        imageRelevanceScore: 0,
-        imageContextType: "conceptual",
-        metadata: { provedor: foto.credito.provedor, conceitual: true },
-      });
-    }
-  } catch (erro) {
-    fontesConsultadas.push({
-      fonte: "banco_conceitual",
-      encontrados: 0,
-      nota: `falhou: ${(erro as Error).message}`,
-    });
-  }
-
   /*
-   * Duas memórias, e as duas cortam aqui.
+   * A consulta conceitual descreve coisa, não gente.
    *
-   * `usadosAgora` impede a mesma foto em duas pautas do mesmo dia. `jaSaiu`
-   * impede a mesma foto em dias diferentes, que é o caso que o banco
-   * conceitual produzia sozinho.
+   * Foto de pessoa anônima não tem como ser verificada: escolher alguém
+   * para ilustrar "brasileiros nos EUA" é decidir quem parece brasileiro,
+   * e isso é inferir nacionalidade por aparência. O caminho não é acertar
+   * melhor, é não fazer.
    */
-  const disponiveisDaCena = daCena.filter((a) => !usadosAgora.has(a.imageUrl) && !jaSaiu(a.imageUrl));
-  const recusasDaCena = [] as CandidatoRecusado[];
-  const { aprovadas: aprovadasDaCena } = melhorPontuado(
-    disponiveisDaCena,
-    entidadeDaCena,
-    pisoDeRelevancia(entidadeDaCena, config),
-    recusasDaCena,
-    config.larguraMinima,
-    { titulo: pauta.titulo, resumo: pauta.resumo, atores: pauta.classificacao.atores },
-  );
-  const escolhidoDaCena = await primeiraAprovada(
-    aprovadasDaCena.map((x) => x.item),
-    conferir,
-    pauta,
-    recusasDaCena,
-    TETO_DE_CONFERENCIAS,
-  );
-  anotarRecusas(recusasDaCena);
+  /*
+   * Primeiro perguntar o que fotografar, e só depois cair no tema fixo.
+   *
+   * O tema fixo é uma lista de 16 gavetas casadas por radical de palavra,
+   * na ordem, primeiro que casar vence. Ela erra de três jeitos medidos em
+   * 18/09/2026: radical que não cobre a flexão ("imovel" não casa com
+   * "imóveis"), tema anterior que rouba o assunto ("economia" levando uma
+   * pauta de aluguel para notas de dólar) e assunto que não tem gaveta
+   * nenhuma, caindo no skyline genérico.
+   *
+   * A pergunta olha a matéria. A lista continua embaixo, como rede: quando
+   * a chamada falha, o comportamento é o de antes, e não o vazio.
+   */
+  /*
+   * O mesmo interruptor das duas chamadas de modelo deste módulo.
+   *
+   * `conferenciaVisual: false` desliga a conferência, e o comentário do
+   * tipo diz para que serve: dry-run e medição de capacidade, que rodam
+   * sobre dezenas de pautas reais e não devem gastar chamada cobrada.
+   * A pergunta da cena nasceu sem interruptor, e o `dry-run-imagens` roda
+   * sobre até 40 pautas: seriam 40 chamadas a mais, invisíveis, num script
+   * feito justamente para medir sem custo.
+   *
+   * Reusar o interruptor que existe é melhor que inventar o segundo: quem
+   * desliga as chamadas de modelo do visual desliga as duas, e não fica
+   * uma ligada por descuido.
+   */
+  const cena = cenaPerguntada
+    ? cenaPerguntada
+    : conferir
+    ? await cenaDaPauta(
+        {
+          titulo: pauta.titulo,
+          resumo: pauta.resumo,
+          categoria: pauta.categoria,
+          pais: pauta.classificacao.pais,
+        },
+        { env, fetcher: opcoes.fetcher },
+      )
+    : { consulta: "", objeto: "", falhou: true, motivo: "chamadas de modelo desligadas", custoUsd: 0 };
+  const temaFixo = consultaConceitual(pauta.titulo, pauta.categoria, pauta.classificacao.pais);
+  const especifica = cena.falhou ? temaFixo : cena.consulta;
+  const contextoDaEditoria = contextoDaEditoriaPara(pauta.categoria, pauta.classificacao.pais);
 
-  if (!escolhidoDaCena) {
-    return semFotoDaPauta(
-      entidade,
-      recusados.length > 0 ? MOTIVOS_DE_RECUSA.RELEVANCIA_BAIXA : MOTIVOS_DE_RECUSA.SEM_IMAGEM_DA_ENTIDADE
+  const degraus: Array<{ degrau: DegrauDaCena; consultas: string[]; openverse?: string; reuso?: boolean }> = [
+    { degrau: "cena", consultas: [especifica] },
+    {
+      degrau: "cena_ampla",
+      consultas: [cena.falhou ? "" : (cena.consultaAmpla ?? ""), cena.falhou ? "" : temaFixo],
+      openverse: (!cena.falhou && cena.consultaAmpla) || especifica,
+    },
+    { degrau: "editoria", consultas: [contextoDaEditoria] },
+    { degrau: "reuso", consultas: [especifica, contextoDaEditoria], reuso: true },
+  ];
+
+  const pedidas = new Set<string>();
+  const vistas = new Set<string>();
+  const recusasDaCena = [] as CandidatoRecusado[];
+  let conferidasNaEscada = 0;
+
+  for (const passo of degraus) {
+    if (conferidasNaEscada >= TETO_DE_CONFERENCIAS_DA_ESCADA) break;
+    const daCena: AssetVisual[] = [];
+    const notas: string[] = [];
+
+    for (const consulta of passo.consultas) {
+      const chave = `${passo.reuso ? "reuso:" : ""}${consulta.trim().toLowerCase()}`;
+      if (!consulta.trim() || pedidas.has(chave)) continue;
+      pedidas.add(chave);
+      try {
+        /*
+         * No degrau de reuso, a régua de 30 dias sai e só a do dia fica: a
+         * foto que saiu hoje em outra pauta continua proibida, a que saiu na
+         * semana passada passa a valer. É o último degrau de propósito:
+         * repetir foto é melhor que pauta sem foto, e pior que foto nova.
+         */
+        const evitar = passo.reuso ? [...usadosAgora, ...vistas] : [...usadasAntes, ...usadosAgora, ...vistas];
+        const fotos = await buscarFotosDeBanco(consulta, CANDIDATAS_DO_BANCO, { env, fetcher: opcoes.fetcher, evitar });
+        notas.push(`"${consulta}": ${fotos.length}`);
+        for (const foto of fotos) daCena.push(assetDoBanco(foto, entidadeDaCena, env));
+      } catch (erro) {
+        notas.push(`"${consulta}": falhou (${(erro as Error).message})`);
+      }
+    }
+
+    if (passo.openverse) {
+      try {
+        const busca = await buscarNoOpenverse({ ...entidadeDaCena, nome: passo.openverse }, { env, fetcher: opcoes.fetcher });
+        let convertidos = 0;
+        for (const c of busca.candidatos) {
+          const conversao = candidatoDoOpenverse(c, entidadeDaCena, env);
+          if (!conversao.ok) continue;
+          daCena.push({ ...conversao.asset, entityType: "conceptual", imageContextType: "conceptual" });
+          convertidos += 1;
+        }
+        notas.push(`openverse "${passo.openverse}": ${convertidos}`);
+      } catch (erro) {
+        notas.push(`openverse falhou: ${(erro as Error).message}`);
+      }
+    }
+
+    /*
+     * Duas memórias, e as duas cortam aqui.
+     *
+     * `usadosAgora` impede a mesma foto em duas pautas do mesmo dia. `jaSaiu`
+     * impede a mesma foto em dias diferentes, que é o caso que o banco
+     * conceitual produzia sozinho, e só o degrau de reuso a dispensa.
+     */
+    const disponiveis = daCena.filter((a) => {
+      const id = identidadeDaFoto(a.imageUrl);
+      if (!id || vistas.has(id) || usadosAgora.has(a.imageUrl)) return false;
+      if (!passo.reuso && jaSaiu(a.imageUrl)) return false;
+      vistas.add(id);
+      return true;
+    });
+
+    fontesConsultadas.push({
+      fonte: "banco_conceitual",
+      encontrados: disponiveis.length,
+      nota:
+        `${depoisDaEntidade ? "fallback de cena, " : ""}degrau ${passo.degrau}: ${notas.join(" ; ") || "nada a pedir"}` +
+        (passo.degrau === "cena"
+          ? cena.falhou
+            ? ` (tema fixo: a cena não veio, ${cena.motivo})`
+            : ` (cena da pauta "${cena.objeto}", custo ${cena.custoUsd.toFixed(5)} USD)`
+          : ""),
+    });
+
+    const { aprovadas } = melhorPontuado(
+      disponiveis,
+      entidadeDaCena,
+      pisoDeRelevancia(entidadeDaCena, config),
+      recusasDaCena,
+      config.larguraMinima,
+      { titulo: pauta.titulo, resumo: pauta.resumo, atores: pauta.classificacao.atores },
     );
+    const teto = Math.min(TETO_DE_CONFERENCIAS, TETO_DE_CONFERENCIAS_DA_ESCADA - conferidasNaEscada);
+    conferidasNaEscada += conferir ? Math.min(aprovadas.length, teto) : 0;
+    const escolhido = await primeiraAprovada(
+      aprovadas.map((x) => x.item),
+      conferir,
+      pauta,
+      recusasDaCena,
+      teto,
+      "fundo",
+      "cena",
+    );
+
+    if (escolhido) {
+      anotarRecusas(recusasDaCena);
+      usadosAgora.add(escolhido.imageUrl);
+      // Foto de banco não vai para a biblioteca: ela indexa por entidade, e esta foto é de conceito.
+      return aprovarDaCena(escolhido, passo.degrau);
+    }
   }
 
-  usadosAgora.add(escolhidoDaCena.imageUrl);
-  // Foto de banco não vai para a biblioteca: ela indexa por entidade, e esta foto é de conceito.
-  return aprovarDaCena(escolhidoDaCena);
+  anotarRecusas(recusasDaCena);
+  return semFotoDaPauta(
+    entidade,
+    recusados.length > 0 ? MOTIVOS_DE_RECUSA.RELEVANCIA_BAIXA : MOTIVOS_DE_RECUSA.SEM_IMAGEM_DA_ENTIDADE
+  );
 }
+
+/**
+ * O contexto de uma editoria inteira, para o degrau em que a pauta já não tem
+ * cena própria que renda.
+ *
+ * Lugar e objeto, nunca gente nem letreiro: as mesmas regras da cena. Cada
+ * consulta foi escolhida para servir a QUALQUER pauta da editoria sem afirmar
+ * nada que a pauta não diz. Pauta do Brasil ganha cena do Brasil, pela régua de
+ * país.
+ */
+const CONTEXTO_DA_EDITORIA: Record<string, string> = {
+  economia: "new york financial district buildings",
+  trabalho: "modern office interior empty desks",
+  tecnologia: "data center server racks",
+  custo_de_vida: "american suburban neighborhood houses",
+  politica: "united states capitol building washington",
+  seguranca: "american city street night",
+  cultura: "american city street daytime",
+  brasil: "brasilia national congress building",
+};
+
+export function contextoDaEditoriaPara(eixo: string, pais?: string): string {
+  if (/brasil/i.test(pais ?? "") && eixo !== "brasil") return "brazil city skyline";
+  return CONTEXTO_DA_EDITORIA[eixo] ?? "american flag waving blue sky";
+}
+
+function assetDoBanco(
+  foto: Awaited<ReturnType<typeof buscarFotosDeBanco>>[number],
+  entidade: EntidadeVisual,
+  env: Record<string, string | undefined>,
+): AssetVisual {
+  const licenca = foto.credito.provedor === "pexels" ? "Pexels License" : "Unsplash License";
+  const veredicto = avaliarLicenca(licenca, env);
+  const agora = new Date().toISOString();
+  return {
+    entityName: entidade.nome,
+    entityNormalized: entidade.normalizado,
+    entityType: "conceptual",
+    source: "banco_conceitual",
+    sourceAssetId: foto.imagemUrl,
+    imageUrl: foto.imagemUrl,
+    sourcePageUrl: foto.credito.fotoUrl,
+    author: foto.credito.fotografo,
+    // A licença do provedor não está na allowlist do Commons e não
+    // precisa estar: ela é do provedor, e o que importa é a obrigação de
+    // crédito que ele declara.
+    license: licenca,
+    licenseUrl: foto.credito.fotoUrl,
+    attribution: foto.credito.atribuicao ?? "",
+    rightsStatement: veredicto.motivo,
+    rightsStatus: "verified",
+    rightsCheckedAt: agora,
+    sourceLastCheckedAt: agora,
+    width: 1200,
+    height: 800,
+    mimeType: "image/jpeg",
+    storagePath: null,
+    perceptualHash: null,
+    imageRelevanceScore: 0,
+    imageContextType: "conceptual",
+    metadata: { provedor: foto.credito.provedor, conceitual: true },
+  };
+}
+
+/**
+ * Quantas conferências a escada inteira pode abrir.
+ *
+ * Quatro por degrau e doze no total: o pior caso de uma pauta que desce os
+ * quatro degraus custa doze chamadas de visão, e só acontece quando nada
+ * antes serviu. O caso comum para no primeiro degrau, como antes.
+ */
+const TETO_DE_CONFERENCIAS_DA_ESCADA = 12;
 
 /**
  * Quantas imagens chegam a ser abertas por pauta.
@@ -875,7 +977,13 @@ export async function resolveVisualAsset(
  * cada candidata é uma chamada ao banco e a conferência abre no máximo quatro
  * imagens por pauta de qualquer jeito.
  */
-const CANDIDATAS_DO_BANCO = 3;
+/*
+ * ATUALIZADO em 06/10/2026: seis, e numa chamada só por provedor. O custo por
+ * candidata deixou de existir quando `buscarFotosDeBanco` passou a usar a
+ * resposta inteira da busca, e três candidatas recusadas eram exatamente o
+ * perfil de toda pauta do evergreen que ficava sem foto.
+ */
+const CANDIDATAS_DO_BANCO = 6;
 
 const TETO_DE_CONFERENCIAS = 4;
 const TETO_DE_CONFERENCIAS_DA_BOLHA = 2;
@@ -908,11 +1016,12 @@ async function primeiraAprovada<T extends AssetVisual>(
   recusados: CandidatoRecusado[],
   teto: number,
   uso: "fundo" | "bolha" = "fundo",
+  papel: "assunto" | "cena" = "assunto",
 ): Promise<T | null> {
   if (candidatas.length === 0) return null;
   if (!conferir) return candidatas[0] ?? null;
 
-  const contexto = { titulo: pauta.titulo, resumo: pauta.resumo, eixo: pauta.categoria, uso };
+  const contexto = { titulo: pauta.titulo, resumo: pauta.resumo, eixo: pauta.categoria, uso, papel };
 
   for (const candidata of candidatas.slice(0, teto)) {
     const veredicto = await conferir(candidata, contexto);

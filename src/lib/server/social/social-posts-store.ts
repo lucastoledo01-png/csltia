@@ -506,6 +506,8 @@ export function criarSocialPostsStore(client: SupabaseClient, fila: OpcoesDaFila
                    * número que diz quanto a etapa da cena está salvando.
                    */
                   caminho: p.visual?.caminho ?? null,
+                  // E em qual degrau da escada da cena ela foi achada.
+                  degrau: p.visual?.degrau ?? null,
                 }
               : {
                   // Sem foto não é falha registrada como falha: é a decisão de

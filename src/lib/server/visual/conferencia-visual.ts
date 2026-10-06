@@ -52,7 +52,33 @@ export type PautaParaConferencia = {
    * nas amostras de 06/10/2026. Ausente é o fundo da peça.
    */
   uso?: "fundo" | "bolha";
+  /**
+   * O que se pede da foto. `assunto` (o padrão) é a foto que mostra quem ou o
+   * que a pauta cita. `cena` é a foto de CONTEXTO, que ambienta o tema sem
+   * mostrar a entidade (06/10/2026): para ela, "é genérica" e "não mostra o
+   * órgão" não são motivo de recusa. As recusas duras valem igual.
+   */
+  papel?: "assunto" | "cena";
 };
+
+/**
+ * A pergunta certa para a foto de contexto.
+ *
+ * A conferência recusava a foto de cena por não identificar o órgão ou o fato
+ * ("imagem genérica, não identifica o BLS"), e era a recusa mais comum entre as
+ * pautas que ficavam sem foto. Foto de contexto não promete mostrar o órgão; o
+ * que ela não pode é enganar. As recusas duras ficam repetidas aqui de
+ * propósito, para o relaxamento não ser lido como passe livre.
+ */
+const COMO_CENA = `PAPEL DA FOTO: CONTEXTO. Esta foto NÃO precisa mostrar a pessoa, o órgão, a
+empresa nem o fato da manchete. Ela ambienta o ASSUNTO, como uma rua americana
+numa pauta de custo de vida ou um escritório numa pauta de trabalho. Aprove se
+ela é coerente com o tema e não sugere um fato, um lugar ou uma pessoa
+específica que a pauta não cita. "É genérica" e "não identifica o órgão" NÃO são
+motivos de recusa aqui.
+Continuam sendo recusa, sem exceção: pessoa identificável, texto legível como
+assunto, cena de outro país, logotipo ou marca de empresa em destaque, assunto
+homônimo e cena sem relação com o tema.`;
 
 /**
  * O que a conferência precisa saber a mais quando a foto vai para a bolha.
@@ -170,6 +196,24 @@ function naoDeuParaConferir(motivo: string): VeredictoVisual {
   };
 }
 
+/**
+ * O endereço que a conferência abre, que pode ser a miniatura do mesmo arquivo.
+ *
+ * O modelo recusa baixar imagem acima de 20 MB, e o original do Commons passa
+ * disso com frequência: medido em 06/10/2026, duas fotos do IRS voltaram
+ * "File urls cannot be larger than 20MB" e viraram VISUAL_CHECK_UNAVAILABLE,
+ * ou seja, recusa. A miniatura de 1280 px é o MESMO arquivo, servido pelo
+ * próprio Commons, e é mais do que o modelo precisa para ver. A URL gravada
+ * e publicada continua sendo a original.
+ */
+export function paraConferir(url: string): string {
+  const m = url.match(/^(https:\/\/upload\.wikimedia\.org\/wikipedia\/[a-z]+)\/([0-9a-f])\/([0-9a-f]{2})\/([^/?#]+)$/i);
+  if (!m) return url;
+  const [, base, a, ab, arquivo] = m;
+  if (!/\.(jpe?g|png|webp)$/i.test(arquivo)) return url;
+  return `${base}/thumb/${a}/${ab}/${arquivo}/1280px-${arquivo}`;
+}
+
 export async function conferirImagem(
   asset: Pick<AssetVisual, "imageUrl" | "sourceAssetId" | "imageContextType">,
   pauta: PautaParaConferencia,
@@ -179,8 +223,9 @@ export async function conferirImagem(
   const config = getAIProviderConfig(env);
   if (!config.isConfigured) return naoDeuParaConferir("sem credencial de modelo para conferir a imagem");
 
-  const url = (asset.imageUrl ?? "").trim();
-  if (!url.startsWith("http")) return naoDeuParaConferir("imagem sem URL pública para conferir");
+  const original = (asset.imageUrl ?? "").trim();
+  if (!original.startsWith("http")) return naoDeuParaConferir("imagem sem URL pública para conferir");
+  const url = paraConferir(original);
 
   const piso = opcoes.pisoDeConfianca ?? PISO_PADRAO;
   const modelo = opcoes.modelo || env.OPENAI_MODEL_VISUAL || config.triageModel;
@@ -189,6 +234,7 @@ export async function conferirImagem(
     `MANCHETE: ${pauta.titulo}`,
     pauta.resumo ? `RESUMO: ${pauta.resumo}` : "",
     pauta.eixo ? `EDITORIA: ${pauta.eixo}` : "",
+    pauta.papel === "cena" ? COMO_CENA : "",
     pauta.uso === "bolha" ? NA_BOLHA : "",
   ]
     .filter(Boolean)

@@ -211,9 +211,18 @@ export type ResultadoVisual = {
    * Ausente em resultado sem foto da pauta.
    */
   caminho?: CaminhoDaFoto;
+  /**
+   * Em qual degrau da escada da cena a foto foi achada (06/10/2026). Só existe
+   * quando a foto veio da cena: o degrau diz quanto a busca precisou descer, e
+   * `reuso` diz que a foto já tinha saído nos últimos 30 dias.
+   */
+  degrau?: DegrauDaCena;
 };
 
 export type CaminhoDaFoto = "entidade" | "cena" | "cena_depois_da_entidade";
+
+/** Os degraus da escada da cena, na ordem em que são tentados. */
+export type DegrauDaCena = "acervo" | "cena" | "cena_ampla" | "editoria" | "reuso";
 
 export function normalizarEntidade(nome: string): string {
   return nome

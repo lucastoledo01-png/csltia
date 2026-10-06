@@ -61,6 +61,12 @@ export type CenaDaPauta = {
    * para os literais que já existem continuarem compilando.
    */
   tag?: string | null;
+  /**
+   * A segunda busca, mais ampla, para o degrau seguinte da escada da cena
+   * (06/10/2026): o ambiente ou o objeto genérico do mesmo assunto. Vazia
+   * quando o modelo não devolveu ou quando ela pedia o que a regra proíbe.
+   */
+  consultaAmpla?: string;
 };
 
 export type PautaParaCena = {
@@ -132,6 +138,10 @@ REGRAS DURAS:
   "fachada de loja vazia".
 - Nada de logotipo nem marca de empresa.
 - A busca tem de 3 a 7 palavras, em inglês, sem aspas e sem operadores.
+- Devolva também uma BUSCA AMPLA: o ambiente ou o objeto genérico do mesmo
+  assunto, de 2 a 5 palavras, para quando a primeira não render foto. Ela
+  segue as mesmas regras. Ex.: para a torre de controle, "airport runway
+  airplanes"; para o carro autônomo, "city street traffic united states".
 
 EXEMPLOS
 manchete: "Compradores de imóveis ganham margem de negociação com vendas no
@@ -143,6 +153,7 @@ menor nível em quase três anos nos EUA"
 manchete: "Controladores de voo nos EUA terão apoio de IA de US$ 875 milhões"
   objeto: torre de controle de aeroporto
   consulta: airport control tower exterior united states
+  ampla: airport runway airplanes
 
 manchete: "Zoox pode ampliar frota de robotáxis em Nevada"
   objeto: carro autônomo numa rua de cidade
@@ -150,7 +161,8 @@ manchete: "Zoox pode ampliar frota de robotáxis em Nevada"
 
 Responda só com JSON:
 { "objeto": "o objeto ou cena, em português, em poucas palavras",
-  "consulta": "a busca em inglês" }`;
+  "consulta": "a busca em inglês",
+  "ampla": "a busca ampla em inglês" }`;
 
 /**
  * O pedaço que só entra quando o acervo próprio está ligado.
@@ -174,7 +186,7 @@ mostra o assunto, devolva "nenhuma": tag forçada é pior que tag nenhuma.
 ${cardapioParaOModelo()}
 
 Com a tag, a resposta fica:
-{ "objeto": "...", "consulta": "...", "tag": "grupo/cena ou nenhuma" }`;
+{ "objeto": "...", "consulta": "...", "ampla": "...", "tag": "grupo/cena ou nenhuma" }`;
 }
 
 /** A tag devolvida, se ela estiver no cardápio. Qualquer outra coisa é `null`. */
@@ -184,7 +196,7 @@ export function tagValida(valor: unknown): string | null {
   return tagDoCatalogo(t) ? t : null;
 }
 
-type RespostaDoModelo = { objeto?: unknown; consulta?: unknown; tag?: unknown };
+type RespostaDoModelo = { objeto?: unknown; consulta?: unknown; ampla?: unknown; tag?: unknown };
 
 function texto(valor: unknown): string {
   return typeof valor === "string" ? valor.trim() : "";
@@ -314,5 +326,21 @@ export async function cenaDaPauta(
     return { ...naoDeuParaPerguntar(`consulta pedia "${proibida}", que a regra proíbe`, custoUsd), ...comTag };
   }
 
-  return { consulta, objeto, falhou: false, motivo: "", custoUsd, ...comTag };
+  const ampla = texto(resposta.ampla).replace(/["']/g, "").slice(0, 120);
+  const consultaAmpla =
+    ampla.split(/\s+/).filter(Boolean).length >= 2 &&
+    !consultaProibida(ampla) &&
+    ampla.toLowerCase() !== consulta.toLowerCase()
+      ? ampla
+      : "";
+
+  return {
+    consulta,
+    objeto,
+    falhou: false,
+    motivo: "",
+    custoUsd,
+    ...comTag,
+    ...(consultaAmpla ? { consultaAmpla } : {}),
+  };
 }
