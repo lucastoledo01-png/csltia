@@ -137,6 +137,19 @@ describe("origem do post", () => {
 });
 
 describe("persistência", () => {
+  it("o crédito curto é a última linha, e nenhum outro crédito sobrevive (regra do dono, 06/10/2026)", async () => {
+    const { client, gravadas } = bancoFalso();
+    const store = criarSocialPostsStore(client);
+    await store.gravar([
+      {
+        ...paraGravar(),
+        legendaFinal: "Legenda do post.\n\nFoto: Fulano / Wikimedia Commons / CC BY-SA 4.0\n\nSiga @eua.journal",
+        creditoDaLegenda: "Foto: Fulano (CC BY-SA 4.0)",
+      },
+    ]);
+    expect(gravadas[0].caption).toBe("Legenda do post.\n\nSiga @eua.journal\nFoto: Fulano (CC BY-SA 4.0)");
+  });
+
   it("grava usando as colunas que já existem", async () => {
     const { client, gravadas } = bancoFalso();
     const store = criarSocialPostsStore(client);
@@ -146,7 +159,8 @@ describe("persistência", () => {
     expect(r.gravados).toBe(1);
     const linha = gravadas[0];
     expect(linha.title).toBe("USCIS amplia prazo do EAD");
-    expect(linha.caption).toBe("Legenda do post.");
+    // O store fecha a legenda antes de gravar (06/10/2026): o Siga é a última linha.
+    expect(linha.caption).toBe("Legenda do post.\n\nSiga @eua.journal");
     expect(linha.story_id).toBe("s1");
     expect(linha.candidate_id).toBe("cand-1");
     expect(linha.topic_id).toBe("org:uscis");
@@ -349,7 +363,7 @@ describe("registro de direito de imagem", () => {
     expect(v.rightsStatus).toBe("verified");
   });
 
-  it("licença que exige crédito registra que ele foi impresso", async () => {
+  it("licença que exige crédito: a arte não imprime nada, e a atribuição fica registrada (06/10/2026)", async () => {
     const v = await gravarCom({
       asset: { ...dominioPublico, license: "CC BY-SA", attribution: "Foto: Fulano / Wikimedia Commons, CC BY-SA 3.0" },
       motivo: null,
@@ -357,7 +371,8 @@ describe("registro de direito de imagem", () => {
       fontesConsultadas: [],
     });
 
-    expect(v.atribuicaoImpressa).toBe(true);
+    // Regra do dono: nenhuma tira de crédito na arte do Instagram, para licença nenhuma.
+    expect(v.atribuicaoImpressa).toBe(false);
     expect(v.attribution).toContain("CC BY-SA");
   });
 

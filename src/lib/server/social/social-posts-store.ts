@@ -13,6 +13,7 @@ import type { GramaticaDaCapa } from "./arte";
 import type { DecisaoDaBolha } from "./bolha-sem-rosto";
 import { statusDeEntradaDoPost } from "../aprovacao/portao";
 import type { OpcoesDaFilaNoStore } from "../aprovacao/integracao";
+import { legendaDoInstagram } from "./legenda-final";
 
 /**
  * Onde um post do social V2 vira linha.
@@ -155,6 +156,16 @@ export type PostParaGravar = {
    * antes de 18/09/2026.
    */
   legendaFinal?: string;
+  /**
+   * A linha curta do crédito ("Foto: X", "Fotos: A, B e C"), montada por
+   * `linhaDeCredito` com as fotos que foram ao ar (06/10/2026). O store passa
+   * a legenda de novo por `fecharLegenda` antes de gravar, e é esta linha que
+   * fica como a última: qualquer outro crédito que tenha vazado sai ali.
+   * Ausente, preserva a linha curta que já estiver logo abaixo do fecho.
+   */
+  creditoDaLegenda?: string;
+  /** As atribuições completas de todas as fotos do post, para o registro. */
+  creditosDasFotos?: string[];
   /**
    * O contexto da refação na fila de aprovação (06/10/2026): pauta, pacote,
    * pool do dia. Vai para `content_json.contexto_da_refacao` e de lá para a
@@ -343,7 +354,17 @@ export function criarSocialPostsStore(client: SupabaseClient, fila: OpcoesDaFila
 
           // A manchete da arte e a legenda usam as colunas que já existem.
           title: p.post.copy.headline.slice(0, 300),
-          caption: p.legendaFinal ?? p.post.veredicto.legendaFinal,
+          /*
+           * O último passo antes do banco (06/10/2026): `fecharLegenda` é
+           * idempotente, e passar aqui garante as duas regras do dono em
+           * qualquer caminho que chegue ao store, inclusive um que monte a
+           * legenda de outro jeito no futuro. Hashtag fica como veio: ela só
+           * está no texto quando o projeto a ligou.
+           */
+          caption: legendaDoInstagram(p.legendaFinal ?? p.post.veredicto.legendaFinal, {
+            hashtags: "manter",
+            credito: p.creditoDaLegenda ?? "manter",
+          }),
 
           /*
            * As mesmas colunas que o caminho legado usa para o manifesto.
@@ -520,7 +541,15 @@ export function criarSocialPostsStore(client: SupabaseClient, fila: OpcoesDaFila
                   license: asset.license,
                   licenseUrl: asset.licenseUrl,
                   attribution: asset.attribution,
-                  atribuicaoImpressa: Boolean(asset.attribution.trim()),
+                  /*
+                   * Falso sempre desde 06/10/2026: a arte do Instagram não
+                   * imprime crédito para licença nenhuma, por decisão do dono.
+                   * O crédito vai na última linha da legenda, curto, e fica
+                   * registrado em `creditoNaLegenda`.
+                   */
+                  atribuicaoImpressa: false,
+                  creditoNaLegenda: p.creditoDaLegenda ?? null,
+                  creditosDasFotos: p.creditosDasFotos ?? [],
                   rightsStatement: asset.rightsStatement,
                   rightsStatus: asset.rightsStatus,
                   rightsCheckedAt: asset.rightsCheckedAt,

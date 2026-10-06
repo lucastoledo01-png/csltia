@@ -13,7 +13,7 @@ import type { DecisaoDeFormato } from "../social/carrossel/formato";
 import type { ConteudoDoArtigo } from "../ramos/portal";
 import type { PecaPronta } from "../ramos/peca";
 import { temFotoDaPauta } from "../ramos/sem-foto";
-import { legendaComCredito } from "../social/legenda";
+import { legendaDoInstagram, linhaDeCredito } from "../social/legenda-final";
 import type { ContextoDeProducao, PautaDoContexto, ResumoDaPeca } from "./contrato";
 import type { PecaParaFila } from "./fila";
 import type { ContextoDaRefacao, GanchoDeEtapa, ResultadoDaEtapa } from "./refazer";
@@ -475,8 +475,26 @@ function textoDoPost(mundo: MundoDaRefacao): GanchoDeEtapa {
     if (decisao && !r.post.carrossel) return falha("a reescrita do carrossel voltou como peça única");
 
     const visual = (cj.visual ?? {}) as Linha;
-    const credito = String(visual.attribution ?? visual.credito ?? "");
-    const legenda = legendaComCredito(r.post.veredicto.legendaFinal, credito);
+    /*
+     * A linha curta do crédito (06/10/2026): a que o post gravou, ou, em post
+     * anterior a isso, montada de novo com a foto de fundo e as dos slides.
+     * As duas chaves da atribuição continuam lidas (`credito` era a antiga).
+     */
+    const fotosDoCarrossel = (((cj.carrossel ?? {}) as Linha).fotos ?? []) as Array<Linha | null>;
+    const credito =
+      typeof visual.creditoNaLegenda === "string" && visual.creditoNaLegenda
+        ? visual.creditoNaLegenda
+        : linhaDeCredito([
+            {
+              author: String(visual.author ?? ""),
+              license: String(visual.license ?? ""),
+              attribution: String(visual.attribution ?? visual.credito ?? ""),
+            },
+            ...fotosDoCarrossel.map((f) =>
+              f ? { author: String(f.author ?? ""), license: String(f.license ?? ""), attribution: String(f.attribution ?? "") } : null,
+            ),
+          ]);
+    const legenda = legendaDoInstagram(r.post.veredicto.legendaFinal, { hashtags: "manter", credito });
     const { error } = await client
       .from("social_posts")
       .update({

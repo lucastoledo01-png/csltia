@@ -7,7 +7,10 @@ import {
   removerFechamentoDeNewsletter,
   repararLegendaSocial,
   separarHashtags,
-  validarLegendaSocial, legendaComCredito } from "./legenda";
+  validarLegendaSocial } from "./legenda";
+
+/** O contexto com `settings.instagram.hashtags` ligado, para os testes do caminho com hashtag. */
+const COM_HASHTAG = { hashtags: true } as const;
 
 /**
  * O que separa a legenda do Instagram da copy da newsletter.
@@ -130,13 +133,24 @@ describe("hashtags", () => {
       "O USCIS publicou nova orientação para o EB-2 NIW.\n\nComente VISA e receba a avaliação no Direct.",
     );
 
-    const problemas = validarLegendaSocial(caption, CONTEXTO_VISTO);
+    const problemas = validarLegendaSocial(caption, { ...CONTEXTO_VISTO, ...COM_HASHTAG });
     expect(problemas.map((p) => p.motivo)).toContain(MOTIVOS_DA_LEGENDA.SEM_HASHTAG);
 
-    const { caption: corrigida } = repararLegendaSocial(caption, CONTEXTO_VISTO);
+    const { caption: corrigida } = repararLegendaSocial(caption, { ...CONTEXTO_VISTO, ...COM_HASHTAG });
     expect(corrigida.hashtags.length).toBeGreaterThanOrEqual(4);
     expect(corrigida.hashtags.length).toBeLessThanOrEqual(7);
     expect(corrigida.full_caption).toContain(corrigida.hashtags.join(" "));
+  });
+
+  it("sem o projeto pedir, a legenda sai sem hashtag e a falta não é problema (06/10/2026)", () => {
+    const caption = legenda("O USCIS publicou nova orientação para o EB-2 NIW.\n\n#EB2NIW #USCIS");
+    expect(validarLegendaSocial(caption, CONTEXTO_VISTO).map((p) => p.motivo)).not.toContain(
+      MOTIVOS_DA_LEGENDA.SEM_HASHTAG,
+    );
+    const { caption: corrigida } = repararLegendaSocial(caption, CONTEXTO_VISTO);
+    expect(corrigida.full_caption).not.toContain("#");
+    // O conjunto continua calculado, para o schema do caminho legado.
+    expect(corrigida.hashtags.length).toBeGreaterThanOrEqual(3);
   });
 
   it("caso 3: pauta de EB-2 NIW gera a hashtag específica", () => {
@@ -268,18 +282,20 @@ describe("hashtags", () => {
     const problemas = validarLegendaSocial(caption, CONTEXTO_VISTO);
     expect(problemas.map((p) => p.motivo)).toContain(MOTIVOS_DA_LEGENDA.HASHTAG_NO_MEIO);
 
-    const { caption: corrigida } = repararLegendaSocial(caption, CONTEXTO_VISTO);
+    const { caption: corrigida } = repararLegendaSocial(caption, { ...CONTEXTO_VISTO, ...COM_HASHTAG });
     const linhas = corrigida.full_caption.split("\n").filter(Boolean);
-    const corpo = linhas.slice(0, -1).join("\n");
+    const corpo = linhas.slice(0, -2).join("\n");
 
     expect(corpo).toContain("mudou a regra do");
     expect(corpo).not.toContain("#");
-    expect(linhas[linhas.length - 1]).toBe(corrigida.hashtags.join(" "));
+    // As hashtags vêm logo antes do fecho, que é a última linha.
+    expect(linhas[linhas.length - 2]).toBe(corrigida.hashtags.join(" "));
+    expect(linhas[linhas.length - 1]).toBe("Siga @eua.journal");
   });
 });
 
-describe("CTA", () => {
-  it("recusa e desduplica o CTA repetido", () => {
+describe("o fecho da legenda (06/10/2026)", () => {
+  it("o convite de comentário repetido é contado como problema e sai da legenda", () => {
     const caption = legenda(
       [
         "Comente VISA e receba a avaliação de perfil no Direct.",
@@ -296,32 +312,23 @@ describe("CTA", () => {
     expect(problemas.map((p) => p.motivo)).toContain(MOTIVOS_DA_LEGENDA.CTA_DUPLICADO);
 
     const { caption: corrigida } = repararLegendaSocial(caption, CONTEXTO_VISTO);
-    const vezes = corrigida.full_caption.match(/Comente VISA/g) ?? [];
-    expect(vezes.length).toBe(1);
+    expect(corrigida.full_caption).not.toMatch(/Comente VISA/);
+    expect(corrigida.full_caption).toBe("O USCIS mudou a regra.\n\nSiga @eua.journal");
   });
 
-  it("põe o CTA depois do conteúdo e antes das hashtags", () => {
+  it("o fecho vem depois do conteúdo, uma vez, e o cta_call passa a ser ele", () => {
     const caption = legenda(
-      [
-        "Comente VISA e receba a avaliação de perfil no Direct.",
-        "",
-        "O USCIS mudou a regra do EB-2 NIW nesta semana.",
-      ].join("\n"),
+      ["Siga @eua.journal", "", "O USCIS mudou a regra do EB-2 NIW nesta semana.", "", "Siga @eua.journal"].join("\n"),
     );
-
     const { caption: corrigida } = repararLegendaSocial(caption, CONTEXTO_VISTO);
-    const posCta = corrigida.full_caption.indexOf("Comente VISA");
-    const posConteudo = corrigida.full_caption.indexOf("O USCIS mudou");
-    const posHashtag = corrigida.full_caption.indexOf(corrigida.hashtags[0]);
-
-    expect(posConteudo).toBeLessThan(posCta);
-    expect(posCta).toBeLessThan(posHashtag);
+    expect(corrigida.full_caption).toBe("O USCIS mudou a regra do EB-2 NIW nesta semana.\n\nSiga @eua.journal");
+    expect(corrigida.cta_call).toBe("Siga @eua.journal");
   });
 
-  it("usa o cta_call quando o modelo não escreveu CTA nenhum na legenda", () => {
+  it("o fecho entra mesmo quando o modelo não escreveu nenhum", () => {
     const caption = legenda("O USCIS mudou a regra do EB-2 NIW nesta semana.");
     const { caption: corrigida } = repararLegendaSocial(caption, CONTEXTO_VISTO);
-    expect(corrigida.full_caption).toContain("Comente VISA");
+    expect(corrigida.full_caption.endsWith("\n\nSiga @eua.journal")).toBe(true);
   });
 });
 
@@ -367,10 +374,11 @@ describe("garantia no caminho de publicação", () => {
 
   it("não estoura o teto do campo mesmo com hashtags acrescentadas", () => {
     const gigante = { ...carrossel, caption: legenda("a".repeat(1990)) };
-    const { carousel } = garantirLegendaSocial(gigante, CONTEXTO_VISTO);
+    const { carousel } = garantirLegendaSocial(gigante, { ...CONTEXTO_VISTO, ...COM_HASHTAG });
 
     expect(carousel.caption.full_caption.length).toBeLessThanOrEqual(2000);
     expect(carousel.caption.full_caption).toContain(carousel.caption.hashtags.join(" "));
+    expect(carousel.caption.full_caption.endsWith("Siga @eua.journal")).toBe(true);
   });
 });
 
@@ -380,58 +388,5 @@ describe("separarHashtags", () => {
     expect(r.noMeio).toBe(false);
     expect(r.tags).toEqual(["#Uma", "#Duas", "#Tres"]);
     expect(r.corpo).toBe("Texto da legenda.");
-  });
-});
-
-/**
- * O crédito saiu da imagem e foi para a legenda, em 18/09/2026.
- *
- * A tira sobre a foto entrou em 06/09 porque a licença não estava sendo
- * cumprida em lugar nenhum: o autor era gravado numa coluna do banco e
- * ninguém desenhava nada. Coluna de banco não cumpre licença.
- *
- * O dono pediu a peça limpa. A obrigação não sai junto: CC BY e CC BY-SA
- * exigem atribuição "de maneira razoável", e crédito na legenda do post é a
- * prática corrente de quem publica em rede social.
- */
-describe("o crédito da foto na legenda", () => {
-  it("entra no fim, depois das hashtags", () => {
-    const saida = legendaComCredito(
-      "O texto da pauta.\n\nComente NEWS\n\n#EconomiaEUA #Census",
-      "Foto: Tony Webster / Wikimedia Commons / CC BY-SA 2.0",
-    );
-
-    expect(saida.endsWith("· Foto: Tony Webster / Wikimedia Commons / CC BY-SA 2.0")).toBe(true);
-    expect(saida.indexOf("#EconomiaEUA")).toBeLessThan(saida.indexOf("Tony Webster"));
-  });
-
-  /**
-   * Foram 18 das 23 últimas peças medidas: Pexels, Unsplash, domínio público e
-   * CC0 não exigem nada, e o módulo de licenças já devolve atribuição vazia.
-   */
-  it("licença que não exige atribuição deixa a legenda intacta", () => {
-    const original = "O texto da pauta.\n\n#EconomiaEUA";
-    expect(legendaComCredito(original, "")).toBe(original);
-    expect(legendaComCredito(original, null)).toBe(original);
-    expect(legendaComCredito(original, undefined)).toBe(original);
-  });
-
-  it("não duplica quando o crédito já está lá", () => {
-    const credito = "Foto: Dietmar Rabich / Wikimedia Commons / CC BY-SA 4.0";
-    const uma = legendaComCredito("Texto.", credito);
-    expect(legendaComCredito(uma, credito)).toBe(uma);
-  });
-
-  /**
-   * Ao contrário das hashtags, aqui quem cede é o corpo: atribuição cortada
-   * não cumpre licença, e parágrafo cortado custa uma frase.
-   */
-  it("no limite do campo, o corpo cede e o crédito entra inteiro", () => {
-    const credito = "Foto: Autor Longo / Wikimedia Commons / CC BY-SA 4.0";
-    const gigante = "a".repeat(2100);
-    const saida = legendaComCredito(gigante, credito);
-
-    expect(saida.length).toBeLessThanOrEqual(2000);
-    expect(saida.endsWith(credito)).toBe(true);
   });
 });

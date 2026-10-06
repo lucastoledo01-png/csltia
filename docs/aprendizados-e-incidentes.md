@@ -258,6 +258,15 @@ e se o crédito foi impresso) é gravado nos dois casos.
 prova diligência e não cumpre a obrigação; a obrigação só é cumprida no arquivo que
 sai publicado.
 
+> **Atualização de 06/10/2026, para o Instagram.** A tira saiu da arte em
+> 18/09 e o crédito foi para a legenda; desde 06/10, por regra do dono, a arte
+> do Instagram não leva crédito para licença nenhuma, e a legenda leva UMA
+> linha curta no fim ("Foto: Gage Skidmore (CC BY-SA 4.0)"), montada em código
+> a partir do asset. A lição continua valendo no espírito (o registro em coluna
+> não basta, o crédito tem de estar junto da obra publicada), e "junto da obra"
+> no Instagram passou a ser a legenda. Portal e newsletter não mudaram. Ver
+> "A legenda do Instagram no método do Not Journal" em `decisoes.md`.
+
 ### PENDENTE: 06/09 sem newsletter e sem posts
 
 **O que se sabe.** Em 2026-09-06 a newsletter não saiu e os posts do pipeline antigo

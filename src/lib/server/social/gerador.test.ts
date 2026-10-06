@@ -241,8 +241,10 @@ describe("texto longo demais é aparado, não descartado", () => {
     // limite e o schema derrubava tudo.
     const longa = {
       ...COPY_BOA,
-      contexto: "A fila do órgão segue longa e o efeito prático aparece nos prazos. ".repeat(12),
-      informacao_util: "Vale para pedidos protocolados a partir de outubro. ".repeat(12),
+      // Vírgula, e não ponto, desde 06/10/2026: o que se testa é o aparador, e
+      // seis frases num parágrafo seriam reprovadas pela forma da legenda.
+      contexto: "a fila do órgão segue longa e o efeito prático aparece nos prazos, ".repeat(12),
+      informacao_util: "vale para pedidos protocolados a partir de outubro, ".repeat(12),
     };
     const { fetcher } = modeloQueDevolve([longa]);
 

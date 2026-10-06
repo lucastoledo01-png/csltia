@@ -2176,6 +2176,118 @@ da eleição vazava para a campanha dos EUA, e o bloco ganhou a linha "a
 abertura é SÓ para a política do Brasil". Custo: US$ 1,86 na estimativa do
 código.
 
+## A legenda do Instagram no método do Not Journal, e duas regras do dono (06/10/2026)
+
+O dono mandou sete legendas reais do Not Journal (Flávio e o dólar, Moraes e
+Débora, a frase de Bezos, o apoio de Temer, Sicario 3, Trump e a peste na
+Rússia, os 670 bancos da China) e pediu a legenda nesse padrão. Amostras com
+pautas reais, lado a lado com a legenda de antes, em
+`docs/design/legenda-not-journal-2026-10-06/amostras.md`.
+
+### As duas REGRAS, que não são opção
+
+**1. O crédito da foto é uma linha curta, a última da legenda, e a arte do
+Instagram não tem crédito nenhum.** A regra chegou em duas versões no mesmo
+dia. A primeira, com as palavras do dono: "não quero que fique colocando
+crédito na descrição do instagram, não precisa. isso não é uma opção, é uma
+regra". Horas depois ele a trocou pela que vale: o crédito fica na legenda,
+junto da obra, na forma curta, e a tira sai da arte para toda licença.
+
+- Formato: depois do corpo, uma linha em branco, "Siga @eua.journal" e, na
+  linha de baixo, "Foto: Daniel Torok". A sigla da licença vai entre
+  parênteses só quando a licença exige mais que o nome (CC BY, CC BY-SA):
+  "Foto: Gage Skidmore (CC BY-SA 4.0)". Pexels, Unsplash, CC0 e domínio
+  público: só o nome. Várias fotos (carrossel, bolha): "Fotos: A, B e C", sem
+  repetir, até três nomes e depois "e outros".
+- Sem autor conhecido, sem linha. Nunca "Foto: desconhecido". Nada de "via
+  Wikimedia Commons", link, "Licença Pexels" ou texto jurídico.
+- O ÚNICO crédito é o que o código monta (`linhaDeCredito`, em
+  `social/legenda-final.ts`) a partir do autor e da licença gravados no asset
+  de cada foto que foi ao ar. Qualquer outra linha com cara de crédito, em
+  qualquer lugar do corpo, sai (`fecharLegenda`), inclusive a que um modelo,
+  uma instrução antiga ou uma edição à mão escrever.
+- O registro completo continua no post: `content_json.visual` (autor,
+  licença, URL, atribuição), mais `creditoNaLegenda` e `creditosDasFotos`.
+  `atribuicaoImpressa` é sempre falso, porque a arte não imprime.
+- **Isto substitui, para o Instagram, a lição de 06/09 "requisito de licença é
+  requisito de RENDER"** (`aprendizados-e-incidentes.md`). O raciocínio do
+  dono: o crédito na legenda, junto da obra e na forma curta, é a atribuição
+  razoável que a licença pede numa rede social, e a tira sobre a foto só
+  disputava a peça. Portal e newsletter continuam com o crédito deles, sem
+  mudança.
+
+**2. A legenda SEMPRE fecha com "Siga @eua.journal"**, depois de uma linha em
+branco, uma vez só. O handle sai de `MARCA.instagramHandle`, nunca escrito à
+mão. Abaixo dele, só a linha do crédito.
+
+As duas são CÓDIGO, não prompt: `fecharLegenda` é o último passo de todo
+caminho que grava `social_posts.caption` no Social V2 (a guarda, o ciclo, o
+store, a refação do texto na fila e a edição à mão no painel), é idempotente,
+e vale mesmo com uma versão antiga da instrução ativa no banco.
+
+### O que saiu da legenda junto
+
+**O convite "Comente NEWS".** O fecho da legenda é o "Siga". O funil de
+comentário continua onde ele mora: a automação do OpenReply escuta o
+comentário em qualquer post, e o último slide do carrossel continua dizendo
+"Comente NEWS e receba o link" quando há keyword escutada. Na peça única,
+nada mais convida a comentar; quem comentar a palavra continua recebendo o
+Direct. `copy.cta` continua sendo calculado, porque é ele que desenha o slide
+do convite. Isto atualiza "O CTA do Instagram oferece a NEWSLETTER" (em
+"Cadência e canais") para a LEGENDA: ela não oferece nada além de seguir.
+
+**A hashtag, por padrão.** O Not Journal não usa nenhuma. O código continua
+inteiro e liga com `settings.instagram.hashtags = true` no projeto: aí as
+hashtags da pauta entram num bloco logo ANTES do fecho. Desligado, a falta de
+hashtag deixou de ser problema na guarda e na edição à mão.
+
+### O padrão da legenda
+
+- Abre direto no lide, em uma ou duas frases: ator, verbo, fato e quando, com
+  o número exato. Sem saudação, sem pergunta, sem emoji, hashtag, link ou "Leia
+  mais".
+- Depois, de 2 a 5 parágrafos curtos (de 2 a 4 frases), cada um com UMA camada:
+  números e detalhe; quem disse o quê, com a atribuição na frase ("segundo o
+  TSE"); histórico; leitura de especialista ou de mercado com dono; o que segue
+  em aberto. Pacote fino dá menos parágrafos, nunca enchimento.
+- Registro de jornal, neutro, em terceira pessoa (saiu o "fale com a pessoa"
+  da voz social); de 120 a 300 palavras; conta MAIS que a capa e os slides e
+  não repete a manchete. Vale para a peça única e para o carrossel.
+- O contrato do JSON ganhou `paragrafos` (lista). Os campos antigos
+  (`fato_principal`, `contexto`...) continuam no schema e só montam a legenda
+  quando a lista vem vazia, que é o que uma instrução antiga ativa produz.
+
+### O que a guarda confere, em código
+
+- **Forma** (`conferirFormaDaLegenda`, motivo `SOCIAL_REJECT_CAPTION_SHAPE`,
+  reparável): lide de até 2 frases e 70 palavras, sem pergunta nem saudação;
+  até 5 parágrafos depois dele, cada um com até 5 frases e 95 palavras; teto de
+  340 palavras no corpo; manchete de 8 palavras ou mais repetida palavra por
+  palavra; emoji; link. Os tetos têm folga sobre o alvo do prompt, e não há
+  piso, pela regra do "nunca enchimento".
+- **O quando** (`conferirDiasDaSemana`): "na segunda-feira (5)" tem de bater
+  com o calendário dos últimos oito dias, que o prompt recebe pronto, E ser um
+  dia que o material nomeia ou a data de publicação da fonte. Nas amostras o
+  modelo pôs o dia em que escrevia em três pautas que não diziam dia nenhum.
+  O par válido sai do texto que vai para a ancoragem, porque o "(5)" é do
+  calendário e não do pacote.
+- **A atribuição** (`atribuicoesDaLegendaSemLastro`, motivo
+  `SOCIAL_REJECT_CAPTION_ATTRIBUTION`): "segundo X" com X nome próprio tem de
+  existir no pacote ou ser o veículo; quando é o veículo e o número da frase
+  só aparece no pacote com outro dono ("according to the city"), é o defeito
+  da matéria de Chicago e volta para reescrita. Com várias fontes no pacote,
+  vale a régua da matéria do portal (`atribuicaoSemLastro`).
+- A ancoragem de número e nome contra o pacote continua a de sempre.
+
+### As instruções no banco
+
+Os padrões do código mudaram em `social_copy` (a legenda) e `voz_social` (o
+registro). `carrossel_copy` não mudou: a orientação da legenda do carrossel
+mora no contrato, no código, e vale com o deploy. Para as versões ativas do
+banco acompanharem, o dono roda, depois do deploy,
+`npx tsx src/scripts/salvar-instrucoes.ts --aplicar` (só grava o que mudou;
+`--reverter` volta uma leva por vez). As duas regras acima não dependem disso.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

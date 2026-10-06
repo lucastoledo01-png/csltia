@@ -66,9 +66,36 @@ export const CopyDoPostSchema = z.object({
    * em silêncio. Efeito colateral conhecido: o recorte usa o gancho como corpo
    * e tem orçamento de 200 caracteres com foto (`CAPACIDADE_DO_RECORTE`), então
    * o gancho longo cai na gramática de jornal, pela regra que já existe.
+   *
+   * 420 a partir da legenda do Not Journal (06/10/2026, mais tarde): o lide
+   * pode ter DUAS frases ("ator, verbo, fato, quando, com o número exato"), de
+   * 25 a 60 palavras. O teto do lide é conferido pela guarda
+   * (`conferirFormaDaLegenda`), que manda reescrever; o aparador é só a rede
+   * para estouro não custar o post.
    */
-  gancho: aparar(240).pipe(z.string().min(10)),
-  fato_principal: aparar(400).pipe(z.string().min(20)),
+  gancho: aparar(420).pipe(z.string().min(10)),
+  /*
+   * Os parágrafos depois do lide, no método do Not Journal (06/10/2026): de 2
+   * a 5, cada um com UMA camada nova (números e detalhe, quem disse o quê,
+   * histórico, leitura de especialista, o que segue em aberto).
+   *
+   * Lista, e não mais quatro campos com nome, porque a legenda de referência
+   * tem de dois a cinco parágrafos conforme o pacote rende, e campo com nome
+   * empurra o modelo a preencher todos. Os campos antigos continuam no schema,
+   * com padrão vazio, para uma instrução antiga ainda ativa no banco (que pede
+   * `fato_principal`, `contexto`...) continuar produzindo legenda montável:
+   * `montarLegenda` usa os antigos só quando a lista vem vazia.
+   *
+   * `.optional()`, e não `.default([])`: campo novo com padrão vira
+   * obrigatório no tipo de SAÍDA e quebra todo literal de copy que já existe
+   * (armadilha registrada em `decisoes.md`).
+   */
+  paragrafos: z.array(aparar(700).pipe(z.string())).max(6).optional(),
+  /*
+   * Sem piso desde 06/10/2026: no contrato novo ele vem vazio e o texto vai em
+   * `paragrafos`. O piso de 20 reprovaria a resposta certa.
+   */
+  fato_principal: aparar(400).pipe(z.string()).default(""),
   contexto: aparar(400).pipe(z.string()).default(""),
   informacao_util: aparar(300).pipe(z.string()).default(""),
   /** O que a matéria NÃO diz, quando calar seria enganoso. */
@@ -100,6 +127,12 @@ export type MarcaSocial = {
   nicho: string;
   extra: string;
   keyword: string;
+  /**
+   * `settings.instagram.hashtags` do projeto (06/10/2026). Ausente ou falso, a
+   * legenda sai sem hashtag nenhuma, como no Not Journal. Opcional para quem
+   * monta a marca sem ler o projeto (scripts de ensaio) cair no padrão.
+   */
+  hashtags?: boolean;
 };
 
 /**
@@ -164,6 +197,34 @@ export function ctaDaPosicao(posicao: number, keyword: string): string {
 }
 
 /**
+ * A legenda no método do Not Journal (06/10/2026), lida em sete legendas reais
+ * que o dono mandou (Flávio e o dólar, Moraes e Débora, a frase de Bezos, o
+ * apoio de Temer, Sicario 3, Trump e a peste na Rússia, os 670 bancos da
+ * China). É texto editorial, e por isso mora no trecho editável; o post único e
+ * o carrossel leem o MESMO bloco, para a legenda dos dois formatos ser uma só.
+ *
+ * O que ela NÃO diz é de propósito: crédito de foto, hashtag e o "Siga
+ * @eua.journal" são do código (`legenda-final.ts`), e nenhuma versão do
+ * texto, nova ou antiga, consegue mudá-los.
+ */
+export const LEGENDA_NO_METODO_NOT_JOURNAL = `A LEGENDA, no método do Not Journal. Ela conta MAIS que a capa e os slides, e não repete a manchete palavra por palavra.
+
+gancho: o LIDE inteiro, em uma ou duas frases, e ele abre a legenda direto, sem saudação, sem pergunta de gancho. Ator, verbo, fato e quando, com o número exato, de 25 a 60 palavras. O quando é o dia da semana com o dia do mês entre parênteses, como a imprensa brasileira escreve, tirado do CALENDÁRIO que vem junto da pauta: "na segunda-feira (5)". Nunca "hoje", "ontem" ou "amanhã": o post sai num dia diferente do que foi escrito. Sem a data no pacote, sem o quando.
+  Exemplo da forma (construção ilustrativa): "A China fechou mais de 670 bancos em um ano, segundo o regulador bancário do país, numa reestruturação que atinge sobretudo bancos rurais pequenos."
+
+paragrafos: de 2 a 5 parágrafos curtos, de 2 a 4 frases cada, e cada um acrescenta UMA camada nova, nesta ordem quando o pacote tiver material para ela:
+1. os números e o detalhe que dão o tamanho do fato;
+2. quem disse o quê, com a atribuição DENTRO da frase ("segundo o TSE", "de acordo com a Caixin", "segundo a Moody's"); quem é citado é quem deu a informação, nunca o veículo que a repetiu;
+3. o histórico que explica o fato ("Débora ficou conhecida por...");
+4. a leitura de especialista ou de mercado, só com dono nomeado no pacote ("Para Jason Bedford, pesquisador...", "Analistas associam...");
+5. o que segue em aberto ou o próximo passo ("a disputa segue aberta até 25 de outubro", "não há data de estreia anunciada").
+Camada sem lastro no pacote não existe: pacote fino dá menos parágrafos, nunca enchimento. A legenda inteira tem de 120 a 300 palavras quando o pacote rende; menos, quando não rende.
+
+O registro é de jornal: neutro, factual, em terceira pessoa. Sem "você", sem adjetivo de opinião, sem emoji, sem hashtag, sem link, sem "Leia mais", sem convite para comentar ou seguir, sem linha de "Fonte:" e sem crédito de foto. Citação entre aspas só com a fala que está no pacote, fiel a ela; fala em inglês vai traduzida para o português.
+
+O que segue em aberto fala do FATO, nunca da reportagem. Proibido: "a fonte não informa", "a fonte não detalha", "não há detalhes", "o veículo não diz". Quando a falta É a notícia, escreva falando da divulgação: "a nova data ainda não foi divulgada".`;
+
+/**
  * O julgamento editorial do post de imagem única, editável no painel desde
  * 05/10/2026 (etapa `social_copy`). O que fica fora daqui é contrato: o canal,
  * a regra do pacote factual, a ordem da legenda e o JSON de saída.
@@ -177,21 +238,7 @@ export const INSTRUCAO_PADRAO_SOCIAL_COPY = `E, na manchete, as quatro que derru
 
 destaque: de 1 a 4 palavras copiadas LITERALMENTE de dentro do headline, mesma grafia. É o pedaço que sai em cor. Sem nada óbvio para destacar, devolva vazio.
 
-gancho: a primeira linha da legenda, antes do "mais", e ela é o LIDE INTEIRO em UMA frase, no método do Not Journal: quem fez o quê, com o número exato e a atribuição, de 20 a 35 palavras. Quem lê só essa linha já sabe a notícia. Ela pode partir da manchete, com o detalhe que não coube na capa, mas não a copia palavra por palavra.
-  Exemplo da forma (construção ilustrativa): "A China fechou mais de 670 bancos em um ano, segundo o regulador bancário, numa reestruturação do setor em meio à desaceleração da economia."
-
-fato_principal: o que vem depois do lide, em duas frases no máximo: o detalhe, o contexto ou o próximo passo que o pacote traz. Não repete o gancho.
-
-contexto: por que isso importa para quem planeja se mudar. Sem futurologia.
-
-informacao_util: o que a pessoa faz com essa informação. Prazo, requisito ou passo, SE estiverem no pacote. Vazio é melhor que inventado.
-
-ressalva: quase sempre VAZIA. Ela só existe quando calar seria enganoso, e mesmo aí ela fala do FATO, nunca da reportagem.
-- Proibido: "a fonte não informa", "a fonte não detalha", "não há detalhes", "o veículo não diz". Isso é confissão dentro do post, e vira tique: o leitor não quer saber o que a matéria deixou de apurar.
-- Quando a falta É a notícia, escreva falando da divulgação: "a nova data ainda não foi divulgada".
-- Na dúvida, deixe vazio. Post mais curto é melhor que post que explica o que não tem.
-
-hashtags: de 4 a 7, específicas DESTA pauta.`;
+${LEGENDA_NO_METODO_NOT_JOURNAL}`;
 
 export function montarSystemDaCopy(marca: MarcaSocial): string {
   return `
@@ -215,10 +262,10 @@ ${instrucaoVigente("social_copy", INSTRUCAO_PADRAO_SOCIAL_COPY)}
 
 ${vozSocialVigente()}
 
-ESTRUTURA DA LEGENDA, nesta ordem: gancho, fato principal, contexto, informação útil, ressalva quando necessária.
+ESTRUTURA DA LEGENDA, nesta ordem: o lide em "gancho" e os parágrafos em "paragrafos", um parágrafo por item, sem linha em branco dentro do item. "fato_principal", "contexto", "informacao_util" e "ressalva" vão VAZIOS: o texto todo está no lide e nos parágrafos. "cta" vai vazio. "hashtags" vai vazio: hashtag e o fecho da legenda são do código.
 
 Devolva JSON:
-{"headline":"...","destaque":"...","gancho":"...","fato_principal":"...","contexto":"...","informacao_util":"...","ressalva":"...","cta":"","hashtags":["..."]}
+{"headline":"...","destaque":"...","gancho":"...","paragrafos":["...","..."],"fato_principal":"","contexto":"","informacao_util":"","ressalva":"","cta":"","hashtags":[]}
 `;
 }
 
@@ -248,6 +295,33 @@ export function blocoDaCitacao(pauta: PautaAvaliada, pacote: PacoteFactual | nul
   return linhas;
 }
 
+const DIAS_DA_SEMANA = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
+
+/**
+ * Os últimos oito dias com o dia da semana, no fuso de Brasília.
+ *
+ * A legenda do método diz "na segunda-feira (5)", e o dia da semana errado é
+ * fato errado que nenhuma ancoragem pega: ela confere o 5, não a segunda. O
+ * modelo não calcula calendário com segurança, então o código entrega a
+ * tabela pronta e o prompt manda usar só ela. O carrossel lê a mesma.
+ */
+export function calendarioDaSemana(agora: Date = new Date()): string {
+  const linhas: string[] = [];
+  for (let i = 0; i < 8; i += 1) {
+    const d = new Date(agora.getTime() - i * 86_400_000);
+    const iso = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(d);
+    const [ano, mes, dia] = iso.split("-").map(Number);
+    const semana = DIAS_DA_SEMANA[new Date(Date.UTC(ano, mes - 1, dia)).getUTCDay()];
+    linhas.push(`${semana} (${dia}) = ${String(dia).padStart(2, "0")}/${String(mes).padStart(2, "0")}/${ano}`);
+  }
+  return linhas.join("; ");
+}
+
 function montarUser(pauta: PautaAvaliada, pacote: PacoteFactual | null): string {
   const p = pauta.grupo.primary;
 
@@ -256,6 +330,8 @@ function montarUser(pauta: PautaAvaliada, pacote: PacoteFactual | null): string 
     `FONTE: ${p.source_name}`,
     `PAÍS: ${pauta.classificacao.pais}`,
     `EIXO: ${pauta.classificacao.eixo}`,
+    ...(p.published_at ? [`PUBLICADA EM: ${p.published_at}`] : []),
+    `CALENDÁRIO (do mais recente para o mais antigo): ${calendarioDaSemana()}`,
   ];
 
   if (pacote) {
@@ -413,15 +489,27 @@ ${instrucao}` },
 }
 
 /**
- * Monta a legenda na ordem, sem CTA e sem hashtags.
+ * Monta o corpo da legenda: o lide e os parágrafos, sem fecho e sem hashtag.
  *
- * As duas últimas partes ficam com `garantirLegendaSocial`, que é a camada que
- * decide posição e conteúdo delas. Montar aqui e lá produziria CTA duplicado,
- * que foi exatamente um dos defeitos que a guarda existe para pegar.
+ * O fecho ("Siga @eua.journal") e a hashtag, quando o projeto a liga, ficam
+ * com `fecharLegenda`, que é a camada que decide posição e conteúdo deles e
+ * tira o crédito de foto. Montar aqui e lá produziria fecho duplicado.
+ *
+ * Desde 06/10/2026 o corpo é o lide mais `paragrafos`. Os campos antigos
+ * (`fato_principal`, `contexto`, `informacao_util`, `ressalva`) só entram
+ * quando a lista vem vazia, que é o que uma instrução antiga ainda ativa no
+ * banco produz: a legenda continua montável enquanto o dono não grava a nova.
+ * Item que chega com linha em branco dentro vira parágrafos separados, e
+ * linha solta dentro de um parágrafo vira espaço: parágrafo é bloco.
  */
 export function montarLegenda(copy: CopyDoPost): string {
-  return [copy.gancho, copy.fato_principal, copy.contexto, copy.informacao_util, copy.ressalva]
-    .map((p) => (p ?? "").trim())
+  const paragrafos = (copy.paragrafos ?? []).map((p) => (p ?? "").trim()).filter(Boolean);
+  const corpo = paragrafos.length
+    ? [copy.gancho, ...paragrafos, copy.ressalva]
+    : [copy.gancho, copy.fato_principal, copy.contexto, copy.informacao_util, copy.ressalva];
+  return corpo
+    .flatMap((p) => (p ?? "").split(/\n\s*\n/))
+    .map((p) => p.replace(/\s*\n\s*/g, " ").trim())
     .filter(Boolean)
     .join("\n\n");
 }

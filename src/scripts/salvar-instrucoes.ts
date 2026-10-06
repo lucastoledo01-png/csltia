@@ -25,6 +25,17 @@ import { ativarVersao, criarVersao, listarVersoes, voltarAoPadrao } from "../lib
  * ("...|antes:v3" ou "...|antes:codigo"). Quando antes valia o texto do
  * código, voltar é desativar; e como o padrão do código também mudou neste
  * commit, voltar ao texto de ANTES do método é reverter o commit.
+ *
+ * Segunda leva, a legenda do Not Journal (06/10/2026, mais tarde): os padrões
+ * de `social_copy` (a legenda em lide e parágrafos), `voz_social` (registro de
+ * jornal, sem "você") e o contrato do carrossel mudaram. O mesmo comando grava
+ * só o que mudou: a etapa cujo texto já é o ativo é pulada ("já é a versão
+ * ativa"). As versões desta leva levam outro autor, e o `--reverter` desfaz
+ * as duas levas, uma de cada vez, sempre voltando à versão anterior.
+ *
+ * O crédito de foto, a hashtag e o "Siga @eua.journal" NÃO dependem destes
+ * textos: são montados em código (`social/legenda-final.ts`), e valem mesmo
+ * com uma versão antiga ativa no banco.
  */
 
 const ETAPAS_DO_METODO: EtapaEditorial[] = [
@@ -36,7 +47,9 @@ const ETAPAS_DO_METODO: EtapaEditorial[] = [
 ];
 
 /** Quem gravou, para o histórico do painel separar esta leva das edições à mão. */
-const AUTOR = "metodo-not-journal-the-news-2026-10-06";
+const AUTOR = "legenda-not-journal-2026-10-06";
+/** As levas que este script já gravou, para o `--reverter` reconhecer qualquer uma delas. */
+const AUTORES_DO_SCRIPT = ["metodo-not-journal-the-news-2026-10-06", AUTOR];
 
 function argumento(nome: string): string | null {
   const i = process.argv.indexOf(nome);
@@ -86,7 +99,7 @@ async function main(): Promise<void> {
        * porque o histórico sozinho não diz se a versão anterior estava ativa
        * ou se valia o texto do código.
        */
-      if (!ativa || !ativa.criado_por.startsWith(AUTOR)) {
+      if (!ativa || !AUTORES_DO_SCRIPT.some((a) => ativa.criado_por.startsWith(a))) {
         console.log("   nada a reverter: a versão ativa não foi gravada por este script");
         continue;
       }
