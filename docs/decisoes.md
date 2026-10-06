@@ -1780,6 +1780,135 @@ com "PREÇO DO PETRÓLEO", que não é o assunto dela.
 logotipo" em "Produto e marca". O convite final desenha o remetente da caixa de
 entrada com o avatar novo, e não mais em CSS.
 
+## Foto da cena depois da entidade, dólar em US$ e logotipo de terceiro (06/10/2026)
+
+Três defeitos vistos nas amostras do evergreen novo, com a correção aprovada
+pelo dono. Valem para notícia também, não só para o evergreen.
+
+**A pauta com entidade não morre mais sem foto quando a foto da entidade não
+passa.** Até aqui, citar um órgão (o Fed, o IRS) mandava a resolução só pelo
+caminho da entidade. O banco conceitual entrava misturado com as fontes de
+fato e era pontuado contra o NOME do órgão: foto de banco nunca tem "Federal
+Reserve" no arquivo, então somava 33 contra o piso de 45 e caía como
+LOW_RELEVANCE sem ninguém abrir a imagem. E quando a foto do órgão passava na
+pontuação e a conferência visual a recusava, o banco nem era consultado. A
+mesma pauta sem o nome do órgão ganharia a foto da cena.
+
+Agora são duas etapas em `resolver.ts`. A da entidade decide primeiro, com a
+régua de sempre. Se ela não entrega foto aprovada, entra a da cena, com as
+mesmas barreiras da pauta sem entidade e sem desconto nenhum: a cena descrita
+pelo conteúdo (`cena-da-pauta.ts`, sem pessoa identificável e sem texto), o
+acervo pela tag com a régua de país, e a conferência visual abrindo cada
+imagem. A cena é pontuada contra a entidade CONCEITUAL da pauta, não contra o
+órgão. O resultado continua dizendo qual é a entidade da pauta, porque é ela
+que a bolha procura: fundo de cena e círculo do órgão é uma capa válida.
+
+- **Pessoa continua sem cena no lugar, quando a pauta é SOBRE ela.** Foto
+  conceitual no lugar de pessoa é a mentira mais fácil, e a regra de
+  `TIPOS_DE_PESSOA` vale sempre que a manchete nomeia a pessoa. Quando a
+  manchete não nomeia (Trump entre os atores de "EUA flexibilizam normas sobre
+  economia de combustível"), a pauta é sobre o fato e segue pela cena. No
+  replay de pautas reais eram exatamente essas as que ainda morriam: a
+  conferência recusava a foto da pessoa por ela não estar na manchete, e a
+  regra recusava a cena por ela ser a entidade.
+- **Entidade ambígua segue pela cena.** Ambiguidade continua sem palpite sobre
+  a entidade, mas a foto de contexto não afirma qual das duas é, e a pauta
+  deixou de morrer ali.
+- **O caminho fica gravado.** `ResultadoVisual.caminho` diz `entidade`, `cena`
+  ou `cena_depois_da_entidade`; a nota "fallback de cena" vai para
+  `fontesConsultadas` com o motivo (foto do órgão reprovada na conferência ou
+  nenhuma passou na pontuação); o asset ganha `metadata.fallback_de_cena`; e
+  `content_json.visual.caminho` guarda o caminho no post.
+- **Custo:** a pauta que cai na cena depois da entidade paga a pergunta da cena
+  e as conferências da escada. Só acontece quando a entidade falhou.
+
+**A cena desce uma escada antes de desistir.** Pedido do dono no mesmo dia:
+"o ideal é que nunca haja falha de imagem; sempre tem que ter foto de
+contexto". Medido no catálogo do evergreen, TODA pauta que ficava sem foto
+tinha o mesmo perfil: três fotos de banco, as três recusadas pela conferência,
+e nenhum outro lugar onde procurar. A cena agora desce degraus e para no
+primeiro que entrega foto aprovada:
+
+| degrau | o que pede |
+|---|---|
+| `acervo` | o acervo próprio pela tag, como antes |
+| `cena` | a busca que descreve o objeto da pauta (ou o tema fixo, se a pergunta falhou) |
+| `cena_ampla` | a busca ampla que o mesmo modelo devolve, o tema fixo e o Openverse |
+| `editoria` | o contexto da editoria (Capitólio para política, servidores para tecnologia, Brasília para Brasil) |
+| `reuso` | os mesmos pedidos aceitando foto dos últimos 30 dias; nunca a que saiu hoje |
+
+- **As regras duras não descem com a escada.** Toda candidata passa pela
+  pontuação e pela conferência visual. O que muda é a PERGUNTA para a foto de
+  cena (`papel: "cena"`): ela é contexto, e "é genérica" ou "não identifica o
+  órgão" deixam de ser motivo de recusa, que eram as recusas mais comuns.
+  Pessoa identificável, texto como assunto, outro país e logotipo de terceiro
+  continuam recusa, e estão repetidos na instrução de propósito.
+- **O degrau fica gravado**: `ResultadoVisual.degrau`, `metadata.degrau`,
+  `content_json.visual.degrau` e uma nota por degrau em `fontesConsultadas`.
+- **Teto:** quatro conferências por degrau e doze na escada inteira. O caso
+  comum para no primeiro degrau.
+- **O banco faz uma chamada por provedor, não uma por foto.** Eram três
+  chamadas iguais por pauta, cada uma baixando os mesmos 15 resultados para
+  ficar com o seguinte. Além de triplicar o custo, era rajada, e o Pexels
+  responde 429 a rajada: em medição, uma rajada recusada virava "não há foto".
+  Agora uma busca devolve até seis candidatas.
+- **O Commons grande é conferido pela miniatura.** O modelo recusa baixar mais
+  de 20 MB, e o original do Commons passa disso: duas fotos do IRS viraram
+  VISUAL_CHECK_UNAVAILABLE por isso. A conferência abre a miniatura de 1280 px
+  do mesmo arquivo; a URL gravada e publicada continua a original.
+- **Vale para todos os canais**, porque newsletter, portal, post e carrossel
+  resolvem a foto pelo mesmo `resolveVisualAsset`.
+
+**Dólar em texto português é `US$` com número brasileiro.** A manchete do FDIC
+saiu "até $250,000". O modelo copiou a grafia da fonte, que é o que o prompt
+pede para número, e ninguém traduzia a forma. `dolarEmPortugues`
+(`editorial/dolar-em-portugues.ts`) roda depois da geração dentro de
+`limparVicios`, que é o ponto por onde passa toda copy em português (newsletter,
+artigo, post, legenda, carrossel), e de novo antes da formatação de números da
+newsletter. Converte `$250,000`, `US$250,000`, `USD 3,000`, `3,000 USD`,
+`$1.5 million` (vira "US$ 1,5 milhão"), `$250K`; não toca em `R$`, em outra
+moeda com cifrão (A$, HK$), em número sem marca de dólar nem em URL. O prompt
+dos quatro redatores ganhou a mesma regra (`REGRA_DO_DOLAR`).
+
+- **A ancoragem continua valendo.** Ela compara dígitos e tipo, e "$250,000"
+  na fonte e "US$ 250.000" no texto são os mesmos dígitos, os dois moeda. Há
+  teste dos dois lados, inclusive de que valor que a fonte não tem continua
+  sem lastro.
+- **A vírgula ambígua ("1,239") é decidida pelo prefixo.** Depois de "US$" o
+  texto já está em português e cotação de três casas fica decimal ("o euro
+  vale US$ 1,169"); cifrão solto e "USD" são grafia americana, e a vírgula é
+  milhar. Três casas terminadas em zero são sempre milhar.
+- **Isto consertou um defeito escondido na newsletter.** `formatarNumerosDoTexto`
+  lia "$250,000" como número brasileiro e imprimia "$ 250", um valor mil vezes
+  menor com cara de arredondamento. O cifrão solto agora sai como "US$".
+
+**Logotipo de empresa que não é o assunto é recusa na conferência visual.** A
+foto de credit score trazia um cartão com o logo da Mastercard; a bolha do
+FDIC mostrava o selo do órgão cortado pelo círculo. A instrução de
+`conferencia-visual.ts` passou a recusar logotipo ou marca registrada em
+destaque de empresa que não é o assunto da manchete, e logotipo do próprio
+assunto cortado, pela metade ou ilegível. A marca da PRÓPRIA instituição de que
+a pauta trata, inteira e legível, é aceita, e isso é uma exceção explícita à
+regra de texto na imagem: é identidade do assunto, não texto competindo com a
+manchete. A foto da bolha agora é conferida sabendo que vai para a bolha
+(`uso: "bolha"`): a conferência recebe a geometria do recorte (o quadrado
+central, com os cantos comidos pelo círculo) e recusa o que ficaria cortado ali.
+Falha de conferência continua sendo recusa.
+
+**Medição:** `npx tsx src/scripts/medir-fotos-evergreen.ts` passa o catálogo
+inteiro (60 tópicos, primeiro ângulo) pelo resolvedor de produção em leitura e
+conta quantos ficam sem foto; com `--noticias=60 --dias=14` faz o mesmo com
+pautas reais aprovadas, lidas do banco só com SELECT. Em 60 pautas reais de
+22/09 a 06/10, a queda por foto foi de 63,3% (código do PR #91) para 0%; no
+catálogo do evergreen, de 15% para 0%. Detalhe em
+`docs/design/evergreen-novo-2026-10-06/v2/medicao-de-fotos.md`.
+
+**A entidade não voltou aos tópicos do evergreen.** Com a cena depois da
+entidade, declarar o órgão já não mata o tópico por falta de foto (8 de 11
+candidatos morriam antes, 1 depois). Mas a bolha, que é a razão de declarar o
+órgão, não achou segunda foto em nenhum dos onze, e entidade que não rende
+bolha só acrescenta consulta.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

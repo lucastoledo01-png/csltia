@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { conferirImagem } from "./conferencia-visual";
+import { conferirImagem, paraConferir } from "./conferencia-visual";
 
 /**
  * A barreira que abre a imagem.
@@ -259,7 +259,133 @@ describe("a conferência visual", () => {
     expect(corpo.temperature).toBe(0);
     const mensagens = corpo.messages as Array<{ content: unknown }>;
     const partes = mensagens[1].content as Array<{ type: string; image_url?: { url: string } }>;
-    expect(partes.some((p) => p.type === "image_url" && p.image_url?.url === FOTO.imageUrl)).toBe(true);
+    // O original do Commons vai como a miniatura do mesmo arquivo (06/10/2026: o modelo recusa acima de 20 MB).
+    expect(partes.some((p) => p.type === "image_url" && p.image_url?.url === paraConferir(FOTO.imageUrl))).toBe(true);
     expect(JSON.stringify(partes)).toContain("PERM");
+  });
+});
+
+/**
+ * Logotipo de terceiro (06/10/2026).
+ *
+ * Nas amostras do evergreen, a foto de credit score trazia um cartão com o
+ * logo da Mastercard em primeiro plano, e a bolha do FDIC mostrava o selo do
+ * órgão cortado pelo círculo. A régua passou a recusar marca de empresa que
+ * não é o assunto, e marca do assunto cortada ou ilegível.
+ */
+describe("logotipo na foto", () => {
+  type Corpo = { messages: Array<{ role: string; content: unknown }> };
+
+  function capturando(conteudo: unknown) {
+    const corpos: Corpo[] = [];
+    const fetcher = (async (_url: string, init?: RequestInit) => {
+      corpos.push(JSON.parse(String(init?.body ?? "{}")));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{ message: { content: JSON.stringify(conteudo) } }],
+          usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+        }),
+        text: async () => "",
+      };
+    }) as unknown as typeof fetch;
+    return { fetcher, corpos };
+  }
+
+  const textoDoUsuario = (corpo: Corpo) => JSON.stringify(corpo.messages.find((m) => m.role === "user")?.content ?? "");
+  const sistema = (corpo: Corpo) => String(corpo.messages.find((m) => m.role === "system")?.content ?? "");
+
+  const CARTAO = {
+    imageUrl: "https://images.pexels.com/photos/1/pexels-photo-1.jpeg",
+    sourceAssetId: "pexels-1",
+    imageContextType: "conceptual" as const,
+  };
+
+  it("a instrução recusa marca de empresa que não é o assunto, e marca do assunto cortada", async () => {
+    const { fetcher, corpos } = capturando({
+      descricao: "mão segurando um cartão com o logo da Mastercard em destaque",
+      paisAparente: null,
+      aprovada: false,
+      motivo: "logotipo de empresa que não é o assunto da pauta",
+      confianca: 93,
+    });
+    const v = await conferirImagem(
+      CARTAO,
+      { titulo: "Quem aluga, financia ou pede cartão nos EUA pode ter juros definidos pelo credit score" },
+      { env: ENV, fetcher },
+    );
+
+    expect(v.aprovada).toBe(false);
+    const regra = sistema(corpos[0]);
+    expect(regra).toContain("LOGOTIPO");
+    expect(regra).toContain("Mastercard");
+    expect(regra).toContain("CORTADO");
+    // A marca do próprio assunto, inteira, continua aceita.
+    expect(regra).toContain("PRÓPRIA instituição");
+  });
+
+  it("na bolha, a conferência recebe a geometria do recorte; no fundo, não", async () => {
+    const resposta = {
+      descricao: "selo do FDIC",
+      paisAparente: "Estados Unidos",
+      aprovada: true,
+      motivo: "é o órgão",
+      confianca: 90,
+    };
+
+    const bolha = capturando(resposta);
+    await conferirImagem(CARTAO, { titulo: "FDIC: o seguro dos depósitos", uso: "bolha" }, { env: ENV, fetcher: bolha.fetcher });
+    expect(textoDoUsuario(bolha.corpos[0])).toContain("QUADRADO");
+    expect(textoDoUsuario(bolha.corpos[0])).toContain("CÍRCULO");
+
+    const fundo = capturando(resposta);
+    await conferirImagem(CARTAO, { titulo: "FDIC: o seguro dos depósitos" }, { env: ENV, fetcher: fundo.fetcher });
+    expect(textoDoUsuario(fundo.corpos[0])).not.toContain("CÍRCULO");
+  });
+});
+
+describe("foto de contexto", () => {
+  it("a cena é conferida como contexto, com as recusas duras repetidas", async () => {
+    const corpos: Array<{ messages: Array<{ role: string; content: unknown }> }> = [];
+    const fetcher = (async (_url: string, init?: RequestInit) => {
+      corpos.push(JSON.parse(String(init?.body ?? "{}")));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{ message: { content: JSON.stringify({ descricao: "rua", paisAparente: null, aprovada: true, motivo: "ok", confianca: 90 }) } }],
+          usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+        }),
+        text: async () => "",
+      };
+    }) as unknown as typeof fetch;
+
+    await conferirImagem(FOTO, { ...PAUTA, papel: "cena" }, { env: ENV, fetcher });
+    await conferirImagem(FOTO, PAUTA, { env: ENV, fetcher });
+
+    const usuario = (i: number) => JSON.stringify(corpos[i].messages.find((m) => m.role === "user")?.content ?? "");
+    expect(usuario(0)).toContain("PAPEL DA FOTO: CONTEXTO");
+    expect(usuario(0)).toContain("pessoa identificável");
+    expect(usuario(0)).toContain("logotipo");
+    expect(usuario(1)).not.toContain("PAPEL DA FOTO");
+  });
+});
+
+describe("o arquivo que a conferência abre", () => {
+  it("original grande do Commons vira a miniatura de 1280 px do mesmo arquivo", () => {
+    expect(paraConferir("https://upload.wikimedia.org/wikipedia/commons/7/74/IRS_Building.jpg")).toBe(
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/IRS_Building.jpg/1280px-IRS_Building.jpg",
+    );
+  });
+
+  it("o resto fica como está", () => {
+    for (const u of [
+      "https://images.pexels.com/photos/1/pexels-photo-1.jpeg?w=940",
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/A.jpg/1280px-A.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/7/74/Documento.pdf",
+    ]) {
+      expect(paraConferir(u)).toBe(u);
+    }
   });
 });

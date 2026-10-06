@@ -45,7 +45,52 @@ export type PautaParaConferencia = {
   titulo: string;
   resumo?: string;
   eixo?: string;
+  /**
+   * Onde a foto vai aparecer. A bolha da capa é um círculo pequeno que mostra
+   * só o quadrado central da foto (`object-fit: cover`), e um logotipo que
+   * está inteiro no arquivo pode sair cortado ali. Foi o caso da bolha do FDIC
+   * nas amostras de 06/10/2026. Ausente é o fundo da peça.
+   */
+  uso?: "fundo" | "bolha";
+  /**
+   * O que se pede da foto. `assunto` (o padrão) é a foto que mostra quem ou o
+   * que a pauta cita. `cena` é a foto de CONTEXTO, que ambienta o tema sem
+   * mostrar a entidade (06/10/2026): para ela, "é genérica" e "não mostra o
+   * órgão" não são motivo de recusa. As recusas duras valem igual.
+   */
+  papel?: "assunto" | "cena";
 };
+
+/**
+ * A pergunta certa para a foto de contexto.
+ *
+ * A conferência recusava a foto de cena por não identificar o órgão ou o fato
+ * ("imagem genérica, não identifica o BLS"), e era a recusa mais comum entre as
+ * pautas que ficavam sem foto. Foto de contexto não promete mostrar o órgão; o
+ * que ela não pode é enganar. As recusas duras ficam repetidas aqui de
+ * propósito, para o relaxamento não ser lido como passe livre.
+ */
+const COMO_CENA = `PAPEL DA FOTO: CONTEXTO. Esta foto NÃO precisa mostrar a pessoa, o órgão, a
+empresa nem o fato da manchete. Ela ambienta o ASSUNTO, como uma rua americana
+numa pauta de custo de vida ou um escritório numa pauta de trabalho. Aprove se
+ela é coerente com o tema e não sugere um fato, um lugar ou uma pessoa
+específica que a pauta não cita. "É genérica" e "não identifica o órgão" NÃO são
+motivos de recusa aqui.
+Continuam sendo recusa, sem exceção: pessoa identificável, texto legível como
+assunto, cena de outro país, logotipo ou marca de empresa em destaque, assunto
+homônimo e cena sem relação com o tema.`;
+
+/**
+ * O que a conferência precisa saber a mais quando a foto vai para a bolha.
+ *
+ * O modelo não vê o recorte, então ele recebe a geometria em palavras: o
+ * quadrado central, e o círculo que come os cantos desse quadrado.
+ */
+const NA_BOLHA = `ONDE A FOTO VAI: num CÍRCULO pequeno no alto da peça. Só aparece o QUADRADO
+CENTRAL da foto (o lado do quadrado é o lado menor da imagem), e o círculo ainda
+come os quatro cantos desse quadrado. Julgue o que sobra nesse recorte: se o
+assunto, o logotipo ou o nome da instituição ficar cortado, pela metade ou
+ilegível dentro do círculo, RECUSE, mesmo que a foto inteira estivesse boa.`;
 
 export type OpcoesDeConferencia = {
   env?: Record<string, string | undefined>;
@@ -85,6 +130,14 @@ RECUSE quando:
   jornal, tela com texto, letreiro de loja. A peça já leva a manchete escrita
   por cima, e duas camadas de texto brigam. Letra pequena e incidental na
   paisagem, que ninguém lê, não é motivo de recusa.
+- A foto mostra em destaque o LOGOTIPO ou a marca registrada de uma empresa
+  (bandeira de cartão como Mastercard ou Visa, logo de banco, de loja, de
+  aplicativo, de fabricante, de produto) e essa empresa NÃO é o assunto da
+  manchete. Num post sobre credit score, um cartão com o logo da Mastercard em
+  primeiro plano vira propaganda de terceiro e sugere uma relação que a pauta
+  não afirma. Logo pequeno e incidental, que ninguém nota, não é motivo.
+- O logotipo ou o nome da instituição que É o assunto aparece CORTADO, pela
+  metade ou ilegível. Marca mutilada parece erro de quem montou a peça.
 - A foto é de um assunto homônimo: o nome bate, a coisa não. Uma cidade chamada
   como um programa de governo, uma empresa com a sigla de uma agência.
 - A imagem não tem relação reconhecível com o assunto, mesmo sendo bonita.
@@ -92,6 +145,9 @@ RECUSE quando:
 APROVE quando:
 - A foto mostra a pessoa, o órgão, o prédio, o lugar ou o objeto de que a pauta
   trata.
+- A marca, o selo ou a placa que aparece é da PRÓPRIA instituição ou empresa de
+  que a manchete trata (o selo do FDIC numa pauta sobre o FDIC), inteira e
+  legível. É identidade do assunto, e não texto competindo com a manchete.
 - A foto é uma cena de apoio honesta e do país certo: a fachada de um tribunal
   numa pauta de decisão judicial, uma rua americana numa pauta de custo de vida,
   documentos sobre uma mesa numa pauta de formulário. Apoio genérico não é
@@ -140,6 +196,24 @@ function naoDeuParaConferir(motivo: string): VeredictoVisual {
   };
 }
 
+/**
+ * O endereço que a conferência abre, que pode ser a miniatura do mesmo arquivo.
+ *
+ * O modelo recusa baixar imagem acima de 20 MB, e o original do Commons passa
+ * disso com frequência: medido em 06/10/2026, duas fotos do IRS voltaram
+ * "File urls cannot be larger than 20MB" e viraram VISUAL_CHECK_UNAVAILABLE,
+ * ou seja, recusa. A miniatura de 1280 px é o MESMO arquivo, servido pelo
+ * próprio Commons, e é mais do que o modelo precisa para ver. A URL gravada
+ * e publicada continua sendo a original.
+ */
+export function paraConferir(url: string): string {
+  const m = url.match(/^(https:\/\/upload\.wikimedia\.org\/wikipedia\/[a-z]+)\/([0-9a-f])\/([0-9a-f]{2})\/([^/?#]+)$/i);
+  if (!m) return url;
+  const [, base, a, ab, arquivo] = m;
+  if (!/\.(jpe?g|png|webp)$/i.test(arquivo)) return url;
+  return `${base}/thumb/${a}/${ab}/${arquivo}/1280px-${arquivo}`;
+}
+
 export async function conferirImagem(
   asset: Pick<AssetVisual, "imageUrl" | "sourceAssetId" | "imageContextType">,
   pauta: PautaParaConferencia,
@@ -149,8 +223,9 @@ export async function conferirImagem(
   const config = getAIProviderConfig(env);
   if (!config.isConfigured) return naoDeuParaConferir("sem credencial de modelo para conferir a imagem");
 
-  const url = (asset.imageUrl ?? "").trim();
-  if (!url.startsWith("http")) return naoDeuParaConferir("imagem sem URL pública para conferir");
+  const original = (asset.imageUrl ?? "").trim();
+  if (!original.startsWith("http")) return naoDeuParaConferir("imagem sem URL pública para conferir");
+  const url = paraConferir(original);
 
   const piso = opcoes.pisoDeConfianca ?? PISO_PADRAO;
   const modelo = opcoes.modelo || env.OPENAI_MODEL_VISUAL || config.triageModel;
@@ -159,6 +234,8 @@ export async function conferirImagem(
     `MANCHETE: ${pauta.titulo}`,
     pauta.resumo ? `RESUMO: ${pauta.resumo}` : "",
     pauta.eixo ? `EDITORIA: ${pauta.eixo}` : "",
+    pauta.papel === "cena" ? COMO_CENA : "",
+    pauta.uso === "bolha" ? NA_BOLHA : "",
   ]
     .filter(Boolean)
     .join("\n");

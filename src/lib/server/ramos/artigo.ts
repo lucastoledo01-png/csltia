@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { callOpenAIJSON, getAIProviderConfig } from "../newsroom/ai-provider";
 import { limparVicios } from "../newsroom/anti-vicios";
+import { REGRA_DO_DOLAR } from "../editorial/dolar-em-portugues";
 import type { PautaAvaliada } from "../editorial/guarda";
 import type { PacoteFactual } from "../editorial/pacote-factual";
 import { validarAncoragem } from "../editorial/pacote-factual";
@@ -151,6 +152,7 @@ ${marca.voz}
 
 REGRA DE FATO, acima de qualquer outra:
 - Você só pode afirmar o que está no PACOTE FACTUAL. Nome, número, data, valor, prazo, cargo, lei e órgão que não estão lá não existem.
+- ${REGRA_DO_DOLAR}
 - Consequência, causa, impacto, comparação, tendência e previsão também são fato: só entram se o pacote sustentar. Se o pacote não diz o que a medida provoca, escreva o que aconteceu e pare.
 - "gaps" é a lista do que NÃO escrever. Não complete e não anuncie a lacuna.
 - Nunca fale da reportagem: "a fonte não informa", "não foi detalhado" e parecidos estão proibidos. Texto mais curto é melhor que texto que confessa o que não tem.

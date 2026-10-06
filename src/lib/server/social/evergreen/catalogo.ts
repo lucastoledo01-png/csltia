@@ -36,6 +36,14 @@ import type { TopicoEvergreen } from "./tipos";
  * para a cena); sem ele, os quatro saíram com foto da cena descrita pelo
  * conteúdo. Conceito se ilustra pela cena, não pela fachada de quem o regula.
  *
+ * ATUALIZADO em 06/10/2026, mais tarde: o resolvedor passou a cair na cena
+ * quando a foto da entidade não passa (`caminho: "cena_depois_da_entidade"`),
+ * então declarar o órgão já não mata o tópico por falta de foto. A entidade
+ * NÃO voltou aos outros tópicos mesmo assim: medido com onze candidatos (NASA,
+ * BLS, BEA, NIST, USPTO, SBA, Fed no FOMC), a busca da segunda foto achou
+ * bolha para nenhum deles, e entidade que não rende bolha só acrescenta
+ * consulta. Ela volta quando render.
+ *
  * Número que muda todo ano só entra quando a fonte é o número oficial do ano
  * (faixas do IRS, paridade regional do BEA, sindicalização do BLS). O ângulo
  * pergunta pelo mecanismo, e o número vem da fonte no dia em que o post é

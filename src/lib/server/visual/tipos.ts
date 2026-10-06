@@ -202,7 +202,27 @@ export type ResultadoVisual = {
   recusados: CandidatoRecusado[];
   /** Legenda a renderizar embaixo da foto, vazia quando a licença não exige. */
   legenda: string;
+  /**
+   * Por qual etapa a foto aprovada veio (06/10/2026).
+   *
+   * `cena_depois_da_entidade` é a pauta com entidade nomeada cuja foto da
+   * entidade não passou, e que ganhou a foto da cena. O relatório precisa
+   * separar as três: é o número que diz quanto a etapa da cena está salvando.
+   * Ausente em resultado sem foto da pauta.
+   */
+  caminho?: CaminhoDaFoto;
+  /**
+   * Em qual degrau da escada da cena a foto foi achada (06/10/2026). Só existe
+   * quando a foto veio da cena: o degrau diz quanto a busca precisou descer, e
+   * `reuso` diz que a foto já tinha saído nos últimos 30 dias.
+   */
+  degrau?: DegrauDaCena;
 };
+
+export type CaminhoDaFoto = "entidade" | "cena" | "cena_depois_da_entidade";
+
+/** Os degraus da escada da cena, na ordem em que são tentados. */
+export type DegrauDaCena = "acervo" | "cena" | "cena_ampla" | "editoria" | "reuso";
 
 export function normalizarEntidade(nome: string): string {
   return nome
