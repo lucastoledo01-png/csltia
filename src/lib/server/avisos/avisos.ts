@@ -21,6 +21,8 @@ import type { EstadoDaAprovacao, Ramo } from "../aprovacao/contrato";
  *   newsletter_atrasada  06:15, newsletter aprovada que não saiu
  *   candidatas_nao_gravadas  fim do ciclo do Instagram, quando a gravação das
  *                        pautas candidatas falhou e os posts seguiram
+ *   newsletter_ausente   fim da produção, quando só a newsletter foi barrada
+ *                        pelo QA e posts e matérias seguiram (06/10/2026)
  *
  * Três regras:
  *
@@ -50,7 +52,8 @@ export type TipoDeAviso =
   | "producao_vazia"
   | "producao_nao_rodou"
   | "newsletter_atrasada"
-  | "candidatas_nao_gravadas";
+  | "candidatas_nao_gravadas"
+  | "newsletter_ausente";
 
 export type NivelDoAviso = "info" | "warning" | "critical";
 
@@ -136,7 +139,7 @@ export type ResultadoDosAvisos = {
  */
 /* Os avisos de evento (produção vazia, candidatas não gravadas) não têm janela: saem quando o evento acontece. */
 export const JANELAS: Record<
-  Exclude<TipoDeAviso, "producao_vazia" | "candidatas_nao_gravadas">,
+  Exclude<TipoDeAviso, "producao_vazia" | "candidatas_nao_gravadas" | "newsletter_ausente">,
   { inicio: string; fim: string }
 > = {
   fila_pronta: { inicio: "17:30", fim: "21:59" },
@@ -534,7 +537,30 @@ export type FimDaProducao = {
   modo: EstadoDaCapacidade;
   decisao: Pick<DecisaoDeProducao, "produzir" | "alvo" | "hoje">;
   resultado?: unknown;
+  /** Só a newsletter foi barrada pelo QA; o resto seguiu. Ver `producao-vespera.ts`. */
+  newsletterAusente?: { data: string; motivo: string };
 };
+
+/**
+ * O texto do aviso da newsletter que falta (06/10/2026).
+ *
+ * Diz a data, que o resto do dia seguiu, o motivo do portão (a primeira linha
+ * do bloqueio e os apontamentos do auditor, que é onde está a frase), e o
+ * comando que produz só ela. Curto, porque o Telegram corta e o dono lê no
+ * celular.
+ */
+export function textoNewsletterAusente(slug: string, data: string, motivo: string, ensaio: boolean): string {
+  const linhas = motivo.split("\n").map((l) => l.trim()).filter(Boolean);
+  const cabeca = (linhas[0] ?? "sem motivo").replace(/^RUN_FAILED:\s*/, "");
+  const auditor = linhas.filter((l) => l.startsWith("[auditor]") || l.startsWith("[conclusão") || l.startsWith("[sem lastro")).slice(0, 3);
+  return (
+    `A newsletter de ${diaCurto(data)}${ensaio ? " (ensaio)" : ""} NÃO foi produzida: ${cabeca}\n` +
+    (auditor.length ? `${auditor.join("\n")}\n` : "") +
+    `Posts e matérias do dia seguiram para a fila.\n` +
+    `Para produzir só a newsletter: npx tsx src/scripts/produzir-newsletter.ts --data ${data} (ensaio; --aplicar grava e enfileira).\n` +
+    linkDaFila(slug)
+  ).slice(0, 1500);
+}
 
 /**
  * Chamado quando a produção das 17:00 termina.
@@ -558,7 +584,24 @@ export async function avisarFimDaProducao(
   const resultado = (fim.resultado ?? {}) as Record<string, unknown>;
 
   try {
-    if (resultado.ok !== true) {
+    /*
+     * A newsletter que falta tem aviso próprio, e o resto do gancho segue: a
+     * fila pronta conta o que entrou (posts e matérias), e é ela que diz ao
+     * dono que há o que aprovar. A chave é a data da EDIÇÃO.
+     */
+    if (fim.newsletterAusente) {
+      const enviado = await emitir(
+        projeto,
+        "newsletter_ausente",
+        fim.newsletterAusente.data,
+        "critical",
+        textoNewsletterAusente(projeto.slug, fim.newsletterAusente.data, fim.newsletterAusente.motivo, ensaio),
+        deps,
+      );
+      if (enviado) r.enviados.push("newsletter_ausente");
+    }
+
+    if (resultado.ok !== true && !fim.newsletterAusente) {
       const motivo = typeof resultado.reason === "string" ? resultado.reason : "sem motivo";
       const detalhe = typeof resultado.detail === "string" ? ` ${resultado.detail}` : "";
       const enviado = await emitir(

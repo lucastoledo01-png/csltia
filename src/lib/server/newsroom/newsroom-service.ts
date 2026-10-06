@@ -19,6 +19,7 @@ import { buscasDoDia } from "../editorial/busca-dinamica";
 import { agendaEmTexto, somarDias } from "../editorial/calendario";
 import { deduplicateCandidates } from "./deduplicator";
 import { runNewsroomPipeline } from "./pipeline";
+import { TENTATIVAS_EXTRAS_DA_EDICAO, redigirComNovasTentativas } from "./nova-redacao";
 import { rankAndFilterCandidates } from "./ranker";
 import { EditionContent } from "./schemas";
 import { sendAlert } from "../alerts";
@@ -148,6 +149,22 @@ export type RunNewsroomOptions = {
     /** Instante ISO em que o artigo do portal vai ao ar. */
     portalEm: string;
   };
+  /**
+   * Só a newsletter, sem tocar no Instagram nem no portal (06/10/2026).
+   *
+   * Existe para refazer a edição de um dia cujos posts e matérias já foram
+   * produzidos e estão na fila, como em 06/10/2026, quando a produção da
+   * véspera escreveu e enfileirou tudo e só a edição de 07/10 foi barrada pelo
+   * QA. Rodar a redação inteira de novo criaria posts e matérias em dobro.
+   *
+   * Com este campo: o ciclo social não roda (nem o diagnóstico dele é
+   * gravado), o ramo do portal não roda, a edição não vira artigo, o agendador
+   * legado do Instagram não roda, e só a peça da newsletter chega a
+   * `aoProduzirPeca`. Coleta, classificação, seleção, pacote factual, redação,
+   * QA e imagem são os mesmos do ciclo de sempre. Quem chama é
+   * `produzirSoANewsletter`, em `producao-vespera.ts`.
+   */
+  somenteNewsletter?: boolean;
 };
 
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -1036,6 +1053,8 @@ export type DetalheDoBloqueio = {
   conclusoes: Array<{ tipo: string; trecho: string; motivo: string }>;
   /** Imprecisão que sobrou depois do reparo. Não bloqueia. */
   apontamentos: string[];
+  /** Quantas redações inteiras a edição teve (06/10/2026, `nova-redacao.ts`). Ausente é uma. */
+  redacoes?: number;
 };
 
 const LIMITE_DO_TRECHO = 240;
@@ -1055,7 +1074,8 @@ function recortar(texto: string, limite = LIMITE_DO_TRECHO): string {
  */
 export function resumoDoBloqueio(detalhe: DetalheDoBloqueio): string {
   const linhas: string[] = [
-    `QA ${detalhe.score} | alucinação: ${detalhe.riscoDeAlucinacao ? "sim" : "não"} | reparos: ${detalhe.tentativasDeReparo}`,
+    `QA ${detalhe.score} | alucinação: ${detalhe.riscoDeAlucinacao ? "sim" : "não"} | reparos: ${detalhe.tentativasDeReparo}` +
+      ((detalhe.redacoes ?? 1) > 1 ? ` | redações: ${detalhe.redacoes}` : ""),
   ];
 
   for (const conclusao of detalhe.conclusoes) {
@@ -1170,7 +1190,9 @@ async function executarRedacaoDoDia(
   },
 ) {
   const dryRun = options.dryRun ?? (env.DRY_RUN === "true" || env.DRY_RUN === undefined ? true : false);
-  const publishToPortal = options.publishToPortal ?? !dryRun;
+  const somenteNewsletter = options.somenteNewsletter === true;
+  // Só a newsletter nunca regrava a edição como artigo: o portal do dia já foi produzido.
+  const publishToPortal = somenteNewsletter ? false : (options.publishToPortal ?? !dryRun);
   const createNewsletterCampaign = options.createNewsletterCampaign ?? !dryRun;
   const autoSend = options.autoSend ?? (env.NEWSLETTER_AUTO_SEND === "true" || (!dryRun && env.NEWSLETTER_AUTO_SEND !== "false"));
 
@@ -1439,6 +1461,8 @@ async function executarRedacaoDoDia(
       const erro = await gravarVeredito(getSupabaseAdminClient(), project.id, vereditoDaPeca(peca), contextoDoRegistro);
       if (erro) console.warn(`[NEWSROOM] veredito do ramo ${peca.ramo} não gravado: ${erro}`);
     }
+    // Cinto do modo só newsletter: post e matéria não chegam à fila nem por engano.
+    if (somenteNewsletter && peca.ramo !== "newsletter") return;
     if (ramosNoComando && !dryRun && options.aoProduzirPeca) {
       try {
         await options.aoProduzirPeca(peca);
@@ -1505,6 +1529,8 @@ async function executarRedacaoDoDia(
       env,
       fetcher,
       candidatos: { client: getSupabaseAdminClient(), projectId: project.id },
+      // Só a newsletter usa o material que a véspera classificou. Ver `soReaproveitadas`.
+      ...(somenteNewsletter ? { soReaproveitadas: true } : {}),
     });
 
     if (resultado.reuso.erros.length > 0) {
@@ -1572,7 +1598,9 @@ async function executarRedacaoDoDia(
       : {};
     let resultadoSocial: Awaited<ReturnType<typeof rodarSocialDoDia>> | null = null;
 
-    try {
+    if (somenteNewsletter) {
+      console.log("[NEWSROOM] só a newsletter: o ciclo do Instagram NÃO roda, e nenhum post é criado.");
+    } else try {
       // Só a LEITURA das candidatas fecha o feed; a gravação que falha avisa e segue (06/10/2026, `guarda.ts`).
       const social = await rodarSocialDoDia(resultado.approvedEditorialPool, {
         ...(modoSocialDoEnsaio ? { modoForcado: modoSocialDoEnsaio } : {}),
@@ -1625,16 +1653,22 @@ async function executarRedacaoDoDia(
       );
     }
 
-    /* O porquê do feed do dia vai para o banco. Ver `diagnostico-gravado.ts`. */
-    const naoGravado = await gravarDiagnosticoDoSocial(
-      getSupabaseAdminClient(),
-      project.id,
-      montarRegistroDoSocial(
-        resultadoSocial ?? { diagnostico: rastro.social, ciclo: null, conferencia: null },
-        { editionDate: todayStr, dryRun },
-      ),
-    );
-    if (naoGravado) console.warn(`[NEWSROOM] diagnóstico do social não gravado: ${naoGravado}`);
+    /*
+     * O porquê do feed do dia vai para o banco. Ver `diagnostico-gravado.ts`.
+     * Só a newsletter não grava: o diagnóstico do dia é o da produção que fez
+     * os posts, e um "não rodou" por cima dele apagaria o porquê verdadeiro.
+     */
+    if (!somenteNewsletter) {
+      const naoGravado = await gravarDiagnosticoDoSocial(
+        getSupabaseAdminClient(),
+        project.id,
+        montarRegistroDoSocial(
+          resultadoSocial ?? { diagnostico: rastro.social, ciclo: null, conferencia: null },
+          { editionDate: todayStr, dryRun },
+        ),
+      );
+      if (naoGravado) console.warn(`[NEWSROOM] diagnóstico do social não gravado: ${naoGravado}`);
+    }
 
     /*
      * A camada comum dos ramos: o pacote factual, uma vez por pauta.
@@ -1689,7 +1723,9 @@ async function executarRedacaoDoDia(
        * O portal (RF-12 a RF-14) roda AQUI, antes da decisão da newsletter, pelo
        * mesmo motivo do Instagram: dia sem edição não pode ser dia sem matéria.
        */
-      try {
+      if (somenteNewsletter) {
+        console.log("[NEWSROOM PORTAL] só a newsletter: o ramo do portal NÃO roda, e nenhuma matéria é criada.");
+      } else try {
         resultadoDoPortal = await rodarRamoDoPortal({
           pool: doPoolDoPortal.pool,
           pacotes: pacotesDoDia,
@@ -2033,54 +2069,78 @@ async function executarRedacaoDoDia(
   // A voz da edição vem do projeto, não de uma constante no código. Sem isto,
   // trocar a vertical no banco mudava as fontes e não mudava o texto: o
   // sistema coletava imigração e escrevia como se fosse notícia de IA.
-  const pipelineResult = await runNewsroomPipeline(
-    ranked,
-    env,
-    fetcher,
-    {
-      nome: project.brand.displayName || project.name,
-      nicho: project.niche,
-      /*
-       * A voz do projeto, mais o que vem por aí.
-       *
-       * O redator escrevia sem saber a data. Com a agenda no briefing, uma
-       * pauta de varejo escrita em 6 de novembro pode dizer que a Black Friday
-       * é dali a três semanas, porque a informação está na mão dele. Sem ela,
-       * o texto trata toda semana como se fosse uma semana qualquer.
-       *
-       * Vazio na maior parte dos dias, e isso está certo: em 5 de janeiro não
-       * existe gancho, e inventar um seria pior do que não ter.
-       */
-      extra: [
-        project.editorialPromptExtra,
-        // A voz própria do ramo da newsletter, só quando os ramos mandam.
-        ramosNoComando ? vozes?.newsletter : "",
-        agendaDoBriefing(todayStr),
-      ]
-        .filter(Boolean)
-        .join("\n\n"),
-      assinatura:
-        String(project.settings?.final_line ?? "").trim() ||
-        `Até amanhã. Equipe ${project.brand.displayName || project.name}.`,
-    },
-    // Quando quem selecionou foi o fluxo antigo, os limites antigos valem:
-    // ele não passou por filtro editorial e continua entregando de 4 a 6.
+  // Quando quem selecionou foi o fluxo antigo, os limites antigos valem:
+  // ele não passou por filtro editorial e continua entregando de 4 a 6.
+  const limitesDaEdicao =
     pautasDaGuarda.length > 0
       ? { minimo: configEditorial.minimoDePautas, maximo: configEditorial.maximoDePautas }
-      : { minimo: 4, maximo: 6 },
-    pacotes,
-    configEditorial.maximoDeReparos,
-    /*
-     * Com os ramos no comando, a nota do auditor deixa de bloquear e vira aviso
-     * na peça (decisão do dono, 05/10/2026). O risco de alucinação e as duas
-     * ancoragens continuam bloqueando, exatamente como antes.
-     */
-    ramosNoComando ? 0 : configEditorial.notaMinimaDeQA,
-    {
-      ...(ramosNoComando ? { notaDeAviso: configEditorial.notaMinimaDeQA } : {}),
-      formasRecentesDoAssunto,
-    },
-  );
+      : { minimo: 4, maximo: 6 };
+  const redigirEdicao = (lista: RankedCandidate[]) =>
+    runNewsroomPipeline(
+      lista,
+      env,
+      fetcher,
+      {
+        nome: project.brand.displayName || project.name,
+        nicho: project.niche,
+        /*
+         * A voz do projeto, mais o que vem por aí.
+         *
+         * O redator escrevia sem saber a data. Com a agenda no briefing, uma
+         * pauta de varejo escrita em 6 de novembro pode dizer que a Black Friday
+         * é dali a três semanas, porque a informação está na mão dele. Sem ela,
+         * o texto trata toda semana como se fosse uma semana qualquer.
+         *
+         * Vazio na maior parte dos dias, e isso está certo: em 5 de janeiro não
+         * existe gancho, e inventar um seria pior do que não ter.
+         */
+        extra: [
+          project.editorialPromptExtra,
+          // A voz própria do ramo da newsletter, só quando os ramos mandam.
+          ramosNoComando ? vozes?.newsletter : "",
+          agendaDoBriefing(todayStr),
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
+        assinatura:
+          String(project.settings?.final_line ?? "").trim() ||
+          `Até amanhã. Equipe ${project.brand.displayName || project.name}.`,
+      },
+      limitesDaEdicao,
+      pacotes,
+      configEditorial.maximoDeReparos,
+      /*
+       * Com os ramos no comando, a nota do auditor deixa de bloquear e vira aviso
+       * na peça (decisão do dono, 05/10/2026). O risco de alucinação e as duas
+       * ancoragens continuam bloqueando, exatamente como antes.
+       */
+      ramosNoComando ? 0 : configEditorial.notaMinimaDeQA,
+      {
+        ...(ramosNoComando ? { notaDeAviso: configEditorial.notaMinimaDeQA } : {}),
+        formasRecentesDoAssunto,
+      },
+    );
+
+  /*
+   * Barrada, a edição é escrita de novo antes de o dia ficar sem newsletter
+   * (06/10/2026, ver `nova-redacao.ts`). Só com a guarda no comando, que é
+   * quando o bloqueio derruba a edição; em observação ela sai de qualquer
+   * jeito pelo caminho antigo, e uma segunda redação seria custo sem efeito.
+   * O portão é o mesmo em toda tentativa: nada aqui afrouxa a conferência.
+   */
+  const novasRedacoes = await redigirComNovasTentativas(ranked, redigirEdicao, {
+    minimo: limitesDaEdicao.minimo,
+    tentativasExtras: modo === "enforce" ? TENTATIVAS_EXTRAS_DA_EDICAO : 0,
+  });
+  const pipelineResult = novasRedacoes.resultado;
+  if (novasRedacoes.tentativas.length > 1) {
+    console.log(
+      `[NEWSROOM] ${novasRedacoes.tentativas.length} redação(ões) da edição: ` +
+        novasRedacoes.tentativas
+          .map((t) => `${t.tentativa}: ${t.aprovado ? "passou" : t.bloqueios.join(" + ")} (QA ${t.score})`)
+          .join(" | "),
+    );
+  }
   livro.lancar("redacao", "newsletter", pipelineResult.custosPorEtapa.redacao);
   livro.lancar("auditoria_qa", "newsletter", pipelineResult.custosPorEtapa.auditoria_qa);
   livro.lancar("auditoria_claims", "newsletter", pipelineResult.custosPorEtapa.auditoria_claims);
@@ -2209,6 +2269,10 @@ async function executarRedacaoDoDia(
       avisos: [
         ...pipelineResult.avisos,
         ...pipelineResult.pautasRemovidas.map((p) => `pauta retirada: "${p.titulo}" (${p.motivo})`),
+        // A nova redação também fica visível para quem aprova (06/10/2026).
+        ...novasRedacoes.retiradas.map(
+          (t) => `pauta retirada: "${t}" (apontada pelo auditor numa redação barrada por risco de alucinação)`,
+        ),
         ...pipelineResult.problemasRestantes.map((p) => `apontamento não resolvido: ${p.descricao}`),
       ],
       aprovadaPeloAuditor: pipelineResult.aprovado,
@@ -2256,6 +2320,7 @@ async function executarRedacaoDoDia(
         .map((c) => ({ tipo: c.tipo, trecho: c.trecho, motivo: c.motivo }))
         .slice(0, 20),
       apontamentos: pipelineResult.problemasRestantes.map((p) => p.descricao).slice(0, 20),
+      redacoes: novasRedacoes.tentativas.length,
     };
 
     throw comDetalheDoBloqueio(
@@ -2948,7 +3013,12 @@ async function executarRedacaoDoDia(
     );
   }
 
-  if (createNewsletterCampaign && redacaoDisparaNewsletter(modoDaFilaDoDia)) {
+  /*
+   * Só a newsletter nunca fala com o Listmonk (06/10/2026): ela existe para pôr
+   * a edição na fila, e a campanha nasce na liberação. `produzirSoANewsletter`
+   * já recusa rodar com a fila fora de `enforce`; isto é o cinto.
+   */
+  if (createNewsletterCampaign && !somenteNewsletter && redacaoDisparaNewsletter(modoDaFilaDoDia)) {
     try {
       /*
        * A configuração do Listmonk vem do projeto quando ele tem uma.
@@ -3036,7 +3106,10 @@ async function executarRedacaoDoDia(
   }
 
   if (!dryRun && !legadoCede) {
-    try {
+    // Só a newsletter nunca agenda post: o feed do dia já foi produzido.
+    if (somenteNewsletter) {
+      console.log("[NEWSROOM INSTAGRAM] só a newsletter: o agendador legado NÃO rodou.");
+    } else try {
       /*
        * O legado também não repete o feed (06/10/2026). As pautas da edição
        * passaram pela régua da NEWSLETTER, e a pauta que o feed levou ontem

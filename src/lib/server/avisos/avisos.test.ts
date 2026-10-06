@@ -460,6 +460,38 @@ describe("avisarFimDaProducao", () => {
     expect(r.pulados).toContainEqual({ tipo: "fila_pronta", motivo: "fila de aprovação desligada" });
   });
 
+  /*
+   * 06/10/2026: a edição de 07/10 foi barrada pelo QA depois de posts e
+   * matérias entrarem na fila. O dono precisa saber das duas coisas: que há o
+   * que aprovar, e que falta a newsletter, com o motivo e o comando.
+   */
+  it("só a newsletter barrada: avisa a newsletter que falta E a fila pronta do resto", async () => {
+    const semNewsletter = filaDeAmanha.filter((l) => l.ramo !== "newsletter");
+    const m = mundo({ agora: sp("2026-10-05", "17:22"), fila: semNewsletter });
+    const motivo =
+      "Edição bloqueada depois de 2 tentativa(s) de correção (QA 94): REJECT_EDITORIAL_QA: hallucination_risk\n" +
+      "QA 94 | alucinação: sim | reparos: 2 | redações: 3\n" +
+      "[auditor] O título da segunda matéria afirma que o padrão é criado 'nos EUA'.\n" +
+      "[apontamento] LOW_READER_RELEVANCE: o texto explica o acontecimento.";
+    const r = await avisarFimDaProducao(
+      projeto(),
+      { ok: true, modo: "enforce", decisao, newsletterAusente: { data: "2026-10-06", motivo } },
+      m.deps,
+    );
+    expect(r.enviados).toEqual(["newsletter_ausente", "fila_pronta"]);
+    expect(m.enviados[0].nivel).toBe("critical");
+    const texto = m.enviados[0].texto;
+    expect(texto).toContain("A newsletter de 06/10 NÃO foi produzida: Edição bloqueada");
+    expect(texto).toContain("[auditor] O título da segunda matéria");
+    expect(texto).not.toContain("LOW_READER_RELEVANCE");
+    expect(texto).toContain("Posts e matérias do dia seguiram para a fila.");
+    expect(texto).toContain("produzir-newsletter.ts --data 2026-10-06");
+    expect(m.enviados[1].texto).toContain("1 matéria, 1 post");
+    // Um por edição: o gancho chamado de novo não repete.
+    await avisarFimDaProducao(projeto(), { ok: true, modo: "enforce", decisao, newsletterAusente: { data: "2026-10-06", motivo } }, m.deps);
+    expect(m.enviados).toHaveLength(2);
+  });
+
   it("não era dia de produção: nada", async () => {
     const m = mundo({ agora: sp("2026-10-09", "17:05"), fila: filaDeAmanha });
     const r = await avisarFimDaProducao(projeto(), { ok: true, modo: "enforce", decisao: { ...decisao, produzir: false } }, m.deps);

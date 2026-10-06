@@ -319,3 +319,47 @@ describe("sem a camada persistida, nada muda", () => {
     expect(r.reuso.persistidas).toBe(0);
   });
 });
+
+/*
+ * Só a newsletter de um dia já produzido (06/10/2026): a edição sai do
+ * material que a véspera classificou, e nenhuma candidata nova é paga.
+ */
+describe("só as classificações que já estão no banco", () => {
+  it("reaproveita a persistida e NÃO chama o classificador para a nova", async () => {
+    const persistidas = new Map([["https://a.com/1", persistida({ url: "https://a.com/1" })]]);
+    const { store } = storeFalso(persistidas);
+    const { fetcher, chamadas } = fetcherCom([classificacao({ id: "2" })]);
+
+    const r = await avaliarPautas(
+      [grupo("1", "USCIS amplia prazo do EAD", "https://a.com/1"), grupo("2", "Outra pauta nova", "https://b.com/2")],
+      {
+        canal: "newsletter",
+        historico: [],
+        config,
+        env: ENV,
+        fetcher,
+        candidatos: { store, projectId: PROJ },
+        soReaproveitadas: true,
+      },
+    );
+
+    expect(chamadas).toHaveLength(0);
+    expect(r.reuso.classificadasAgora).toBe(0);
+    expect(r.reuso.classificacoesReaproveitadas).toBe(1);
+    expect(r.recusadas.find((x) => x.url === "https://b.com/2")?.motivo).toBe(MOTIVOS.REJEITADO_SEM_CLASSIFICACAO);
+  });
+
+  it("sem a camada persistida, nada é classificado: o lado barato do erro", async () => {
+    const { fetcher, chamadas } = fetcherCom([classificacao({ id: "1" })]);
+    const r = await avaliarPautas([grupo("1", "USCIS amplia prazo do EAD", "https://a.com/1")], {
+      canal: "newsletter",
+      historico: [],
+      config,
+      env: ENV,
+      fetcher,
+      soReaproveitadas: true,
+    });
+    expect(chamadas).toHaveLength(0);
+    expect(r.approvedEditorialPool).toHaveLength(0);
+  });
+});
