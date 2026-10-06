@@ -1349,8 +1349,17 @@ imagem. A cena é pontuada contra a entidade CONCEITUAL da pauta, não contra o
 órgão. O resultado continua dizendo qual é a entidade da pauta, porque é ela
 que a bolha procura: fundo de cena e círculo do órgão é uma capa válida.
 
-- **Pessoa continua sem cena no lugar.** Foto conceitual no lugar de pessoa é
-  a mentira mais fácil, e a regra de `TIPOS_DE_PESSOA` não mudou.
+- **Pessoa continua sem cena no lugar, quando a pauta é SOBRE ela.** Foto
+  conceitual no lugar de pessoa é a mentira mais fácil, e a regra de
+  `TIPOS_DE_PESSOA` vale sempre que a manchete nomeia a pessoa. Quando a
+  manchete não nomeia (Trump entre os atores de "EUA flexibilizam normas sobre
+  economia de combustível"), a pauta é sobre o fato e segue pela cena. No
+  replay de pautas reais eram exatamente essas as que ainda morriam: a
+  conferência recusava a foto da pessoa por ela não estar na manchete, e a
+  regra recusava a cena por ela ser a entidade.
+- **Entidade ambígua segue pela cena.** Ambiguidade continua sem palpite sobre
+  a entidade, mas a foto de contexto não afirma qual das duas é, e a pauta
+  deixou de morrer ali.
 - **O caminho fica gravado.** `ResultadoVisual.caminho` diz `entidade`, `cena`
   ou `cena_depois_da_entidade`; a nota "fallback de cena" vai para
   `fontesConsultadas` com o motivo (foto do órgão reprovada na conferência ou

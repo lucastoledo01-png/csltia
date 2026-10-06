@@ -292,3 +292,20 @@ describe("a conferência sabe quando a foto vai para a bolha", () => {
     expect(usos.slice(1).every((u) => u === "bolha")).toBe(true);
   });
 });
+
+describe("pessoa que a manchete não nomeia", () => {
+  /*
+   * A regra "pessoa não troca por cena" é para a pauta SOBRE a pessoa. Quando a
+   * manchete não a nomeia (Trump entre os atores de uma pauta sobre economia de
+   * combustível), a pauta é sobre o fato, e o fato tem cena.
+   */
+  it("cai na cena quando a manchete não cita a pessoa", async () => {
+    const r = await resolveVisualAsset(
+      { ...PAUTA, titulo: "EUA flexibilizam normas sobre economia de combustível" },
+      { env: ENV, fetcher: mundo({ pessoa: true }), somenteLeitura: true, conferenciaVisual: conferenteQueReprovaOOrgao() },
+    );
+
+    expect(r.status).toBe("SELECTED");
+    expect(r.caminho).toBe("cena_depois_da_entidade");
+  });
+});

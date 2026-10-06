@@ -7,7 +7,7 @@ import type {
   EntidadeVisual,
   ResultadoVisual,
 } from "./tipos";
-import { MOTIVOS_DE_RECUSA, ehPessoa } from "./tipos";
+import { MOTIVOS_DE_RECUSA, ehPessoa, normalizarEntidade } from "./tipos";
 import { criarBiblioteca, usadoRecentemente } from "./biblioteca";
 import type { AssetGuardado, Biblioteca } from "./biblioteca";
 import { escolherEntidadeVisual, entidadeConceitual } from "./entidade-visual";
@@ -569,13 +569,21 @@ export async function resolveVisualAsset(
     return aprovar(escolhidoDeFato, undefined, vice);
   }
 
-  if (ehPessoa(entidade.tipo)) {
+  if (ehPessoa(entidade.tipo) && pessoaNaManchete(entidade, pauta.titulo)) {
     /*
      * Pessoa continua sem cena no lugar, e isso não mudou com a etapa da cena.
      *
      * Foto conceitual no lugar de uma pessoa é a mentira mais fácil de cometer
      * (`TIPOS_DE_PESSOA`, em `tipos.ts`): a matéria sobre um político ilustrada
      * com o prédio onde ele trabalha sugere que o prédio é o assunto.
+     *
+     * ATUALIZADO em 06/10/2026: a regra vale para a pauta SOBRE a pessoa, e a
+     * prova disso é a manchete nomeá-la. No replay de 60 pautas reais, as
+     * únicas que ainda ficavam sem foto eram de pessoa que a manchete não cita
+     * ("EUA flexibilizam normas sobre economia de combustível", com Trump
+     * entre os atores): a conferência recusava a foto dele porque ele não está
+     * na manchete, e a regra recusava a cena porque ele era a entidade. Quando
+     * a manchete não nomeia a pessoa, a pauta é sobre o fato, e o fato tem cena.
      */
     fontesConsultadas.push({
       fonte: "banco_conceitual",
@@ -893,6 +901,18 @@ export async function resolveVisualAsset(
     entidade,
     recusados.length > 0 ? MOTIVOS_DE_RECUSA.RELEVANCIA_BAIXA : MOTIVOS_DE_RECUSA.SEM_IMAGEM_DA_ENTIDADE
   );
+}
+
+/**
+ * A manchete nomeia a pessoa? Basta o sobrenome ou qualquer parte do nome com
+ * mais de três letras ("Trump", "Altman"), sem acento nem caixa.
+ */
+function pessoaNaManchete(entidade: EntidadeVisual, titulo: string): boolean {
+  const manchete = ` ${normalizarEntidade(titulo)} `;
+  return normalizarEntidade(entidade.nome)
+    .split(" ")
+    .filter((parte) => parte.length > 3)
+    .some((parte) => manchete.includes(` ${parte} `));
 }
 
 /**
