@@ -8,6 +8,7 @@ import { indexacaoValidadaDoArtigo } from "@/lib/indexacao-do-artigo";
 import {
   corpoComLeiaTambem,
   corpoComPerguntas,
+  corpoNaOrdemDoFim,
   dadosEstruturadosDoArtigo,
   dataDeModificacao,
   jsonLdSeguro,
@@ -158,9 +159,10 @@ export function PaginaDaMateria({
    */
   const perguntasGravadas = perguntasDoArtigo(article.aeo_questions);
   const comPerguntas = corpoSemCapa ? corpoComPerguntas(corpoSemCapa, perguntasGravadas) : corpoSemCapa;
-  const corpo = comPerguntas
+  const comLeiaTambem = comPerguntas
     ? corpoComLeiaTambem(comPerguntas, relacionadas, editoria ? { nome: editoria.nome, href: hrefDaEditoria(editoria.id) } : null)
     : comPerguntas;
+  const corpo = comLeiaTambem ? corpoNaOrdemDoFim(comLeiaTambem) : comLeiaTambem;
 
   /*
    * Foto do Commons sem crédito gravado ganha o link para a página do

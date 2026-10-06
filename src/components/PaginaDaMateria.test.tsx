@@ -42,7 +42,7 @@ describe("PaginaDaMateria", () => {
 
   it("mostra as perguntas e respostas e só então marca o FAQPage", () => {
     const { container } = render(<PaginaDaMateria article={materia} comComentarios={false} />);
-    expect(screen.getByRole("heading", { name: "Perguntas e respostas" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^Entenda em \d+ perguntas?$/ })).toBeInTheDocument();
     expect(screen.getByText("Quanto tempo leva uma produção independente?")).toBeInTheDocument();
     const grafo = jsonLd(container)["@graph"] as Array<Record<string, unknown>>;
     expect(grafo.map((n) => n["@type"])).toEqual(["Organization", "WebSite", "NewsArticle", "BreadcrumbList", "FAQPage"]);
@@ -52,7 +52,7 @@ describe("PaginaDaMateria", () => {
     const { container } = render(<PaginaDaMateria article={{ ...materia, aeo_questions: [] }} comComentarios={false} />);
     const grafo = jsonLd(container)["@graph"] as Array<Record<string, unknown>>;
     expect(grafo.some((n) => n["@type"] === "FAQPage")).toBe(false);
-    expect(screen.queryByRole("heading", { name: "Perguntas e respostas" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: /^Entenda em/ })).toBeNull();
   });
 
   it("a linha fina que repete o começo do lide não aparece duas vezes", () => {
@@ -109,12 +109,12 @@ describe("PaginaDaMateria depois da auditoria de SEO (05/10/2026)", () => {
     expect(container.querySelector('article header a[href="/editoria/economia"]')?.textContent).toBe("Economia");
   });
 
-  it("matéria sem 'Leia também' ganha o bloco com as relacionadas, antes da fonte", () => {
+  it("matéria sem 'Leia também' ganha o bloco com as relacionadas, que fecha a página depois da fonte (06/10/2026)", () => {
     const { container } = render(
       <PaginaDaMateria article={semCredito} comComentarios={false} relacionadas={[{ slug: "outra-2026-10-01", titulo: "Outra matéria" }]} />,
     );
     const corpo = container.querySelector(".artigo-corpo")?.innerHTML ?? "";
     expect(corpo).toContain('<a href="/artigos/outra-2026-10-01">Outra matéria</a>');
-    expect(corpo.indexOf("leia-tambem")).toBeLessThan(corpo.indexOf('class="fonte"'));
+    expect(corpo.indexOf("leia-tambem")).toBeGreaterThan(corpo.indexOf('class="fonte"'));
   });
 });

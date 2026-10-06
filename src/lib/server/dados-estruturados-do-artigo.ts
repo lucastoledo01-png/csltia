@@ -219,7 +219,13 @@ export function corpoComLeiaTambem(
   relacionadas: ReadonlyArray<{ slug: string; titulo: string }>,
   editoria: { nome: string; href: string } | null,
 ): string {
-  if (/<section[^>]*class="leia-tambem"/i.test(html)) return html;
+  /*
+   * O "Leia também" é sempre refeito na hora de desenhar, com as matérias
+   * PUBLICADAS agora (06/10/2026). O gravado no corpo é o retrato do dia em que
+   * a matéria foi escrita: quando as matérias antigas saíram do ar, o de
+   * Chicago apontava para três páginas que não existiam mais.
+   */
+  html = html.replace(/<section[^>]*class="leia-tambem"[^>]*>[\s\S]*?<\/section>/gi, "");
   if (relacionadas.length === 0 && !editoria) return html;
   const lista = relacionadas.length
     ? `<ul>${relacionadas.map((r) => `<li><a href="/artigos/${encodeURIComponent(r.slug)}">${escapeHtml(r.titulo)}</a></li>`).join("")}</ul>`
@@ -339,3 +345,40 @@ export function dadosEstruturadosDoArtigo(
 export function jsonLdSeguro(dados: unknown): string {
   return JSON.stringify(dados).replace(/</g, "\\u003c");
 }
+
+/** O título do bloco de perguntas, com a quantidade (06/10/2026). */
+export function tituloDasPerguntas(quantas: number): string {
+  if (quantas <= 0) return "Perguntas e respostas";
+  return quantas === 1 ? "Entenda em 1 pergunta" : `Entenda em ${quantas} perguntas`;
+}
+
+const ORDEM_DO_FIM = ["perguntas", "fontes", "leia-tambem"] as const;
+
+/**
+ * O fim da matéria sempre na mesma ordem: perguntas, fontes, "Leia também".
+ *
+ * Decisão do dono em 06/10/2026, olhando a página: as perguntas são conteúdo
+ * (respondem o leitor sobre o assunto) e ficam coladas no texto; "Leia também"
+ * é navegação e fecha a página. Feito na hora de desenhar, e não só no
+ * redator, para valer também para o que já está gravado. As seções que não são
+ * do fim ficam onde estão, na ordem em que vieram.
+ */
+export function corpoNaOrdemDoFim(html: string): string {
+  const secao = /<section class="([a-z-]+)"[^>]*>[\s\S]*?<\/section>/g;
+  const doFim = new Map<string, string>();
+  let resto = html.replace(secao, (bloco, classe: string) => {
+    if ((ORDEM_DO_FIM as readonly string[]).includes(classe) && !doFim.has(classe)) {
+      doFim.set(classe, bloco);
+      return "";
+    }
+    return bloco;
+  });
+  const perguntas = doFim.get("perguntas");
+  if (perguntas) {
+    const quantas = (perguntas.match(/<h3[\s>]/g) ?? []).length;
+    doFim.set("perguntas", perguntas.replace(/<h2>[^<]*<\/h2>/, `<h2>${tituloDasPerguntas(quantas)}</h2>`));
+  }
+  resto = resto.trimEnd();
+  return resto + ORDEM_DO_FIM.map((c) => doFim.get(c) ?? "").join("");
+}
+

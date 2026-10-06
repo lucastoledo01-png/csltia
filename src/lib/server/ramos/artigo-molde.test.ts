@@ -62,7 +62,7 @@ function ordem(html: string, marcas: string[]): number[] {
 }
 
 describe("molde: blocos presentes, na ordem combinada", () => {
-  it("tópicos, abertura com link no texto, intertítulos-pergunta, tabela, significado, leia também, perguntas e fontes", () => {
+  it("tópicos, abertura com link no texto, intertítulos-pergunta, tabela, significado, perguntas, fontes e leia também", () => {
     const html = renderizarArtigoHtml(COMPLETO, FONTE, {
       fontes: [{ nome: "Axios Chicago", url: FONTE.url, detalhe: "23 de setembro de 2026" }],
       relacionadas: [{ slug: "outra-materia", titulo: "Outra matéria" }],
@@ -74,9 +74,10 @@ describe("molde: blocos presentes, na ordem combinada", () => {
       "<h2>O que foi proposto?</h2>",
       'class="tabela"',
       `<h2>${TITULO_DO_SIGNIFICADO}</h2>`,
-      'class="leia-tambem"',
+      // Ordem do fim desde 06/10/2026: perguntas, fontes e só então "Leia também".
       'class="perguntas"',
       'class="fontes"',
+      'class="leia-tambem"',
     ];
     const posicoes = ordem(html, marcas);
     for (const [i, p] of posicoes.entries()) expect(p, marcas[i]).toBeGreaterThanOrEqual(0);
