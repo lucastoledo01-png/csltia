@@ -17,6 +17,11 @@ import { horariosDosArtigos, slugDoArtigo } from "./portal";
 import { linhasDasQuedas, selecionarComFoto, temFotoDaPauta } from "./sem-foto";
 import type { FotosDoDia, QuedaSemFoto } from "./sem-foto";
 import type { ConteudoDoArtigo } from "./portal";
+import type { AmpliadorDePacote } from "./materia-profunda";
+import { creditoDoAsset, htmlDoCredito, legendaNeutra } from "@/lib/credito-da-capa";
+import { enderecoLimpoDaImagem } from "@/lib/imagem-da-capa";
+import { htmlDaLegenda, legendaDaFoto } from "../legenda-da-capa";
+import { MARCA } from "@/lib/marca";
 
 /**
  * O pacote factual é da camada comum, e é montado UMA vez por pauta.
@@ -77,6 +82,19 @@ export type EntradaDoRamoDoPortal = {
    * sai só com o link da página da editoria.
    */
   buscarRelacionadas?: (alvo: AlvoDaRelacao) => Promise<MateriaRelacionada[]>;
+  /**
+   * Junta as outras fontes do mesmo fato ao pacote da matéria (06/10/2026,
+   * `fontes-da-materia.ts`). Ausente, a matéria é escrita só com o pacote da
+   * camada comum, como antes. O pacote da camada comum NÃO muda: a newsletter
+   * e o post seguem com o deles.
+   */
+  ampliarPacote?: AmpliadorDePacote;
+  /**
+   * A descrição da foto da capa, pela conferência visual sem a manchete
+   * (06/10/2026). Ausente, ou sem descrição que passe na ancoragem, a legenda
+   * é a neutra.
+   */
+  descreverCapa?: (url: string) => Promise<string | null>;
 };
 
 export type ResultadoDoRamoDoPortal = {
@@ -117,9 +135,26 @@ export async function rodarRamoDoPortal(e: EntradaDoRamoDoPortal): Promise<Resul
   const pecas: Array<PecaPronta<ConteudoDoArtigo>> = [];
 
   for (const [i, pauta] of selecao.escolhidas.entries()) {
-    const pacote = e.pacotes.get(pauta.grupo.primary.url);
+    const pacoteDaPauta = e.pacotes.get(pauta.grupo.primary.url);
     // A seleção já exige pacote. Isto é o cinto: sem pacote, não se escreve.
-    if (!pacote) continue;
+    if (!pacoteDaPauta) continue;
+
+    /*
+     * A matéria profunda (06/10/2026): o pacote desta matéria junta as outras
+     * fontes do mesmo fato. É uma CÓPIA para o portal; o do cache segue o da
+     * camada comum. Falha aqui não derruba a matéria: ela sai com a fonte de
+     * sempre.
+     */
+    let pacote = pacoteDaPauta;
+    if (e.ampliarPacote) {
+      try {
+        const r = await e.ampliarPacote({ storyId: pauta.storyId, vetor: pauta.vetor ?? null, grupo: pauta.grupo }, pacoteDaPauta);
+        pacote = r.pacote;
+        linhas.push(...r.linhasDeLog.map((l) => `${l} :: ${pauta.grupo.primary.title.slice(0, 50)}`));
+      } catch (erro) {
+        linhas.push(`[RAMO artigo] fontes extras não lidas, segue com a principal: ${(erro as Error).message}`);
+      }
+    }
 
     let r: ResultadoDoArtigo;
     try {
@@ -139,12 +174,33 @@ export async function rodarRamoDoPortal(e: EntradaDoRamoDoPortal): Promise<Resul
      * bandeira nunca (a seleção acima já tirou a pauta que só tinha ela).
      */
     let capa: string | null = null;
+    let cabecaDaCapa = "";
     if (e.fotos) {
       const { visual } = await e.fotos.resultado(pauta);
-      capa = temFotoDaPauta(visual) ? (visual?.asset?.imageUrl ?? null) : null;
+      /*
+       * Desde 06/10/2026 a capa é gravada limpa de `&amp;`, e leva no corpo a
+       * legenda e o crédito (autor, licença e link, do asset que o resolvedor
+       * escolheu), que a página desenha embaixo dela.
+       */
+      capa = temFotoDaPauta(visual) ? enderecoLimpoDaImagem(visual?.asset?.imageUrl) || null : null;
+      if (capa) {
+        const credito = creditoDoAsset(visual?.asset ?? null, `acervo ${MARCA.nome}`);
+        let descricao: string | null = null;
+        if (e.descreverCapa) {
+          try {
+            descricao = await e.descreverCapa(capa);
+          } catch {
+            descricao = null;
+          }
+        }
+        const legenda = legendaDaFoto(descricao, pacote) ?? legendaNeutra((r.artigo.assuntos ?? [])[0]);
+        cabecaDaCapa = `${htmlDaLegenda(legenda)}${credito ? htmlDoCredito(credito) : ""}`;
+      }
     }
 
-    const fonte = { nome: pauta.grupo.primary.source_name, url: pauta.grupo.primary.url };
+    const fonte = { nome: pauta.grupo.primary.source_name, url: enderecoLimpoDaImagem(pauta.grupo.primary.url) };
+    // Todas as fontes usadas, na seção "Fontes" e no link de cada uma dentro do texto.
+    const fontesDoPacote = pacote.fontes?.length ? pacote.fontes : null;
     const slug = slugDoArtigo(r.artigo.titulo, e.data);
     const categoria = categoriaDoArtigo(pauta, r.artigo.titulo);
     const editoria = editoriaPeloNome(categoria);
@@ -175,11 +231,12 @@ export async function rodarRamoDoPortal(e: EntradaDoRamoDoPortal): Promise<Resul
         pacote,
       },
       artigo: r.artigo,
-      html: renderizarArtigoHtml(r.artigo, fonte, {
-        fontes: [fonte],
+      html: `${cabecaDaCapa}${renderizarArtigoHtml(r.artigo, fonte, {
+        fontes: fontesDoPacote ? fontesDoPacote.map((f) => ({ nome: f.nome, url: f.url })) : [fonte],
+        ...(fontesDoPacote ? { fontesDoTexto: fontesDoPacote.map((f) => ({ id: f.id, nome: f.nome, url: f.url })) } : {}),
         relacionadas,
         ...(editoria ? { editoria: { nome: editoria.nome, href: hrefDaEditoria(editoria.id) } } : {}),
-      }),
+      })}`,
       categoria,
       // Entidades só as que o texto final nomeia; assuntos pelo validador (06/10/2026).
       tags: (() => {
@@ -187,7 +244,7 @@ export async function rodarRamoDoPortal(e: EntradaDoRamoDoPortal): Promise<Resul
         return tagsDeIndexacao({ assuntos: ix.assuntos, entidades: ix.entidades });
       })(),
       fonte,
-      sourceUrls: pacote.source_urls,
+      sourceUrls: pacote.source_urls.map((u) => enderecoLimpoDaImagem(u)).filter(Boolean),
       capa,
       publicarEm: horarios[i],
       slug,

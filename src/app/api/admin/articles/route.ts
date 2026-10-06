@@ -4,6 +4,7 @@ import { buildEditorialReadiness, normalizeAdminArticleDraft } from "@/lib/serve
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import { requireAdmin } from "@/lib/server/api-auth";
 import { DEFAULT_PROJECT_ID } from "@/lib/server/projects";
+import { avisarSemEsperar } from "@/lib/server/indexnow";
 
 export async function GET(request: NextRequest) {
   const authErr = await requireAdmin(request);
@@ -56,6 +57,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: error?.message }, { status: 500 });
   }
 
+  // Publicada pelo painel: o IndexNow avisa depois da resposta (06/10/2026).
+  if (data.status === "published") avisarSemEsperar(supabase, DEFAULT_PROJECT_ID, [String(data.slug)], "publicada pelo painel");
+
   await supabase.from("editorial_reviews").insert({
     article_id: data.id,
     score: readiness.score,
@@ -87,6 +91,15 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
+  /*
+   * Matéria no ar que mudou, ou que acabou de sair do ar: o IndexNow avisa
+   * (06/10/2026). Rascunho e agendada não têm página pública para avisar.
+   */
+  const linha = data as { slug?: string; status?: string } | null;
+  if (linha?.slug && (linha.status === "published" || linha.status === "archived")) {
+    avisarSemEsperar(supabase, DEFAULT_PROJECT_ID, [linha.slug], linha.status === "published" ? "atualizada pelo painel" : "arquivada pelo painel");
+  }
+
   return NextResponse.json({ ok: true, article: data });
 }
 
@@ -103,9 +116,17 @@ export async function DELETE(request: NextRequest) {
   }
 
   const supabase = getSupabaseAdminClient();
+  // O slug e o status ANTES de apagar: matéria no ar que some precisa do aviso ao IndexNow (06/10/2026).
+  const { data: antes } = await (id
+    ? supabase.from("articles").select("slug, status").eq("id", id)
+    : supabase.from("articles").select("slug, status").eq("slug", slug ?? ""));
   const query = id ? supabase.from("articles").delete().eq("id", id) : supabase.from("articles").delete().eq("slug", slug);
 
   const { error } = await query;
+  if (!error) {
+    const saiuDoAr = ((antes ?? []) as Array<{ slug: string; status: string }>).filter((a) => a.status === "published").map((a) => a.slug);
+    avisarSemEsperar(supabase, DEFAULT_PROJECT_ID, saiuDoAr, "apagada pelo painel");
+  }
 
   if (error) {
     console.error("Erro ao deletar artigo:", error);

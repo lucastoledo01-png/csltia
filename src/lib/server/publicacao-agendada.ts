@@ -1,4 +1,5 @@
 import { agendaDoCanal } from "./cadencia";
+import { avisarSemEsperar } from "./indexnow";
 import { listProjects, projectToday, type Project } from "./projects";
 import { cicloDasSeisCede } from "./producao-vespera";
 import { getSupabaseAdminClient } from "./supabase-admin";
@@ -166,6 +167,9 @@ export async function publicarDoProjeto(
   } else {
     await publicarArtigosComPortao(cliente, projeto, agoraIso, exigeRevisaoDoRamo, excluiBloqueado, fila, saida);
   }
+
+  // As matérias que entraram no ar agora: o IndexNow avisa sem segurar nada (06/10/2026).
+  avisarSemEsperar(cliente, projeto.id, saida.artigosPublicados, "publicada pelo relógio da publicação");
 
   // 3. O que foi feito vai para o banco. Silêncio quando nada venceu: são
   // 1.440 chamadas por dia, e uma linha por minuto enterraria as que importam.

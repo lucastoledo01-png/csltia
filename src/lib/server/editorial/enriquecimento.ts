@@ -532,6 +532,13 @@ export function metadadosDaPagina(html: string): MetadadosDaPagina {
 export type TextoDaFonte = {
   /** Cabeçalho (título, linha fina, assinatura, data) mais o corpo. */
   texto: string;
+  /**
+   * Os links de fonte primária citados no CORPO da matéria (06/10/2026):
+   * órgão de governo, tribunal, parlamento. É de onde a matéria do portal tira
+   * fonte além do veículo (`fontes-da-materia.ts`). Ausente nas leituras
+   * antigas.
+   */
+  linksOficiais?: string[];
   metadados: MetadadosDaPagina;
   /** "original": a página do veículo; "arquivo": a cópia do Internet Archive. */
   via: "original" | "arquivo";
@@ -567,6 +574,59 @@ export async function capturaNoArquivo(url: string, fetcher: typeof fetch = fetc
   const linhas = (await r.json()) as string[][];
   const ultima = linhas.length > 1 ? linhas[linhas.length - 1] : null;
   return ultima ? `https://web.archive.org/web/${ultima[1]}id_/${ultima[2]}` : null;
+}
+
+/*
+ * Domínio de fonte primária: governo, Justiça, parlamento e forças armadas,
+ * dos EUA e do Brasil. Lista de SUFIXO, porque é o registro do domínio que
+ * prova a origem: `.gov` só é vendido a órgão público americano.
+ */
+const SUFIXOS_OFICIAIS = [".gov", ".mil", ".gov.br", ".jus.br", ".leg.br", ".mil.br"];
+
+function ehDominioOficial(host: string): boolean {
+  const h = host.toLowerCase().replace(/^www\./, "");
+  return SUFIXOS_OFICIAIS.some((s) => h.endsWith(s));
+}
+
+/**
+ * Os links para fonte primária que o CORPO da matéria cita (06/10/2026).
+ *
+ * Só o corpo: menu, cabeçalho e rodapé saem antes, como em
+ * `extrairTextoDeHtml`, porque o rodapé de jornal americano costuma ter link
+ * para usa.gov e nada a ver com a pauta. E só página de dentro: a home do
+ * órgão não é fonte de fato nenhum. PDF fica de fora, porque o leitor de
+ * página não lê PDF.
+ */
+export function linksOficiaisDoHtml(html: string, base: string, limite = 6): string[] {
+  const corpo = html
+    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+    .replace(/<nav\b[\s\S]*?<\/nav>/gi, " ")
+    .replace(/<header\b[\s\S]*?<\/header>/gi, " ")
+    .replace(/<footer\b[\s\S]*?<\/footer>/gi, " ")
+    .replace(/<aside\b[\s\S]*?<\/aside>/gi, " ");
+  const vistos = new Set<string>();
+  const saida: string[] = [];
+  for (const bloco of corpo.matchAll(/<(p|li)\b[^>]*>([\s\S]*?)<\/\1>/gi)) {
+    for (const m of bloco[2].matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi)) {
+      let u: URL;
+      try {
+        u = new URL(decodificar(m[1]), base);
+      } catch {
+        continue;
+      }
+      if (u.protocol !== "https:" && u.protocol !== "http:") continue;
+      if (!ehDominioOficial(u.hostname)) continue;
+      if (u.pathname.replace(/\/+$/, "") === "" || /\.pdf$/i.test(u.pathname)) continue;
+      u.hash = "";
+      const limpo = u.toString();
+      if (vistos.has(limpo)) continue;
+      vistos.add(limpo);
+      saida.push(limpo);
+      if (saida.length >= limite) return saida;
+    }
+  }
+  return saida;
 }
 
 function montarTextoDaFonte(html: string): { texto: string; metadados: MetadadosDaPagina } {
@@ -608,7 +668,8 @@ export async function buscarTextoDaFonte(
         return null;
       }
       notas.push(`${via}: ${texto.length} caracteres`);
-      return { texto, metadados, via, urlLida: endereco, notas };
+      // A base é o endereço ORIGINAL: na cópia do arquivo (`id_`) os links não são reescritos.
+      return { texto, metadados, via, urlLida: endereco, notas, linksOficiais: linksOficiaisDoHtml(html, url) };
     } catch (erro) {
       notas.push(`${via}: ${(erro as Error).message}`);
       return null;

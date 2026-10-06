@@ -19,6 +19,18 @@ const nextConfig: NextConfig = {
   },
 
   /*
+   * O arquivo da chave do IndexNow (06/10/2026). O protocolo procura a chave
+   * em `/<chave>.txt` na raiz do site, e o nome do arquivo É a chave, que mora
+   * no ambiente (`INDEXNOW_KEY`) e não no repositório. A reescrita leva só
+   * nome de 8 a 128 letras e números para a rota, que devolve a chave quando
+   * bate e 404 quando não bate. `llms.txt` e `robots.txt` têm nome curto e não
+   * passam por aqui, e as rotas de arquivo vêm antes das reescritas.
+   */
+  async rewrites() {
+    return [{ source: "/:chave([A-Za-z0-9]{8,128})\\.txt", destination: "/api/indexnow/chave/:chave" }];
+  },
+
+  /*
    * Painel e API fora do índice por cabeçalho, que vale até para resposta
    * que não é HTML (JSON da API). O `robots.txt` só pede para não rastrear.
    */

@@ -28,6 +28,12 @@ type SubstackArticleRendererProps = {
    * legenda visível. Sem ela, o `alt` cai no título, como era.
    */
   coverDescription?: string | null;
+  /**
+   * O `alt` da capa, quando ele não deve ser a legenda (06/10/2026): a legenda
+   * neutra ("Imagem ilustrativa: assunto.") não descreve a foto, e aí o `alt`
+   * fica no título, como era.
+   */
+  coverAlt?: string | null;
   /** O endereço canônico da matéria, só para o link de compartilhar sem JavaScript. */
   shareUrl?: string;
   /** Os assuntos da matéria, na fileira do fim. Texto puro: ainda não há página de assunto. */
@@ -53,6 +59,7 @@ export function SubstackArticleRenderer({
   coverCredit,
   coverCreditHref,
   coverDescription,
+  coverAlt,
   shareUrl,
   topics,
   contentHtml,
@@ -137,7 +144,7 @@ export function SubstackArticleRenderer({
         <figure className="mb-0 mt-8">
           <div className="relative aspect-[16/9] overflow-hidden rounded-2xl bg-[#F4F4F5]">
             <Image
-              alt={coverDescription?.trim() || title}
+              alt={coverAlt?.trim() || coverDescription?.trim() || title}
               src={coverImage}
               fill
               sizes="(min-width: 768px) 680px, 100vw"

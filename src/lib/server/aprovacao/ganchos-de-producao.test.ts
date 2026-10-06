@@ -173,7 +173,11 @@ describe("refação da imagem do artigo", () => {
     const r = await criarGanchosDeProducao(m).artigo!.imagem!(ctx(aprovacao("artigo"), "imagem"));
     expect(r).toEqual({ ok: true, resumo: { imagens: ["https://x/nova.jpg"] } });
     expect((m.imagem as ReturnType<typeof vi.fn>).mock.calls[0][1]).toMatchObject({ evitar: ["https://x/velha.jpg"] });
-    expect(escritas(ops)[0].valores).toEqual({ cover_image: "https://x/nova.jpg", updated_at: new Date(1_000).toISOString() });
+    // A capa nova leva a legenda neutra e o crédito dela; os da foto velha saem (06/10/2026).
+    const valores = escritas(ops)[0].valores as Record<string, string>;
+    expect(valores.cover_image).toBe("https://x/nova.jpg");
+    expect(valores.updated_at).toBe(new Date(1_000).toISOString());
+    expect(valores.content_html).toMatch(/^<p class="legenda-da-capa">Imagem ilustrativa\.<\/p>/);
   });
 });
 

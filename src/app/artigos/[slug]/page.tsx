@@ -9,6 +9,7 @@ import { dataDeModificacao, tituloDaAba } from "@/lib/server/dados-estruturados-
 import { buscarRelacionadas } from "@/lib/server/materias-relacionadas";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import { DEFAULT_PROJECT_ID } from "@/lib/server/projects";
+import { fetchComCacheDeUmDia, resolverCreditoDaCapa } from "@/lib/server/capa-da-materia";
 
 /**
  * A listagem sai do banco, e o banco muda depois do build.
@@ -123,6 +124,21 @@ async function relacionadasDaMateria(article: NonNullable<ArtigoDaPagina>) {
   }
 }
 
+/**
+ * O crédito da capa que a linha não gravou, resolvido na origem (06/10/2026).
+ * Com crédito gravado no corpo, nada é perguntado. Falha é `null`, e a página
+ * cai no crédito que o endereço permite saber.
+ */
+async function creditoDaCapaSemRegistro(article: NonNullable<ArtigoDaPagina>) {
+  const a = article as { cover_image?: string | null; content_html?: string };
+  if (!a.cover_image || /class="credito-da-foto"/.test(a.content_html ?? "")) return null;
+  try {
+    return await resolverCreditoDaCapa(a.cover_image, { fetcher: fetchComCacheDeUmDia, tempoLimiteMs: 3000 });
+  } catch {
+    return null;
+  }
+}
+
 export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const article = await lerMateria(slug);
@@ -137,5 +153,6 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
     notFound();
   }
 
-  return <PaginaDaMateria article={article} relacionadas={await relacionadasDaMateria(article)} />;
+  const [relacionadas, creditoResolvido] = await Promise.all([relacionadasDaMateria(article), creditoDaCapaSemRegistro(article)]);
+  return <PaginaDaMateria article={article} relacionadas={relacionadas} creditoResolvido={creditoResolvido} />;
 }

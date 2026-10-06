@@ -13,7 +13,9 @@ describe("PaginaDaMateria: assuntos só pelo validador", () => {
   const fonte = fs.readFileSync(path.join(__dirname, "PaginaDaMateria.tsx"), "utf-8");
 
   it("usa indexacaoValidadaDoArtigo para a fileira", () => {
-    expect(fonte).toMatch(/topics=\{indexacaoValidadaDoArtigo\(article\)\.assuntos\}/);
+    // Desde 06/10/2026 os assuntos validados servem também à legenda neutra da capa: lidos uma vez.
+    expect(fonte).toMatch(/const assuntos = indexacaoValidadaDoArtigo\(article\)\.assuntos;/);
+    expect(fonte).toMatch(/topics=\{assuntos\}/);
   });
 
   it("não lê as tags cruas", () => {

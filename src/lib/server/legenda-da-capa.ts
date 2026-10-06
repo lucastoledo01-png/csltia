@@ -25,10 +25,12 @@ export function legendaDaFoto(descricao: string | null | undefined, pacote: Paco
   return `${limpa.charAt(0).toUpperCase()}${limpa.slice(1)}.`;
 }
 
-export function legendaNeutra(assunto: string | null | undefined): string {
-  const a = (assunto ?? "").trim();
-  return a ? `Imagem ilustrativa: ${a}.` : "Imagem ilustrativa.";
-}
+/*
+ * A legenda neutra mora em `credito-da-capa.ts` desde 06/10/2026, porque a
+ * página também a desenha para a capa antiga sem legenda gravada, e a regra
+ * tem de ser uma só.
+ */
+export { legendaNeutra } from "@/lib/credito-da-capa";
 
 /** O marcador que `semImagemDaCapaNoCorpo` lê e a página desenha embaixo da capa. */
 export function htmlDaLegenda(legenda: string): string {

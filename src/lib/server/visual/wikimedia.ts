@@ -121,6 +121,38 @@ async function consultar(
     .filter((c): c is CandidatoDoCommons => c !== null);
 }
 
+/**
+ * Um arquivo do Commons pelo nome, com autor, licença e medida, lidos da
+ * página do arquivo pela API (06/10/2026). É como a página da matéria resolve
+ * o crédito da capa antiga que não gravou crédito nenhum, e como o script de
+ * conserto das capas o grava. Prazo curto: quem chama está desenhando uma
+ * página e cai no crédito genérico se o Commons demorar.
+ */
+export async function arquivoDoCommons(
+  arquivo: string,
+  opcoes: { env?: Record<string, string | undefined>; fetcher?: typeof fetch; tempoLimiteMs?: number } = {},
+): Promise<CandidatoDoCommons | null> {
+  const nome = arquivo.replace(/^File:/i, "").trim();
+  if (!nome) return null;
+  const url = new URL(API);
+  url.searchParams.set("action", "query");
+  url.searchParams.set("titles", `File:${nome}`);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("prop", "imageinfo");
+  url.searchParams.set("iiprop", "url|size|mime|extmetadata");
+  const resposta = await (opcoes.fetcher ?? fetch)(url, {
+    headers: { "User-Agent": agenteDaWikimedia(opcoes.env ?? process.env), Accept: "application/json" },
+    signal: AbortSignal.timeout(opcoes.tempoLimiteMs ?? TEMPO_LIMITE_MS),
+  });
+  if (!resposta.ok) throw new Error(`Commons respondeu ${resposta.status}`);
+  const corpo = (await resposta.json()) as { query?: { pages?: Record<string, Pagina> } };
+  for (const p of Object.values(corpo.query?.pages ?? {})) {
+    const c = paraCandidato(p);
+    if (c) return c;
+  }
+  return null;
+}
+
 export type BuscaNoCommons = {
   candidatos: CandidatoDoCommons[];
   caminhos: string[];

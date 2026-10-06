@@ -1504,6 +1504,99 @@ diagnóstico em `payload.diagnostico.evergreen` e não publica nada), depois
 `enforce`. Para `enforce` publicar, o Social V2 também precisa estar em
 `enforce`.
 
+## A matéria profunda: mais fontes, capa creditada e IndexNow (06/10/2026)
+
+A auditoria de estrutura (`auditar-artigos.ts --estrutura`) mediu as duas
+matérias publicadas com 359 e 411 palavras de corpo, contra o molde de 500 a
+900, sem "O que você precisa saber" (o bloco só existe acima de 400 palavras
+com fato próprio), uma sem crédito nem legenda na capa e uma com `&amp;` no
+endereço da capa. O dono aprovou três frentes.
+
+**A poda NÃO afrouxa.** A matéria era curta porque o pacote factual vinha de
+UMA fonte, e a poda apaga o que o pacote não sustenta. O que muda é o pacote,
+nunca a régua: nada sem lastro vai ao ar, e matéria não se enche.
+
+**O pacote da matéria do portal junta as fontes do mesmo fato**
+(`ramos/fontes-da-materia.ts`, ligado em `ramos/materia-profunda.ts`). Antes de
+escrever, o ramo tenta, nesta ordem: as URLs que a deduplicação agrupou com a
+pauta; as candidatas de `news_candidates` dos últimos três dias com cosseno de
+0.70 ou mais com o vetor da pauta (o limiar medido de "mesmo acontecimento",
+`limiarDeAgrupamento`); e os links para fonte primária (domínio `.gov`, `.mil`,
+`.gov.br`, `.jus.br`, `.leg.br`) que o CORPO da matéria principal cita, sem a
+home do órgão e sem PDF. Cada fonte é lida com o agente honesto e, se recusar,
+pela cópia do Internet Archive (`buscarTextoDaFonte`), e vira o SEU pacote
+(uma chamada barata de extração). Fica de fora agregador, pauta de imigração,
+a mesma URL ou o mesmo domínio de uma fonte já escolhida, e fonte sem fato.
+Teto de quatro fontes contando a principal e de seis leituras.
+
+- **O pacote da camada comum não muda.** A cópia ampliada é só do portal; a
+  newsletter e o post seguem com o pacote de sempre (a regra de "um pacote por
+  pauta" é sobre os canais não lerem duas extrações diferentes da MESMA
+  fonte, e continua valendo).
+- **Cada fato continua com o dono.** O pacote guarda `fontes` (F1 é a
+  principal), o redator recebe os fatos separados por fonte e marca o link de
+  cada uma com o id (`[[segundo a Reuters|F2]]`). A régua nova
+  `atribuicaoSemLastro` confere que o número atribuído a uma fonte está NO
+  MATERIAL DELA, e não só no pacote: o trecho que falha é reprovado e, se o
+  reparo não resolver, apagado pela poda. É a resposta determinista ao defeito
+  de atribuição da matéria de Chicago, para o caso em que ele dá para medir.
+- **As lacunas vão com o dono** ("The Hill não informa: ..."): a lacuna crua da
+  principal faria o auditor semântico apagar o fato que a segunda fonte deu.
+- **O separador do texto de origem leva o nome da fonte, nunca o id**: "F2" no
+  material sustentaria um "2" inventado no texto.
+- **Com uma fonte só, o prompt é byte a byte o de antes.** O contrato das
+  várias fontes só entra quando há mais de uma.
+- A seção "Fontes" lista todas as fontes do pacote, e cada uma vira link
+  dentro do texto, no primeiro trecho que a cita.
+- A refação de texto da fila reescreve com o pacote ampliado (ele é o que fica
+  em `origemDoArtigo`), e a troca de pauta também amplia.
+
+Medida em ensaio, sem gravar nada: `npx tsx src/scripts/medir-materia-profunda.ts`
+escreve cada pauta duas vezes (uma fonte e várias), com o mesmo redator, auditor
+e poda, e imprime palavras e o bloco de tópicos antes e depois.
+
+**A capa sempre com crédito, legenda e endereço limpo.** O crédito mora no
+corpo, num `<p class="credito-da-foto">` com autor, licença, link da página do
+arquivo e, quando a origem diz, a medida do original em `data-largura` e
+`data-altura` (`src/lib/credito-da-capa.ts`). O ramo o escreve a partir do
+asset que o resolvedor escolheu, e a legenda vem da conferência visual sem a
+manchete, passada pela ancoragem, com a neutra ("Imagem ilustrativa:
+<assunto>.") como saída. A capa é gravada sem `&amp;`. O crédito inclui o
+Pexels, cuja licença não exige: o dono pediu crédito em TODA capa.
+
+- **A página conserta a linha antiga na leitura.** Sem crédito gravado, a rota
+  pergunta à origem (`resolverCreditoDaCapa`: a página do arquivo no Commons e,
+  com `PEXELS_API_KEY`, a API do Pexels), com cache de um dia; sem resposta,
+  vale o que o endereço permite saber (origem e link). Sem legenda gravada, a
+  neutra, e o `alt` fica no título, porque a neutra não descreve a foto.
+- **A refação de imagem troca o crédito e a legenda junto com a foto**, e a de
+  texto preserva os dois. Antes a de texto os apagava.
+- **O banco se conserta por script, em ensaio por padrão**:
+  `src/scripts/consertar-capas.ts` (e `--aplicar` para gravar). Só `published`
+  por padrão, porque a `scheduled` está na fila, cujo hash cobre HTML e capa.
+  Crédito pela metade não é gravado, para a página continuar perguntando, e
+  `updated_at` não muda: crédito de foto não é mudança de conteúdo.
+- **A auditoria lê a capa**: `auditar-artigos.ts --capas` (só leitura).
+
+**O NewsArticle leva `image` como `ImageObject` com largura e altura**, e só
+medida que é verdade: no Pexels e no Unsplash os três cortes de 1200 (16:9, 4:3,
+1:1) que o próprio endereço garante; no Commons a miniatura de 1280 com a altura
+pela proporção do original; sem medida conhecida, o endereço puro, como antes.
+O `/llms.txt` passou a listar todas as publicadas, e não as 20 últimas. O
+sitemap já tinha todas as publicadas e as páginas de editoria; o de notícias
+fica nas 48 horas, que é a regra do Google News.
+
+**IndexNow** (`src/lib/server/indexnow.ts`). Bing, Yandex e, pelo Bing, a busca
+do ChatGPT e do Copilot ficam sabendo da matéria publicada, mudada ou retirada,
+com a matéria, a página da editoria e a home. Os três caminhos que publicam (o
+relógio do portal, o da publicação e a liberação da fila), o painel e os
+scripts que mudam matéria no ar avisam. O aviso roda no `after` e nunca segura
+a publicação; prazo de cinco segundos; falha vai para `platform_events`
+(`indexnow_falhou`). A chave é `INDEXNOW_KEY` no ambiente (só letra e número, de
+8 a 128, `openssl rand -hex 32`), servida em `/<chave>.txt` por uma reescrita
+do `next.config.ts`. Sem a chave, nada acontece e o log diz isso uma vez. O
+Google não participa, e ping de sitemap ele ignora desde 2023.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

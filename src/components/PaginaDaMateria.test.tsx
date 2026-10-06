@@ -36,7 +36,8 @@ describe("PaginaDaMateria", () => {
     const { container } = render(<PaginaDaMateria article={materia} comComentarios={false} />);
     const fotos = [...container.querySelectorAll("img")].filter((i) => (i.getAttribute("src") ?? "").includes("Wall_Street"));
     expect(fotos).toHaveLength(1);
-    expect(container.querySelector("figcaption")?.textContent).toBe("Dietmar Rabich, CC BY-SA 4.0, via Wikimedia Commons");
+    // Sem legenda gravada, a neutra abre a legenda (06/10/2026), e o crédito segue junto.
+    expect(container.querySelector("figcaption")?.textContent).toMatch(/^Imagem ilustrativa: .+\. · Dietmar Rabich, CC BY-SA 4\.0, via Wikimedia Commons$/);
     expect(container.querySelector(".artigo-corpo")?.innerHTML).not.toContain("Dietmar Rabich");
   });
 

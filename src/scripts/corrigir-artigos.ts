@@ -1,4 +1,6 @@
 import fs from "node:fs";
+import { avisarBuscadores } from "../lib/server/indexnow";
+import { DEFAULT_PROJECT_ID } from "../lib/server/projects";
 import path from "node:path";
 import { identidadeDaImagem } from "../lib/imagem-da-capa";
 import { fotosECreditosPorPauta, type HistoriaDaEdicao } from "../lib/server/artigos-por-pauta";
@@ -279,13 +281,20 @@ async function main(): Promise<void> {
 
   if (!aplicar) return;
   let gravadas = 0;
+  const mudadas: string[] = [];
   for (const c of correcoes) {
     if (Object.keys(c.patch).length === 0 || !c.artigo.id) continue;
     const { error } = await client.from("articles").update(c.patch).eq("id", c.artigo.id);
     if (error) console.error(`  ERRO ${c.artigo.slug}: ${error.message}`);
-    else gravadas++;
+    else {
+      gravadas++;
+      if (c.artigo.status === "published") mudadas.push(c.artigo.slug);
+    }
   }
   console.log(`\nGravadas ${gravadas} matéria(s).`);
+  // Matéria publicada mudou: o IndexNow avisa (06/10/2026).
+  const aviso = await avisarBuscadores(client, DEFAULT_PROJECT_ID, mudadas, "matéria corrigida");
+  console.log(`IndexNow: ${aviso.situacao}${aviso.detalhe ? ` (${aviso.detalhe})` : ""}`);
 }
 
 main().catch((erro) => {

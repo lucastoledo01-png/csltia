@@ -187,7 +187,14 @@ describe("auditoria de SEO de 05/10/2026", () => {
       ),
     );
     const materia = g.find((n) => n["@type"] === "NewsArticle")!;
-    expect(materia.image).toEqual(["https://images.pexels.com/photos/1/p.jpeg?auto=compress&cs=tinysrgb&dpr=2&w=600"]);
+    // Desde 06/10/2026 como ImageObject, nos três cortes de tamanho conhecido, e ainda sem `&amp;`.
+    const imagens = materia.image as Array<{ url: string; width: number; height: number }>;
+    expect(imagens.map((i) => [i.width, i.height])).toEqual([
+      [1200, 675],
+      [1200, 900],
+      [1200, 1200],
+    ]);
+    expect(imagens[0].url).toBe("https://images.pexels.com/photos/1/p.jpeg?auto=compress&cs=tinysrgb&w=1200&h=675&fit=crop");
     expect(materia.isPartOf).toEqual({ "@id": "https://casaloti.ia.br/#site" });
   });
 

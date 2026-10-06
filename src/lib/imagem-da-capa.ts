@@ -83,9 +83,20 @@ function textoSimples(html: string): string {
 export function semImagemDaCapaNoCorpo(
   html: string | null | undefined,
   capa: string | null | undefined,
-): { html: string; creditoDaCapa: string | null; legendaDaCapa: string | null; removidas: number } {
+): {
+  html: string;
+  creditoDaCapa: string | null;
+  /** O link do crédito gravado (a página do arquivo), quando o parágrafo trouxe um. */
+  creditoDaCapaHref: string | null;
+  /** As dimensões do original, quando o crédito gravado as trouxe (06/10/2026). */
+  dimensoesDaCapa: { largura: number; altura: number } | null;
+  legendaDaCapa: string | null;
+  removidas: number;
+} {
   let corpo = html ?? "";
   let credito: string | null = null;
+  let creditoHref: string | null = null;
+  let dimensoes: { largura: number; altura: number } | null = null;
   let removidas = 0;
 
   /*
@@ -101,14 +112,24 @@ export function semImagemDaCapaNoCorpo(
     corpo = corpo.replace(descrita[0], "");
   }
 
-  const marcado = corpo.match(/<p[^>]*class="credito-da-foto"[^>]*>([\s\S]*?)<\/p>/i);
+  const marcado = corpo.match(/<p([^>]*class="credito-da-foto"[^>]*)>([\s\S]*?)<\/p>/i);
   if (marcado) {
-    credito = textoSimples(marcado[1]) || null;
+    credito = textoSimples(marcado[2]) || null;
+    /*
+     * Desde 06/10/2026 o crédito gravado leva o link da página do arquivo e as
+     * dimensões do original (`credito-da-capa.ts`). O link volta desfeito de
+     * entidade, porque a página o escapa de novo ao desenhar.
+     */
+    const href = marcado[2].match(/<a\b[^>]*\bhref\s*=\s*"([^"]+)"/i)?.[1];
+    if (href) creditoHref = desfazerEntidades(href);
+    const largura = Number(marcado[1].match(/data-largura="(\d+)"/)?.[1] ?? 0);
+    const altura = Number(marcado[1].match(/data-altura="(\d+)"/)?.[1] ?? 0);
+    if (largura > 0 && altura > 0) dimensoes = { largura, altura };
     corpo = corpo.replace(marcado[0], "");
   }
 
   const alvo = identidadeDaImagem(capa);
-  if (!alvo) return { html: corpo, creditoDaCapa: credito, legendaDaCapa: legenda, removidas };
+  if (!alvo) return { html: corpo, creditoDaCapa: credito, creditoDaCapaHref: creditoHref, dimensoesDaCapa: dimensoes, legendaDaCapa: legenda, removidas };
 
   const IMG = /(<figure\b[^>]*>\s*)?(<a\b[^>]*>\s*)?<img\b[^>]*\bsrc\s*=\s*"([^"]*)"[^>]*>(\s*<\/a>)?(\s*<figcaption\b[^>]*>[\s\S]*?<\/figcaption>)?(\s*<\/figure>)?/gi;
   corpo = corpo.replace(IMG, (inteiro: string, ...grupos: unknown[]) => {
@@ -131,7 +152,7 @@ export function semImagemDaCapaNoCorpo(
     return paragrafo;
   });
 
-  return { html: corpo, creditoDaCapa: credito, legendaDaCapa: legenda, removidas };
+  return { html: corpo, creditoDaCapa: credito, creditoDaCapaHref: creditoHref, dimensoesDaCapa: dimensoes, legendaDaCapa: legenda, removidas };
 }
 
 /** Quantas vezes cada foto aparece como capa, por identidade. */
@@ -265,4 +286,64 @@ export function fotoNaLargura(src: string | null | undefined, largura: number): 
     return u.toString();
   }
   return limpo;
+}
+
+export type ImagemDoJsonLd = { "@type": "ImageObject"; url: string; width: number; height: number };
+
+/** Os três cortes que o Google pede para a foto do NewsArticle (16:9, 4:3 e 1:1), a 1200 de largura. */
+const CORTES_DO_JSON_LD: Array<[number, number]> = [
+  [1200, 675],
+  [1200, 900],
+  [1200, 1200],
+];
+
+/**
+ * A capa como vai para o `image` do NewsArticle: `ImageObject` com largura e
+ * altura (06/10/2026). Sem as duas, o Google não sabe se a foto serve para o
+ * carrossel de notícias, que pede ao menos 1200 de largura.
+ *
+ * Só sai dimensão que é VERDADE. O Pexels e o Unsplash recortam no tamanho
+ * pedido (`fit=crop`), então os três cortes têm a medida que dizem ter. O
+ * Commons vai na miniatura de 1280, com a altura pela proporção do original,
+ * quando o crédito gravado ou a página do arquivo deram a medida. Outro host
+ * vai com a medida do original, se ela é conhecida. Sem medida nenhuma, o
+ * endereço puro, como era antes: dimensão inventada é pior que nenhuma.
+ */
+export function imagensDaCapaParaJsonLd(
+  src: string | null | undefined,
+  dimensoes?: { largura: number; altura: number } | null,
+): Array<ImagemDoJsonLd | string> {
+  const limpo = enderecoLimpoDaImagem(src);
+  if (!limpo) return [];
+  let u: URL;
+  try {
+    u = new URL(limpo);
+  } catch {
+    return [];
+  }
+  if (u.hostname === "images.pexels.com" || u.hostname === "images.unsplash.com") {
+    return CORTES_DO_JSON_LD.map(([w, h]) => {
+      const c = new URL(limpo);
+      for (const p of ["w", "h", "fit", "dpr", "crop"]) c.searchParams.delete(p);
+      c.searchParams.set("w", String(w));
+      c.searchParams.set("h", String(h));
+      c.searchParams.set("fit", "crop");
+      if (c.hostname === "images.pexels.com") {
+        c.searchParams.set("auto", "compress");
+        c.searchParams.set("cs", "tinysrgb");
+      }
+      return { "@type": "ImageObject" as const, url: c.toString(), width: w, height: h };
+    });
+  }
+  const ok = dimensoes && dimensoes.largura > 0 && dimensoes.altura > 0 ? dimensoes : null;
+  if (u.hostname === "upload.wikimedia.org") {
+    const miniatura = miniaturaDoCommons(limpo, 1280);
+    if (!ok) return [miniatura];
+    // Original menor que a miniatura, ou formato sem miniatura: vai o original, com a medida dele.
+    if (ok.largura <= 1280 || miniatura === limpo) {
+      return [{ "@type": "ImageObject", url: limpo.replace(/[?#].*$/, ""), width: ok.largura, height: ok.altura }];
+    }
+    return [{ "@type": "ImageObject", url: miniatura, width: 1280, height: Math.round((ok.altura * 1280) / ok.largura) }];
+  }
+  return ok ? [{ "@type": "ImageObject", url: limpo, width: ok.largura, height: ok.altura }] : [limpo];
 }

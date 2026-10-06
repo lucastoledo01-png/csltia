@@ -1,4 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { creditoDoAsset, htmlDoCredito, legendaNeutra } from "@/lib/credito-da-capa";
+import { enderecoLimpoDaImagem } from "@/lib/imagem-da-capa";
+import { htmlDaLegenda } from "../legenda-da-capa";
 import { temFotoDaPauta } from "../ramos/sem-foto";
 import type { Project } from "../projects";
 import type { OrigemDoArtigo } from "../ramos/portal";
@@ -87,7 +90,12 @@ export type MundoDosGanchos = {
     pacote: OrigemDoArtigo["pacote"],
     marca: MarcaDoArtigo,
   ) => Promise<ResultadoDoArtigo>;
-  renderizarHtml: (artigo: Artigo, fonte: { nome: string; url: string }) => Promise<string> | string;
+  renderizarHtml: (
+    artigo: Artigo,
+    fonte: { nome: string; url: string },
+    /** As fontes do pacote, quando a matéria juntou mais de uma (06/10/2026). */
+    fontes?: Array<{ id: string; nome: string; url: string }>,
+  ) => Promise<string> | string;
   imagem: (
     pauta: PautaParaImagem,
     ctx: {
@@ -175,7 +183,20 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     }
 
     const a = r.artigo;
-    const html = await mundo.renderizarHtml(a, { nome: origem.fonteNome, url: origem.fonteUrl });
+    const fontesDoPacote = origem.pacote.fontes?.length ? origem.pacote.fontes.map((f) => ({ id: f.id, nome: f.nome, url: f.url })) : undefined;
+    const corpo = await mundo.renderizarHtml(a, { nome: origem.fonteNome, url: origem.fonteUrl }, fontesDoPacote);
+    /*
+     * A legenda e o crédito da capa moram no corpo (06/10/2026), e a etapa
+     * culpada foi o texto: os dois parágrafos da linha atual passam para o
+     * corpo novo. Antes daqui a reescrita os apagava junto com o texto velho.
+     */
+    const atual = await lerLinha(mundo.client(), "articles", "id, content_html", ctx.aprovacao.pecaId, ctx.aprovacao.projectId).catch(() => null);
+    const htmlAtual = typeof atual?.content_html === "string" ? atual.content_html : "";
+    const cabecaDaCapa = [
+      htmlAtual.match(/<p[^>]*class="legenda-da-capa"[^>]*>[\s\S]*?<\/p>/i)?.[0] ?? "",
+      htmlAtual.match(/<p[^>]*class="credito-da-foto"[^>]*>[\s\S]*?<\/p>/i)?.[0] ?? "",
+    ].join("");
+    const html = `${cabecaDaCapa}${corpo}`;
     const palavras = html.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
     const agora = new Date(mundo.agora ? mundo.agora() : Date.now()).toISOString();
     /*
@@ -212,7 +233,7 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     if (!origem) return falha(SEM_ORIGEM);
     const projeto = await mundo.projeto(ctx.aprovacao.projectId);
     const client = mundo.client();
-    const linha = await lerLinha(client, "articles", "id, cover_image", ctx.aprovacao.pecaId, projeto.id);
+    const linha = await lerLinha(client, "articles", "id, cover_image, content_html, tags, category", ctx.aprovacao.pecaId, projeto.id);
     if (!linha) return falha("o artigo não existe mais");
     const atual = typeof linha.cover_image === "string" ? linha.cover_image : "";
     // O canal não volta a uma foto que já recusou, e a cena recebe o porquê (06/10/2026).
@@ -234,12 +255,26 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
       { client, projeto, evitar, recusas },
     );
     // Só foto real da pauta; a bandeira não é publicada desde 05/10/2026 (`sem-foto.ts`).
-    const nova = temFotoDaPauta(r) ? (r.asset?.imageUrl ?? "") : "";
+    const nova = temFotoDaPauta(r) ? enderecoLimpoDaImagem(r.asset?.imageUrl) : "";
     if (!fotoNovaServe(nova, [atual], evitar)) return falha("o resolvedor não achou outra foto para esta pauta");
+
+    /*
+     * A legenda e o crédito eram da foto VELHA (06/10/2026): saem do corpo, e
+     * entram o crédito da nova (do asset que o resolvedor escolheu) e a
+     * legenda neutra, que não afirma nada sobre a foto.
+     */
+    const htmlAtual = typeof linha.content_html === "string" ? linha.content_html : "";
+    const semCabeca = htmlAtual
+      .replace(/<p[^>]*class="legenda-da-capa"[^>]*>[\s\S]*?<\/p>/gi, "")
+      .replace(/<p[^>]*class="credito-da-foto"[^>]*>[\s\S]*?<\/p>/gi, "");
+    const tags = Array.isArray(linha.tags) ? (linha.tags as unknown[]).map(String) : [];
+    const assunto = tags.find((t) => t.startsWith("assunto:"))?.slice("assunto:".length) ?? (typeof linha.category === "string" ? linha.category : "");
+    const credito = creditoDoAsset(r.asset ?? null);
+    const content_html = `${htmlDaLegenda(legendaNeutra(assunto))}${credito ? htmlDoCredito(credito) : ""}${semCabeca}`;
 
     const { error } = await client
       .from("articles")
-      .update({ cover_image: nova, updated_at: new Date(mundo.agora ? mundo.agora() : Date.now()).toISOString() })
+      .update({ cover_image: nova, content_html, updated_at: new Date(mundo.agora ? mundo.agora() : Date.now()).toISOString() })
       .eq("id", ctx.aprovacao.pecaId)
       .eq("project_id", projeto.id)
       .in("status", ["draft", "scheduled"]);
@@ -539,7 +574,11 @@ export function mundoDeProducao(env: Record<string, string | undefined> = proces
     vozDoArtigo: async (projectId) => (await (await import("../ramos/vozes")).vozesDosRamos(projectId)).artigo,
     escrever: async (pauta, pacote, marca) =>
       (await import("../ramos/artigo")).escreverArtigoDaPauta(pauta, pacote, marca, { env }),
-    renderizarHtml: async (artigo, fonte) => (await import("../ramos/artigo")).renderizarArtigoHtml(artigo, fonte, { fontes: [fonte] }),
+    renderizarHtml: async (artigo, fonte, fontes) =>
+      (await import("../ramos/artigo")).renderizarArtigoHtml(artigo, fonte, {
+        fontes: fontes?.length ? fontes.map((f) => ({ nome: f.nome, url: f.url })) : [fonte],
+        ...(fontes?.length ? { fontesDoTexto: fontes } : {}),
+      }),
     imagem: async (pauta, ctx) => {
       const { imagemDaPauta } = await import("../visual/acervo/imagem-da-pauta");
       return imagemDaPauta(pauta, {

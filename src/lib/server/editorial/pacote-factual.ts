@@ -40,6 +40,23 @@ export type PacoteFactual = z.infer<typeof PacoteFactualSchema> & {
   source_urls: string[];
   /** Texto de origem, guardado para a verificação de ancoragem. */
   texto_de_origem: string;
+  /**
+   * O pacote de cada fonte, quando a matéria do portal juntou mais de uma
+   * (06/10/2026, `ramos/fontes-da-materia.ts`). As listas de cima são a união
+   * de todas; aqui cada fato continua preso a quem o deu, para "segundo X" ser
+   * o X de verdade. Ausente no pacote de uma fonte só, que é o da camada comum.
+   */
+  fontes?: FonteDoPacote[];
+};
+
+export type FonteDoPacote = z.infer<typeof PacoteFactualSchema> & {
+  /** "F1", "F2"...: o id que o redator usa para pendurar o link. F1 é a principal. */
+  id: string;
+  nome: string;
+  url: string;
+  principal: boolean;
+  /** O texto desta fonte só, para conferir a atribuição de um número a ela. */
+  texto_de_origem: string;
 };
 
 export function montarSystemDoExtrator(): string {
