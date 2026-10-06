@@ -4,6 +4,7 @@ import {
   corpoComPerguntas,
   dadosEstruturadosDaEditoria,
   dadosEstruturadosDaHome,
+  dadosEstruturadosDoAutor,
   dadosEstruturadosDoArtigo,
   dataDeModificacao,
   jsonLdSeguro,
@@ -254,5 +255,57 @@ describe("tituloDaAba", () => {
     expect(tituloDaAba("Emprego nos EUA quase não muda em setembro")).toBe("Emprego nos EUA quase não muda em setembro | eua.journal");
     const longo = "Juíza considera inconstitucional busca sem mandado no Flock, em Oklahoma";
     expect(tituloDaAba(longo)).toBe(longo);
+  });
+});
+
+describe("autor no JSON-LD (06/10/2026)", () => {
+  const autor = {
+    slug: "ana-silva",
+    nome: "Ana Silva",
+    cargo: "Editora de Economia",
+    foto_url: "https://azqpdesusdzqndvsqmko.supabase.co/storage/v1/object/public/public_assets/autores/p/ana.jpg",
+    redes: { instagram: "https://www.instagram.com/ana.silva/", linkedin: "https://www.linkedin.com/in/ana-silva", site: "" },
+  };
+
+  it("com autor, o NewsArticle traz Person com url da página, cargo, foto e sameAs", () => {
+    const g = grafo(dadosEstruturadosDoArtigo(base, { perguntasVisiveis: [], autor }));
+    const materia = g.find((n) => n["@type"] === "NewsArticle")!;
+    expect(materia.author).toEqual({
+      "@type": "Person",
+      "@id": "https://casaloti.ia.br/autor/ana-silva#pessoa",
+      name: "Ana Silva",
+      url: "https://casaloti.ia.br/autor/ana-silva",
+      jobTitle: "Editora de Economia",
+      image: autor.foto_url,
+      sameAs: ["https://www.instagram.com/ana.silva/", "https://www.linkedin.com/in/ana-silva"],
+      worksFor: { "@id": "https://casaloti.ia.br/#organizacao" },
+    });
+    // Quem publica continua sendo a organização.
+    expect(materia.publisher).toEqual({ "@id": "https://casaloti.ia.br/#organizacao" });
+  });
+
+  it("sem autor (ou autor nulo), segue a Redação como Organization", () => {
+    const g = grafo(dadosEstruturadosDoArtigo(base, { perguntasVisiveis: [], autor: null }));
+    expect(g.find((n) => n["@type"] === "NewsArticle")!.author).toEqual({
+      "@type": "Organization",
+      name: "Redação eua.journal",
+      url: "https://casaloti.ia.br",
+    });
+  });
+
+  it("a página do autor é ProfilePage com a Person como mainEntity e a lista das matérias", () => {
+    const g = grafo(
+      dadosEstruturadosDoAutor({ ...autor, minibio: "Cobre juros e mercado.", area: "economia" }, [
+        { url: "https://casaloti.ia.br/artigos/a", titulo: "A" },
+      ]),
+    );
+    const pagina = g.find((n) => n["@type"] === "ProfilePage")!;
+    expect(pagina.url).toBe("https://casaloti.ia.br/autor/ana-silva");
+    const pessoa = pagina.mainEntity as Record<string, unknown>;
+    expect(pessoa["@type"]).toBe("Person");
+    expect(pessoa.description).toBe("Cobre juros e mercado.");
+    expect(pessoa.knowsAbout).toBe("Economia");
+    const lista = g.find((n) => n["@type"] === "ItemList")!;
+    expect(lista.itemListElement).toEqual([{ "@type": "ListItem", position: 1, url: "https://casaloti.ia.br/artigos/a", name: "A" }]);
   });
 });

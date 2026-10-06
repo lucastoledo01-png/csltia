@@ -82,6 +82,7 @@ const PAGINAS: Array<{ caminho: string; rotulo: string }> = [
   { caminho: "cadencia", rotulo: "Cadência" },
   { caminho: "perfis-de-referencia", rotulo: "Perfis de referência" },
   { caminho: "acervo", rotulo: "Acervo de imagens" },
+  { caminho: "autores", rotulo: "Autores" },
 ];
 
 function secaoDaUrl(): Secao {

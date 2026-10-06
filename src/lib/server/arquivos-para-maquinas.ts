@@ -71,6 +71,55 @@ export async function materiasDoSitemap(): Promise<MateriaDoSitemap[]> {
   }
 }
 
+/** Uma página de autor no sitemap: o slug e a data da matéria mais recente dele. */
+export type AutorDoSitemap = { slug: string; ultima: string | null };
+
+/**
+ * Só entra autor ATIVO com pelo menos uma matéria publicada (06/10/2026).
+ * Página de autor sem matéria é página rala, e anunciar ao rastreador uma
+ * página sem conteúdo próprio é pedir que ele a classifique como tal. Pura,
+ * para o teste.
+ */
+export function autoresComMateriaPublicada(
+  autores: Array<{ id: string; slug: string; ativo: boolean }>,
+  materias: Array<{ author_id: string | null; published_at: string | null }>,
+): AutorDoSitemap[] {
+  const ultima = new Map<string, string | null>();
+  for (const m of materias) {
+    if (!m.author_id) continue;
+    const atual = ultima.get(m.author_id);
+    if (!ultima.has(m.author_id) || (m.published_at && (!atual || m.published_at > atual))) {
+      ultima.set(m.author_id, m.published_at);
+    }
+  }
+  return autores.filter((a) => a.ativo && ultima.has(a.id)).map((a) => ({ slug: a.slug, ultima: ultima.get(a.id) ?? null }));
+}
+
+/** As páginas de autor do `sitemap.xml`. Vazio antes da migration e quando o banco falha. */
+export async function autoresDoSitemap(): Promise<AutorDoSitemap[]> {
+  try {
+    const client = getSupabaseAdminClient();
+    const { data: autores, error } = await client.from("autores").select("id, slug, ativo").eq("ativo", true);
+    if (error || !autores?.length) return [];
+    const { data: materias, error: e2 } = await client
+      .from("articles")
+      .select("author_id, published_at")
+      .eq("status", "published")
+      .in(
+        "author_id",
+        autores.map((a) => a.id),
+      )
+      .limit(5000);
+    if (e2) return [];
+    return autoresComMateriaPublicada(
+      autores as Array<{ id: string; slug: string; ativo: boolean }>,
+      (materias ?? []) as Array<{ author_id: string | null; published_at: string | null }>,
+    );
+  } catch {
+    return [];
+  }
+}
+
 function xml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }

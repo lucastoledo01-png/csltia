@@ -29,6 +29,9 @@ export type AdminArticleRecord = {
   manual_review_status?: string;
   /** Perguntas e respostas: a página as mostra e só então as marca como FAQPage. */
   aeo_questions?: unknown;
+  /** O autor cadastrado (06/10/2026). Nulo, a matéria é da Redação. */
+  author_id?: string | null;
+  project_id?: string | null;
 };
 
 function sectionsToHtml(title: string, sections: Array<{ heading: string; paragraphs: string[] }>): string {
@@ -82,21 +85,24 @@ export function registroDoBanco(row: any): AdminArticleRecord {
     editorial_score: row.editorial_score || 85,
     manual_review_status: row.manual_review_status || "approved",
     aeo_questions: row.aeo_questions ?? [],
+    author_id: row.author_id ?? null,
+    project_id: row.project_id ?? null,
   };
 }
 
 /**
  * As colunas da página da matéria (06/10/2026).
  *
- * Ficam de fora `canonical_url`, `listmonk_campaign_id`, `last_reviewed_at` e
- * `project_id`, que ninguém da leitura pública usa. A lista foi conferida
+ * Ficam de fora `canonical_url`, `listmonk_campaign_id` e `last_reviewed_at`,
+ * que ninguém da leitura pública usa. `author_id` e `project_id` entram com os
+ * autores (06/10/2026): a página assina pela pessoa do projeto. A lista foi conferida
  * contra o banco de produção nesta data: coluna que não existe faz o PostgREST
  * responder 400, e a página cairia no artigo estático.
  */
 export const COLUNAS_DA_MATERIA =
   "id, slug, title, excerpt, description, cover_image, status, category, author, reading_minutes, view_count, " +
   "published_at, created_at, updated_at, content, content_html, tags, source_urls, seo_title, seo_description, " +
-  "age_summary, editorial_score, manual_review_status, aeo_questions";
+  "age_summary, editorial_score, manual_review_status, aeo_questions, author_id, project_id";
 
 /** As colunas do cartão da lista `/artigos`: sem o corpo, que é o grosso da linha. */
 export const COLUNAS_DA_LISTA =

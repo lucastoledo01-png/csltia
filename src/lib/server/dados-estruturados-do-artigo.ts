@@ -2,7 +2,8 @@ import { MARCA } from "@/lib/marca";
 import { editoriaPeloNome, hrefDaEditoria } from "@/lib/editorias";
 import { escapeHtml } from "./html";
 import { camposDeIndexacaoNoJsonLd, indexacaoValidadaDoArtigo } from "@/lib/indexacao-do-artigo";
-import { imagensDaCapaParaJsonLd, semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
+import { imagemParaCompartilhar, imagensDaCapaParaJsonLd, semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
+import { ASSINATURA_DA_REDACAO, areaDoAutor, pessoaDoAutor, urlDoAutor, type Autor, type AutorDaAssinatura } from "@/lib/autores";
 
 /**
  * O que a busca e os assistentes leem da matéria, montado num lugar só
@@ -20,7 +21,8 @@ import { imagensDaCapaParaJsonLd, semImagemDaCapaNoCorpo } from "@/lib/imagem-da
  *
  * - **Autor é a Redação, como Organization.** Não existe repórter com nome; o
  *   texto é da casa. Inventar pessoa seria o tipo de dado com cara de medida
- *   que o projeto recusa.
+ *   que o projeto recusa. (06/10/2026: a matéria que o dono atribuiu a um
+ *   autor cadastrado sai com ele como Person; sem autor, segue a Redação.)
  * - **`dateModified` só muda quando o conteúdo mudou.** Vem de `updated_at`, e
  *   só quando ele é posterior à publicação por mais que a folga abaixo; senão
  *   é a própria data de publicação. Atualizar a data sem mudar o texto é o
@@ -130,6 +132,50 @@ export function dadosEstruturadosDaEditoria(
           { "@type": "ListItem", position: 2, name: editoria.nome, item: editoria.url },
         ],
       },
+    ],
+  };
+}
+
+/**
+ * O grafo da página de um autor (06/10/2026): ProfilePage com a pessoa como
+ * `mainEntity`, a organização para quem ela escreve e, quando há, a lista das
+ * matérias que a página mostra.
+ */
+export function dadosEstruturadosDoAutor(
+  autor: Pick<Autor, "slug" | "nome" | "cargo" | "minibio" | "foto_url" | "redes" | "area">,
+  materias: Array<{ url: string; titulo: string }>,
+): Record<string, unknown> {
+  const url = urlDoAutor(autor.slug);
+  const lista = materias.slice(0, 30);
+  const area = areaDoAutor(autor.area);
+  const pessoa = {
+    ...pessoaDoAutor(autor),
+    ...(autor.minibio ? { description: autor.minibio } : {}),
+    ...(area ? { knowsAbout: area.nome } : {}),
+  };
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      organizacaoDoSite(),
+      {
+        "@type": "ProfilePage",
+        "@id": `${url}#pagina`,
+        url,
+        name: `${autor.nome} | ${MARCA.nome}`,
+        inLanguage: "pt-BR",
+        isPartOf: { "@id": ID_DO_SITE },
+        mainEntity: pessoa,
+      },
+      ...(lista.length
+        ? [
+            {
+              "@type": "ItemList",
+              "@id": `${url}#materias`,
+              name: `Matérias de ${autor.nome}`,
+              itemListElement: lista.map((m, i) => ({ "@type": "ListItem", position: i + 1, url: m.url, name: m.titulo })),
+            },
+          ]
+        : []),
     ],
   };
 }
@@ -279,6 +325,7 @@ export function dadosEstruturadosDoArtigo(
   a: ArtigoParaBusca,
   opcoes: {
     perguntasVisiveis: PerguntaVisivel[];
+    autor?: AutorDaAssinatura | null;
     /**
      * As dimensões do original da capa, quando quem chama as resolveu (a
      * página do arquivo no Commons). Ausentes, valem as do crédito gravado no
@@ -325,7 +372,9 @@ export function dadosEstruturadosDoArtigo(
       // leitura (06/10/2026): assunto genérico gravado antes da regra não
       // aparece, e entidade que o corpo não nomeia não entra.
       ...camposDeIndexacaoNoJsonLd(indexacaoValidadaDoArtigo(a)),
-      author: { "@type": "Organization", name: `Redação ${MARCA.nome}`, url: MARCA.site },
+      author: opcoes.autor
+        ? pessoaDoAutor(opcoes.autor)
+        : { "@type": "Organization", name: ASSINATURA_DA_REDACAO, url: MARCA.site },
       publisher: { "@id": idOrganizacao },
       mainEntityOfPage: { "@type": "WebPage", "@id": url },
       url,

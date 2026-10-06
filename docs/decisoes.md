@@ -1604,6 +1604,28 @@ a publicação; prazo de cinco segundos; falha vai para `platform_events`
 do `next.config.ts`. Sem a chave, nada acontece e o log diz isso uma vez. O
 Google não participa, e ping de sitemap ele ignora desde 2023.
 
+## Autores com nome, e a Redação continua o padrão (06/10/2026)
+
+Aprovado pelo dono. Tabela `autores` (migration `20261006120000_autores.sql`)
+e `articles.author_id`, nulo por padrão. A esteira automática nunca atribui
+autor: matéria sem autor assina "Redação eua.journal" e sai como Organization
+no JSON-LD, como antes. O dono cadastra e atribui em `/admin/<projeto>/autores`.
+
+- **A página prefere `author_id`**; a coluna de texto `author` fica por
+  compatibilidade e não é lida para a assinatura com link.
+- **Com autor, o NewsArticle traz Person** (url da página, `jobTitle`,
+  `image`, `sameAs` só com as redes gravadas), e `/autor/<slug>` é ProfilePage.
+  A auditoria de artigo aceita Person ou Organization.
+- **Desativar, nunca apagar.** Autor desativado sai do portal inteiro: a página
+  dá 404 e as matérias voltam a assinar como a Redação, para nenhum link
+  apontar para página que não existe. Reativar devolve tudo.
+- **Página de autor sem matéria publicada** abre, mas com `noindex` e fora do
+  sitemap até a primeira matéria.
+- **A leitura degrada.** Antes da migration, a matéria abre com a Redação e o
+  painel diz qual arquivo rodar.
+
+Capturas em `docs/design/autores-2026-10-06/` (autora de exemplo, fictícia).
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

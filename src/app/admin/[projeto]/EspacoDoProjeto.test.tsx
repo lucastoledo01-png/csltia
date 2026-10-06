@@ -105,7 +105,7 @@ describe("área do projeto", () => {
    * As telas de endereço próprio (06/10/2026) só eram alcançáveis por quem
    * sabia a URL. Agora são links do menu, nas duas navegações.
    */
-  it("leva às telas de endereço próprio: cadência, perfis de referência e acervo", async () => {
+  it("leva às telas de endereço próprio: cadência, perfis de referência, acervo e autores", async () => {
     vi.stubGlobal("fetch", responder());
 
     render(<EspacoDoProjeto slug="desbuguei" />);
@@ -119,6 +119,7 @@ describe("área do projeto", () => {
         "/admin/desbuguei/perfis-de-referencia",
       );
       expect(nav.getByRole("link", { name: "Acervo de imagens" })).toHaveAttribute("href", "/admin/desbuguei/acervo");
+      expect(nav.getByRole("link", { name: "Autores" })).toHaveAttribute("href", "/admin/desbuguei/autores");
     }
   });
 
