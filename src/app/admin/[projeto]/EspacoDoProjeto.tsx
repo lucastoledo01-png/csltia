@@ -16,6 +16,7 @@ import { LayoutDosPosts } from "@/components/admin/LayoutDosPosts";
 import { CalendarioDeConteudo } from "@/components/admin/CalendarioDeConteudo";
 import { InstrucoesEditoriais } from "@/components/admin/InstrucoesEditoriais";
 import { LogsDoDia } from "@/components/admin/LogsDoDia";
+import { PainelDeAprendizado } from "@/components/admin/PainelDeAprendizado";
 
 /**
  * A área de um projeto.
@@ -40,6 +41,7 @@ type Secao =
   | "blog"
   | "calendario"
   | "instrucoes"
+  | "aprendizado"
   | "logs"
   | "avancado";
 
@@ -60,6 +62,12 @@ const SECOES: Array<{ id: Secao; rotulo: string; descricao: string }> = [
   // 05/10/2026: o calendário (só leitura) e as instruções editoriais (RF-26).
   { id: "calendario", rotulo: "Calendário", descricao: "A semana planejada e o que existe em cada canal." },
   { id: "instrucoes", rotulo: "Instruções", descricao: "O julgamento editorial de cada etapa, com versões." },
+  // 06/10/2026: o que cada canal aprendeu com a fila, e as propostas de regra.
+  {
+    id: "aprendizado",
+    rotulo: "Aprendizado",
+    descricao: "O que cada canal aprendeu com aprovações, reprovações e edições.",
+  },
   { id: "logs", rotulo: "Logs", descricao: "O que cada rodada da redação registrou, e por quê." },
   { id: "avancado", rotulo: "Avançado", descricao: "Etapas ligadas e ferramentas arquivadas." },
 ];
@@ -268,6 +276,7 @@ function AreaDoProjeto({ slug }: { slug: string }) {
           ) : null}
           {secao === "calendario" ? <CalendarioDeConteudo projeto={projeto} /> : null}
           {secao === "instrucoes" ? <InstrucoesEditoriais projeto={projeto} /> : null}
+          {secao === "aprendizado" ? <PainelDeAprendizado slug={projeto.slug} embutido /> : null}
           {secao === "logs" ? (
             <div className="space-y-8">
               <LogsDoDia projeto={projeto} />

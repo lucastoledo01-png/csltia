@@ -17,6 +17,10 @@ import type { ContextoDaRefacao, GanchosDeRefazer, ResultadoDaEtapa } from "./re
 import { getSupabaseAdminClient } from "../supabase-admin";
 import type { PapelDeSlide } from "../social/carrossel/estrutura";
 import type { CopyDoCarrossel } from "../social/carrossel/copy";
+import { moldesLigados } from "../social/moldes-do-feed";
+import { aprendizadoDaArteVazio, arteNaRefacao } from "../aprendizado/arte";
+import { arteDaLinhaDoPost } from "../aprendizado/detalhes";
+import { fotoNovaServe, imagemNaRefacao } from "../aprendizado/imagem";
 
 /**
  * Os ganchos de refação ligados de verdade (RF-22, integração de 05/10/2026).
@@ -86,7 +90,13 @@ export type MundoDosGanchos = {
   renderizarHtml: (artigo: Artigo, fonte: { nome: string; url: string }) => Promise<string> | string;
   imagem: (
     pauta: PautaParaImagem,
-    ctx: { client: SupabaseClient; projeto: Project; evitar: string[] },
+    ctx: {
+      client: SupabaseClient;
+      projeto: Project;
+      evitar: string[];
+      /** Por que o editor recusou fotos neste canal (06/10/2026): vai para a pergunta da cena. */
+      recusas?: string[];
+    },
   ) => Promise<ResultadoVisual>;
   congelar: (entrada: EntradaDoCongelamento) => Promise<ResultadoDoCongelamento>;
   /** O congelamento das N telas do carrossel (06/10/2026). */
@@ -205,6 +215,8 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     const linha = await lerLinha(client, "articles", "id, cover_image", ctx.aprovacao.pecaId, projeto.id);
     if (!linha) return falha("o artigo não existe mais");
     const atual = typeof linha.cover_image === "string" ? linha.cover_image : "";
+    // O canal não volta a uma foto que já recusou, e a cena recebe o porquê (06/10/2026).
+    const { evitar, recusas } = imagemNaRefacao([atual], ctx.motivo, ctx.aprendizado?.imagem);
 
     const r = await mundo.imagem(
       {
@@ -219,11 +231,11 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
           pais: origem.pais,
         },
       },
-      { client, projeto, evitar: atual ? [atual] : [] },
+      { client, projeto, evitar, recusas },
     );
     // Só foto real da pauta; a bandeira não é publicada desde 05/10/2026 (`sem-foto.ts`).
     const nova = temFotoDaPauta(r) ? (r.asset?.imageUrl ?? "") : "";
-    if (!nova || nova === atual) return falha("o resolvedor não achou outra foto para esta pauta");
+    if (!fotoNovaServe(nova, [atual], evitar)) return falha("o resolvedor não achou outra foto para esta pauta");
 
     const { error } = await client
       .from("articles")
@@ -291,6 +303,8 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
       resumo = typeof c?.summary === "string" ? c.summary : "";
     }
 
+    // O canal não volta a uma foto que já recusou, e a cena recebe o porquê (06/10/2026).
+    const { evitar, recusas } = imagemNaRefacao([atual], ctx.motivo, ctx.aprendizado?.imagem);
     const r = await mundo.imagem(
       {
         storyId,
@@ -299,11 +313,11 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
         categoria: String(arte.eixo ?? ""),
         classificacao,
       },
-      { client, projeto, evitar: atual ? [atual] : [] },
+      { client, projeto, evitar, recusas },
     );
     // Só foto real da pauta; a bandeira não é publicada desde 05/10/2026 (`sem-foto.ts`).
     const nova = temFotoDaPauta(r) ? (r.asset?.imageUrl ?? "") : "";
-    if (!nova || nova === atual) return falha("o resolvedor não achou outra foto para esta pauta");
+    if (!fotoNovaServe(nova, [atual], evitar)) return falha("o resolvedor não achou outra foto para esta pauta");
 
     const { error } = await client
       .from("social_posts")
@@ -348,13 +362,39 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     const { gramaticaEfetiva, varianteDaCapa } = await import("../social/arte");
     const corpo = typeof copy.gancho === "string" ? copy.gancho : "";
     const eixo = String(arte.eixo ?? "");
+    /*
+     * Arte culpada pelo editor (06/10/2026): a refação troca a decisão recusada
+     * em vez de recongelar a mesma peça, e grava o porquê. Arte que roda depois
+     * do texto ou da imagem mantém a gramática que tinha: ninguém a recusou.
+     */
+    const gramaticaAtual: "jornal" | "recorte" = arte.gramatica === "recorte" ? "recorte" : "jornal";
+    const decisao =
+      ctx.culpada === "arte"
+        ? arteNaRefacao(
+            { gramatica: gramaticaAtual, bolha: arte.bolha === true },
+            ctx.aprendizado?.arte ?? aprendizadoDaArteVazio(),
+            moldesLigados(projeto),
+          )
+        : null;
     const gramatica = gramaticaEfetiva({
-      pedida: arte.gramatica === "recorte" ? "recorte" : "jornal",
+      pedida: decisao?.gramatica ?? gramaticaAtual,
       eixo,
       headline,
       corpo,
       comFoto: Boolean(foto),
     });
+    const registroDoAprendizado = decisao
+      ? {
+          aprendizado: {
+            motivo: ctx.motivo,
+            antes: arteDaLinhaDoPost(arte)?.molde ?? null,
+            pedida: decisao.gramatica,
+            desenhada: gramatica,
+            razao: decisao.razao,
+            em: new Date(mundo.agora ? mundo.agora() : Date.now()).toISOString(),
+          },
+        }
+      : {};
 
     const agora = mundo.agora ? mundo.agora() : Date.now();
     const caminho = `${projeto.slug}/${String(l.edition_date ?? "")}/refeito-${String(l.id).slice(0, 8)}-${agora}`;
@@ -403,6 +443,7 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
               gramatica,
               variante: varianteDaCapa(Boolean(foto), gramatica),
               bolha: false,
+              ...registroDoAprendizado,
             },
           },
           asset_paths: r.artefatos.map((a) => a.url),
@@ -443,7 +484,17 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     const { error } = await client
       .from("social_posts")
       .update({
-        content_json: { ...cj, arte: { ...arte, artefato, gramatica, variante: varianteDaCapa(Boolean(foto), gramatica) } },
+        content_json: {
+          ...cj,
+          arte: {
+            ...arte,
+            artefato,
+            gramatica,
+            variante: varianteDaCapa(Boolean(foto), gramatica),
+            ...(decisao ? { bolha: false } : {}),
+            ...registroDoAprendizado,
+          },
+        },
         asset_paths: [congelado.artefato.url],
         slides_manifest: [
           {
@@ -500,6 +551,7 @@ export function mundoDeProducao(env: Record<string, string | undefined> = proces
           env,
           jaUsadosNestaEdicao: new Set(ctx.evitar),
           jaUsadasRecentemente: ctx.evitar,
+          ...(ctx.recusas?.length ? { recusasDoEditor: ctx.recusas } : {}),
         },
       });
     },

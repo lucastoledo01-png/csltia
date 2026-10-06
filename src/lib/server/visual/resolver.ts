@@ -106,6 +106,12 @@ export type OpcoesDeResolucao = {
    * vem é a capacidade `acervo` do projeto, em `acervo/acervo.ts`.
    */
   acervo?: Acervo | null;
+  /**
+   * Por que o editor recusou fotos NESTE canal (06/10/2026, aprendizado da
+   * fila). Vai para a pergunta da cena, para a busca mudar de assunto e não só
+   * de arquivo. Ausente ou vazio, a pergunta sai byte a byte como antes.
+   */
+  recusasDoEditor?: string[];
 };
 
 export type Conferente = (
@@ -538,7 +544,7 @@ export async function resolveVisualAsset(
           categoria: pauta.categoria,
           pais: pauta.classificacao.pais,
         },
-        { env, fetcher: opcoes.fetcher, comTag: true },
+        { env, fetcher: opcoes.fetcher, comTag: true, recusasDoEditor: opcoes.recusasDoEditor },
       );
       const pais = paisDoAcervo(pauta.classificacao.pais);
       if (!cenaPerguntada.tag) {
@@ -622,7 +628,7 @@ export async function resolveVisualAsset(
               categoria: pauta.categoria,
               pais: pauta.classificacao.pais,
             },
-            { env, fetcher: opcoes.fetcher },
+            { env, fetcher: opcoes.fetcher, recusasDoEditor: opcoes.recusasDoEditor },
           )
         : { consulta: "", objeto: "", falhou: true, motivo: "chamadas de modelo desligadas", custoUsd: 0 };
       const consulta = cena.falhou

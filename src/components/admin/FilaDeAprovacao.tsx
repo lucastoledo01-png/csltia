@@ -26,7 +26,7 @@ import {
  */
 
 type Taxa = { ramo: Ramo; decididas: number; dePrimeira: number; taxa: number | null };
-type Regra = { id: string; etapa: Etapa; regra: string; ocorrencias: number; exemplos: string[]; estado: string };
+type Regra = { id: string; ramo?: Ramo | null; etapa: Etapa; regra: string; ocorrencias: number; exemplos: string[]; estado: string };
 type Visao = {
   ok: boolean;
   error?: string;
@@ -249,7 +249,7 @@ export function FilaDeAprovacao({ slug }: { slug: string }) {
             {propostas.map((r) => (
               <div key={r.id} className="space-y-2 border-t border-slate-100 pt-3 first:border-0 first:pt-0">
                 <p className="text-[13px] text-slate-800">
-                  <strong>Proposta</strong> ({ROTULO_DA_ETAPA[r.etapa]}, {r.ocorrencias} vezes): {r.regra}
+                  <strong>Proposta</strong> ({r.ramo ? `${ROTULO_DO_RAMO[r.ramo]}, ` : ""}{ROTULO_DA_ETAPA[r.etapa]}, {r.ocorrencias} vezes): {r.regra}
                 </p>
                 <ul className="list-disc pl-5 text-[11px] text-slate-500">
                   {r.exemplos.map((e, i) => (
@@ -272,7 +272,7 @@ export function FilaDeAprovacao({ slug }: { slug: string }) {
             ))}
             {fixas.map((r) => (
               <p key={r.id} className="text-[12px] text-slate-600">
-                Regra fixa ({ROTULO_DA_ETAPA[r.etapa]}): {r.regra}
+                Regra fixa ({r.ramo ? `${ROTULO_DO_RAMO[r.ramo]}, ` : ""}{ROTULO_DA_ETAPA[r.etapa]}): {r.regra}
               </p>
             ))}
           </section>

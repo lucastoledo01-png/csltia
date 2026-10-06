@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DetalhesDaReprovacao } from "../aprendizado/contrato";
 import {
   ehEstado,
   ehEtapa,
@@ -62,23 +63,57 @@ export type Reprovacao = {
   textoReprovado: string;
   decididoPor: string;
   createdAt: string;
+  /**
+   * O que a peça reprovada TINHA na etapa culpada (06/10/2026): a pauta, a
+   * foto, a decisão de arte. É o que a seleção, o resolvedor e a arte do
+   * canal aprendem a evitar. Vazio nas reprovações anteriores à migration
+   * `20261006120000_aprendizado_da_fila`.
+   */
+  detalhes?: DetalhesDaReprovacao;
 };
 
 export type EstadoDaRegra = "proposta" | "aprovada" | "recusada";
 
+/** De onde a proposta veio: o mesmo erro três vezes, ou o resumo semanal das edições à mão. */
+export type OrigemDaRegra = "reprovacoes" | "edicoes";
+
 export type RegraProposta = {
   id: string;
   projectId: string;
+  /** A regra é de UM canal (06/10/2026), e nunca entra na voz de outro. */
+  ramo: Ramo;
   etapa: Etapa;
   chave: string;
   regra: string;
   ocorrencias: number;
   exemplos: string[];
+  origem: OrigemDaRegra;
   estado: EstadoDaRegra;
   decididoPor: string | null;
   decididoEm: string | null;
   createdAt: string;
 };
+
+/** Uma edição manual do texto na fila, antes e depois (06/10/2026). */
+export type EdicaoDoEditor = {
+  id: string;
+  projectId: string;
+  ramo: Ramo;
+  pecaId: string;
+  aprovacaoId: string | null;
+  etapa: Etapa;
+  antes: string;
+  depois: string;
+  editadoPor: string;
+  criadoEm: string;
+};
+
+export type FiltroDasRegras = { ramo?: Ramo; etapa?: Etapa; estado?: EstadoDaRegra; origem?: OrigemDaRegra };
+
+export type NovaProposta = Pick<
+  RegraProposta,
+  "projectId" | "ramo" | "etapa" | "chave" | "regra" | "ocorrencias" | "exemplos"
+> & { origem?: OrigemDaRegra };
 
 export type FilaStore = {
   porId(id: string): Promise<Aprovacao | null>;
@@ -125,11 +160,27 @@ export type FilaStore = {
   /** Decididas desde `desdeIso`, para a taxa de aprovação sem retrabalho. */
   decididasDesde(projectId: string, desdeIso: string): Promise<Aprovacao[]>;
   registrarReprovacao(r: Omit<Reprovacao, "id" | "createdAt">): Promise<void>;
-  reprovacoesDaEtapa(projectId: string, etapa: Etapa, limite: number): Promise<Reprovacao[]>;
-  regras(projectId: string, filtro?: { etapa?: Etapa; estado?: EstadoDaRegra }): Promise<RegraProposta[]>;
-  /** Cria a proposta, ou atualiza a contagem se ela ainda for proposta. Nunca ressuscita recusada. */
-  proporRegra(p: Pick<RegraProposta, "projectId" | "etapa" | "chave" | "regra" | "ocorrencias" | "exemplos">): Promise<void>;
+  /** As reprovações de UMA etapa de UM canal, mais recentes primeiro. Nunca mistura canais (06/10/2026). */
+  reprovacoesDaEtapa(projectId: string, ramo: Ramo, etapa: Etapa, limite: number): Promise<Reprovacao[]>;
+  /** As reprovações desde um instante, de um canal ou de todos (o painel de aprendizado). */
+  reprovacoesDesde(projectId: string, desdeIso: string, limite: number, ramo?: Ramo): Promise<Reprovacao[]>;
+  regras(projectId: string, filtro?: FiltroDasRegras): Promise<RegraProposta[]>;
+  /**
+   * Cria a proposta, ou atualiza a contagem se ela ainda for proposta. Nunca
+   * ressuscita recusada, e nunca nasce aprovada: só o dono aprova, no painel.
+   */
+  proporRegra(p: NovaProposta): Promise<"criada" | "atualizada" | "ja_decidida">;
   decidirRegra(id: string, estado: "aprovada" | "recusada", quem: string): Promise<RegraProposta | null>;
+  /** Grava o antes e o depois de uma edição manual (06/10/2026). */
+  registrarEdicao(e: Omit<EdicaoDoEditor, "id" | "criadoEm">): Promise<void>;
+  /** As edições desde um instante, mais recentes primeiro, de um canal ou de todos. */
+  edicoesDesde(projectId: string, desdeIso: string, limite: number, ramo?: Ramo): Promise<EdicaoDoEditor[]>;
+  /**
+   * As peças de UM canal aprovadas pelo editor sem refação desde um instante,
+   * mais recentes primeiro. O modo automático fica de fora: o exemplo é do
+   * que o EDITOR aprovou olhando, e não do que a máquina deixou passar.
+   */
+  aprovadasSemRetrabalho(projectId: string, ramo: Ramo, desdeIso: string, limite: number): Promise<Aprovacao[]>;
 };
 
 type Linha = Record<string, unknown>;
@@ -200,23 +251,46 @@ function linhaParaReprovacao(l: Linha): Reprovacao {
     textoReprovado: String(l.texto_reprovado ?? ""),
     decididoPor: String(l.decidido_por ?? ""),
     createdAt: String(l.created_at ?? ""),
+    detalhes: l.detalhes && typeof l.detalhes === "object" ? (l.detalhes as DetalhesDaReprovacao) : {},
   };
 }
 
+/**
+ * Regra com canal ilegível não é regra de canal nenhum: o `ramo` torto vira
+ * `null` aqui, e quem monta o prompt filtra pelo canal, então ela nunca entra.
+ * A migration de 06/10/2026 põe a coluna NOT NULL com CHECK; isto é o cinto.
+ */
 function linhaParaRegra(l: Linha): RegraProposta {
   const estado = l.estado === "aprovada" || l.estado === "recusada" ? l.estado : "proposta";
   return {
     id: String(l.id),
     projectId: String(l.project_id),
+    ramo: (ehRamo(l.ramo) ? l.ramo : null) as Ramo,
     etapa: ehEtapa(l.etapa) ? l.etapa : "texto",
     chave: String(l.chave ?? ""),
     regra: String(l.regra ?? ""),
     ocorrencias: Number(l.ocorrencias ?? 0) || 0,
     exemplos: Array.isArray(l.exemplos) ? (l.exemplos as string[]) : [],
+    origem: l.origem === "edicoes" ? "edicoes" : "reprovacoes",
     estado,
     decididoPor: texto(l.decidido_por),
     decididoEm: texto(l.decidido_em),
     createdAt: String(l.created_at ?? ""),
+  };
+}
+
+function linhaParaEdicao(l: Linha): EdicaoDoEditor {
+  return {
+    id: String(l.id),
+    projectId: String(l.project_id),
+    ramo: ehRamo(l.ramo) ? l.ramo : "post",
+    pecaId: String(l.peca_id ?? ""),
+    aprovacaoId: texto(l.aprovacao_id),
+    etapa: ehEtapa(l.etapa) ? l.etapa : "texto",
+    antes: String(l.antes ?? ""),
+    depois: String(l.depois ?? ""),
+    editadoPor: String(l.editado_por ?? ""),
+    criadoEm: String(l.criado_em ?? ""),
   };
 }
 
@@ -353,15 +427,18 @@ export function criarFilaStore(client: SupabaseClient): FilaStore {
         motivo: r.motivo,
         texto_reprovado: r.textoReprovado,
         decidido_por: r.decididoPor,
+        // Só quando há o que gravar: antes da migration de 06/10/2026 a coluna não existe.
+        ...(r.detalhes && Object.keys(r.detalhes).length > 0 ? { detalhes: r.detalhes } : {}),
       });
       if (error) falhou("gravar a reprovação", error.message);
     },
 
-    async reprovacoesDaEtapa(projectId, etapa, limite) {
+    async reprovacoesDaEtapa(projectId, ramo, etapa, limite) {
       const { data, error } = await client
         .from("reprovacoes")
         .select("*")
         .eq("project_id", projectId)
+        .eq("ramo", ramo)
         .eq("etapa", etapa)
         .order("created_at", { ascending: false })
         .limit(limite);
@@ -369,10 +446,20 @@ export function criarFilaStore(client: SupabaseClient): FilaStore {
       return ((data ?? []) as Linha[]).map(linhaParaReprovacao);
     },
 
+    async reprovacoesDesde(projectId, desdeIso, limite, ramo) {
+      let q = client.from("reprovacoes").select("*").eq("project_id", projectId).gte("created_at", desdeIso);
+      if (ramo) q = q.eq("ramo", ramo);
+      const { data, error } = await q.order("created_at", { ascending: false }).limit(limite);
+      if (error) falhou("ler as reprovações", error.message);
+      return ((data ?? []) as Linha[]).map(linhaParaReprovacao);
+    },
+
     async regras(projectId, filtro = {}) {
       let q = client.from("regras_propostas").select("*").eq("project_id", projectId);
+      if (filtro.ramo) q = q.eq("ramo", filtro.ramo);
       if (filtro.etapa) q = q.eq("etapa", filtro.etapa);
       if (filtro.estado) q = q.eq("estado", filtro.estado);
+      if (filtro.origem) q = q.eq("origem", filtro.origem);
       const { data, error } = await q.order("created_at", { ascending: false }).limit(200);
       if (error) falhou("ler as regras", error.message);
       return ((data ?? []) as Linha[]).map(linhaParaRegra);
@@ -383,6 +470,7 @@ export function criarFilaStore(client: SupabaseClient): FilaStore {
         .from("regras_propostas")
         .select("id, estado")
         .eq("project_id", p.projectId)
+        .eq("ramo", p.ramo)
         .eq("etapa", p.etapa)
         .eq("chave", p.chave)
         .maybeSingle();
@@ -390,24 +478,67 @@ export function criarFilaStore(client: SupabaseClient): FilaStore {
 
       if (data) {
         // Recusada fica recusada, aprovada fica aprovada: só a proposta aberta conta de novo.
-        if ((data as Linha).estado !== "proposta") return;
+        if ((data as Linha).estado !== "proposta") return "ja_decidida";
         const { error: e2 } = await client
           .from("regras_propostas")
           .update({ ocorrencias: p.ocorrencias, exemplos: p.exemplos, updated_at: new Date().toISOString() })
           .eq("id", (data as Linha).id as string);
         if (e2) falhou("atualizar a proposta de regra", e2.message);
-        return;
+        return "atualizada";
       }
 
       const { error: e3 } = await client.from("regras_propostas").insert({
         project_id: p.projectId,
+        ramo: p.ramo,
         etapa: p.etapa,
         chave: p.chave,
         regra: p.regra,
         ocorrencias: p.ocorrencias,
         exemplos: p.exemplos,
+        origem: p.origem ?? "reprovacoes",
+        // Sempre proposta: nada vira regra sem o dono aprovar no painel.
+        estado: "proposta",
       });
       if (e3) falhou("gravar a proposta de regra", e3.message);
+      return "criada";
+    },
+
+    async registrarEdicao(e) {
+      const { error } = await client.from("edicoes_do_editor").insert({
+        project_id: e.projectId,
+        ramo: e.ramo,
+        peca_id: e.pecaId,
+        aprovacao_id: e.aprovacaoId,
+        etapa: e.etapa,
+        antes: e.antes,
+        depois: e.depois,
+        editado_por: e.editadoPor,
+      });
+      if (error) falhou("gravar a edição do editor", error.message);
+    },
+
+    async edicoesDesde(projectId, desdeIso, limite, ramo) {
+      let q = client.from("edicoes_do_editor").select("*").eq("project_id", projectId).gte("criado_em", desdeIso);
+      if (ramo) q = q.eq("ramo", ramo);
+      const { data, error } = await q.order("criado_em", { ascending: false }).limit(limite);
+      if (error) falhou("ler as edições do editor", error.message);
+      return ((data ?? []) as Linha[]).map(linhaParaEdicao);
+    },
+
+    async aprovadasSemRetrabalho(projectId, ramo, desdeIso, limite) {
+      const { data, error } = await client
+        .from("aprovacoes")
+        .select("*")
+        .eq("project_id", projectId)
+        .eq("ramo", ramo)
+        .eq("estado", "aprovada")
+        .eq("refazimentos", 0)
+        .eq("automatica", false)
+        .gte("decidido_em", desdeIso)
+        .order("decidido_em", { ascending: false })
+        .limit(limite);
+      if (error) falhou("ler as aprovadas sem retrabalho", error.message);
+      return ((data ?? []) as Linha[]).map(linhaParaAprovacao);
     },
 
     async decidirRegra(id, estado, quem) {
