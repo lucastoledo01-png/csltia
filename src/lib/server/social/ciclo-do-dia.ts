@@ -8,6 +8,9 @@ import { conferirFinalistas } from "../editorial/finalistas";
 import type { ResultadoDosFinalistas } from "../editorial/finalistas";
 import { criarCandidatosStore } from "../editorial/candidatos-store";
 import { imagemDaPauta } from "../visual/acervo/imagem-da-pauta";
+import { acervoDoProjeto } from "../visual/acervo/acervo";
+import { buscarSegundaFoto } from "../visual/resolver";
+import { detectarRostos } from "../visual/rostos-na-foto";
 import { carregarConfigSocial } from "./selecao";
 import { limitarTetoDoDia, poolDoInstagram } from "../ramos/selecao";
 import { criarSocialPostsStore } from "./social-posts-store";
@@ -17,6 +20,12 @@ import type { ModoSocial, ResumoVisualDoDia } from "./modo";
 import type { ProjetoComCapacidades } from "../capacidades";
 import { rodarCicloSocial } from "./pipeline-v2";
 import { moldesLigados } from "./moldes-do-feed";
+import { modoDaFila } from "../aprovacao/modo";
+import { criarFilaStore } from "../aprovacao/fila-store";
+import { aprendizadoDoCanal, aprendizadoVazio, type AprendizadoDoCanal } from "../aprendizado/do-canal";
+import { comFotoDoCanal } from "../aprendizado/imagem";
+import { aprenderNaSelecao } from "../aprendizado/selecao";
+import { moldesComAprendizado } from "../aprendizado/arte";
 import {
   decisorDeFormato,
   historicoDoEvergreen,
@@ -116,6 +125,12 @@ export type OpcoesDoSocialDoDia = {
    * exatamente como lia antes da plataforma multi-projeto existir.
    */
   projeto?: ProjetoComCapacidades | null;
+  /**
+   * O que o canal do Instagram aprendeu com a fila (06/10/2026). Ausente, é
+   * lido do banco quando a fila do projeto está fora de `off`. Injetável para
+   * o teste.
+   */
+  aprendizado?: AprendizadoDoCanal;
   /**
    * Teto de posts do dia no ramo próprio do Instagram (RF-15, 05/10/2026).
    *
@@ -413,18 +428,61 @@ export async function rodarSocialDoDia(
     console.warn("[SOCIAL] Não consegui ler a memória de fotos:", erro);
   }
 
+  /*
+   * A pauta como o resolvedor de imagem a recebe, e as opções que a foto de
+   * fundo e a busca extra da bolha compartilham.
+   */
+  const paraImagem = (pauta: PautaAvaliada) => ({
+    storyId: pauta.storyId,
+    titulo: pauta.grupo.primary.title,
+    resumo: pauta.enriquecimento?.texto ?? "",
+    categoria: pauta.classificacao.eixo,
+    classificacao: {
+      atores: pauta.classificacao.atores,
+      lugares: pauta.classificacao.lugares,
+      acontecimento: pauta.classificacao.acontecimento,
+      pais: pauta.classificacao.pais,
+    },
+  });
+  const projetoDaImagem = opcoes.projeto ? { ...opcoes.projeto, id: opcoes.projectId } : null;
+  const opcoesDaImagem = {
+    env,
+    fetcher,
+    somenteLeitura: true,
+    jaUsadosNestaEdicao: fotosDaEdicao,
+    jaUsadasRecentemente: fotosAntigas,
+  };
+
+  /*
+   * O que o Instagram aprendeu com as reprovações DELE (06/10/2026): a pauta
+   * parecida com a recusada desce, a fonte ou o ator recusado três vezes sai,
+   * a foto recusada não volta ao post, e o molde recusado três vezes sai da
+   * escolha. Só com a fila fora de `off`; sem ela, nada é lido.
+   */
+  const aprendizado =
+    opcoes.aprendizado ??
+    (opcoes.projeto && modoDaFila(opcoes.projeto) !== "off"
+      ? await aprendizadoDoCanal(criarFilaStore(opcoes.client), opcoes.projectId, "post", opcoes.agoraMs ?? Date.now())
+      : aprendizadoVazio("post"));
+  const doPool = aprenderNaSelecao(conferencia.confirmadas, aprendizado.selecao, "post");
+  const moldesDoDia = moldesComAprendizado(moldesLigados(opcoes.projeto), aprendizado.arte);
+  for (const l of [...doPool.linhas, ...moldesDoDia.linhas]) console.log(l);
+
   const modoCarrosselDaNoticia = modoDoCarrosselDaNoticia(opcoes.projeto);
 
-  const ciclo = await rodarCicloSocial(conferencia.confirmadas, {
+  const ciclo = await rodarCicloSocial(doPool.pool, {
     projectId: opcoes.projectId,
     /*
      * Os moldes saem do projeto, do mesmo `settings` de onde saem as
      * capacidades, e por isso nenhum chamador precisou mudar. Projeto ausente
-     * devolve todos ligados, que é como a esteira se comportava antes.
+     * devolve todos ligados, que é como a esteira se comportava antes. Desde
+     * 06/10/2026 o molde recusado três vezes pelo editor sai também.
      */
-    moldes: moldesLigados(opcoes.projeto),
+    moldes: moldesDoDia.moldes,
     slugDoProjeto: opcoes.projectSlug,
     editionDate: opcoes.editionDate,
+    // A referência ao pool do dia, para a troca de pauta na fila (06/10/2026).
+    poolDoDia: approvedEditorialPool.map((p) => p.storyId),
     marca: opcoes.marca,
     historico: opcoes.historico,
     pacotes,
@@ -473,18 +531,7 @@ export async function rodarSocialDoDia(
             const pauta = post.pauta;
             const pacote = pacotes.get(pauta.storyId) ?? null;
             return fotosDoCarrossel({
-              pauta: {
-                storyId: pauta.storyId,
-                titulo: pauta.grupo.primary.title,
-                resumo: pauta.enriquecimento?.texto ?? "",
-                categoria: pauta.classificacao.eixo,
-                classificacao: {
-                  atores: pauta.classificacao.atores,
-                  lugares: pauta.classificacao.lugares,
-                  acontecimento: pauta.classificacao.acontecimento,
-                  pais: pauta.classificacao.pais,
-                },
-              },
+              pauta: paraImagem(pauta),
               quantas: papeisDoModelo(carrossel.papeis).length,
               fotoDaCapa: visual?.asset ?? null,
               pessoas: pacote?.people ?? [],
@@ -534,31 +581,43 @@ export async function rodarSocialDoDia(
      * pauta. Fora de `enforce` é repasse direto ao resolvedor, como antes.
      */
     resolverVisual: async (pauta) =>
-      imagemDaPauta(
-        {
-          storyId: pauta.storyId,
-          titulo: pauta.grupo.primary.title,
-          resumo: pauta.enriquecimento?.texto ?? "",
-          categoria: pauta.classificacao.eixo,
-          classificacao: {
-            atores: pauta.classificacao.atores,
-            lugares: pauta.classificacao.lugares,
-            acontecimento: pauta.classificacao.acontecimento,
-            pais: pauta.classificacao.pais,
-          },
-        },
-        {
+      comFotoDoCanal(
+        await imagemDaPauta(paraImagem(pauta), {
           client: opcoes.client,
-          projeto: opcoes.projeto ? { ...opcoes.projeto, id: opcoes.projectId } : null,
-          opcoes: {
-            env,
-            fetcher,
-            somenteLeitura: true,
-            jaUsadosNestaEdicao: fotosDaEdicao,
-            jaUsadasRecentemente: fotosAntigas,
-          },
-        },
+          projeto: projetoDaImagem,
+          opcoes: opcoesDaImagem,
+        }),
+        aprendizado.imagem,
+        // A compartilhada que o post recusou: só o post resolve outra (06/10/2026).
+        () =>
+          imagemDaPauta(paraImagem(pauta), {
+            client: opcoes.client,
+            projeto: projetoDaImagem,
+            ignorarReuso: true,
+            opcoes: {
+              ...opcoesDaImagem,
+              jaUsadasRecentemente: [...fotosAntigas, ...aprendizado.imagem.evitar],
+              ...(aprendizado.imagem.motivos.length ? { recusasDoEditor: aprendizado.imagem.motivos } : {}),
+            },
+          }),
       ),
+    /*
+     * A bolha sem rosto (06/10/2026). Os rostos da foto de fundo são
+     * perguntados a um modelo de visão, com memória por URL, e só na vez da
+     * bolha. Sem chave, a detecção falha e a capa sai sem bolha.
+     */
+    detectarRostos: (url) => detectarRostos(url, { env, fetcher }),
+    /*
+     * A busca extra da segunda foto, também só na vez da bolha e só quando o
+     * resolvedor não trouxe vice. Mesmas memórias de foto do ciclo, e o acervo
+     * pela mesma capacidade que a foto de fundo usa.
+     */
+    buscarSegundaFoto: (pauta, visual) =>
+      buscarSegundaFoto(paraImagem(pauta), visual.asset ?? { imageUrl: "" }, visual.entidade ?? null, {
+        ...opcoesDaImagem,
+        client: opcoes.client,
+        acervo: acervoDoProjeto(opcoes.client, projetoDaImagem),
+      }),
   });
 
   diagnostico.selected = ciclo.previews.length;

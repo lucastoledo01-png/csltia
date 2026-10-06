@@ -18,8 +18,12 @@ const artigos = [
   { slug: "sem-data", published_at: null, updated_at: null },
 ];
 
-vi.mock("@/lib/server/arquivos-para-maquinas", () => ({
+const autores = [{ slug: "ana-silva", ultima: "2026-10-05T12:00:00.000Z" }];
+
+vi.mock("@/lib/server/arquivos-para-maquinas", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/server/arquivos-para-maquinas")>()),
   materiasDoSitemap: async () => artigos,
+  autoresDoSitemap: async () => autores,
 }));
 
 const { default: sitemap } = await import("./sitemap");
@@ -59,6 +63,9 @@ describe("sitemap", () => {
       materiasDoSitemap: async () => {
         throw new Error("banco fora do ar");
       },
+      autoresDoSitemap: async () => {
+        throw new Error("banco fora do ar");
+      },
     }));
 
     const { default: comFalha } = await import("./sitemap");
@@ -74,5 +81,32 @@ describe("sitemap com a data do banco (auditoria de 05/10/2026)", () => {
   it("lastmod é a modificação honesta da matéria, a mesma do JSON-LD", async () => {
     const entrada = (await sitemap()).find((e) => e.url.endsWith("/artigos/materia-2026-09-09"));
     expect((entrada?.lastModified as Date).toISOString()).toBe("2026-09-12T10:00:00.000Z");
+  });
+});
+
+describe("páginas de autor no sitemap (06/10/2026)", () => {
+  it("o autor que a leitura devolve entra, com a data da matéria mais recente", async () => {
+    const entrada = (await sitemap()).find((e) => e.url === "https://casaloti.ia.br/autor/ana-silva");
+    expect((entrada?.lastModified as Date).toISOString()).toBe("2026-10-05T12:00:00.000Z");
+  });
+
+  it("a regra: só autor ativo com pelo menos uma matéria publicada", async () => {
+    const { autoresComMateriaPublicada } = await vi.importActual<typeof import("@/lib/server/arquivos-para-maquinas")>(
+      "@/lib/server/arquivos-para-maquinas",
+    );
+    const lista = autoresComMateriaPublicada(
+      [
+        { id: "a", slug: "com-materia", ativo: true },
+        { id: "b", slug: "sem-materia", ativo: true },
+        { id: "c", slug: "desativado", ativo: false },
+      ],
+      [
+        { author_id: "a", published_at: "2026-10-01T00:00:00Z" },
+        { author_id: "a", published_at: "2026-10-04T00:00:00Z" },
+        { author_id: "c", published_at: "2026-10-04T00:00:00Z" },
+        { author_id: null, published_at: "2026-10-04T00:00:00Z" },
+      ],
+    );
+    expect(lista).toEqual([{ slug: "com-materia", ultima: "2026-10-04T00:00:00Z" }]);
   });
 });

@@ -54,7 +54,9 @@ function topico(over: Partial<TopicoEvergreen> = {}): TopicoEvergreen {
   return {
     id: "t",
     nome: "Tema",
-    familia: "visa_explainer",
+    familia: "explainer",
+    editoria: "economia",
+    temas: ["juros-do-fed"],
     resumo: "Resumo do tema.",
     fontesCanonicas: ["https://www.uscis.gov/x"],
     angulos: [{ id: "a", pergunta: "O que e isso?" }],
@@ -67,15 +69,13 @@ function item(familia: FamiliaEvergreen, pergunta = "O que e isso?"): ItemEvergr
   return { topico: t, angulo: { id: "a", pergunta } };
 }
 
-/** As sete famílias, escritas à mão para o teste falhar se uma nova aparecer sem preferência. */
+/** As cinco famílias, escritas à mão para o teste falhar se uma nova aparecer sem preferência. */
 const PREFERENCIAS: FamiliaEvergreen[] = [
-  "visa_explainer",
+  "explainer",
   "glossary",
   "faq",
   "comparison",
   "process_explainer",
-  "evidence_education",
-  "professional_education",
 ];
 
 const COM_CTA = { comCta: true };
@@ -116,7 +116,7 @@ describe("fato que serve de slide", () => {
 
 describe("não criar carrossel vazio", () => {
   it("um fato só vira estático, mesmo em família que prefere carrossel", () => {
-    const d = determinarFormatoEvergreen(item("visa_explainer"), pacote(fatosDeVerdade(1)), COM_CTA);
+    const d = determinarFormatoEvergreen(item("explainer"), pacote(fatosDeVerdade(1)), COM_CTA);
     expect(d.formato).toBe("static");
     expect(d.slides).toBe(1);
     expect(d.motivo).toContain("carrossel vazio");
@@ -136,7 +136,7 @@ describe("não criar carrossel vazio", () => {
   });
 
   it("explainer com material suficiente vira carrossel", () => {
-    const d = determinarFormatoEvergreen(item("visa_explainer"), pacote(fatosDeVerdade(5)), COM_CTA);
+    const d = determinarFormatoEvergreen(item("explainer"), pacote(fatosDeVerdade(5)), COM_CTA);
     expect(d.formato).toBe("carousel");
     expect(d.estrutura).toBe("explainer");
   });
@@ -200,7 +200,7 @@ describe("glossário e FAQ são estáticos por padrão", () => {
 describe("a pergunta manda na forma", () => {
   it("ângulo de etapas dentro de um explainer vira processo", () => {
     const d = determinarFormatoEvergreen(
-      item("visa_explainer", "Em que ordem as etapas acontecem?"),
+      item("explainer", "Em que ordem as etapas acontecem?"),
       pacote(fatosDeVerdade(6)),
       COM_CTA,
     );
@@ -209,7 +209,7 @@ describe("a pergunta manda na forma", () => {
 
   it("ângulo de diferença vira comparação", () => {
     const d = determinarFormatoEvergreen(
-      item("visa_explainer", "Qual a diferença entre os dois pedidos?"),
+      item("explainer", "Qual a diferença entre os dois pedidos?"),
       pacote(fatosDeVerdade(6)),
       COM_CTA,
     );
@@ -223,7 +223,7 @@ describe("a pergunta manda na forma", () => {
      * os dois lados.
      */
     const d = determinarFormatoEvergreen(
-      item("visa_explainer", "O que é o EB-2 NIW ou como ele funciona?"),
+      item("explainer", "O que é o EB-2 NIW ou como ele funciona?"),
       pacote(fatosDeVerdade(6)),
       COM_CTA,
     );
@@ -264,8 +264,8 @@ describe("limites", () => {
   });
 
   it("sem CTA o carrossel não reserva slide de fechamento", () => {
-    const com = determinarFormatoEvergreen(item("visa_explainer"), pacote(fatosDeVerdade(6)), COM_CTA);
-    const sem = determinarFormatoEvergreen(item("visa_explainer"), pacote(fatosDeVerdade(6)), SEM_CTA);
+    const com = determinarFormatoEvergreen(item("explainer"), pacote(fatosDeVerdade(6)), COM_CTA);
+    const sem = determinarFormatoEvergreen(item("explainer"), pacote(fatosDeVerdade(6)), SEM_CTA);
     expect(papeisPara(com.estrutura!, com.slides, true).some((p) => p.tipo === "cta")).toBe(true);
     expect(papeisPara(sem.estrutura!, sem.slides, false).some((p) => p.tipo === "cta")).toBe(false);
   });

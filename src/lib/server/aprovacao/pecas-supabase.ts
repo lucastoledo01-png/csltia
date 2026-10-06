@@ -5,6 +5,7 @@ import { createListmonkClient } from "../listmonk";
 import type { Ramo } from "./contrato";
 import type { AdaptadorDePecas, PecaLida, ProjetoDaFila, ResultadoDoDespacho } from "./fila";
 import { hashDaNewsletter, hashDoArtigo, hashDoPostDaLinha } from "./hash";
+import { arteDaLinhaDoPost } from "../aprendizado/detalhes";
 
 /**
  * As peças de verdade, nas tabelas de verdade.
@@ -132,12 +133,16 @@ export function criarAdaptadorSupabase(
       if (ramo === "post") {
         const l = await lerLinha("social_posts", "id, title, caption, slides_manifest, content_json", pecaId);
         if (!l) return null;
+        const conteudo = ((l.content_json as Linha) ?? {}) as Linha;
+        const foto = s(((conteudo.visual ?? {}) as Linha).imageUrl);
         return {
           hashAtual: hashDoPostDaLinha(l),
           texto: s(l.caption),
           titulo: s(l.title),
-          material: materialDoPost((l.content_json as Linha) ?? null),
+          material: materialDoPost(conteudo),
           keyword,
+          // A foto de FUNDO e a decisão de arte, para a reprovação gravar o que a peça tinha.
+          extras: { fotos: foto ? [foto] : [], arte: arteDaLinhaDoPost(conteudo.arte as Linha | undefined) },
         };
       }
       if (ramo === "newsletter") {
@@ -157,6 +162,7 @@ export function criarAdaptadorSupabase(
         texto: s(l.title),
         titulo: s(l.title),
         material: [s(l.excerpt), s(l.description), s(l.content_html)],
+        extras: { fotos: s(l.cover_image) ? [s(l.cover_image)] : [] },
       };
     },
 

@@ -134,8 +134,14 @@ export type EntradaDoCongelamento = {
   subir?: typeof subirPngParaStorage;
 };
 
+/**
+ * A bolha como saiu no arquivo congelado. Ausente quando o renderizador não
+ * informa (os renderizadores de teste antigos), e aí vale o que foi pedido.
+ */
+export type BolhaCongelada = { bolhaDesenhada?: boolean; notaDaBolha?: string };
+
 export type ResultadoDoCongelamento =
-  | { ok: true; artefato: ArtefatoCongelado }
+  | ({ ok: true; artefato: ArtefatoCongelado } & BolhaCongelada)
   | { ok: false; motivo: string };
 
 /**
@@ -170,6 +176,7 @@ export async function congelarArtefato(
 
   return {
     ok: true,
+    ...bolhaDaArte(arte),
     artefato: {
       url,
       path,
@@ -197,7 +204,7 @@ export type EntradaDoCarrossel = {
 };
 
 export type ResultadoDoCarrossel =
-  | { ok: true; artefatos: ArtefatoDeSlide[] }
+  | ({ ok: true; artefatos: ArtefatoDeSlide[] } & BolhaCongelada)
   | { ok: false; motivo: string };
 
 /**
@@ -285,5 +292,11 @@ export async function congelarCarrossel(entrada: EntradaDoCarrossel): Promise<Re
     });
   }
 
-  return { ok: true, artefatos };
+  // A bolha só existe na capa, que é o slide 1.
+  return { ok: true, artefatos, ...bolhaDaArte(artes[0]) };
+}
+
+function bolhaDaArte(arte: Partial<Pick<ArteRenderizada, "bolha">>): BolhaCongelada {
+  if (!arte.bolha) return {};
+  return { bolhaDesenhada: arte.bolha.desenhada, notaDaBolha: arte.bolha.motivo };
 }

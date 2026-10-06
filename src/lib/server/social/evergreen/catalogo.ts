@@ -1,1748 +1,1123 @@
 import type { TopicoEvergreen } from "./tipos";
 
 /**
- * O estoque editorial do evergreen.
+ * O estoque editorial do evergreen, na linha de 05/10/2026.
+ *
+ * O leitor é o brasileiro que SONHA em morar, trabalhar ou investir nos EUA, e
+ * não quem já mora lá. O catálogo explica como as coisas funcionam no país:
+ * dinheiro, trabalho, impostos, moradia, saúde, governo e tecnologia. Visto,
+ * green card, USCIS e qualquer processo migratório ficam fora, como na pauta.
+ * O catálogo anterior, todo de imigração, está arquivado em
+ * `catalogo-imigracao-arquivado.ts`.
  *
  * Cada tópico é um assunto que não vence, e cada ângulo é uma pergunta
- * diferente sobre ele. A distinção é o que impede o feed de repetir: "o que é o
- * EB-2 NIW" e "que trajetória costuma aparecer nesse pedido" são conteúdos
- * diferentes; "o que é" e "entenda o" seriam o mesmo post com dois títulos.
+ * diferente sobre ele. "O que é o 401(k)" e "o que acontece com ele quando a
+ * pessoa troca de emprego" são conteúdos diferentes; "o que é" e "entenda o"
+ * seriam o mesmo post com dois títulos.
  *
- * As fontes são só de domínio oficial, e cada URL foi conferida por requisição
- * antes de entrar aqui. Notícia não ancora regra permanente: uma matéria
- * descreve o estado de um dia, e o evergreen afirma o que vale em geral.
+ * As fontes são só de órgão oficial (lista em `grounding.ts`), e cada URL foi
+ * conferida por requisição em 06/10/2026 com o agente honesto do projeto:
+ * HTTP 200, texto suficiente para o extrator e o termo do assunto presente na
+ * página. Ficaram de fora, por responderem 403 ou página vazia a um agente
+ * declarado: investor.gov, ssa.gov, hud.gov, huduser.gov, studentaid.gov,
+ * ed.gov, ibge.gov.br, bcb.gov.br, congress.gov, senate.gov, transportation.gov
+ * e federalregister.gov. Quem trocar uma URL confere de novo
+ * (`src/scripts/conferir-fontes-evergreen.ts`).
  *
- * O que deliberadamente NÃO está aqui: Visa Bulletin do mês, priority date
- * atual, tempo de processamento, valor de taxa, prazo em aberto. Tudo isso
- * muda em semanas e pertence ao News V2. "Como o Visa Bulletin funciona" é
- * permanente; "o Visa Bulletin de outubro" não é.
+ * O Brasil entra só como contraste, e só quando uma fonte primária brasileira
+ * sustenta o lado de cá (gov.br). Nenhum ângulo afirma equivalência que as
+ * duas fontes não dizem.
+ *
+ * `entidade` só aparece em seis tópicos, aqueles em que a instituição É o
+ * assunto (Fed, SEC, FDIC, IRS na temporada de declaração, Congresso e
+ * Suprema Corte). Medido em 06/10/2026 com o resolvedor de produção: com o
+ * órgão declarado, credit score, 401(k), aluguel e Artemis terminavam em
+ * NO_VALID_IMAGE (o caminho da entidade recusa as fotos do órgão e não volta
+ * para a cena); sem ele, os quatro saíram com foto da cena descrita pelo
+ * conteúdo. Conceito se ilustra pela cena, não pela fachada de quem o regula.
+ *
+ * Número que muda todo ano só entra quando a fonte é o número oficial do ano
+ * (faixas do IRS, paridade regional do BEA, sindicalização do BLS). O ângulo
+ * pergunta pelo mecanismo, e o número vem da fonte no dia em que o post é
+ * escrito. Cotação, taxa do dia e decisão de reunião pertencem ao noticiário.
  */
 export const CATALOGO_EVERGREEN: TopicoEvergreen[] = [
+  /* ------------------------------------------------------------------ */
+  /* ECONOMIA                                                            */
+  /* ------------------------------------------------------------------ */
   {
-    id: "eb2-niw",
-    nome: "EB-2 NIW (isencao por interesse nacional)",
-    familia: "visa_explainer",
-    programa: "EB-2 NIW",
-    resumo: "Green card em que a propria pessoa faz o pedido, sem empresa patrocinando, mostrando que o trabalho dela serve ao interesse nacional americano.",
+    id: "federal-reserve",
+    nome: "Federal Reserve (o banco central americano)",
+    familia: "explainer",
+    editoria: "economia",
+    temas: ["juros-do-fed"],
+    programa: "Fed",
+    entidade: "Federal Reserve",
+    resumo: "O que é o Fed, como ele se organiza em um conselho em Washington e doze bancos regionais, e quais são os objetivos que a lei dá a ele.",
     fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/permanent-workers/employment-based-immigration-second-preference-eb-2",
-      "https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-5",
-      "https://www.uscis.gov/i-140",
+      "https://www.federalreserve.gov/aboutthefed/fedexplained/who-we-are.htm",
+      "https://www.federalreserve.gov/faqs/what-economic-goals-does-federal-reserve-seek-to-achieve-through-monetary-policy.htm",
+      "https://www.federalreserve.gov/aboutthefed.htm",
     ],
     angulos: [
-      {
-        id: "o-que-e-quem-serve",
-        pergunta: "O que e o EB-2 NIW e quem consegue pedir green card sem ter empresa americana contratando?",
-        personas: ["pesquisadores", "medicos", "engenheiros", "empreendedores"],
-      },
-      {
-        id: "perfil-que-aparece",
-        pergunta: "Que tipo de trajetoria profissional costuma aparecer num pedido de EB-2 NIW?",
-        personas: ["pesquisadores", "tecnologia", "medicos"],
-      },
-      {
-        id: "niw-vs-eb2-com-empregador",
-        pergunta: "Qual a diferenca entre o EB-2 comum, que depende de empregador e de teste do mercado de trabalho, e o EB-2 NIW, que dispensa os dois?",
-        personas: ["engenheiros", "tecnologia"],
-      },
+      { id: "o-que-e", pergunta: "O que é o Federal Reserve e por que ele não é um banco só?" },
+      { id: "mandato-duplo", pergunta: "Quais objetivos a lei americana dá ao Fed quando ele mexe nos juros?" },
+      { id: "doze-bancos", pergunta: "Como funcionam os doze bancos regionais do Federal Reserve espalhados pelo país?" },
     ],
   },
   {
-    id: "eb1a",
-    nome: "EB-1A (habilidade extraordinaria)",
-    familia: "visa_explainer",
-    programa: "EB-1A",
-    resumo: "Green card para quem ja tem reconhecimento nacional ou internacional na sua area e pode apresentar o pedido sozinho.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/permanent-workers/employment-based-immigration-first-preference-eb-1",
-      "https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-2",
-    ],
-    angulos: [
-      {
-        id: "o-que-e-habilidade-extraordinaria",
-        pergunta: "O que o governo americano chama de habilidade extraordinaria no EB-1A?",
-        personas: ["pesquisadores", "executivos", "tecnologia"],
-      },
-      {
-        id: "como-a-prova-e-avaliada",
-        pergunta: "Por que bater tres criterios do EB-1A nao significa aprovacao garantida?",
-        personas: ["pesquisadores", "tecnologia"],
-      },
-      {
-        id: "eb1a-vs-eb2niw",
-        pergunta: "EB-1A ou EB-2 NIW: qual a diferenca real entre os dois caminhos em que voce mesmo faz o pedido?",
-        personas: ["pesquisadores", "medicos", "empreendedores"],
-      },
-    ],
-  },
-  {
-    id: "o1a",
-    nome: "O-1A (visto temporario de habilidade extraordinaria)",
-    familia: "visa_explainer",
-    programa: "O-1A",
-    resumo: "Visto de trabalho temporario para quem tem destaque comprovado em ciencia, educacao, negocios ou esporte, sempre com alguem nos EUA apresentando o pedido.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/temporary-workers/o-1-visa-individuals-with-extraordinary-ability-or-achievement",
-      "https://www.uscis.gov/policy-manual/volume-2-part-m-chapter-4",
-      "https://www.uscis.gov/i-129",
-    ],
-    angulos: [
-      {
-        id: "o-que-e-e-quem-patrocina",
-        pergunta: "O que e o visto O-1A e por que ele sempre precisa de um empregador ou agente nos EUA apresentando o pedido?",
-        personas: ["tecnologia", "pesquisadores", "executivos"],
-      },
-      {
-        id: "perfil-por-area",
-        pergunta: "Que tipo de profissional entra pelo O-1A em ciencia, negocios, esporte e tecnologia?",
-        personas: ["tecnologia", "pesquisadores", "executivos"],
-      },
-      {
-        id: "o1a-vs-eb1a",
-        pergunta: "O-1A e EB-1A cobram provas parecidas, entao por que um da visto temporario e o outro da green card?",
-        personas: ["pesquisadores", "tecnologia"],
-      },
-    ],
-  },
-  {
-    id: "h1b",
-    nome: "H-1B (ocupacao especializada)",
-    familia: "visa_explainer",
-    programa: "H-1B",
-    resumo: "Visto de trabalho temporario para cargos que exigem diploma especifico, pedido pela empresa e limitado por um numero anual de vagas.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/h-1b-specialty-occupations",
-      "https://www.uscis.gov/i-129",
-    ],
-    angulos: [
-      {
-        id: "o-que-e-ocupacao-especializada",
-        pergunta: "O que e o H-1B e o que faz uma vaga ser considerada ocupacao especializada?",
-        personas: ["tecnologia", "engenheiros"],
-      },
-      {
-        id: "por-que-tem-sorteio",
-        pergunta: "Por que existe sorteio no H-1B e como funciona o limite anual de vagas?",
-        personas: ["tecnologia", "engenheiros", "estudantes"],
-      },
-      {
-        id: "h1b-vs-o1a",
-        pergunta: "H-1B ou O-1A: quando o caminho do diploma serve e quando o caminho do destaque serve?",
-        personas: ["tecnologia", "pesquisadores"],
-      },
-    ],
-  },
-  {
-    id: "f1",
-    nome: "F-1 (estudante academico)",
-    familia: "visa_explainer",
-    programa: "F-1",
-    resumo: "Visto de estudante para curso academico, com regras proprias sobre carga de estudo e sobre quando da para trabalhar.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors/students-and-employment",
-      "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors/optional-practical-training-opt-for-f-1-students",
-      "https://www.uscis.gov/policy-manual/volume-2-part-f-chapter-1",
-    ],
-    angulos: [
-      {
-        id: "o-que-e-e-o-que-exige",
-        pergunta: "O que e o visto F-1 e o que ele exige de voce enquanto estiver estudando?",
-        personas: ["estudantes", "familias"],
-      },
-      {
-        id: "trabalhar-durante-e-depois",
-        pergunta: "Quando um estudante F-1 pode trabalhar legalmente durante o curso e depois de formado?",
-        personas: ["estudantes", "tecnologia"],
-      },
-      {
-        id: "f1-vs-m1",
-        pergunta: "F-1 ou M-1: o que muda quando o curso e academico e quando ele e tecnico?",
-        personas: ["estudantes"],
-      },
-    ],
-  },
-  {
-    id: "l1",
-    nome: "L-1 (transferencia dentro da mesma empresa)",
-    familia: "visa_explainer",
-    programa: "L-1",
-    resumo: "Visto para funcionario transferido de uma empresa no exterior para uma unidade ligada a ela nos Estados Unidos.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/temporary-workers/l-1a-intracompany-transferee-executive-or-manager",
-      "https://www.uscis.gov/working-in-the-united-states/temporary-workers/l-1b-intracompany-transferee-specialized-knowledge",
-      "https://www.uscis.gov/policy-manual/volume-2-part-l-chapter-2",
-    ],
-    angulos: [
-      {
-        id: "o-que-e-e-o-vinculo-entre-empresas",
-        pergunta: "O que e o visto L-1 e por que ele so existe quando as duas empresas tem vinculo comprovado?",
-        personas: ["executivos", "empreendedores"],
-      },
-      {
-        id: "l1a-vs-l1b",
-        pergunta: "L-1A ou L-1B: qual a diferenca entre transferir quem gerencia e transferir quem domina um conhecimento especifico?",
-        personas: ["executivos", "tecnologia", "engenheiros"],
-      },
-      {
-        id: "novo-escritorio",
-        pergunta: "Como uma empresa de fora usa o L-1 para colocar alguem nos EUA abrindo um escritorio novo?",
-        personas: ["empreendedores", "executivos"],
-      },
-    ],
-  },
-  {
-    id: "eb3",
-    nome: "EB-3 (trabalhadores qualificados, profissionais e outros)",
-    familia: "visa_explainer",
-    programa: "EB-3",
-    resumo: "Green card por emprego para profissionais com diploma, trabalhadores qualificados e trabalhadores sem qualificacao especifica, com o empregador conduzindo o processo.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/permanent-workers/employment-based-immigration-third-preference-eb-3",
-      "https://www.uscis.gov/policy-manual/volume-6-part-e-chapter-2",
-      "https://www.uscis.gov/working-in-the-united-states/permanent-workers",
-    ],
-    angulos: [
-      {
-        id: "o-que-e-e-tres-subgrupos",
-        pergunta: "O que e o EB-3 e quais sao os tres tipos de trabalhador que cabem nele?",
-        personas: ["familias", "engenheiros"],
-      },
-      {
-        id: "papel-do-empregador",
-        pergunta: "Por que o EB-3 quase sempre depende de o empregador provar que nao encontrou trabalhador americano para a vaga?",
-        personas: ["familias", "empreendedores"],
-      },
-      {
-        id: "eb3-vs-eb2",
-        pergunta: "EB-3 ou EB-2: o que muda no seu caminho quando voce tem mestrado em vez de bacharelado?",
-        personas: ["engenheiros", "tecnologia"],
-      },
-    ],
-  },
-  {
-    id: "e2",
-    nome: "E-2 (investidor de pais com tratado)",
-    familia: "visa_explainer",
-    programa: "E-2",
-    resumo: "Visto para quem investe num negocio nos Estados Unidos e e cidadao de pais que tem tratado de comercio e investimento com os EUA.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/temporary-workers/e-2-treaty-investors",
-      "https://www.uscis.gov/i-129",
-    ],
-    angulos: [
-      {
-        id: "o-que-e-e-o-tratado",
-        pergunta: "O que e o visto E-2 e por que ele depende do pais do seu passaporte?",
-        personas: ["empreendedores"],
-      },
-      {
-        id: "investimento-substancial",
-        pergunta: "O E-2 nao fixa valor minimo, entao o que conta como investimento substancial?",
-        personas: ["empreendedores"],
-      },
-      {
-        id: "e2-vs-eb5",
-        pergunta: "E-2 ou EB-5: qual a diferenca entre investir para morar com visto temporario e investir para conseguir green card?",
-        personas: ["empreendedores", "executivos", "familias"],
-      },
-    ],
-  },
-  {
-    id: "eb5",
-    nome: "EB-5 (green card por investimento)",
-    familia: "visa_explainer",
-    programa: "EB-5",
-    resumo: "Green card para quem investe capital num negocio nos EUA e gera empregos, dentro das regras do programa de investidor imigrante.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/permanent-workers/eb-5-immigrant-investor-program",
-      "https://www.uscis.gov/policy-manual/volume-6-part-g-chapter-2",
-      "https://www.uscis.gov/i-526e",
-    ],
-    angulos: [
-      {
-        id: "tres-exigencias",
-        pergunta: "O que e o EB-5 e quais sao as tres exigencias que todo pedido tem que sustentar?",
-        personas: ["empreendedores", "familias"],
-      },
-      {
-        id: "criacao-de-empregos",
-        pergunta: "Por que o EB-5 exige criacao de empregos e como esses empregos sao contados?",
-        personas: ["empreendedores"],
-      },
-      {
-        id: "direto-ou-centro-regional",
-        pergunta: "Investir no proprio negocio ou por meio de um centro regional: o que muda no EB-5?",
-        personas: ["empreendedores", "executivos"],
-      },
-    ],
-  },
-  {
-    id: "j1",
-    nome: "J-1 (visitante de intercambio)",
-    familia: "visa_explainer",
-    programa: "J-1",
-    resumo: "Visto de visitante de intercambio, sempre ligado a um programa patrocinador, que vai de pesquisador e professor a au pair e monitor de acampamento.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors/exchange-visitors",
-      "https://www.uscis.gov/i-612",
-      "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors",
-    ],
-    angulos: [
-      {
-        id: "o-que-e-e-o-patrocinador",
-        pergunta: "O que e o visto J-1 e por que ele sempre passa por um programa patrocinador?",
-        personas: ["estudantes", "pesquisadores", "medicos"],
-      },
-      {
-        id: "regra-de-voltar-dois-anos",
-        pergunta: "O que e a exigencia de voltar dois anos para o pais de origem depois do J-1 e quem cai nela?",
-        personas: ["medicos", "pesquisadores"],
-      },
-      {
-        id: "j1-vs-f1",
-        pergunta: "J-1 ou F-1: qual a diferenca entre vir por um programa de intercambio e vir matriculado por conta propria?",
-        personas: ["estudantes", "pesquisadores"],
-      },
-    ],
-  },
-  {
-    id: "tn",
-    nome: "TN (profissionais do USMCA)",
-    familia: "visa_explainer",
-    programa: "TN",
-    resumo: "Visto de trabalho reservado a cidadaos do Canada e do Mexico em profissoes que estao numa lista do acordo comercial da America do Norte.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/temporary-workers/tn-usmca-professionals",
-      "https://www.uscis.gov/i-129",
-    ],
-    angulos: [
-      {
-        id: "o-que-e-e-para-quem",
-        pergunta: "O que e o status TN e por que ele existe apenas para canadenses e mexicanos?",
-      },
-      {
-        id: "lista-fechada-de-profissoes",
-        pergunta: "Por que o TN vale so para profissoes de uma lista fechada e o que isso deixa de fora?",
-        personas: ["engenheiros", "tecnologia"],
-      },
-      {
-        id: "tn-vs-h1b",
-        pergunta: "TN ou H-1B: por que um nao passa por sorteio e o outro passa?",
-        personas: ["engenheiros", "tecnologia"],
-      },
-    ],
-  },
-  {
-    id: "b1-b2",
-    nome: "B-1 e B-2 (negocios e turismo)",
-    familia: "visa_explainer",
-    programa: "B-1/B-2",
-    resumo: "O visto de visitante para negocios e turismo, o que ele permite fazer e o que realmente define quanto tempo voce pode ficar.",
-    fontesCanonicas: [
-      "https://www.cbp.gov/travel/international-visitors",
-      "https://www.cbp.gov/travel/international-visitors/i-94",
-      "https://www.uscis.gov/policy-manual/volume-2-part-a-chapter-4",
-    ],
-    angulos: [
-      {
-        id: "b1-vs-b2",
-        pergunta: "B-1 e B-2 vem juntas no mesmo visto, entao o que cada uma dessas letras deixa voce fazer?",
-        personas: ["familias", "empreendedores"],
-      },
-      {
-        id: "quem-decide-o-prazo",
-        pergunta: "Quem decide quanto tempo voce pode ficar nos EUA: o visto no passaporte ou o oficial na entrada?",
-        personas: ["familias"],
-      },
-      {
-        id: "trocar-de-status-sem-sair",
-        pergunta: "Da para trocar o visto de turista por status de estudante ou de trabalho sem sair dos Estados Unidos?",
-        personas: ["estudantes", "familias"],
-      },
-    ],
-  },
-  {
-    id: "priority-date",
-    nome: "Priority date (data de prioridade)",
-    familia: "glossary",
-    resumo: "O termo que define o lugar da pessoa na fila do green card e de onde essa data vem.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates",
-      "https://www.uscis.gov/i-140",
-      "https://www.uscis.gov/tools/glossary",
-    ],
-    angulos: [
-      {
-        id: "o-que-significa-priority-date",
-        pergunta: "O que quer dizer priority date e por que todo mundo fala tanto dessa data?",
-      },
-      {
-        id: "de-onde-vem-a-minha-data",
-        pergunta: "De onde sai a minha priority date e em que papel eu consigo ver ela?",
-        personas: ["familias", "engenheiros", "pesquisadores"],
-      },
-      {
-        id: "por-que-a-data-fica-parada",
-        pergunta: "Por que a priority date de algumas pessoas fica parada por anos e de outras nao?",
-      },
-    ],
-  },
-  {
-    id: "visa-bulletin-como-funciona",
-    nome: "Visa Bulletin (boletim de vistos)",
-    familia: "glossary",
-    resumo: "Como funciona o boletim mensal que libera a fila do green card, olhando o mecanismo e nunca o numero do mes.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates",
-      "https://www.uscis.gov/i-485",
-    ],
-    angulos: [
-      {
-        id: "o-que-e-o-visa-bulletin",
-        pergunta: "O que e o Visa Bulletin e por que ele sai de novo todo mes?",
-      },
-      {
-        id: "as-duas-tabelas",
-        pergunta: "Por que o Visa Bulletin tem duas tabelas de datas e para que serve cada uma?",
-      },
-      {
-        id: "como-ler-a-minha-linha",
-        pergunta: "Como eu acho e leio a linha do Visa Bulletin que fala do meu caso?",
-        personas: ["familias", "engenheiros", "tecnologia"],
-      },
-    ],
-  },
-  {
-    id: "adjustment-of-status",
-    nome: "Adjustment of status (ajuste de status)",
-    familia: "glossary",
-    programa: "I-485",
-    resumo: "O caminho de virar residente permanente sem precisar sair dos Estados Unidos.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/adjustment-of-status",
-      "https://www.uscis.gov/i-485",
-      "https://www.uscis.gov/tools/glossary",
-    ],
-    angulos: [
-      {
-        id: "o-que-significa-ajustar-status",
-        pergunta: "O que quer dizer adjustment of status em portugues comum?",
-      },
-      {
-        id: "vida-com-pedido-pendente",
-        pergunta: "O que muda no meu dia a dia enquanto o pedido de ajuste de status esta em analise?",
-        personas: ["familias", "estudantes"],
-      },
-      {
-        id: "etapas-e-documentos",
-        pergunta: "Quais etapas e exames aparecem dentro de um pedido de ajuste de status?",
-      },
-    ],
-  },
-  {
-    id: "consular-processing",
-    nome: "Consular processing (processamento consular)",
-    familia: "glossary",
-    resumo: "O caminho em que o green card e finalizado no consulado americano, fora dos Estados Unidos.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/consular-processing",
-      "https://www.uscis.gov/green-card",
-      "https://www.uscis.gov/tools/glossary",
-    ],
-    angulos: [
-      {
-        id: "o-que-significa-consular-processing",
-        pergunta: "O que quer dizer consular processing e por que o meu caso vai para o consulado?",
-      },
-      {
-        id: "como-e-a-vida-de-quem-espera-fora",
-        pergunta: "Como e a rotina de quem esta esperando o green card morando fora dos EUA?",
-        personas: ["familias"],
-      },
-      {
-        id: "diferenca-na-pratica",
-        pergunta: "Na pratica, o que muda entre resolver no consulado e resolver dentro dos EUA?",
-        personas: ["engenheiros", "medicos", "executivos"],
-      },
-    ],
-  },
-  {
-    id: "petition-petitioner-beneficiary",
-    nome: "Petition, petitioner e beneficiary",
-    familia: "glossary",
-    resumo: "Os tres termos da imigracao americana que dizem quem pede, quem recebe e o que exatamente foi pedido.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/i-130",
-      "https://www.uscis.gov/i-140",
-      "https://www.uscis.gov/tools/glossary",
-    ],
-    angulos: [
-      {
-        id: "petition-nao-e-visto",
-        pergunta: "O que e uma petition e por que ela nao e o visto nem o green card?",
-      },
-      {
-        id: "quem-e-o-petitioner",
-        pergunta: "Quem e o petitioner e o que essa pessoa ou empresa assume no processo?",
-        personas: ["familias", "executivos", "empreendedores"],
-      },
-      {
-        id: "quem-e-o-beneficiary",
-        pergunta: "Quem e o beneficiary e por que ele depende de outra pessoa para andar com o caso?",
-        personas: ["familias", "engenheiros", "tecnologia"],
-      },
-    ],
-  },
-  {
-    id: "rfe",
-    nome: "RFE (Request for Evidence)",
-    familia: "glossary",
-    resumo: "A carta em que a USCIS pede mais provas antes de decidir o caso.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/policy-manual/volume-1-part-e-chapter-6",
-      "https://www.uscis.gov/forms/filing-guidance",
-      "https://www.uscis.gov/tools/glossary",
-    ],
-    angulos: [
-      {
-        id: "o-que-e-um-rfe",
-        pergunta: "O que e um RFE e por que receber um nao quer dizer que o caso foi negado?",
-      },
-      {
-        id: "o-que-a-uscis-quer-ver",
-        pergunta: "O que costuma cair num RFE e o que a USCIS esta querendo enxergar ali?",
-        personas: ["medicos", "pesquisadores", "engenheiros", "empreendedores"],
-      },
-      {
-        id: "e-se-eu-nao-responder",
-        pergunta: "O que acontece com o meu caso se eu nao responder o RFE dentro do prazo da carta?",
-      },
-    ],
-  },
-  {
-    id: "noid",
-    nome: "NOID (Notice of Intent to Deny)",
-    familia: "glossary",
-    resumo: "A carta que avisa que a USCIS pretende negar e abre uma ultima chance de resposta.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/policy-manual/volume-1-part-e-chapter-6",
-      "https://www.uscis.gov/tools/glossary",
-    ],
-    angulos: [
-      {
-        id: "o-que-e-um-noid",
-        pergunta: "O que e um NOID e em que ele e diferente de um RFE?",
-      },
-      {
-        id: "o-que-o-noid-revela",
-        pergunta: "Recebi um NOID. O que isso diz sobre como a USCIS esta lendo o meu caso?",
-        personas: ["pesquisadores", "empreendedores", "medicos"],
-      },
-    ],
-  },
-  {
-    id: "status",
-    nome: "Status (status de imigracao)",
-    familia: "glossary",
-    resumo: "A diferenca entre ter um visto no passaporte e estar regular dentro dos Estados Unidos.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/policy-manual/volume-2-part-a-chapter-4",
-      "https://www.uscis.gov/visit-the-united-states/extend-your-stay",
-      "https://www.uscis.gov/i-539",
-    ],
-    angulos: [
-      {
-        id: "visto-nao-e-status",
-        pergunta: "Qual a diferenca entre ter visto e estar em status?",
-      },
-      {
-        id: "perder-o-status",
-        pergunta: "O que significa perder o status e onde isso comeca a doer na vida da pessoa?",
-        personas: ["estudantes", "familias"],
-      },
-      {
-        id: "extension-e-change-of-status",
-        pergunta: "O que sao extension of stay e change of status e quando cada um entra na conversa?",
-        personas: ["estudantes", "familias", "tecnologia"],
-      },
-    ],
-  },
-  {
-    id: "green-card",
-    nome: "Green Card (residencia permanente)",
-    familia: "glossary",
-    resumo: "O que o cartao verde de fato garante e o que ele nao garante.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/green-card",
-      "https://www.uscis.gov/green-card/after-we-grant-your-green-card",
-      "https://www.uscis.gov/i-90",
-    ],
-    angulos: [
-      {
-        id: "o-que-e-green-card",
-        pergunta: "O que e o Green Card e por que ele nao e a mesma coisa que cidadania?",
-      },
-      {
-        id: "o-que-muda-na-vida",
-        pergunta: "O que muda de verdade na vida de quem recebe o Green Card?",
-        personas: ["familias", "engenheiros", "medicos"],
-      },
-      {
-        id: "validade-do-cartao",
-        pergunta: "Se a residencia e permanente, por que o cartao tem data de validade?",
-      },
-    ],
-  },
-  {
-    id: "public-charge",
-    nome: "Public charge (encargo publico)",
-    familia: "glossary",
-    resumo: "O termo que trata de depender de ajuda do governo americano e de como isso entra na analise de um pedido de imigracao.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/public-charge",
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/public-charge/public-charge-resources",
-    ],
-    angulos: [
-      {
-        id: "o-que-quer-dizer-public-charge",
-        pergunta: "O que quer dizer public charge em portugues comum?",
-      },
-      {
-        id: "onde-isso-aparece-no-processo",
-        pergunta: "Em que momento do processo alguem olha isso e o que e levado em conta?",
-        personas: ["familias"],
-      },
-    ],
-  },
-  {
-    id: "ead",
-    nome: "EAD (Employment Authorization Document)",
-    familia: "glossary",
-    programa: "I-765",
-    resumo: "O documento que autoriza trabalhar nos Estados Unidos e que nao e visto nem green card.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/i-765",
-      "https://www.uscis.gov/forms/explore-my-options/employment-authorization-document",
-      "https://www.uscis.gov/i-9-central/form-i-9-acceptable-documents",
-    ],
-    angulos: [
-      {
-        id: "o-que-e-o-ead",
-        pergunta: "O que e o EAD e por que ele nao e um visto de trabalho?",
-      },
-      {
-        id: "onde-eu-uso-o-ead",
-        pergunta: "Onde eu uso o EAD no dia a dia, na hora de ser contratado e depois?",
-        personas: ["familias", "estudantes"],
-      },
-      {
-        id: "quando-o-ead-entra-no-processo",
-        pergunta: "Em que processos maiores o pedido de EAD aparece como um passo do meio?",
-        personas: ["familias", "estudantes"],
-      },
-    ],
-  },
-  {
-    id: "i-94",
-    nome: "I-94 (registro de entrada e saida)",
-    familia: "glossary",
-    resumo: "O registro que diz ate quando a pessoa pode ficar no pais, e que pesa mais que a data impressa no visto.",
-    fontesCanonicas: [
-      "https://www.cbp.gov/travel/international-visitors/i-94",
-      "https://www.uscis.gov/i-9-central/form-i-9-acceptable-documents",
-      "https://www.uscis.gov/visit-the-united-states/extend-your-stay",
-    ],
-    angulos: [
-      {
-        id: "i-94-manda-mais-que-o-visto",
-        pergunta: "O que e o I-94 e por que ele manda mais que a validade do meu visto?",
-      },
-      {
-        id: "onde-vejo-e-erro-no-dado",
-        pergunta: "Onde eu vejo o meu I-94 e o que fazer quando os dados dele estao errados?",
-      },
-      {
-        id: "quem-pede-o-i-94",
-        pergunta: "Quem pede o I-94 na vida real, fora da imigracao?",
-        personas: ["estudantes", "familias"],
-      },
-    ],
-  },
-  {
-    id: "premium-processing",
-    nome: "Premium processing (analise acelerada)",
-    familia: "glossary",
-    programa: "I-907",
-    resumo: "O servico pago que compromete a USCIS a dar uma resposta mais rapida, e o que ele nao acelera.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/i-907",
-      "https://www.uscis.gov/forms/all-forms/how-do-i-request-premium-processing",
-    ],
-    angulos: [
-      {
-        id: "o-que-o-premium-acelera",
-        pergunta: "O que e premium processing e o que exatamente ele acelera?",
-      },
-      {
-        id: "quando-nao-ajuda",
-        pergunta: "Em que situacoes pagar por analise acelerada nao ajuda em nada?",
-        personas: ["executivos", "empreendedores", "tecnologia"],
-      },
-    ],
-  },
-  {
-    id: "dual-intent",
-    nome: "Dual intent (intencao dupla)",
-    familia: "glossary",
-    resumo: "A ideia de estar num visto temporario e ao mesmo tempo querer morar de vez nos Estados Unidos.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/policy-manual/volume-2-part-l-chapter-1",
-      "https://www.uscis.gov/working-in-the-united-states/temporary-workers/h-1b-specialty-occupations/faqs-for-individuals-in-h-1b-nonimmigrant-status",
-    ],
-    angulos: [
-      {
-        id: "o-que-e-dual-intent",
-        pergunta: "O que e dual intent e por que alguns vistos aceitam essa ideia e outros nao?",
-      },
-      {
-        id: "quero-green-card-estando-em-visto-temporario",
-        pergunta: "Estou num visto temporario e quero o green card. Isso pode me atrapalhar?",
-        personas: ["tecnologia", "engenheiros", "executivos", "estudantes"],
-      },
-    ],
-  },
-  {
-    id: "dar-entrada-dentro-ou-fora",
-    nome: "Dar entrada morando dentro ou fora dos EUA",
-    familia: "faq",
-    resumo: "Os dois caminhos para receber o green card: ajuste de status, feito com o USCIS por quem já está nos EUA, e processo consular, feito no consulado por quem está fora.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/adjustment-of-status",
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/consular-processing",
-      "https://www.uscis.gov/i-485",
-    ],
-    angulos: [
-      {
-        id: "pedir-sem-sair-do-pais",
-        pergunta: "Dá para pedir o green card sem sair dos Estados Unidos?",
-      },
-      {
-        id: "quem-decide-cada-etapa",
-        pergunta: "Que parte do processo acontece no consulado e que parte acontece com o USCIS?",
-      },
-      {
-        id: "esperar-nos-eua-ou-no-brasil",
-        pergunta: "O que muda na vida de quem espera o green card morando nos EUA e de quem espera no Brasil?",
-        personas: ["familias"],
-      },
-    ],
-  },
-  {
-    id: "quem-pode-pedir-por-familiar",
-    nome: "Quem pode pedir green card por familiar",
-    familia: "faq",
-    resumo: "Quais parentes um cidadão americano pode pedir, quais um residente permanente pode pedir, e como o parentesco é comprovado no pedido.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/family/family-of-us-citizens",
-      "https://www.uscis.gov/family/family-of-green-card-holders-permanent-residents",
-      "https://www.uscis.gov/i-130",
-    ],
-    angulos: [
-      {
-        id: "lista-de-parentes-permitidos",
-        pergunta: "Quais parentes um cidadão americano pode pedir e quais um residente não pode?",
-        personas: ["familias"],
-      },
-      {
-        id: "como-provar-o-parentesco",
-        pergunta: "Como se prova que a pessoa é realmente sua mãe, seu filho ou seu irmão num pedido de green card?",
-        personas: ["familias"],
-      },
-    ],
-  },
-  {
-    id: "green-card-por-casamento",
-    nome: "Casamento com americano e green card",
-    familia: "faq",
-    programa: "CR1/IR1",
-    resumo: "O que o casamento com cidadão americano faz e não faz pela imigração, incluindo a residência condicional de dois anos e o pedido para retirar a condição.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/green-card/green-card-eligibility/green-card-for-immediate-relatives-of-us-citizen",
-      "https://www.uscis.gov/green-card/after-we-grant-your-green-card/conditional-permanent-residence",
-      "https://www.uscis.gov/i-751",
-    ],
-    angulos: [
-      {
-        id: "casar-nao-e-automatico",
-        pergunta: "Casar com americano dá green card na hora?",
-        personas: ["familias"],
-      },
-      {
-        id: "green-card-de-dois-anos",
-        pergunta: "Por que o green card do casamento às vezes vem com validade curta e o que precisa ser feito depois?",
-        personas: ["familias"],
-      },
-      {
-        id: "provar-casamento-de-verdade",
-        pergunta: "O que o governo americano olha para acreditar que o casamento é de verdade?",
-        personas: ["familias"],
-      },
-    ],
-  },
-  {
-    id: "filho-americano-e-os-pais",
-    nome: "Filho nascido nos EUA e a situação dos pais",
-    familia: "faq",
-    programa: "IR5",
-    resumo: "O que a cidadania do filho nascido nos EUA representa para os pais e a partir de quando esse filho pode pedir por eles.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/family/family-of-us-citizens",
-      "https://www.uscis.gov/green-card/green-card-eligibility/green-card-for-immediate-relatives-of-us-citizen",
-      "https://www.uscis.gov/i-130",
-    ],
-    angulos: [
-      {
-        id: "filho-pedir-pelos-pais",
-        pergunta: "Filho nascido nos Estados Unidos pode pedir green card para os pais?",
-        personas: ["familias"],
-      },
-      {
-        id: "filho-nao-muda-status-dos-pais",
-        pergunta: "Ter filho americano muda a situação de imigração dos pais de imediato?",
-        personas: ["familias"],
-      },
-    ],
-  },
-  {
-    id: "trabalhar-enquanto-espera",
-    nome: "Autorização de trabalho enquanto o processo corre",
-    familia: "faq",
-    programa: "EAD",
-    resumo: "Como funciona o documento que permite trabalhar nos EUA durante um processo de imigracao em andamento e como o empregador confere esse direito.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/information-for-employers-and-employees/employer-information/employment-authorization",
-      "https://www.uscis.gov/i-765",
-      "https://www.uscis.gov/i-9-central",
-    ],
-    angulos: [
-      {
-        id: "trabalhar-durante-o-processo",
-        pergunta: "Dá para trabalhar legalmente enquanto o pedido de green card ainda está em análise?",
-      },
-      {
-        id: "ead-nao-e-green-card",
-        pergunta: "Autorização de trabalho e green card são a mesma coisa?",
-      },
-      {
-        id: "como-o-empregador-confere",
-        pergunta: "Como a empresa americana confere quem está autorizado a trabalhar no país?",
-        personas: ["empreendedores", "executivos"],
-      },
-    ],
-  },
-  {
-    id: "estudar-nos-eua",
-    nome: "O que é preciso para estudar nos EUA",
-    familia: "faq",
-    programa: "F-1",
-    resumo: "O caminho do estudante estrangeiro: escola autorizada, documento da escola, e o que a lei permite em termos de trabalho durante e depois do curso.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors",
-      "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors/students-and-employment",
-      "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors/optional-practical-training-opt-for-f-1-students",
-    ],
-    angulos: [
-      {
-        id: "requisitos-para-entrar-estudando",
-        pergunta: "O que uma pessoa precisa ter na mão para entrar nos EUA como estudante?",
-        personas: ["estudantes"],
-      },
-      {
-        id: "estudante-pode-trabalhar",
-        pergunta: "Estudante estrangeiro pode trabalhar nos Estados Unidos?",
-        personas: ["estudantes"],
-      },
-      {
-        id: "faculdade-ou-curso-tecnico",
-        pergunta: "Qual a diferença entre estudar numa faculdade e fazer um curso técnico, na hora do visto?",
-        personas: ["estudantes"],
-      },
-    ],
-  },
-  {
-    id: "levar-conjuge-e-filhos",
-    nome: "Levar cônjuge e filhos como dependentes",
-    familia: "faq",
-    resumo: "Como a família acompanha quem vai com visto de trabalho temporário e o que os dependentes podem fazer nos EUA.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/temporary-nonimmigrant-workers",
-      "https://www.uscis.gov/working-in-the-united-states/temporary-workers/l-1a-intracompany-transferee-executive-or-manager",
-      "https://www.uscis.gov/i-539",
-    ],
-    angulos: [
-      {
-        id: "familia-vai-junto",
-        pergunta: "Quando eu vou com visto de trabalho, meu cônjuge e meus filhos podem ir comigo?",
-        personas: ["familias", "tecnologia"],
-      },
-      {
-        id: "dependente-pode-trabalhar-ou-estudar",
-        pergunta: "O cônjuge que vai como dependente pode trabalhar ou estudar nos EUA?",
-        personas: ["familias"],
-      },
-    ],
-  },
-  {
-    id: "visto-vencido-e-i-94",
-    nome: "Visto vencido, estadia vencida e o registro I-94",
-    familia: "faq",
-    resumo: "A diferença entre a validade do visto e o tempo autorizado de permanência, onde esse prazo é registrado, e o efeito de ficar além do autorizado.",
-    fontesCanonicas: [
-      "https://www.cbp.gov/travel/international-visitors/i-94",
-      "https://www.uscis.gov/visit-the-united-states/extend-your-stay",
-      "https://www.uscis.gov/policy-manual/volume-8-part-o-chapter-6",
-    ],
-    angulos: [
-      {
-        id: "visto-vencido-nao-e-estadia-vencida",
-        pergunta: "Visto vencido e estadia vencida são a mesma coisa?",
-      },
-      {
-        id: "onde-ver-ate-quando-posso-ficar",
-        pergunta: "Onde eu vejo até quando posso ficar nos Estados Unidos nesta viagem?",
-      },
-      {
-        id: "efeito-de-ficar-alem-do-prazo",
-        pergunta: "O que acontece com quem fica mais tempo do que podia e depois sai do país?",
-      },
-    ],
-  },
-  {
-    id: "manter-green-card-morando-fora",
-    nome: "Manter o green card passando temporadas fora",
-    familia: "faq",
-    resumo: "O green card exige morar nos EUA de fato, e existe um pedido específico para quem precisa passar um longo período fora sem abandonar a residência.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/green-card/after-we-grant-your-green-card/maintaining-permanent-residence",
-      "https://www.uscis.gov/green-card/after-we-grant-your-green-card/international-travel-as-a-permanent-resident",
-      "https://www.uscis.gov/i-131",
-    ],
-    angulos: [
-      {
-        id: "residente-pode-morar-fora",
-        pergunta: "Quem tem green card pode continuar morando fora dos Estados Unidos?",
-        personas: ["familias", "executivos"],
-      },
-      {
-        id: "o-que-fazer-antes-de-viagem-longa",
-        pergunta: "O que o residente precisa resolver antes de passar um longo período fora dos EUA?",
-        personas: ["executivos", "empreendedores"],
-      },
-    ],
-  },
-  {
-    id: "virar-cidadao-americano",
-    nome: "Do green card à cidadania americana",
-    familia: "faq",
-    programa: "N-400",
-    resumo: "Os requisitos gerais da naturalização, o que é cobrado no exame e como ausências longas dos EUA afetam o pedido.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/citizenship/apply-for-citizenship",
-      "https://www.uscis.gov/citizenship/find-study-materials-and-resources/study-for-the-test",
-      "https://www.uscis.gov/policy-manual/volume-12-part-d-chapter-3",
-    ],
-    angulos: [
-      {
-        id: "quando-posso-pedir-cidadania",
-        pergunta: "Depois de tirar o green card, quando dá para pedir a cidadania americana?",
-      },
-      {
-        id: "o-que-cai-na-prova",
-        pergunta: "O que cai na prova de cidadania americana?",
-      },
-      {
-        id: "viagens-longas-atrasam",
-        pergunta: "Passar muito tempo fora dos EUA pode atrasar o pedido de cidadania?",
-        personas: ["executivos", "familias"],
-      },
-    ],
-  },
-  {
-    id: "eb1a-x-eb2-niw",
-    nome: "EB-1A comparado ao EB-2 NIW",
-    familia: "comparison",
-    programa: "EB-1A x EB-2 NIW",
-    resumo: "Comparacao entre os dois caminhos de green card por trabalho em que a propria pessoa pode entrar com o pedido, sem depender de uma empresa que a contrate.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/permanent-workers/employment-based-immigration-first-preference-eb-1",
-      "https://www.uscis.gov/working-in-the-united-states/permanent-workers/employment-based-immigration-second-preference-eb-2",
-      "https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-5",
-    ],
-    angulos: [
-      {
-        id: "semelhancas-e-diferencas",
-        pergunta: "Em que o EB-1A e o EB-2 NIW se parecem e onde eles de fato se separam?",
-        personas: ["pesquisadores", "medicos", "engenheiros", "tecnologia"],
-      },
-      {
-        id: "situacao-tipica-de-cada-um",
-        pergunta: "Que tipo de trajetoria profissional costuma se encaixar em cada um desses dois caminhos?",
-        personas: ["pesquisadores", "medicos", "executivos"],
-      },
-      {
-        id: "tipo-de-prova-de-cada-um",
-        pergunta: "Que tipo de prova cada um desses dois pedidos costuma exigir da pessoa?",
-        personas: ["pesquisadores", "engenheiros", "tecnologia"],
-      },
-    ],
-  },
-  {
-    id: "h1b-x-o1a",
-    nome: "H-1B comparado ao O-1A",
-    familia: "comparison",
-    programa: "H-1B x O-1A",
-    resumo: "Comparacao entre dois vistos temporarios de trabalho que a mesma pessoa qualificada as vezes cogita, mas que partem de logicas diferentes.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/h-1b-specialty-occupations",
-      "https://www.uscis.gov/working-in-the-united-states/temporary-workers/o-1-visa-individuals-with-extraordinary-ability-or-achievement",
-      "https://www.uscis.gov/policy-manual/volume-2-part-m-chapter-4",
-    ],
-    angulos: [
-      {
-        id: "semelhancas-e-diferencas",
-        pergunta: "H-1B e O-1A servem para a mesma coisa? Onde os dois se encontram e onde se separam?",
-        personas: ["tecnologia", "engenheiros", "pesquisadores"],
-      },
-      {
-        id: "situacao-tipica-de-cada-um",
-        pergunta: "Que tipo de situacao de trabalho aponta para o H-1B e que tipo aponta para o O-1A?",
-        personas: ["tecnologia", "executivos", "engenheiros"],
-      },
-      {
-        id: "papel-da-empresa",
-        pergunta: "Quem entra com o pedido em cada um dos dois, e o que muda no papel da empresa?",
-        personas: ["executivos", "tecnologia"],
-      },
-    ],
-  },
-  {
-    id: "ajuste-de-status-x-processo-consular",
-    nome: "Ajuste de status comparado ao processo consular",
-    familia: "comparison",
-    resumo: "Comparacao entre as duas formas de chegar ao green card depois que o pedido base foi aprovado: terminar o processo dentro dos EUA ou termina-lo num consulado americano fora do pais.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/adjustment-of-status",
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/consular-processing",
-      "https://www.uscis.gov/policy-manual/volume-7-part-b-chapter-2",
-    ],
-    angulos: [
-      {
-        id: "semelhancas-e-diferencas",
-        pergunta: "Ajuste de status e processo consular levam ao mesmo green card? Onde os dois caminhos se separam?",
-        personas: ["familias", "estudantes", "tecnologia"],
-      },
-      {
-        id: "situacao-tipica-de-cada-um",
-        pergunta: "Que tipo de situacao leva a pessoa para o ajuste de status e que tipo leva para o consulado?",
-        personas: ["familias", "estudantes"],
-      },
-      {
-        id: "vida-durante-a-espera",
-        pergunta: "O que muda no dia a dia de quem espera dentro dos EUA e de quem espera fora do pais?",
-        personas: ["familias", "estudantes"],
-      },
-    ],
-  },
-  {
-    id: "visto-imigrante-x-nao-imigrante",
-    nome: "Visto de imigrante comparado ao visto de nao imigrante",
-    familia: "comparison",
-    resumo: "Comparacao entre as duas grandes familias de visto americano, que e a divisao que organiza praticamente todo o resto do assunto.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/green-card",
-      "https://www.uscis.gov/working-in-the-united-states/temporary-nonimmigrant-workers",
-      "https://www.uscis.gov/green-card/green-card-eligibility-categories",
-    ],
-    angulos: [
-      {
-        id: "qual-a-diferenca-real",
-        pergunta: "Qual e a diferenca real entre um visto de imigrante e um visto de nao imigrante?",
-      },
-      {
-        id: "situacao-tipica-de-cada-um",
-        pergunta: "Que tipo de plano de vida aponta para cada uma dessas duas familias de visto?",
-      },
-      {
-        id: "intencao-dupla",
-        pergunta: "Existe visto temporario que aceita quem tambem pretende ficar de vez nos EUA?",
-        personas: ["tecnologia", "executivos", "estudantes"],
-      },
-    ],
-  },
-  {
-    id: "green-card-trabalho-x-familia",
-    nome: "Green Card por trabalho comparado ao Green Card por familia",
-    familia: "comparison",
-    resumo: "Comparacao entre as duas portas de entrada mais usadas para a residencia permanente americana: a profissional e a familiar.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/green-card/green-card-eligibility-categories",
-      "https://www.uscis.gov/green-card/green-card-eligibility/green-card-for-employment-based-immigrants",
-      "https://www.uscis.gov/family/family-of-us-citizens",
-    ],
-    angulos: [
-      {
-        id: "semelhancas-e-diferencas",
-        pergunta: "Green card por trabalho e green card por familia dao o mesmo documento no fim? Onde os dois se separam?",
-        personas: ["familias"],
-      },
-      {
-        id: "situacao-tipica-de-cada-um",
-        pergunta: "Que tipo de situacao de vida aponta para o caminho do trabalho e que tipo aponta para o da familia?",
-        personas: ["familias", "empreendedores", "tecnologia"],
-      },
-      {
-        id: "quem-patrocina",
-        pergunta: "Quem precisa de alguem patrocinando o pedido em cada um desses dois caminhos?",
-        personas: ["familias", "executivos"],
-      },
-    ],
-  },
-  {
-    id: "f1-opt-x-h1b",
-    nome: "F-1 com OPT comparado ao H-1B",
-    familia: "comparison",
-    programa: "F-1 OPT x H-1B",
-    resumo: "Comparacao entre as duas formas mais comuns de um recem formado trabalhar legalmente nos EUA, uma ligada ao curso e a outra ligada a empresa.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors/optional-practical-training-opt-for-f-1-students",
-      "https://www.uscis.gov/working-in-the-united-states/h-1b-specialty-occupations",
-      "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors/students-and-employment",
-    ],
-    angulos: [
-      {
-        id: "semelhancas-e-diferencas",
-        pergunta: "OPT e H-1B sao a mesma coisa? Em que os dois se parecem e onde diferem?",
-        personas: ["estudantes", "tecnologia"],
-      },
-      {
-        id: "situacao-tipica-de-cada-um",
-        pergunta: "Que momento da vida do estudante aponta para o OPT e qual aponta para o H-1B?",
-        personas: ["estudantes"],
-      },
-      {
-        id: "de-quem-depende",
-        pergunta: "Cada uma dessas duas autorizacoes depende de quem: da faculdade, da empresa ou do governo?",
-        personas: ["estudantes", "tecnologia", "executivos"],
-      },
-    ],
-  },
-  {
-    id: "e2-x-eb5",
-    nome: "E-2 comparado ao EB-5",
-    familia: "comparison",
-    programa: "E-2 x EB-5",
-    resumo: "Comparacao entre os dois caminhos americanos ligados a investimento, um temporario e ligado a um negocio que a pessoa opera, o outro voltado a residencia permanente.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/temporary-workers/e-2-treaty-investors",
-      "https://www.uscis.gov/eb-5",
-    ],
-    angulos: [
-      {
-        id: "semelhancas-e-diferencas",
-        pergunta: "E-2 e EB-5 sao os dois vistos de investidor? Em que se parecem e onde se separam?",
-        personas: ["empreendedores", "executivos"],
-      },
-      {
-        id: "situacao-tipica-de-cada-um",
-        pergunta: "Que tipo de projeto de negocio aponta para cada um desses dois caminhos?",
-        personas: ["empreendedores", "executivos"],
-      },
-      {
-        id: "peso-da-nacionalidade",
-        pergunta: "A nacionalidade da pessoa muda o acesso a esses dois caminhos? Por que isso importa para brasileiro.",
-        personas: ["empreendedores"],
-      },
-    ],
-  },
-  {
-    id: "eb2-niw-x-eb2-com-perm",
-    nome: "EB-2 NIW comparado ao EB-2 com oferta de emprego",
-    familia: "comparison",
-    programa: "EB-2 NIW x EB-2 PERM",
-    resumo: "Comparacao entre as duas rotas dentro da mesma categoria EB-2, uma que passa pela empresa e pelo teste de mercado de trabalho e outra que pede a dispensa desse teste.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/permanent-workers/employment-based-immigration-second-preference-eb-2",
-      "https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-5",
-      "https://www.dol.gov/agencies/eta/foreign-labor/programs/permanent",
-    ],
-    angulos: [
-      {
-        id: "e-visto-separado-ou-variacao",
-        pergunta: "O EB-2 NIW e um visto separado ou uma variacao do EB-2? O que exatamente ele dispensa?",
-        personas: ["pesquisadores", "medicos", "engenheiros", "tecnologia"],
-      },
-      {
-        id: "situacao-tipica-de-cada-um",
-        pergunta: "Que situacao profissional aponta para o EB-2 com oferta de emprego e qual aponta para o NIW?",
-        personas: ["pesquisadores", "medicos", "engenheiros"],
-      },
-      {
-        id: "teste-de-mercado-de-trabalho",
-        pergunta: "O que e esse teste de mercado de trabalho que aparece no EB-2 comum e nao aparece no NIW?",
-        personas: ["executivos", "engenheiros", "tecnologia"],
-      },
-    ],
-  },
-  {
-    id: "etapas-green-card-por-emprego",
-    nome: "As etapas de um green card por emprego",
+    id: "fomc-juros",
+    nome: "FOMC (o comitê que decide os juros nos EUA)",
     familia: "process_explainer",
-    programa: "EB",
-    resumo: "A sequencia completa de um pedido de residencia baseado em trabalho, da primeira etapa ate o cartao chegar pelo correio.",
+    editoria: "economia",
+    temas: ["juros-do-fed"],
+    programa: "FOMC",
+    resumo: "Quem vota no comitê de política monetária do Fed, quantas vezes ele se reúne no ano e como a decisão chega à taxa básica americana.",
     fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/permanent-workers",
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures",
-      "https://www.dol.gov/agencies/eta/foreign-labor/programs/permanent",
+      "https://www.federalreserve.gov/monetarypolicy/fomc.htm",
+      "https://www.federalreserve.gov/monetarypolicy/openmarket.htm",
+      "https://www.federalreserve.gov/aboutthefed/fedexplained/monetary-policy.htm",
     ],
     angulos: [
-      {
-        id: "sequencia-das-etapas",
-        pergunta: "Quais sao as etapas, em ordem, de um green card conseguido pelo trabalho?",
-        personas: ["engenheiros", "tecnologia", "executivos"],
-      },
-      {
-        id: "tres-orgaos-do-governo",
-        pergunta: "Por que o meu processo passa por tres orgaos diferentes do governo americano antes de terminar?",
-        personas: ["engenheiros", "tecnologia", "pesquisadores"],
-      },
+      { id: "quem-vota", pergunta: "Quem tem voto no comitê que decide os juros nos Estados Unidos?" },
+      { id: "como-a-decisao-vira-juro", pergunta: "Como a decisão do FOMC se transforma na taxa de juros que circula na economia?" },
+      { id: "reunioes-no-ano", pergunta: "Quantas vezes por ano o comitê de juros do Fed se reúne, e o que sai de cada reunião?" },
     ],
   },
   {
-    id: "peticao-e-peticionario",
-    nome: "A peticao e quem a apresenta",
+    id: "inflacao-cpi",
+    nome: "CPI (o índice de inflação ao consumidor americano)",
+    familia: "explainer",
+    editoria: "economia",
+    temas: ["inflacao-nos-eua"],
+    programa: "CPI",
+    resumo: "Como o Bureau of Labor Statistics mede a inflação americana, que preços entram na cesta e qual é a meta de inflação que o Fed persegue.",
+    fontesCanonicas: [
+      "https://www.bls.gov/cpi/questions-and-answers.htm",
+      "https://www.bls.gov/cpi/overview.htm",
+      "https://www.federalreserve.gov/faqs/economy_14400.htm",
+    ],
+    angulos: [
+      { id: "como-e-medido", pergunta: "Como o governo americano mede a inflação que aparece no CPI?" },
+      { id: "o-que-entra-na-cesta", pergunta: "Que preços entram na cesta do CPI e como eles são coletados?" },
+      { id: "meta-do-fed", pergunta: "Qual é a meta de inflação do Fed e por que ela não é zero?" },
+    ],
+  },
+  {
+    id: "pib-americano",
+    nome: "GDP (o PIB americano, medido pelo BEA)",
+    familia: "explainer",
+    editoria: "economia",
+    temas: ["pib-dos-eua"],
+    programa: "GDP",
+    resumo: "O que o Bureau of Economic Analysis soma para chegar ao PIB dos EUA, de quanto em quanto tempo ele sai e por que o número é revisado depois.",
+    fontesCanonicas: [
+      "https://www.bea.gov/resources/learning-center/what-to-know-gdp",
+      "https://www.bea.gov/data/gdp/gross-domestic-product",
+    ],
+    angulos: [
+      { id: "o-que-entra", pergunta: "O que entra na conta do PIB americano?" },
+      { id: "revisoes", pergunta: "Por que o PIB dos EUA sai em mais de uma estimativa para o mesmo trimestre?" },
+    ],
+  },
+  {
+    id: "titulos-do-tesouro",
+    nome: "Treasuries (os títulos do Tesouro americano: bills, notes e bonds)",
+    familia: "comparison",
+    editoria: "economia",
+    temas: ["titulos-do-tesouro"],
+    programa: "Treasury",
+    resumo: "A diferença entre Treasury bills, notes e bonds, por quanto tempo cada um empresta dinheiro ao governo americano e como eles pagam juros.",
+    fontesCanonicas: [
+      "https://www.treasurydirect.gov/marketable-securities/treasury-bills/",
+      "https://www.treasurydirect.gov/marketable-securities/treasury-notes/",
+      "https://www.treasurydirect.gov/marketable-securities/treasury-bonds/",
+      "https://home.treasury.gov/policy-issues/financing-the-government/interest-rate-statistics",
+    ],
+    angulos: [
+      { id: "bills-notes-bonds", pergunta: "Qual a diferença entre Treasury bills, notes e bonds?" },
+      { id: "como-paga-juros", pergunta: "Como um título do Tesouro americano paga juros a quem compra?" },
+    ],
+  },
+  {
+    id: "tips-e-i-bonds",
+    nome: "TIPS e I bonds (os títulos do Tesouro atrelados à inflação)",
+    familia: "comparison",
+    editoria: "economia",
+    temas: ["titulos-do-tesouro", "inflacao-nos-eua"],
+    programa: "TIPS",
+    resumo: "Os dois títulos do Tesouro americano que corrigem o investimento pela inflação, como cada um faz a correção e o que muda entre eles.",
+    fontesCanonicas: [
+      "https://www.treasurydirect.gov/marketable-securities/tips/",
+      "https://www.treasurydirect.gov/savings-bonds/i-bonds/",
+    ],
+    angulos: [
+      { id: "como-corrige", pergunta: "Como os TIPS corrigem o valor investido pela inflação americana?" },
+      { id: "tips-x-i-bonds", pergunta: "Qual a diferença entre TIPS e I bonds, os dois títulos americanos contra a inflação?" },
+    ],
+  },
+  {
+    id: "bolsas-e-sec",
+    nome: "Bolsa de valores americana (as bolsas registradas na SEC)",
+    familia: "explainer",
+    editoria: "economia",
+    temas: ["mercado-de-acoes"],
+    programa: "SEC",
+    entidade: "U.S. Securities and Exchange Commission",
+    resumo: "O que a SEC faz, o que é uma bolsa registrada como national securities exchange e quem fiscaliza a negociação de ações nos EUA.",
+    fontesCanonicas: [
+      "https://www.sec.gov/about/mission",
+      "https://www.sec.gov/about/divisions-offices/division-trading-markets/national-securities-exchanges",
+      "https://www.sec.gov/about/divisions-offices/division-trading-markets",
+    ],
+    angulos: [
+      { id: "o-que-a-sec-faz", pergunta: "O que faz a SEC, a comissão que fiscaliza o mercado de ações americano?" },
+      { id: "o-que-e-bolsa-registrada", pergunta: "O que é uma bolsa registrada na SEC e por que existem várias nos EUA?" },
+    ],
+  },
+  {
+    id: "alocacao-de-ativos",
+    nome: "Asset allocation (diversificação de investimentos, pelo guia da SEC)",
+    familia: "explainer",
+    editoria: "economia",
+    temas: ["mercado-de-acoes"],
+    programa: "asset allocation",
+    resumo: "O guia da SEC para quem começa a investir: como dividir o dinheiro entre ações, títulos e caixa, o que é diversificar e o que é rebalancear.",
+    fontesCanonicas: ["https://www.sec.gov/about/reports-publications/investorpubsassetallocationhtm"],
+    angulos: [
+      { id: "o-que-e", pergunta: "O que a SEC chama de alocação de ativos e por que ela muda com o prazo de cada pessoa?" },
+      { id: "diversificar", pergunta: "O que é diversificar investimentos, segundo o guia da SEC?" },
+      { id: "rebalancear", pergunta: "O que é rebalancear uma carteira e quando o guia da SEC sugere fazer isso?" },
+    ],
+  },
+  {
+    id: "ipo",
+    nome: "IPO (como uma empresa abre capital nos EUA)",
     familia: "process_explainer",
-    resumo: "O que e a peticao de imigrante, primeiro passo do pedido de green card, quem assina e qual o papel de quem vai imigrar.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/i-140",
-      "https://www.uscis.gov/i-130",
-      "https://www.uscis.gov/working-in-the-united-states/permanent-workers",
-    ],
+    editoria: "economia",
+    temas: ["ipos"],
+    programa: "IPO",
+    resumo: "O que significa uma empresa abrir capital nos Estados Unidos, o que a SEC exige dela antes e depois, e que alternativas ao IPO tradicional existem.",
+    fontesCanonicas: ["https://www.sec.gov/resources-small-businesses/going-public"],
     angulos: [
-      {
-        id: "o-que-e-uma-peticao",
-        pergunta: "O que e uma peticao de imigrante e por que ela vem antes de qualquer outra coisa?",
-      },
-      {
-        id: "peticionario-vs-beneficiario",
-        pergunta: "Qual a diferenca entre peticionario e beneficiario, e por que isso mexe com o meu poder de decisao no processo?",
-        personas: ["engenheiros", "tecnologia", "executivos"],
-      },
-      {
-        id: "posso-me-peticionar",
-        pergunta: "Existe caminho em que eu mesmo apresento o pedido, sem empresa e sem parente?",
-        personas: ["pesquisadores", "medicos", "empreendedores"],
-      },
+      { id: "o-que-muda", pergunta: "O que muda para uma empresa americana depois que ela abre capital?" },
+      { id: "etapas", pergunta: "Quais são as etapas para uma empresa abrir capital nos EUA?" },
     ],
   },
   {
-    id: "certificacao-de-trabalho-dol",
-    nome: "A etapa da certificacao de trabalho (PERM)",
+    id: "fdic",
+    nome: "FDIC (o seguro dos depósitos bancários americanos)",
+    familia: "faq",
+    editoria: "economia",
+    temas: ["setor-bancario"],
+    programa: "FDIC",
+    entidade: "Federal Deposit Insurance Corporation",
+    resumo: "Como funciona o seguro que protege o dinheiro depositado em banco nos EUA, até que valor ele cobre e o que fica de fora.",
+    fontesCanonicas: [
+      "https://www.fdic.gov/resources/deposit-insurance/understanding-deposit-insurance",
+      "https://www.fdic.gov/resources/deposit-insurance",
+    ],
+    angulos: [
+      { id: "ate-quanto", pergunta: "Até quanto o FDIC garante do dinheiro depositado num banco americano?" },
+      { id: "o-que-nao-cobre", pergunta: "O que o seguro de depósitos do FDIC não cobre?" },
+      { id: "se-o-banco-quebra", pergunta: "O que acontece com o dinheiro do correntista quando um banco americano quebra?" },
+    ],
+  },
+  {
+    id: "divida-publica-americana",
+    nome: "National debt (a dívida pública americana)",
+    familia: "explainer",
+    editoria: "economia",
+    temas: ["divida-publica-americana"],
+    programa: "national debt",
+    resumo: "O que é a dívida pública dos EUA, como ela se diferencia do déficit e quem são os credores, nos guias do Tesouro americano.",
+    fontesCanonicas: [
+      "https://fiscaldata.treasury.gov/americas-finance-guide/national-debt/",
+      "https://fiscaldata.treasury.gov/americas-finance-guide/national-deficit/",
+    ],
+    angulos: [
+      { id: "divida-x-deficit", pergunta: "Qual a diferença entre a dívida pública americana e o déficit do governo?" },
+      { id: "quem-e-credor", pergunta: "A quem o governo americano deve a dívida pública dele?" },
+    ],
+  },
+  {
+    id: "llc",
+    nome: "LLC (a empresa de responsabilidade limitada americana)",
+    familia: "explainer",
+    editoria: "economia",
+    temas: ["startups"],
+    programa: "LLC",
+    resumo: "O que é uma LLC, como ela é tratada pelo IRS, o que é o EIN e quais passos a SBA lista para registrar um negócio nos EUA.",
+    fontesCanonicas: [
+      "https://www.irs.gov/businesses/small-businesses-self-employed/limited-liability-company-llc",
+      "https://www.sba.gov/counseling/launch-your-business/",
+      "https://www.irs.gov/businesses/small-businesses-self-employed/get-an-employer-identification-number",
+    ],
+    angulos: [
+      { id: "o-que-e", pergunta: "O que é uma LLC e por que ela é a forma de empresa mais lembrada nos EUA?" },
+      { id: "como-o-irs-trata", pergunta: "Como o IRS trata o imposto de uma LLC?" },
+      { id: "ein", pergunta: "O que é o EIN, o número que identifica uma empresa no IRS?" },
+      { id: "passos-da-sba", pergunta: "Quais passos a SBA lista para abrir um negócio nos EUA?" },
+    ],
+  },
+  {
+    id: "emprestimos-sba",
+    nome: "SBA loans (o crédito com garantia federal para pequenas empresas)",
+    familia: "explainer",
+    editoria: "economia",
+    temas: ["startups"],
+    programa: "SBA",
+    resumo: "Como funcionam os empréstimos com garantia da Small Business Administration, o programa 7(a) e quem empresta de fato o dinheiro.",
+    fontesCanonicas: ["https://www.sba.gov/loans/", "https://www.sba.gov/loans/7a-loans/"],
+    angulos: [
+      { id: "quem-empresta", pergunta: "Quem empresta o dinheiro num empréstimo da SBA, o governo ou o banco?" },
+      { id: "programa-7a", pergunta: "O que é o programa 7(a), o empréstimo mais comum da SBA?" },
+    ],
+  },
+
+  /* ------------------------------------------------------------------ */
+  /* TRABALHO                                                            */
+  /* ------------------------------------------------------------------ */
+  {
+    id: "salario-minimo",
+    nome: "Minimum wage (o salário mínimo federal e o dos estados)",
+    familia: "explainer",
+    editoria: "trabalho",
+    temas: ["salario-minimo"],
+    programa: "minimum wage",
+    resumo: "Como o salário mínimo americano é por hora, por que cada estado pode ter um mínimo maior que o federal e qual vale quando os dois existem.",
+    fontesCanonicas: [
+      "https://www.dol.gov/agencies/whd/minimum-wage",
+      "https://www.dol.gov/agencies/whd/minimum-wage/state",
+      "https://www.dol.gov/general/topic/wages/minimumwage",
+    ],
+    angulos: [
+      { id: "federal-x-estadual", pergunta: "Quando o estado tem salário mínimo diferente do federal, qual vale?" },
+      { id: "por-hora", pergunta: "Por que o salário mínimo nos EUA é contado por hora, e não por mês?" },
+      { id: "estados-acima", pergunta: "Como fica o mapa dos estados americanos com salário mínimo acima do federal?" },
+    ],
+  },
+  {
+    id: "hora-extra",
+    nome: "Overtime (a hora extra pela lei federal americana)",
+    familia: "faq",
+    editoria: "trabalho",
+    temas: ["jornada-de-trabalho"],
+    programa: "overtime",
+    resumo: "A partir de quantas horas por semana a lei federal manda pagar hora extra, quanto a mais ela vale, quem fica fora da regra e o que a FLSA deixa para o contrato.",
+    fontesCanonicas: [
+      "https://www.dol.gov/agencies/whd/overtime",
+      "https://www.dol.gov/agencies/whd/fact-sheets/23-flsa-overtime-pay",
+      "https://www.dol.gov/agencies/whd/flsa",
+      "https://www.dol.gov/general/topic/workhours",
+    ],
+    angulos: [
+      { id: "a-partir-de-quando", pergunta: "A partir de quantas horas na semana a hora extra é obrigatória nos EUA?" },
+      { id: "quem-fica-fora", pergunta: "Quem fica fora da regra de hora extra da lei federal americana?" },
+      { id: "o-que-a-flsa-nao-regula", pergunta: "O que a lei federal de jornada americana deixa para o empregador e para os estados decidirem?" },
+    ],
+  },
+  {
+    id: "ferias-e-feriados",
+    nome: "PTO (férias e feriados remunerados nos EUA)",
+    familia: "faq",
+    editoria: "trabalho",
+    temas: ["beneficios-trabalhistas"],
+    programa: "PTO",
+    resumo: "O que a lei federal diz sobre férias e feriados pagos, quantos feriados federais existem e quanto de férias os trabalhadores costumam ter, pelos dados do BLS.",
+    fontesCanonicas: [
+      "https://www.dol.gov/general/topic/workhours/vacation_leave",
+      "https://www.dol.gov/general/topic/workhours/holidays",
+      "https://www.opm.gov/policy-data-oversight/pay-leave/federal-holidays/",
+      "https://www.bls.gov/ebs/factsheets/paid-vacations.htm",
+    ],
+    angulos: [
+      { id: "lei-obriga", pergunta: "A lei federal americana obriga o empregador a dar férias pagas?" },
+      { id: "feriados-federais", pergunta: "Quais são os feriados federais dos Estados Unidos?" },
+      { id: "quanto-o-americano-tem", pergunta: "Quantos dias de férias pagas o trabalhador americano costuma ter, pelos dados do BLS?" },
+    ],
+  },
+  {
+    id: "fmla",
+    nome: "FMLA (a licença médica e familiar americana)",
+    familia: "faq",
+    editoria: "trabalho",
+    temas: ["beneficios-trabalhistas"],
+    programa: "FMLA",
+    resumo: "Quem tem direito à licença da Family and Medical Leave Act, por quanto tempo, em que situações e se ela é paga.",
+    fontesCanonicas: [
+      "https://www.dol.gov/agencies/whd/fmla",
+      "https://www.dol.gov/agencies/whd/fact-sheets/28-fmla",
+    ],
+    angulos: [
+      { id: "quanto-tempo", pergunta: "Por quanto tempo a FMLA garante a licença do trabalhador americano?" },
+      { id: "em-que-situacoes", pergunta: "Em que situações o trabalhador americano pode usar a licença da FMLA?" },
+      { id: "e-paga", pergunta: "A licença da FMLA é paga ou só garante o emprego de volta?" },
+    ],
+  },
+  {
+    id: "gorjetas-e-salario",
+    nome: "Tipped employees (o salário de quem recebe gorjeta)",
+    familia: "explainer",
+    editoria: "trabalho",
+    temas: ["gorjetas", "salario-minimo"],
+    programa: "tipped",
+    resumo: "Como a lei federal trata o salário de garçons e de quem vive de gorjeta, o que é o tip credit e como as regras mudam por estado.",
+    fontesCanonicas: [
+      "https://www.dol.gov/agencies/whd/fact-sheets/15-tipped-employees-flsa",
+      "https://www.dol.gov/agencies/whd/state/minimum-wage/tipped",
+    ],
+    angulos: [
+      { id: "tip-credit", pergunta: "O que é o tip credit, a regra que deixa o salário-base de quem recebe gorjeta abaixo do mínimo?" },
+      { id: "por-estado", pergunta: "Por que a regra do salário de quem recebe gorjeta muda de estado para estado?" },
+      { id: "de-quem-e-a-gorjeta", pergunta: "De quem é a gorjeta deixada pelo cliente, pela lei federal americana?" },
+    ],
+  },
+  {
+    id: "seguro-desemprego-eua",
+    nome: "Unemployment insurance (o seguro-desemprego americano)",
     familia: "process_explainer",
-    programa: "PERM",
-    resumo: "Por que boa parte dos pedidos por emprego passa antes pelo Departamento do Trabalho e o que essa etapa examina.",
+    editoria: "trabalho",
+    temas: ["desemprego-nos-eua", "beneficios-trabalhistas"],
+    programa: "unemployment insurance",
+    resumo: "Como o seguro-desemprego dos EUA é um programa federal e estadual ao mesmo tempo, quem paga por ele e como o trabalhador pede.",
     fontesCanonicas: [
-      "https://www.dol.gov/agencies/eta/foreign-labor/programs/permanent",
-      "https://www.dol.gov/agencies/eta/foreign-labor",
-      "https://www.uscis.gov/working-in-the-united-states/permanent-workers",
+      "https://www.dol.gov/general/topic/unemployment-insurance",
+      "https://oui.doleta.gov/unemploy/uifactsheet.asp",
+      "https://www.usa.gov/unemployment-benefits",
     ],
     angulos: [
-      {
-        id: "por-que-existe-essa-etapa",
-        pergunta: "Por que existe uma etapa no Departamento do Trabalho antes do pedido de green card?",
-      },
-      {
-        id: "o-que-a-empresa-precisa-provar",
-        pergunta: "O que a empresa precisa provar nessa etapa, e o que isso exige dela na pratica?",
-        personas: ["engenheiros", "tecnologia", "executivos"],
-      },
-      {
-        id: "quem-nao-passa-por-ela",
-        pergunta: "Quais caminhos pulam essa etapa do Departamento do Trabalho?",
-        personas: ["pesquisadores", "medicos", "empreendedores"],
-      },
+      { id: "federal-e-estadual", pergunta: "Por que o seguro-desemprego americano depende do estado onde a pessoa trabalhou?" },
+      { id: "quem-paga", pergunta: "Quem paga o seguro-desemprego nos EUA, o trabalhador ou o empregador?" },
+      { id: "como-pedir", pergunta: "Quais são as etapas para pedir o seguro-desemprego nos EUA?" },
     ],
   },
   {
-    id: "depois-da-peticao-aprovada",
-    nome: "O que acontece depois da peticao aprovada",
+    id: "relatorio-de-emprego",
+    nome: "Payroll (o relatório de emprego do BLS)",
     familia: "process_explainer",
-    resumo: "Peticao aprovada nao e green card: dali o caso segue por dentro dos EUA ou pelo consulado, com orgaos diferentes cuidando dele.",
+    editoria: "trabalho",
+    temas: ["relatorio-de-emprego"],
+    programa: "payroll",
+    resumo: "Como o relatório mensal de emprego dos EUA é feito a partir de duas pesquisas, uma com empresas e outra com famílias, e por que elas podem divergir.",
     fontesCanonicas: [
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/consular-processing",
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/adjustment-of-status",
-      "https://www.uscis.gov/i-485",
+      "https://www.bls.gov/news.release/empsit.tn.htm",
+      "https://www.bls.gov/ces/",
+      "https://www.bls.gov/cps/",
     ],
     angulos: [
-      {
-        id: "aprovacao-nao-e-o-cartao",
-        pergunta: "Minha peticao foi aprovada. Isso ja e o green card?",
-      },
-      {
-        id: "dentro-dos-eua-ou-no-consulado",
-        pergunta: "O que decide se eu termino o processo dentro dos EUA ou no consulado do meu pais?",
-        personas: ["estudantes", "engenheiros", "tecnologia"],
-      },
-      {
-        id: "quem-cuida-do-caso-agora",
-        pergunta: "Depois da aprovacao, quem passa a cuidar do meu caso: o USCIS, o centro nacional de vistos ou o consulado?",
-      },
+      { id: "duas-pesquisas", pergunta: "Quais são as duas pesquisas que formam o relatório de emprego americano?" },
+      { id: "por-que-revisa", pergunta: "Por que o número de vagas criadas nos EUA é revisado nos meses seguintes?" },
+      { id: "como-e-feito", pergunta: "Como o BLS coleta os dados do relatório de emprego todo mês?" },
     ],
   },
   {
-    id: "entrevista-consular",
-    nome: "A entrevista no consulado",
+    id: "taxa-de-desemprego",
+    nome: "Unemployment rate (como o BLS calcula o desemprego americano)",
+    familia: "glossary",
+    editoria: "trabalho",
+    temas: ["desemprego-nos-eua"],
+    programa: "unemployment rate",
+    resumo: "Quem o BLS conta como desempregado, quem fica fora da força de trabalho e como a pesquisa com famílias chega à taxa.",
+    fontesCanonicas: ["https://www.bls.gov/cps/cps_htgm.htm", "https://www.bls.gov/cps/definitions.htm"],
+    angulos: [
+      { id: "quem-conta", pergunta: "Quem o governo americano conta como desempregado?" },
+      { id: "fora-da-forca", pergunta: "O que é estar fora da força de trabalho, na conta do desemprego americano?" },
+    ],
+  },
+  {
+    id: "guia-de-profissoes",
+    nome: "Occupational Outlook Handbook (o guia oficial de profissões do BLS)",
+    familia: "explainer",
+    editoria: "trabalho",
+    temas: ["profissoes-em-alta", "carreira-em-tecnologia"],
+    programa: "Occupational Outlook",
+    resumo: "O guia do BLS que descreve centenas de profissões americanas com salário, formação e perspectiva de emprego, as projeções que o alimentam e a pesquisa de salário por profissão.",
+    fontesCanonicas: [
+      "https://www.bls.gov/ooh/about/ooh-faqs.htm",
+      "https://www.bls.gov/emp/",
+      "https://www.bls.gov/oes/",
+    ],
+    angulos: [
+      { id: "o-que-traz", pergunta: "O que o guia oficial de profissões do governo americano informa sobre cada carreira?" },
+      { id: "projecoes", pergunta: "Como o BLS projeta quais profissões vão crescer nos EUA?" },
+      { id: "salario-por-profissao", pergunta: "Como o governo americano mede o salário de cada profissão em cada cidade?" },
+    ],
+  },
+  {
+    id: "401k",
+    nome: "401(k) (a aposentadoria pelo empregador)",
+    familia: "explainer",
+    editoria: "trabalho",
+    temas: ["aposentadoria"],
+    programa: "401(k)",
+    resumo: "O plano de aposentadoria oferecido pelo empregador nos EUA: como o dinheiro sai do salário, o que é a contrapartida da empresa e como o IRS trata o imposto.",
+    fontesCanonicas: [
+      "https://www.irs.gov/retirement-plans/401k-plans",
+      "https://www.irs.gov/retirement-plans/plan-participant-employee/401k-resource-guide-plan-participants-401k-plan-overview",
+      "https://www.dol.gov/general/topic/retirement/typesofplans",
+    ],
+    angulos: [
+      { id: "o-que-e", pergunta: "O que é o 401(k), o plano de aposentadoria que o empregador americano oferece?" },
+      { id: "contrapartida", pergunta: "Como funciona a contrapartida da empresa no 401(k)?" },
+      { id: "imposto", pergunta: "Quando o imposto do 401(k) é pago, na entrada do dinheiro ou na saída?" },
+      { id: "tipos-de-plano", pergunta: "Quais tipos de plano de aposentadoria o empregador americano pode oferecer?" },
+    ],
+  },
+  {
+    id: "ira-e-roth",
+    nome: "IRA e Roth IRA (a aposentadoria individual americana)",
+    familia: "comparison",
+    editoria: "trabalho",
+    temas: ["aposentadoria"],
+    programa: "IRA",
+    resumo: "As contas individuais de aposentadoria dos EUA, a diferença entre a tradicional e a Roth e como o imposto incide em cada uma.",
+    fontesCanonicas: [
+      "https://www.irs.gov/retirement-plans/individual-retirement-arrangements-iras",
+      "https://www.irs.gov/retirement-plans/roth-iras",
+      "https://www.irs.gov/retirement-plans/traditional-and-roth-iras",
+    ],
+    angulos: [
+      { id: "o-que-e", pergunta: "O que é uma IRA, a conta de aposentadoria que a pessoa abre por conta própria nos EUA?" },
+      { id: "tradicional-x-roth", pergunta: "Qual a diferença entre a IRA tradicional e a Roth IRA?" },
+    ],
+  },
+  {
+    id: "fica-contracheque",
+    nome: "FICA (o que sai do contracheque americano)",
+    familia: "explainer",
+    editoria: "trabalho",
+    temas: ["impostos-federais", "aposentadoria"],
+    programa: "FICA",
+    resumo: "Os descontos de Social Security e Medicare no salário americano, a parte do empregado e a do empregador, e a retenção do imposto de renda na fonte.",
+    fontesCanonicas: [
+      "https://www.irs.gov/taxtopics/tc751",
+      "https://www.irs.gov/businesses/small-businesses-self-employed/understanding-employment-taxes",
+    ],
+    angulos: [
+      { id: "o-que-e-descontado", pergunta: "O que é descontado do salário de quem trabalha nos EUA?" },
+      { id: "parte-do-empregador", pergunta: "Quanto o empregador americano paga de Social Security e Medicare além do salário?" },
+    ],
+  },
+  {
+    id: "w2-ou-1099",
+    nome: "W-2 ou 1099 (empregado ou contratado independente)",
+    familia: "comparison",
+    editoria: "trabalho",
+    temas: ["trabalho-por-aplicativo", "impostos-federais"],
+    programa: "1099",
+    resumo: "Como o IRS e o Departamento do Trabalho distinguem empregado de contratado independente, e o que muda em imposto e direitos entre os dois.",
+    fontesCanonicas: [
+      "https://www.irs.gov/businesses/small-businesses-self-employed/independent-contractor-self-employed-or-employee",
+      "https://www.dol.gov/agencies/whd/flsa/misclassification",
+      "https://www.irs.gov/businesses/small-businesses-self-employed/self-employment-tax-social-security-and-medicare-taxes",
+    ],
+    angulos: [
+      { id: "como-distingue", pergunta: "Como o governo americano decide se alguém é empregado ou contratado independente?" },
+      { id: "o-que-muda-no-imposto", pergunta: "O que muda no imposto de quem trabalha como contratado independente nos EUA?" },
+      { id: "classificacao-errada", pergunta: "O que acontece quando a empresa americana classifica um empregado como contratado?" },
+    ],
+  },
+
+  /* ------------------------------------------------------------------ */
+  /* TECNOLOGIA                                                          */
+  /* ------------------------------------------------------------------ */
+  {
+    id: "nist-ai-rmf",
+    nome: "AI Risk Management Framework (o guia de inteligência artificial do NIST)",
+    familia: "explainer",
+    editoria: "tecnologia",
+    temas: ["regulacao-de-ia", "inteligencia-artificial"],
+    programa: "AI RMF",
+    resumo: "O que é o guia do NIST para gerir o risco de sistemas de inteligência artificial, por que ele é voluntário e a quem ele se dirige.",
+    fontesCanonicas: ["https://www.nist.gov/itl/ai-risk-management-framework"],
+    angulos: [
+      { id: "o-que-e", pergunta: "O que é o guia do governo americano para gerir os riscos da inteligência artificial?" },
+      { id: "voluntario", pergunta: "O guia de IA do NIST é obrigatório para as empresas americanas?" },
+    ],
+  },
+  {
+    id: "chips-for-america",
+    nome: "CHIPS for America (o programa americano de semicondutores)",
+    familia: "explainer",
+    editoria: "tecnologia",
+    temas: ["semicondutores"],
+    programa: "CHIPS",
+    resumo: "O programa federal que financia fábricas e pesquisa de semicondutores nos EUA, quem o administra e quais são as frentes dele.",
+    fontesCanonicas: ["https://www.nist.gov/chips"],
+    angulos: [
+      { id: "o-que-e", pergunta: "O que é o CHIPS for America, o programa que quer trazer a fabricação de chips para os EUA?" },
+      { id: "frentes", pergunta: "Quais são as frentes do programa americano de semicondutores?" },
+    ],
+  },
+  {
+    id: "patentes-e-marcas",
+    nome: "Patente e trademark (como o USPTO protege invenção e marca)",
+    familia: "comparison",
+    editoria: "tecnologia",
+    temas: ["startups"],
+    programa: "USPTO",
+    resumo: "O que é uma patente nos EUA, os tipos que existem, o que o USPTO avalia, e a diferença entre patente, marca registrada e direito autoral.",
+    fontesCanonicas: [
+      "https://www.uspto.gov/patents/basics/essentials",
+      "https://www.uspto.gov/trademarks/basics",
+    ],
+    angulos: [
+      { id: "o-que-e-patente", pergunta: "O que uma patente protege nos EUA, e por quanto tempo?" },
+      { id: "tipos", pergunta: "Quais são os tipos de patente que o USPTO concede?" },
+      { id: "patente-x-marca", pergunta: "Qual a diferença entre patente, marca registrada e direito autoral nos EUA?" },
+    ],
+  },
+  {
+    id: "computacao-quantica",
+    nome: "Computação quântica (o que o NIST explica sobre o computador quântico)",
+    familia: "explainer",
+    editoria: "tecnologia",
+    temas: ["computacao-quantica"],
+    programa: "quantum",
+    resumo: "O que diferencia um computador quântico de um comum, o que é um qubit e por que o NIST trabalha em criptografia que resista a ele.",
+    fontesCanonicas: [
+      "https://www.nist.gov/quantum-information-science/quantum-computing-explained",
+      "https://www.nist.gov/quantum-information-science",
+    ],
+    angulos: [
+      { id: "o-que-e-qubit", pergunta: "O que é um qubit e por que ele muda o jeito de calcular?" },
+      { id: "criptografia", pergunta: "Por que o governo americano prepara uma criptografia que resista ao computador quântico?" },
+    ],
+  },
+  {
+    id: "carros-eletricos",
+    nome: "Carros elétricos (como funcionam e onde carregam nos EUA)",
+    familia: "explainer",
+    editoria: "tecnologia",
+    temas: ["carros-eletricos"],
+    programa: "electric vehicle",
+    resumo: "Como funciona um carro elétrico a bateria, a diferença para o híbrido e os níveis de recarga em casa e na rua, pelos guias do Departamento de Energia.",
+    fontesCanonicas: [
+      "https://www.fueleconomy.gov/feg/evtech.shtml",
+      "https://afdc.energy.gov/vehicles/electric",
+      "https://afdc.energy.gov/fuels/electricity-charging-home",
+    ],
+    angulos: [
+      { id: "como-funciona", pergunta: "Como funciona um carro elétrico a bateria por dentro?" },
+      { id: "eletrico-x-hibrido", pergunta: "Qual a diferença entre carro elétrico, híbrido e híbrido plug-in?" },
+      { id: "carregar-em-casa", pergunta: "Como é carregar um carro elétrico em casa nos EUA?" },
+    ],
+  },
+  {
+    id: "energia-nuclear",
+    nome: "Energia nuclear (como funciona um reator, pelo Departamento de Energia)",
+    familia: "explainer",
+    editoria: "tecnologia",
+    temas: ["energia-nuclear"],
+    programa: "nuclear",
+    resumo: "Como um reator nuclear gera eletricidade e quanto da energia americana vem das usinas nucleares, pelos guias do DOE e da EIA.",
+    fontesCanonicas: [
+      "https://www.energy.gov/ne/articles/nuclear-101-how-does-nuclear-reactor-work",
+      "https://www.eia.gov/energyexplained/nuclear/",
+    ],
+    angulos: [
+      { id: "como-funciona", pergunta: "Como um reator nuclear transforma calor em eletricidade?" },
+      { id: "peso-na-matriz", pergunta: "Quanto da eletricidade dos EUA vem de usinas nucleares?" },
+    ],
+  },
+  {
+    id: "programa-artemis",
+    nome: "Artemis (o programa da NASA de volta à Lua)",
+    familia: "explainer",
+    editoria: "tecnologia",
+    temas: ["exploracao-espacial"],
+    programa: "Artemis",
+    resumo: "O que é o programa Artemis, quais são as missões, o que a NASA pretende fazer na Lua e como isso se liga à ida a Marte.",
+    fontesCanonicas: ["https://www.nasa.gov/humans-in-space/artemis/", "https://www.nasa.gov/about/"],
+    angulos: [
+      { id: "o-que-e", pergunta: "O que é o programa Artemis e o que a NASA quer fazer na Lua?" },
+      { id: "lua-e-marte", pergunta: "Como a volta à Lua prepara a NASA para ir a Marte?" },
+    ],
+  },
+  {
+    id: "sbir",
+    nome: "SBIR (o dinheiro federal para pesquisa em startups)",
+    familia: "explainer",
+    editoria: "tecnologia",
+    temas: ["startups"],
+    programa: "SBIR",
+    resumo: "O programa que reserva parte do orçamento de pesquisa das agências federais para pequenas empresas americanas de tecnologia.",
+    fontesCanonicas: ["https://www.sbir.gov/about"],
+    angulos: [
+      { id: "o-que-e", pergunta: "O que é o SBIR, o programa que financia pesquisa em pequenas empresas americanas?" },
+      { id: "fases", pergunta: "Como funcionam as fases do SBIR, da ideia ao produto?" },
+    ],
+  },
+
+  /* ------------------------------------------------------------------ */
+  /* CUSTO DE VIDA                                                       */
+  /* ------------------------------------------------------------------ */
+  {
+    id: "credit-score",
+    nome: "Credit score (a pontuação de crédito americana)",
+    familia: "explainer",
+    editoria: "custo-de-vida",
+    temas: ["cartao-de-credito", "financiamento-imobiliario"],
+    programa: "credit score",
+    resumo: "O que é o credit score, de onde vem a informação dele, como o relatório de crédito pode ser consultado de graça e o que pesa na nota.",
+    fontesCanonicas: [
+      "https://www.consumerfinance.gov/ask-cfpb/what-is-a-credit-score-en-315/",
+      "https://www.consumerfinance.gov/consumer-tools/credit-reports-and-scores/",
+      "https://www.usa.gov/credit-reports",
+      "https://consumer.ftc.gov/articles/free-credit-reports",
+      "https://www.consumerfinance.gov/consumer-tools/credit-cards/",
+    ],
+    angulos: [
+      { id: "o-que-e", pergunta: "O que é o credit score e por que ele pesa tanto na vida financeira nos EUA?" },
+      { id: "relatorio-gratis", pergunta: "Como o americano consulta de graça o próprio relatório de crédito?" },
+      { id: "o-que-pesa", pergunta: "O que pesa na pontuação de crédito americana?" },
+      { id: "juros-do-cartao", pergunta: "Como os juros do cartão de crédito americano são calculados?" },
+    ],
+  },
+  {
+    id: "hipoteca",
+    nome: "Mortgage (o financiamento da casa própria nos EUA)",
     familia: "process_explainer",
-    resumo: "Como funciona a etapa da entrevista consular, quem convoca e o que esta sendo decidido naquele dia.",
+    editoria: "custo-de-vida",
+    temas: ["financiamento-imobiliario"],
+    programa: "mortgage",
+    resumo: "O que é uma hipoteca americana, o que compõe a prestação e as etapas que o CFPB descreve para quem vai comprar a primeira casa.",
     fontesCanonicas: [
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/consular-processing",
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/adjustment-of-status",
+      "https://www.consumerfinance.gov/ask-cfpb/what-is-a-mortgage-en-99/",
+      "https://www.consumerfinance.gov/owning-a-home/",
     ],
     angulos: [
-      {
-        id: "como-funciona-o-dia",
-        pergunta: "Como funciona a entrevista no consulado, do agendamento ate sair a resposta?",
-        personas: ["familias"],
-      },
-      {
-        id: "o-que-o-oficial-decide",
-        pergunta: "O que o oficial esta decidindo na entrevista, e o que ele nao decide?",
-      },
-      {
-        id: "consulado-vs-uscis",
-        pergunta: "Entrevista no consulado e entrevista do USCIS dentro dos EUA sao a mesma coisa?",
-        personas: ["estudantes", "engenheiros"],
-      },
+      { id: "o-que-e", pergunta: "O que é uma mortgage, o financiamento imobiliário americano?" },
+      { id: "etapas", pergunta: "Quais são as etapas para comprar uma casa com financiamento nos EUA?" },
     ],
   },
   {
-    id: "exame-medico-imigracao",
-    nome: "O exame medico da imigracao",
+    id: "property-tax",
+    nome: "Property tax (o imposto anual sobre o imóvel nos EUA)",
+    familia: "explainer",
+    editoria: "custo-de-vida",
+    temas: ["imposto-sobre-propriedade"],
+    programa: "property tax",
+    resumo: "Por que o imposto sobre o imóvel nos EUA é local, quem calcula o valor da casa e como Califórnia e Texas organizam a cobrança.",
+    fontesCanonicas: [
+      "https://www.boe.ca.gov/proptaxes/proptax.htm",
+      "https://comptroller.texas.gov/taxes/property-tax/",
+    ],
+    angulos: [
+      { id: "quem-cobra", pergunta: "Quem cobra o imposto sobre o imóvel nos EUA, o estado ou o município?" },
+      { id: "como-avalia", pergunta: "Como o valor da casa é avaliado para o property tax?" },
+      { id: "california-x-texas", pergunta: "Como Califórnia e Texas organizam o imposto sobre o imóvel?" },
+    ],
+  },
+  {
+    id: "sales-tax",
+    nome: "Sales tax (o imposto que só aparece no caixa)",
+    familia: "explainer",
+    editoria: "custo-de-vida",
+    temas: ["custo-de-vida-nas-cidades", "politica-estadual"],
+    programa: "sales tax",
+    resumo: "Por que o preço da etiqueta nos EUA não inclui o imposto, como estado e cidade somam alíquotas e como Texas, Califórnia e Nova York cobram.",
+    fontesCanonicas: [
+      "https://comptroller.texas.gov/taxes/sales/",
+      "https://cdtfa.ca.gov/taxes-and-fees/sutprograms.htm",
+      "https://www.tax.ny.gov/bus/st/stidx.htm",
+      "https://www.irs.gov/credits-deductions/individuals/use-the-sales-tax-deduction-calculator",
+    ],
+    angulos: [
+      { id: "fora-da-etiqueta", pergunta: "Por que o imposto não vem no preço da etiqueta nos EUA?" },
+      { id: "estado-e-cidade", pergunta: "Como o sales tax do estado e o da cidade se somam na mesma compra?" },
+      { id: "texas", pergunta: "Como funciona o sales tax no Texas, do estado e das cidades?" },
+    ],
+  },
+  {
+    id: "imposto-de-renda-estadual",
+    nome: "State income tax (o imposto de renda dos estados americanos)",
+    familia: "comparison",
+    editoria: "custo-de-vida",
+    temas: ["politica-estadual", "custo-de-vida-nas-cidades"],
+    programa: "state income tax",
+    resumo: "Por que, além do imposto federal, alguns estados cobram imposto de renda e outros não, com os casos de Washington, Tennessee e Nova York.",
+    fontesCanonicas: [
+      "https://dor.wa.gov/taxes-rates/income-tax",
+      "https://www.tn.gov/revenue/taxes/hall-income-tax.html",
+      "https://www.tax.ny.gov/pit/",
+    ],
+    angulos: [
+      { id: "estados-sem", pergunta: "Como funcionam os estados americanos que não cobram imposto de renda da pessoa física?" },
+      { id: "tennessee", pergunta: "Como o Tennessee acabou com o único imposto de renda que cobrava?" },
+      { id: "federal-e-estadual", pergunta: "Por que quem mora nos EUA pode pagar imposto de renda para o país e para o estado?" },
+    ],
+  },
+  {
+    id: "aluguel",
+    nome: "Aluguel nos EUA (como o governo mede o custo da moradia)",
+    familia: "explainer",
+    editoria: "custo-de-vida",
+    temas: ["aluguel"],
+    programa: "rent",
+    resumo: "Como o BLS mede o aluguel dentro da inflação, o que é o aluguel equivalente do proprietário e as pesquisas de moradia do Census.",
+    fontesCanonicas: [
+      "https://www.bls.gov/cpi/factsheets/owners-equivalent-rent-and-rent.htm",
+      "https://www.census.gov/programs-surveys/ahs.html",
+      "https://www.census.gov/topics/housing.html",
+    ],
+    angulos: [
+      { id: "aluguel-na-inflacao", pergunta: "Como o aluguel entra na conta da inflação americana?" },
+      { id: "aluguel-equivalente", pergunta: "O que é o aluguel equivalente do proprietário, que o BLS usa para medir a moradia?" },
+    ],
+  },
+  {
+    id: "paridade-regional",
+    nome: "Regional Price Parities (quanto custa viver em cada estado, pelo BEA)",
+    familia: "explainer",
+    editoria: "custo-de-vida",
+    temas: ["custo-de-vida-nas-cidades", "aluguel"],
+    programa: "Regional Price Parities",
+    resumo: "O índice oficial do BEA que compara o nível de preços entre estados e regiões metropolitanas, com os estados mais caros e os mais baratos do ano.",
+    fontesCanonicas: ["https://www.bea.gov/data/prices-inflation/regional-price-parities-state-and-metro-area"],
+    angulos: [
+      { id: "o-que-mede", pergunta: "Como o governo americano compara o custo de vida entre os estados?" },
+      { id: "mais-caros", pergunta: "Quais estados americanos têm o nível de preços mais alto e o mais baixo, pelo índice do BEA?" },
+      { id: "aluguel-por-estado", pergunta: "Quanto o aluguel muda de um estado americano para outro, pelo índice regional do BEA?" },
+    ],
+  },
+  {
+    id: "plano-de-saude",
+    nome: "Plano de saúde nos EUA (pelo empregador ou pelo Marketplace)",
+    familia: "comparison",
+    editoria: "custo-de-vida",
+    temas: ["plano-de-saude"],
+    programa: "Marketplace",
+    resumo: "Os dois caminhos mais comuns para ter plano de saúde nos EUA, o do empregador e o do Marketplace da healthcare.gov, e as janelas para contratar.",
+    fontesCanonicas: [
+      "https://www.healthcare.gov/quick-guide/one-page-guide-to-the-marketplace/",
+      "https://www.healthcare.gov/have-job-based-coverage/options/",
+      "https://www.healthcare.gov/coverage-outside-open-enrollment/special-enrollment-period/",
+      "https://www.healthcare.gov/quick-guide/dates-and-deadlines/",
+    ],
+    angulos: [
+      { id: "empregador-x-marketplace", pergunta: "Qual a diferença entre ter plano de saúde pelo empregador e pelo Marketplace nos EUA?" },
+      { id: "open-enrollment", pergunta: "O que é o Open Enrollment, a janela anual para contratar plano de saúde nos EUA?" },
+      { id: "fora-da-janela", pergunta: "Em que situações dá para contratar plano de saúde nos EUA fora da janela anual?" },
+    ],
+  },
+  {
+    id: "vocabulario-do-plano",
+    nome: "Deductible, copay e coinsurance (o vocabulário do plano de saúde americano)",
+    familia: "glossary",
+    editoria: "custo-de-vida",
+    temas: ["plano-de-saude"],
+    programa: "deductible",
+    resumo: "Os termos que decidem quanto a pessoa paga do próprio bolso num plano de saúde americano: premium, deductible, copay, coinsurance e teto anual.",
+    fontesCanonicas: [
+      "https://www.healthcare.gov/glossary/deductible/",
+      "https://www.healthcare.gov/glossary/co-insurance/",
+      "https://www.healthcare.gov/glossary/co-payment/",
+      "https://www.healthcare.gov/glossary/out-of-pocket-maximum-limit/",
+    ],
+    angulos: [
+      { id: "deductible", pergunta: "O que é o deductible do plano de saúde americano?" },
+      { id: "copay-x-coinsurance", pergunta: "Qual a diferença entre copay e coinsurance no plano de saúde americano?" },
+      { id: "teto-anual", pergunta: "O que é o teto anual que o plano de saúde americano põe no gasto do próprio bolso?" },
+    ],
+  },
+  {
+    id: "preco-da-gasolina",
+    nome: "Preço da gasolina nos EUA (o que forma o preço, pela EIA)",
+    familia: "explainer",
+    editoria: "custo-de-vida",
+    temas: ["preco-da-gasolina"],
+    programa: "gasoline",
+    resumo: "As parcelas do preço do galão de gasolina nos EUA, por que ele sobe e desce e por que muda tanto de uma região para outra.",
+    fontesCanonicas: [
+      "https://www.eia.gov/energyexplained/gasoline/factors-affecting-gasoline-prices.php",
+      "https://www.eia.gov/energyexplained/gasoline/price-fluctuations.php",
+      "https://www.eia.gov/energyexplained/gasoline/regional-price-differences.php",
+    ],
+    angulos: [
+      { id: "o-que-forma", pergunta: "O que forma o preço do galão de gasolina nos EUA?" },
+      { id: "por-regiao", pergunta: "Por que a gasolina custa mais em alguns estados americanos do que em outros?" },
+      { id: "por-que-oscila", pergunta: "Por que o preço da gasolina americana muda ao longo do ano?" },
+    ],
+  },
+  {
+    id: "conta-de-luz",
+    nome: "Conta de luz nos EUA (o que forma a tarifa de eletricidade, pela EIA)",
+    familia: "explainer",
+    editoria: "custo-de-vida",
+    temas: ["conta-de-luz"],
+    programa: "electricity",
+    resumo: "O que compõe o preço da eletricidade nos EUA, por que ele varia por região e estação, e como a casa americana usa energia.",
+    fontesCanonicas: [
+      "https://www.eia.gov/energyexplained/electricity/prices-and-factors-affecting-prices.php",
+      "https://www.eia.gov/energyexplained/electricity/use-of-electricity.php",
+    ],
+    angulos: [
+      { id: "o-que-forma", pergunta: "O que forma o preço da conta de luz nos EUA?" },
+      { id: "onde-a-casa-gasta", pergunta: "Em que a casa americana mais gasta eletricidade?" },
+    ],
+  },
+  {
+    id: "faculdade-custos",
+    nome: "Faculdade nos EUA (pública, privada e community college, pelo NCES)",
+    familia: "comparison",
+    editoria: "custo-de-vida",
+    temas: ["mensalidade-universitaria"],
+    programa: "tuition",
+    resumo: "Quanto custam mensalidade, moradia e alimentação em faculdades públicas, privadas e de dois anos, pelos números oficiais do NCES, e como funciona o plano 529.",
+    fontesCanonicas: [
+      "https://nces.ed.gov/fastfacts/display.asp?id=76",
+      "https://nces.ed.gov/programs/coe/indicator/cua",
+      "https://www.irs.gov/newsroom/529-plans-questions-and-answers",
+    ],
+    angulos: [
+      { id: "publica-x-privada", pergunta: "Qual a diferença de custo entre faculdade pública e privada nos EUA, pelos números oficiais?" },
+      { id: "dois-anos", pergunta: "Quanto custa uma faculdade de dois anos nos EUA perto de uma de quatro?" },
+      { id: "plano-529", pergunta: "O que é o plano 529, a poupança com vantagem fiscal para pagar a faculdade?" },
+    ],
+  },
+  {
+    id: "gastos-das-familias",
+    nome: "Consumer Expenditure Survey (onde vai o dinheiro do americano)",
+    familia: "explainer",
+    editoria: "custo-de-vida",
+    temas: ["consumo-das-familias", "custo-de-vida-nas-cidades"],
+    programa: "Consumer Expenditure",
+    resumo: "A pesquisa anual do BLS que mostra como as famílias americanas dividem o gasto entre moradia, transporte, comida, saúde e o resto.",
+    fontesCanonicas: ["https://www.bls.gov/news.release/cesan.nr0.htm", "https://www.bls.gov/cex/"],
+    angulos: [
+      { id: "onde-gasta", pergunta: "Com o que a família americana mais gasta dinheiro, pela pesquisa anual do BLS?" },
+      { id: "moradia-pesa", pergunta: "Quanto do orçamento da família americana vai para moradia?" },
+    ],
+  },
+  {
+    id: "gasto-com-comida",
+    nome: "Gasto com comida nos EUA (a série oficial do USDA)",
+    familia: "explainer",
+    editoria: "custo-de-vida",
+    temas: ["preco-dos-alimentos"],
+    programa: "food expenditure",
+    resumo: "Quanto o americano gasta com comida em casa e fora de casa e que parte da renda isso representa, pela série do Economic Research Service.",
+    fontesCanonicas: ["https://www.ers.usda.gov/data-products/food-expenditure-series"],
+    angulos: [
+      { id: "dentro-x-fora", pergunta: "O americano gasta mais com comida em casa ou fora de casa?" },
+      { id: "parte-da-renda", pergunta: "Que parte da renda o americano gasta com comida, pela série do USDA?" },
+    ],
+  },
+
+  /* ------------------------------------------------------------------ */
+  /* GOVERNO (editoria Política)                                         */
+  /* ------------------------------------------------------------------ */
+  {
+    id: "temporada-do-ir",
+    nome: "Tax season (a temporada de declaração do imposto de renda no IRS)",
     familia: "process_explainer",
-    resumo: "A etapa do exame medico obrigatorio: para que serve, quem pode fazer e por que o resultado vem lacrado.",
+    editoria: "governo",
+    temas: ["impostos-federais"],
+    programa: "IRS",
+    entidade: "Internal Revenue Service",
+    resumo: "Quem precisa declarar imposto de renda nos EUA, quando a declaração é entregue e como funciona a entrega gratuita pelo IRS.",
     fontesCanonicas: [
-      "https://www.uscis.gov/i-693",
-      "https://www.uscis.gov/tools/designated-civil-surgeons",
-      "https://www.uscis.gov/policy-manual/volume-8-part-b-chapter-3",
+      "https://www.irs.gov/filing",
+      "https://www.irs.gov/filing/individuals/when-to-file",
+      "https://www.irs.gov/individuals/check-if-you-need-to-file-a-tax-return",
+      "https://www.irs.gov/e-file-do-your-taxes-for-free",
     ],
     angulos: [
-      {
-        id: "para-que-serve",
-        pergunta: "Por que a imigracao exige exame medico e o que exatamente ele examina?",
-        personas: ["familias"],
-      },
-      {
-        id: "quem-pode-fazer",
-        pergunta: "Por que nao vale o exame feito pelo meu medico de sempre?",
-        personas: ["medicos"],
-      },
-      {
-        id: "envelope-lacrado",
-        pergunta: "Por que o resultado vem num envelope lacrado que eu nao posso abrir?",
-      },
+      { id: "quando", pergunta: "Quando o americano entrega a declaração do imposto de renda?" },
+      { id: "quem-precisa", pergunta: "Quem precisa declarar imposto de renda nos EUA?" },
+      { id: "de-graca", pergunta: "Como funciona a declaração gratuita do imposto de renda pelo IRS?" },
     ],
   },
   {
-    id: "taxa-de-imigrante-uscis",
-    nome: "A taxa de imigrante do USCIS",
+    id: "faixas-do-ir",
+    nome: "Tax brackets (as faixas do imposto de renda federal)",
+    familia: "explainer",
+    editoria: "governo",
+    temas: ["impostos-federais"],
+    programa: "tax brackets",
+    resumo: "Como as faixas do imposto de renda americano incidem em camadas sobre a renda e o que é a dedução padrão que o IRS desconta antes.",
+    fontesCanonicas: [
+      "https://www.irs.gov/filing/federal-income-tax-rates-and-brackets",
+      "https://www.irs.gov/taxtopics/tc551",
+    ],
+    angulos: [
+      { id: "em-camadas", pergunta: "Por que subir de faixa no imposto americano não faz a pessoa pagar mais sobre toda a renda?" },
+      { id: "deducao-padrao", pergunta: "O que é a dedução padrão do imposto de renda americano?" },
+    ],
+  },
+  {
+    id: "colegio-eleitoral",
+    nome: "Colégio Eleitoral (como o presidente americano é eleito)",
     familia: "process_explainer",
-    resumo: "A etapa de pagamento que aparece depois do visto de imigrante aprovado e antes do cartao ser produzido.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/forms/filing-fees/uscis-immigrant-fee",
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/consular-processing",
-    ],
+    editoria: "governo",
+    temas: ["eleicoes-americanas"],
+    programa: "Electoral College",
+    resumo: "Como os votos de cada estado viram delegados, quantos são, quantos o candidato precisa e o caminho até a posse.",
+    fontesCanonicas: ["https://www.archives.gov/electoral-college/about", "https://www.usa.gov/electoral-college"],
     angulos: [
-      {
-        id: "por-que-existe-essa-cobranca",
-        pergunta: "Meu visto de imigrante saiu. Por que ainda aparece uma taxa antes de eu viajar?",
-        personas: ["familias"],
-      },
-      {
-        id: "e-se-eu-nao-pagar",
-        pergunta: "O que acontece com o meu cartao, e com a minha situacao, se essa taxa nao for paga?",
-      },
+      { id: "como-funciona", pergunta: "Como funciona o Colégio Eleitoral que escolhe o presidente americano?" },
+      { id: "quantos-votos", pergunta: "Quantos votos no Colégio Eleitoral um candidato precisa para ser presidente?" },
+      { id: "calendario", pergunta: "Quais são as etapas entre a eleição e a posse do presidente americano?" },
     ],
   },
   {
-    id: "chegada-aos-eua",
-    nome: "A chegada aos EUA com visto de imigrante",
+    id: "congresso-e-leis",
+    nome: "Congresso americano (Câmara, Senado e como um projeto vira lei)",
     familia: "process_explainer",
-    resumo: "O que acontece na primeira entrada com o visto na mao, como a entrada fica registrada e o que vale enquanto o cartao nao chega.",
+    editoria: "governo",
+    temas: ["eleicoes-americanas"],
+    programa: "Congress",
+    entidade: "United States Congress",
+    resumo: "Como o Congresso dos EUA se divide entre Câmara e Senado, quem é eleito para cada casa e as etapas de um projeto até virar lei.",
     fontesCanonicas: [
-      "https://www.uscis.gov/green-card/green-card-processes-and-procedures/consular-processing",
-      "https://www.cbp.gov/travel/international-visitors/i-94",
-      "https://www.uscis.gov/forms/filing-fees/uscis-immigrant-fee",
+      "https://www.usa.gov/branches-of-government",
+      "https://www.house.gov/the-house-explained",
+      "https://www.usa.gov/how-laws-are-made",
+      "https://www.house.gov/the-house-explained/the-legislative-process",
     ],
     angulos: [
-      {
-        id: "no-aeroporto",
-        pergunta: "O que acontece no aeroporto quando eu chego com o visto de imigrante na mao?",
-        personas: ["familias"],
-      },
-      {
-        id: "quem-decide-a-entrada",
-        pergunta: "Quem decide de verdade se eu entro nos EUA: o consulado que deu o visto ou o oficial do aeroporto?",
-      },
-      {
-        id: "prova-antes-do-cartao",
-        pergunta: "O cartao vem pelo correio depois. O que prova que eu sou residente enquanto ele nao chega?",
-        personas: ["familias", "estudantes"],
-      },
+      { id: "camara-x-senado", pergunta: "Qual a diferença entre a Câmara e o Senado americanos?" },
+      { id: "como-vira-lei", pergunta: "Quais são as etapas para um projeto virar lei nos EUA?" },
+      { id: "tres-poderes", pergunta: "Como os três poderes do governo americano se controlam?" },
     ],
   },
   {
-    id: "cartas-de-recomendacao",
-    nome: "Cartas de recomendacao e cartas de especialista",
-    familia: "evidence_education",
-    resumo: "O que sao as cartas de terceiros que acompanham uma peticao de imigracao, quem as escreve e que peso elas tem diante de prova documental independente.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-2",
-      "https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-5",
-      "https://www.uscis.gov/policy-manual/volume-1-part-e-chapter-6",
-    ],
+    id: "ordem-executiva",
+    nome: "Executive order (a ordem executiva do presidente americano)",
+    familia: "glossary",
+    editoria: "governo",
+    temas: ["ordens-executivas"],
+    programa: "executive order",
+    resumo: "O que é uma ordem executiva, como ela é numerada e publicada e o que a diferencia de uma lei aprovada pelo Congresso.",
+    fontesCanonicas: ["https://www.archives.gov/federal-register/executive-orders/about.html"],
     angulos: [
-      {
-        id: "quem-escreve-e-o-que-a-carta-mostra",
-        pergunta: "Quem deve escrever uma carta de recomendacao num pedido de imigracao e o que essa carta precisa mostrar sobre o meu trabalho?",
-        personas: ["pesquisadores", "medicos", "engenheiros", "tecnologia"],
-      },
-      {
-        id: "carta-nao-substitui-prova-independente",
-        pergunta: "Se eu juntar muitas cartas elogiosas, isso resolve? Por que carta nao substitui prova que existe fora dela?",
-        personas: ["pesquisadores", "empreendedores", "executivos"],
-      },
+      { id: "o-que-e", pergunta: "O que é uma ordem executiva do presidente americano?" },
+      { id: "ordem-x-lei", pergunta: "Qual a diferença entre uma ordem executiva e uma lei nos EUA?" },
     ],
   },
   {
-    id: "publicacoes-premios-e-reconhecimento",
-    nome: "Publicacoes, citacoes e premios como prova de reconhecimento",
-    familia: "evidence_education",
-    resumo: "Como o reconhecimento externo no seu campo entra numa peticao de imigracao: o que voce publicou, o que foi publicado sobre voce, citacoes e premios.",
+    id: "suprema-corte",
+    nome: "Suprema Corte e a Justiça federal americana",
+    familia: "explainer",
+    editoria: "governo",
+    temas: ["suprema-corte"],
+    programa: "Supreme Court",
+    entidade: "Supreme Court of the United States",
+    resumo: "Como a Justiça federal americana se organiza em três níveis, quantos juízes tem a Suprema Corte, como eles são escolhidos e por quanto tempo ficam.",
     fontesCanonicas: [
-      "https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-2",
-      "https://www.uscis.gov/policy-manual/volume-2-part-m-chapter-4",
+      "https://www.uscourts.gov/about-federal-courts/educational-resources/about-educational-outreach/activity-resources/about",
+      "https://www.uscourts.gov/about-federal-courts/court-role-and-structure",
+      "https://www.uscourts.gov/about-federal-courts/court-role-and-structure/about-us-courts-appeals",
     ],
     angulos: [
-      {
-        id: "artigo-meu-versus-materia-sobre-mim",
-        pergunta: "Qual a diferenca entre um artigo que eu escrevi e uma materia publicada sobre mim, e como as citacoes entram nessa conta?",
-        personas: ["pesquisadores", "medicos", "estudantes"],
-      },
-      {
-        id: "o-que-faz-um-premio-contar",
-        pergunta: "Premio da propria empresa, premio de associacao, premio internacional: o que faz um reconhecimento contar como prova e o que tende a pesar pouco?",
-        personas: ["pesquisadores", "engenheiros", "tecnologia", "empreendedores"],
-      },
+      { id: "como-escolhe", pergunta: "Como os juízes da Suprema Corte americana são escolhidos, e por quanto tempo ficam?" },
+      { id: "tres-niveis", pergunta: "Como a Justiça federal americana se divide em três níveis?" },
+      { id: "nove-juizes", pergunta: "Por que a Suprema Corte americana tem nove juízes?" },
     ],
   },
   {
-    id: "curriculo-diploma-e-experiencia",
-    nome: "Curriculo, diploma estrangeiro e comprovacao de experiencia",
-    familia: "evidence_education",
-    resumo: "Os documentos que descrevem a sua trajetoria numa peticao de imigracao: o curriculo, o diploma tirado fora dos EUA e a prova dos anos de trabalho.",
+    id: "orcamento-federal",
+    nome: "Orçamento federal americano (de onde vem e para onde vai o dinheiro)",
+    familia: "explainer",
+    editoria: "governo",
+    temas: ["orcamento-federal", "impostos-federais"],
+    programa: "federal spending",
+    resumo: "De onde vem a receita do governo dos EUA, em que ele mais gasta e como a diferença vira déficit, pelos guias do Tesouro americano.",
     fontesCanonicas: [
-      "https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-5",
-      "https://www.uscis.gov/policy-manual/volume-1-part-e-chapter-6",
+      "https://fiscaldata.treasury.gov/americas-finance-guide/government-revenue/",
+      "https://fiscaldata.treasury.gov/americas-finance-guide/federal-spending/",
     ],
     angulos: [
-      {
-        id: "cv-para-peticao-nao-e-cv-de-vaga",
-        pergunta: "O que e um curriculo feito para um pedido de imigracao e por que ele nao e o mesmo curriculo que eu mando para uma vaga?",
-        personas: ["pesquisadores", "engenheiros", "tecnologia", "medicos"],
-      },
-      {
-        id: "diploma-de-fora-e-anos-de-trabalho",
-        pergunta: "Como eu comprovo um diploma feito no Brasil e os anos de experiencia que eu tenho na minha area?",
-        personas: ["engenheiros", "medicos", "estudantes", "tecnologia"],
-      },
+      { id: "de-onde-vem", pergunta: "De onde vem o dinheiro que o governo americano arrecada?" },
+      { id: "onde-gasta", pergunta: "Em que o governo federal americano mais gasta?" },
     ],
   },
   {
-    id: "contratos-e-ofertas-de-trabalho",
-    nome: "Contrato, oferta de trabalho e itinerario",
-    familia: "evidence_education",
-    resumo: "Como o vinculo de trabalho nos EUA aparece nos documentos de um pedido de imigracao: o que o contrato ou a oferta precisa dizer, como o empregador mostra que consegue pagar e o que se apresenta quando nao existe um empregador fixo.",
+    id: "medicare",
+    nome: "Medicare (o plano de saúde público para quem tem 65 anos ou mais)",
+    familia: "faq",
+    editoria: "governo",
+    temas: ["saude-publica"],
+    programa: "Medicare",
+    resumo: "Para quem é o Medicare, como a inscrição se liga ao benefício de aposentadoria e quando ela acontece sozinha.",
+    fontesCanonicas: ["https://www.medicare.gov/basics/get-started-with-medicare"],
+    angulos: [
+      { id: "para-quem", pergunta: "Para quem é o Medicare, o plano de saúde público americano?" },
+      { id: "inscricao", pergunta: "Como funciona a inscrição no Medicare perto dos 65 anos?" },
+    ],
+  },
+
+  /* ------------------------------------------------------------------ */
+  /* BRASIL (contraste factual, cada lado com a sua fonte primária)     */
+  /* ------------------------------------------------------------------ */
+  {
+    id: "ir-eua-e-brasil",
+    nome: "Imposto de renda nos EUA e no Brasil (IRS e Receita Federal)",
+    familia: "comparison",
+    editoria: "brasil",
+    temas: ["imposto-de-renda", "impostos-federais"],
+    programa: "IRS",
+    resumo: "Como a declaração anual funciona no IRS americano e na Receita Federal brasileira, cada lado descrito pela própria fonte oficial.",
     fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/temporary-workers/o-1-visa-individuals-with-extraordinary-ability-or-achievement",
-      "https://www.uscis.gov/policy-manual/volume-2-part-m-chapter-3",
-      "https://www.uscis.gov/policy-manual/volume-6-part-e-chapter-4",
+      "https://www.irs.gov/filing/individuals/when-to-file",
+      "https://www.gov.br/receitafederal/pt-br/assuntos/meu-imposto-de-renda",
     ],
     angulos: [
-      {
-        id: "o-que-o-contrato-precisa-dizer",
-        pergunta: "O que precisa estar escrito no contrato ou na oferta de trabalho que vai junto com a peticao, e o que acontece quando o acordo foi so verbal?",
-        personas: ["executivos", "tecnologia", "engenheiros"],
-      },
-      {
-        id: "empresa-prova-que-consegue-pagar",
-        pergunta: "Como a empresa que me contrata prova que tem dinheiro para pagar o salario que ela prometeu?",
-        personas: ["executivos", "empreendedores", "tecnologia"],
-      },
-      {
-        id: "sem-empregador-fixo-agente-e-itinerario",
-        pergunta: "Eu trabalho por projeto, com varios contratantes. Como se documenta isso quando nao ha um empregador unico?",
-        personas: ["empreendedores", "tecnologia"],
-      },
+      { id: "a-declaracao", pergunta: "Como a declaração anual do imposto de renda funciona no IRS e na Receita Federal?" },
+      { id: "o-prazo", pergunta: "Em que época do ano o americano e o brasileiro declaram o imposto de renda?" },
     ],
   },
   {
-    id: "comprovacao-de-investimento",
-    nome: "Comprovacao da origem do dinheiro investido",
-    familia: "evidence_education",
-    programa: "EB-5",
-    resumo: "O que significa demonstrar que o capital investido veio de origem licita e como se documenta o caminho do dinheiro desde onde ele foi ganho.",
+    id: "seguro-desemprego-eua-e-brasil",
+    nome: "Seguro-desemprego nos EUA e no Brasil",
+    familia: "comparison",
+    editoria: "brasil",
+    temas: ["beneficios-trabalhistas", "desemprego-nos-eua"],
+    programa: "unemployment insurance",
+    resumo: "Quem paga, quem recebe e como se pede o seguro-desemprego nos EUA e no Brasil, cada lado pela fonte oficial do próprio país.",
     fontesCanonicas: [
-      "https://www.uscis.gov/policy-manual/volume-6-part-g-chapter-2",
-      "https://www.uscis.gov/working-in-the-united-states/permanent-workers/eb-5-immigrant-investor-program",
-      "https://www.uscis.gov/i-526e",
+      "https://www.dol.gov/general/topic/unemployment-insurance",
+      "https://www.gov.br/trabalho-e-emprego/pt-br/servicos/trabalhador/seguro-desemprego",
     ],
     angulos: [
-      {
-        id: "o-que-e-origem-licita-do-dinheiro",
-        pergunta: "O que quer dizer provar que o dinheiro do investimento tem origem licita, e que tipo de documento mostra isso?",
-        personas: ["empreendedores", "executivos"],
-      },
-      {
-        id: "caminho-do-dinheiro-venda-emprestimo-doacao",
-        pergunta: "Vendi um imovel, peguei emprestimo ou recebi dinheiro de um familiar. Como se mostra o caminho desse dinheiro ate o investimento?",
-        personas: ["empreendedores", "executivos", "familias"],
-      },
+      { id: "quem-recebe", pergunta: "Quem tem direito ao seguro-desemprego nos EUA e no Brasil?" },
+      { id: "quem-administra", pergunta: "Quem administra o seguro-desemprego nos EUA e no Brasil?" },
     ],
   },
   {
-    id: "renda-do-patrocinador",
-    nome: "Comprovacao de renda de quem patrocina",
-    familia: "evidence_education",
-    programa: "I-864",
-    resumo: "Como funciona a prova de que o patrocinador tem renda suficiente para sustentar o imigrante num pedido de green card, e que documentos financeiros entram nessa demonstracao.",
+    id: "aposentadoria-eua-e-brasil",
+    nome: "Aposentadoria: o 401(k) americano e o INSS brasileiro",
+    familia: "comparison",
+    editoria: "brasil",
+    temas: ["aposentadoria"],
+    programa: "401(k)",
+    resumo: "Como o plano de aposentadoria pelo empregador funciona nos EUA e como a aposentadoria pública funciona no INSS, cada lado pela fonte oficial do próprio país.",
     fontesCanonicas: [
-      "https://www.uscis.gov/i-864",
-      "https://www.uscis.gov/i-864p",
+      "https://www.irs.gov/retirement-plans/401k-plans",
+      "https://www.gov.br/inss/pt-br/direitos-e-deveres/aposentadorias",
     ],
     angulos: [
-      {
-        id: "documentos-de-renda-do-patrocinador",
-        pergunta: "Que documentos o patrocinador precisa apresentar para mostrar quanto ele ganha, e por que a declaracao de imposto e o centro disso?",
-        personas: ["familias"],
-      },
-      {
-        id: "quando-a-renda-nao-alcanca-o-minimo",
-        pergunta: "A renda de quem me patrocina nao alcanca o minimo exigido. Que outras provas a regra admite nesse caso?",
-        personas: ["familias"],
-      },
+      { id: "como-se-forma", pergunta: "Como se forma a aposentadoria de quem trabalha pelo 401(k) nos EUA e pelo INSS no Brasil?" },
+      { id: "quem-contribui", pergunta: "Quem contribui para a aposentadoria no 401(k) americano e no INSS?" },
     ],
   },
   {
-    id: "traducao-de-documentos",
-    nome: "Traducao e formato de documentos estrangeiros",
-    familia: "evidence_education",
-    resumo: "A exigencia da imigracao americana de traducao completa para o ingles com certificacao do tradutor, e a diferenca entre mandar copia e mandar documento original.",
+    id: "fgts-e-fica",
+    nome: "O que o empregador recolhe: FGTS no Brasil e FICA nos EUA",
+    familia: "comparison",
+    editoria: "brasil",
+    temas: ["beneficios-trabalhistas", "impostos-federais"],
+    programa: "FICA",
+    resumo: "O depósito do FGTS feito pelo empregador brasileiro e os tributos de Social Security e Medicare recolhidos pelo empregador americano, cada um pela fonte oficial.",
     fontesCanonicas: [
-      "https://www.uscis.gov/policy-manual/volume-1-part-e-chapter-6",
+      "https://www.gov.br/trabalho-e-emprego/pt-br/servicos/trabalhador/fgts",
+      "https://www.irs.gov/taxtopics/tc751",
     ],
     angulos: [
-      {
-        id: "juramentada-ou-certificada",
-        pergunta: "Documento em portugues precisa de traducao juramentada para os EUA, ou o que se exige e outra coisa?",
-      },
-      {
-        id: "copia-ou-original",
-        pergunta: "Eu mando copia dos meus documentos ou preciso enviar o original?",
-      },
-    ],
-  },
-  {
-    id: "medicos-caminhos",
-    nome: "Médicos formados fora dos EUA: caminhos que costumam aparecer",
-    familia: "professional_education",
-    resumo: "Panorama dos caminhos migratórios que mais aparecem na vida de quem se formou em medicina fora dos EUA e quer atuar como médico lá.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-6",
-      "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors/conrad-30-waiver-program",
-      "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors/exchange-visitors",
-    ],
-    angulos: [
-      {
-        id: "quais-caminhos-medico",
-        pergunta: "Que caminhos aparecem com mais frequência para quem se formou em medicina fora dos EUA?",
-        personas: ["medicos"],
-      },
-      {
-        id: "area-carente-por-que-aparece",
-        pergunta: "Por que trabalhar em região com falta de médico aparece tanto na conversa de imigração médica?",
-        personas: ["medicos"],
-      },
-      {
-        id: "residencia-como-etapa",
-        pergunta: "Onde entra a residência americana nessa história, e por que ela costuma ser uma etapa e não um atalho?",
-        personas: ["medicos", "estudantes"],
-      },
-    ],
-  },
-  {
-    id: "medicos-licenca-certificacao",
-    nome: "Licença e certificação para exercer medicina nos EUA",
-    familia: "professional_education",
-    resumo: "Como funcionam, como conceito, a certificação de médico formado no exterior e a licença estadual para atuar nos EUA, e por que nada disso é a mesma coisa que visto.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-6",
-      "https://www.uscis.gov/working-in-the-united-states/temporary-workers/health-care-worker-certification",
-    ],
-    angulos: [
-      {
-        id: "quem-da-a-licenca",
-        pergunta: "Quem dá a licença para um médico atuar nos EUA, e por que ela não vem junto com o visto?",
-        personas: ["medicos"],
-      },
-      {
-        id: "reconhecer-diploma-medicina",
-        pergunta: "O que os EUA costumam pedir para reconhecer um diploma de medicina feito fora do país?",
-        personas: ["medicos"],
-      },
-      {
-        id: "licenca-por-estado",
-        pergunta: "Se eu tiver licença em um estado americano, ela vale nos outros?",
-        personas: ["medicos"],
-      },
-    ],
-  },
-  {
-    id: "engenheiros",
-    nome: "Engenheiros",
-    familia: "professional_education",
-    resumo: "Caminhos migratórios que costumam aparecer para engenheiros e o tipo de comprovação de formação e experiência que aparece nesses processos.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/h-1b-specialty-occupations",
-      "https://www.uscis.gov/working-in-the-united-states/permanent-workers/employment-based-immigration-second-preference-eb-2",
-      "https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-5",
-    ],
-    angulos: [
-      {
-        id: "quais-caminhos-engenheiro",
-        pergunta: "Que caminhos migratórios aparecem com mais frequência para engenheiro?",
-        personas: ["engenheiros"],
-      },
-      {
-        id: "diploma-e-experiencia",
-        pergunta: "Como os EUA costumam olhar um diploma de engenharia brasileiro e os anos de experiência?",
-        personas: ["engenheiros"],
-      },
-    ],
-  },
-  {
-    id: "pesquisadores-academicos",
-    nome: "Pesquisadores e professores universitários",
-    familia: "professional_education",
-    resumo: "Caminhos que costumam aparecer para quem faz pesquisa ou dá aula em universidade, e o que costuma servir de prova de reconhecimento na área.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/permanent-workers/employment-based-immigration-first-preference-eb-1",
-      "https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-3",
-      "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors/exchange-visitors",
-    ],
-    angulos: [
-      {
-        id: "quais-caminhos-pesquisador",
-        pergunta: "Que caminhos aparecem com mais frequência para pesquisador e professor universitário?",
-        personas: ["pesquisadores"],
-      },
-      {
-        id: "prova-de-reconhecimento",
-        pergunta: "O que costuma valer como prova de que um pesquisador é reconhecido na área dele?",
-        personas: ["pesquisadores"],
-      },
-      {
-        id: "bolsa-e-intercambio",
-        pergunta: "Vir com bolsa ou como pesquisador visitante muda a conversa de ficar de vez?",
-        personas: ["pesquisadores", "estudantes"],
-      },
-    ],
-  },
-  {
-    id: "profissionais-tecnologia",
-    nome: "Profissionais de tecnologia",
-    familia: "professional_education",
-    resumo: "Caminhos migratórios que costumam aparecer para quem trabalha em tecnologia e o peso que diploma, área de formação e cargo têm nesses processos.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/h-1b-specialty-occupations",
-      "https://www.uscis.gov/policy-manual/volume-2-part-h",
-      "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors/optional-practical-training-extension-for-stem-students-stem-opt",
-    ],
-    angulos: [
-      {
-        id: "quais-caminhos-tech",
-        pergunta: "Que caminhos aparecem com mais frequência para quem trabalha em tecnologia?",
-        personas: ["tecnologia"],
-      },
-      {
-        id: "sem-diploma-na-area",
-        pergunta: "Quem é autodidata ou fez faculdade de outra área tem o mesmo tipo de caminho de quem é formado em computação?",
-        personas: ["tecnologia"],
-      },
-      {
-        id: "do-estudo-ao-emprego",
-        pergunta: "Como funciona, como conceito, a ponte entre estudar tecnologia nos EUA e trabalhar lá depois?",
-        personas: ["tecnologia", "estudantes"],
-      },
-    ],
-  },
-  {
-    id: "executivos-e-gerentes",
-    nome: "Executivos e gerentes",
-    familia: "professional_education",
-    resumo: "Caminhos migratórios que costumam aparecer para quem é transferido por empresa ou ocupa cargo de gestão, e o que os EUA entendem por gerente e executivo nesse contexto.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/temporary-workers/l-1a-intracompany-transferee-executive-or-manager",
-      "https://www.uscis.gov/policy-manual/volume-2-part-l-chapter-3",
-      "https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-4",
-    ],
-    angulos: [
-      {
-        id: "quais-caminhos-executivo",
-        pergunta: "Que caminhos aparecem com mais frequência para executivo transferido pela própria empresa?",
-        personas: ["executivos"],
-      },
-      {
-        id: "o-que-e-ser-gerente",
-        pergunta: "O que os EUA entendem por gerente e executivo quando olham um cargo de gestão?",
-        personas: ["executivos", "empreendedores"],
-      },
-    ],
-  },
-  {
-    id: "empreendedores-e-fundadores",
-    nome: "Empreendedores e fundadores de empresa",
-    familia: "professional_education",
-    resumo: "Caminhos que costumam aparecer para quem quer abrir, comprar ou levar um negócio para os EUA, e por que ter empresa não é a mesma coisa que ter caminho migratório.",
-    fontesCanonicas: [
-      "https://www.uscis.gov/working-in-the-united-states/options-for-noncitizen-entrepreneurs-to-work-in-the-united-states",
-      "https://www.uscis.gov/working-in-the-united-states/temporary-workers/e-2-treaty-investors",
-      "https://www.uscis.gov/eb-5",
-    ],
-    angulos: [
-      {
-        id: "quais-caminhos-empreendedor",
-        pergunta: "Que caminhos aparecem com mais frequência para quem quer empreender nos EUA?",
-        personas: ["empreendedores"],
-      },
-      {
-        id: "empresa-nao-e-visto",
-        pergunta: "Abrir uma empresa nos EUA dá direito a morar lá?",
-        personas: ["empreendedores"],
-      },
-      {
-        id: "investidor-por-tratado",
-        pergunta: "Por que o caminho de investidor por tratado depende do país do passaporte?",
-        personas: ["empreendedores"],
-      },
+      { id: "o-que-recolhe", pergunta: "O que o empregador recolhe sobre o salário no Brasil, com o FGTS, e nos EUA, com o FICA?" },
+      { id: "para-que-serve", pergunta: "Para que serve o dinheiro do FGTS no Brasil e o do FICA nos EUA?" },
     ],
   },
 ];

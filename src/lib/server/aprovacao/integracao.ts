@@ -17,6 +17,9 @@ import {
 } from "./portao";
 import type { GanchosDeRefazer } from "./refazer";
 import { criarGanchosDeProducao, mundoDeProducao } from "./ganchos-de-producao";
+import { avisosDoPost, resumoDoPostDaLinha } from "./resumo-do-post";
+
+export { avisosDoPost };
 
 /**
  * Onde a fila encosta no resto do sistema: o store do social, o worker e a
@@ -77,19 +80,6 @@ export function depsDaFila(
 // Avisos de QA
 // ---------------------------------------------------------------------------
 
-/** Os avisos de um post do V2, lidos do veredito gravado pela guarda social. */
-export function avisosDoPost(linha: Record<string, unknown>): AvisoDaPeca[] {
-  const avisos: AvisoDaPeca[] = [];
-  if (linha.social_guard_status && linha.social_guard_status !== "passed") {
-    avisos.push({ codigo: "SOCIAL_GUARD", detalhe: `guarda social: ${String(linha.social_guard_status)}` });
-  }
-  const razoes = (linha.social_guard_reasons ?? {}) as { issues?: Array<{ motivo?: string; detalhe?: string }> };
-  for (const i of razoes.issues ?? []) {
-    avisos.push({ codigo: String(i.motivo ?? "SOCIAL_ISSUE"), detalhe: String(i.detalhe ?? "") });
-  }
-  return avisos;
-}
-
 /** Os avisos da edição, lidos do QA da redação. */
 export function avisosDaEdicao(qa: { passed: boolean; hallucination_risk: boolean; score?: number; issues: string[] }): AvisoDaPeca[] {
   const avisos: AvisoDaPeca[] = [];
@@ -130,9 +120,6 @@ export function opcoesDaFilaParaOStore(
       const deps = depsDaFila(client, projeto);
       for (const { id, linha } of gravadas) {
         try {
-          const conteudo = (linha.content_json ?? {}) as Record<string, unknown>;
-          const copy = (conteudo.copy ?? {}) as Record<string, unknown>;
-          const manifesto = Array.isArray(linha.slides_manifest) ? (linha.slides_manifest as Array<{ url?: string }>) : [];
           await enfileirar(
             projeto,
             {
@@ -141,14 +128,7 @@ export function opcoesDaFilaParaOStore(
               hash: hashDoPostDaLinha(linha),
               publicarEm: typeof linha.scheduled_at === "string" ? linha.scheduled_at : null,
               avisos: avisosDoPost(linha),
-              resumo: {
-                titulo: String(linha.title ?? ""),
-                texto: String(linha.caption ?? ""),
-                imagens: manifesto.map((m) => String(m.url ?? "")).filter(Boolean),
-                pacoteFactual: ["fato_principal", "contexto", "informacao_util", "ressalva"]
-                  .map((k) => String(copy[k] ?? ""))
-                  .filter(Boolean),
-              },
+              resumo: resumoDoPostDaLinha(linha),
             },
             deps,
           );

@@ -2,9 +2,10 @@ import { BotaoVoltar } from "@/components/BotaoVoltar";
 import { ArticleComments } from "@/components/ArticleComments";
 import { CaixaDeAssinatura, MolduraDoPortal } from "@/components/PortalChrome";
 import { SubstackArticleRenderer } from "@/components/SubstackArticleRenderer";
-import { creditoDoCommons, enderecoLimpoDaImagem, miniaturaDoCommons, semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
+import { creditoDoCommons, enderecoLimpoDaImagem, fotoNaLargura, miniaturaDoCommons, semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
 import { editoriaPeloNome, hrefDaEditoria } from "@/lib/editorias";
 import { indexacaoValidadaDoArtigo } from "@/lib/indexacao-do-artigo";
+import { hrefDoAutor, type AutorDaAssinatura } from "@/lib/autores";
 import {
   corpoComLeiaTambem,
   corpoComPerguntas,
@@ -44,6 +45,8 @@ export type MateriaDaPagina = {
   aeo_questions?: unknown;
   /** Inclui os assuntos e as entidades, no formato de `indexacao-do-artigo.ts`. */
   tags?: string[] | null;
+  /** O autor cadastrado (06/10/2026). A rota lê o autor por ele; a página recebe o autor pronto. */
+  author_id?: string | null;
 };
 
 /**
@@ -103,9 +106,15 @@ function datasDaMateria(a: MateriaDaPagina): { publicada?: { iso: string; texto:
  */
 function corpoComMiniaturas(html: string | undefined): string | undefined {
   if (!html) return html;
-  return html.replace(/(<img[^>]+src=")([^"]+)(")/g, (_, antes: string, src: string, depois: string) =>
-    `${antes}${miniaturaDoCommons(src.replace(/&amp;/g, "&"), 1280)}${depois}`,
-  );
+  /*
+   * E carregadas só perto da tela (06/10/2026): a foto do corpo vem depois da
+   * capa, que é o LCP, e não deve disputar banda com ela.
+   */
+  return html
+    .replace(/(<img[^>]+src=")([^"]+)(")/g, (_, antes: string, src: string, depois: string) =>
+      `${antes}${miniaturaDoCommons(src.replace(/&amp;/g, "&"), 1280)}${depois}`,
+    )
+    .replace(/<img\b(?![^>]*\bloading=)/gi, '<img loading="lazy" decoding="async"');
 }
 
 function semMarcas(s: string): string {
@@ -134,9 +143,12 @@ export function PaginaDaMateria({
   article,
   comComentarios = true,
   relacionadas = [],
+  autor = null,
 }: {
   article: MateriaDaPagina;
   comComentarios?: boolean;
+  /** O autor cadastrado e ativo da matéria, lido pela rota. `null` assina como a Redação. */
+  autor?: AutorDaAssinatura | null;
   /** Para o "Leia também" da matéria que nasceu sem ele. Lidas pela rota; vazio não acrescenta nada. */
   relacionadas?: ReadonlyArray<{ slug: string; titulo: string }>;
 }) {
@@ -179,7 +191,7 @@ export function PaginaDaMateria({
    * indica para JSON-LD: o conteúdo vem do banco, e um título com
    * `</script>` fecharia a tag.
    */
-  const dadosEstruturados = dadosEstruturadosDoArtigo(article, { perguntasVisiveis: perguntasNaPagina });
+  const dadosEstruturados = dadosEstruturadosDoArtigo(article, { perguntasVisiveis: perguntasNaPagina, autor });
   const minutos = minutosDeLeitura(article);
 
   return (
@@ -205,7 +217,7 @@ export function PaginaDaMateria({
             category={article.category}
             categoryHref={editoria ? hrefDaEditoria(editoria.id) : undefined}
             readTime={minutos ? `${minutos} min` : undefined}
-            coverImage={capa ? miniaturaDoCommons(capa, 1280) : null}
+            coverImage={capa ? fotoNaLargura(capa, 1280) : null}
             coverCredit={creditoDaCapa ?? creditoPadrao?.texto}
             coverCreditHref={creditoPadrao?.href}
             coverDescription={legendaDaCapa}
@@ -215,6 +227,7 @@ export function PaginaDaMateria({
             sections={article.content}
             quote={article.age_summary}
             author={article.author}
+            autor={autor ? { nome: autor.nome, href: hrefDoAutor(autor.slug), foto: autor.foto_url } : null}
           />
 
           <CaixaDeAssinatura origem="portal-artigo" className="my-12" />

@@ -16,11 +16,23 @@ import type { TopicoEvergreen, UsoAnterior } from "./tipos";
 const HOJE = Date.parse("2026-09-09T12:00:00Z");
 const diasAtras = (n: number) => new Date(HOJE - n * 24 * 60 * 60 * 1000).toISOString();
 
+const EDITORIAS_EM_GIRO = ["economia", "trabalho", "tecnologia", "custo-de-vida", "governo", "brasil"] as const;
+let proximaEditoria = 0;
+
 function topico(over: Partial<TopicoEvergreen> = {}): TopicoEvergreen {
+  const editoria = EDITORIAS_EM_GIRO[proximaEditoria++ % EDITORIAS_EM_GIRO.length];
   return {
+    editoria,
     id: "eb2-niw",
     nome: "EB-2 NIW",
-    familia: "visa_explainer",
+    familia: "explainer",
+    /*
+     * As fixtures desta suíte são do catálogo antigo, e o que elas medem são
+     * as réguas de repetição, que não dependem do assunto. A editoria gira a
+     * cada tópico criado para a régua de uma editoria por dia não mascarar as
+     * outras; a suíte dela está no fim do arquivo.
+     */
+    temas: ["juros-do-fed"],
     programa: "EB-2",
     resumo: "Residência por interesse nacional.",
     fontesCanonicas: ["https://www.uscis.gov/x"],
@@ -60,6 +72,13 @@ const CATALOGO: TopicoEvergreen[] = [
 
 const semHistorico: UsoAnterior[] = [];
 
+/*
+ * O teto do dia caiu de 4 para 2 em 06/10/2026. Os testes que medem OUTRA
+ * régua (programa, notícia do dia, janela) precisam de espaço para ela agir:
+ * com teto 2, o teto cortaria antes e o teste mediria o teto.
+ */
+const SEM_TETO = { ...CONFIG_PADRAO, maximoNoDia: 10 };
+
 /** Catálogo com folga em programa e família, para o teto do dia ser o que limita. */
 const CATALOGO_GRANDE: TopicoEvergreen[] = [
   ...CATALOGO,
@@ -67,8 +86,8 @@ const CATALOGO_GRANDE: TopicoEvergreen[] = [
   topico({ id: "f1", nome: "F-1", programa: "F-1", familia: "faq", angulos: [{ id: "a", pergunta: "2?" }] }),
   topico({ id: "l1", nome: "L-1", programa: "L-1", familia: "comparison", angulos: [{ id: "a", pergunta: "3?" }] }),
   topico({ id: "e2", nome: "E-2", programa: "E-2", familia: "comparison", angulos: [{ id: "a", pergunta: "4?" }] }),
-  topico({ id: "rfe", nome: "RFE", familia: "evidence_education", programa: undefined, angulos: [{ id: "a", pergunta: "5?" }] }),
-  topico({ id: "cartas", nome: "Cartas", familia: "evidence_education", programa: undefined, angulos: [{ id: "a", pergunta: "6?" }] }),
+  topico({ id: "rfe", nome: "RFE", familia: "faq", programa: undefined, angulos: [{ id: "a", pergunta: "5?" }] }),
+  topico({ id: "cartas", nome: "Cartas", familia: "faq", programa: undefined, angulos: [{ id: "a", pergunta: "6?" }] }),
 ];
 
 describe("cooldown do par tópico+ângulo", () => {
@@ -128,11 +147,20 @@ describe("janela do tópico", () => {
     expect(corte.motivo).toBe("TOPICO_NA_JANELA");
   });
 
-  it("passada a janela, o outro ângulo entra", () => {
+  it("a janela do tópico é de 30 dias desde 06/10/2026: aos 8 dias o outro ângulo ainda espera", () => {
     const historico: UsoAnterior[] = [
       { storyId: "evg:eb2-niw:o-que-e", topicId: "evg:eb2-niw", quandoIso: diasAtras(8) },
     ];
     const r = selecionarEvergreen(CATALOGO, historico, 10, { agoraMs: HOJE });
+    const corte = r.cortados.find((c) => identidadeDoItem(c.item) === "evg:eb2-niw:evidencia")!;
+    expect(corte.motivo).toBe("TOPICO_NA_JANELA");
+  });
+
+  it("passada a janela, o outro ângulo entra", () => {
+    const historico: UsoAnterior[] = [
+      { storyId: "evg:eb2-niw:o-que-e", topicId: "evg:eb2-niw", quandoIso: diasAtras(31) },
+    ];
+    const r = selecionarEvergreen(CATALOGO, historico, 10, { agoraMs: HOJE, config: SEM_TETO });
     expect(r.escolhidos.map(identidadeDoItem)).toContain("evg:eb2-niw:evidencia");
   });
 });
@@ -168,12 +196,12 @@ describe("diversidade do dia", () => {
      * também ficar de fora da conta.
      */
     const soEb2: TopicoEvergreen[] = [
-      topico({ id: "eb2-a", familia: "visa_explainer", angulos: [{ id: "a", pergunta: "1?" }] }),
+      topico({ id: "eb2-a", familia: "explainer", angulos: [{ id: "a", pergunta: "1?" }] }),
       topico({ id: "eb2-b", familia: "glossary", angulos: [{ id: "a", pergunta: "2?" }] }),
       topico({ id: "eb2-c", familia: "faq", angulos: [{ id: "a", pergunta: "3?" }] }),
       topico({ id: "eb2-d", familia: "comparison", angulos: [{ id: "a", pergunta: "4?" }] }),
     ];
-    const r = selecionarEvergreen(soEb2, semHistorico, 10, { agoraMs: HOJE });
+    const r = selecionarEvergreen(soEb2, semHistorico, 10, { agoraMs: HOJE, config: SEM_TETO });
 
     // Teto de 2 por programa, mesmo com quatro tópicos disponíveis e dez vagas.
     expect(r.escolhidos).toHaveLength(2);
@@ -206,6 +234,7 @@ describe("diversidade do dia", () => {
     const r = selecionarEvergreen(CATALOGO, semHistorico, 10, {
       agoraMs: HOJE,
       ocupacaoDoDia: { programas: ["EB-2"] },
+      config: SEM_TETO,
     });
 
     expect(r.escolhidos.map((e) => e.topico.programa)).not.toContain("EB-2");
@@ -223,6 +252,7 @@ describe("diversidade do dia", () => {
     const r = selecionarEvergreen(CATALOGO, semHistorico, 10, {
       agoraMs: HOJE,
       ocupacaoDoDia: { programas: ["EB-2"] },
+      config: SEM_TETO,
     });
     expect(r.cortados.some((c) => c.motivo === "ASSUNTO_DA_NOTICIA_HOJE")).toBe(true);
   });
@@ -338,7 +368,7 @@ describe("desempate de formato: só entre itens de mérito igual", () => {
 
   /** Catálogo com estáticos e carrosséis previstos, todos nunca usados. */
   const MISTO: TopicoEvergreen[] = [
-    cheio({ id: "a-visa", familia: "visa_explainer", programa: "EB-1", angulos: [{ id: "x", pergunta: "1?" }] }),
+    cheio({ id: "a-visa", familia: "explainer", programa: "EB-1", angulos: [{ id: "x", pergunta: "1?" }] }),
     cheio({ id: "b-visa", familia: "comparison", programa: "EB-3", angulos: [{ id: "x", pergunta: "2?" }] }),
     cheio({ id: "c-glos", familia: "glossary", programa: undefined, angulos: [{ id: "x", pergunta: "3?" }] }),
     cheio({ id: "d-proc", familia: "process_explainer", programa: "L-1", angulos: [{ id: "x", pergunta: "4?" }] }),
@@ -361,15 +391,34 @@ describe("desempate de formato: só entre itens de mérito igual", () => {
     expect(desenho).toContain("S");
   });
 
-  it("desligada, a ordem volta a ser a alfabética de antes", () => {
-    const desligada = selecionarEvergreen(MISTO, semHistorico, 10, {
-      agoraMs: HOJE,
-      config: { ...CONFIG_PADRAO, alternarFormato: false },
-    });
+  it("desligada, a ordem é a do dia, a mesma a cada rodada da mesma data", () => {
+    /*
+     * Era a ordem alfabética até 06/10/2026. Agora o desempate entre nunca
+     * usados gira com o dia (ver `porDistanciaDoUltimoUso`), e o que este
+     * teste guarda é o que importava na alfabética: reprodutibilidade.
+     */
+    const config = { ...CONFIG_PADRAO, alternarFormato: false };
+    const a = selecionarEvergreen(MISTO, semHistorico, 10, { agoraMs: HOJE, config });
+    const b = selecionarEvergreen(MISTO, semHistorico, 10, { agoraMs: HOJE, config });
+    expect(a.escolhidos.map((e) => e.topico.id)).toEqual(b.escolhidos.map((e) => e.topico.id));
+  });
 
-    expect(desligada.escolhidos.map((e) => e.topico.id)).toEqual(
-      [...desligada.escolhidos].map((e) => e.topico.id).sort(),
+  it("um item que caiu depois da seleção não ocupa a frente da fila todo dia", () => {
+    /*
+     * O caso das amostras de 06/10/2026: dois itens sem foto voltavam no topo
+     * da fila em dias seguidos, porque o histórico só conta o que foi ao ar, e
+     * o resto do catálogo nunca era alcançado. Em sete dias seguidos, sem
+     * histórico nenhum, o primeiro da fila não pode ser sempre o mesmo.
+     */
+    const catalogo = Array.from({ length: 12 }, (_, i) =>
+      topico({ id: `t${String(i).padStart(2, "0")}`, programa: undefined, angulos: [{ id: "a", pergunta: `${i}?` }] }),
     );
+    const primeiros = new Set(
+      Array.from({ length: 7 }, (_, d) =>
+        selecionarEvergreen(catalogo, semHistorico, 1, { agoraMs: HOJE + d * 86_400_000 }).escolhidos[0]?.topico.id,
+      ),
+    );
+    expect(primeiros.size).toBeGreaterThan(1);
   });
 
   it("o desempate pode mudar QUEM entra, e é isso que o pedido pede", () => {

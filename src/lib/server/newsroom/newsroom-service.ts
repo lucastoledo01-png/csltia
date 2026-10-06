@@ -22,6 +22,10 @@ import { rankAndFilterCandidates } from "./ranker";
 import { EditionContent } from "./schemas";
 import { sendAlert } from "../alerts";
 import { modoDaFila } from "../aprovacao/modo";
+import { criarFilaStore } from "../aprovacao/fila-store";
+import { aprendizadoDoCanal, aprendizadoVazio } from "../aprendizado/do-canal";
+import { comFotoDoCanal, fotosDoCanal, type AprendizadoDaImagem } from "../aprendizado/imagem";
+import { aprenderNaSelecao } from "../aprendizado/selecao";
 import { redacaoDisparaNewsletter, statusDeEntradaDoArtigo } from "../aprovacao/portao";
 import { avisosDaEdicao, enfileirarDaRedacao } from "../aprovacao/integracao";
 import { horariosDaRedacaoNaFila } from "../aprovacao/fila";
@@ -41,6 +45,8 @@ import { criarHistoricoStore, gerarStoryId } from "../editorial/history";
 import type { RegistroHistorico } from "../editorial/history";
 import { avaliarPautas, registroDaPauta } from "../editorial/guarda";
 import { formatarNumerosDaEdicao } from "./numeros-editoriais";
+import type { ContextoDeProducao, PautaDoContexto } from "../aprovacao/contrato";
+import { pautaDoContexto } from "../aprovacao/contexto-de-producao";
 import { rodarSocialDoDia, diagnosticoSocialAusente } from "../social/ciclo-do-dia";
 import type { DiagnosticoSocialDoDia } from "../social/ciclo-do-dia";
 import { gravarDiagnosticoDoSocial, montarRegistroDoSocial } from "../social/diagnostico-gravado";
@@ -193,6 +199,58 @@ export type ImagensDaEdicao = Map<string, string>;
  * não é negociável por estética.
  */
 export type LegendasDaEdicao = Map<string, string>;
+
+/**
+ * O contexto da edição para a refação na fila de aprovação (06/10/2026).
+ *
+ * Uma pauta por história, na ordem da edição, com o `storyId` da identidade da
+ * história (a mesma chave das fotos), o pacote factual de cada uma, as fotos e
+ * os créditos que o e-mail desenhou, e a referência ao pool do dia. É o que a
+ * reescrita da edição, a troca de uma foto e a troca de uma pauta precisam
+ * sem a pauta avaliada, que não sobrevive ao ciclo.
+ */
+export function contextoDaNewsletterNaFila(e: {
+  data: string;
+  historias: Array<{ title: string; source_url: string; source_name: string; category: string; summary: string; context: string }>;
+  pautas: PautaAvaliada[];
+  pacotesPorUrl: Map<string, PacoteFactual>;
+  pool: string[];
+  imagens: Map<string, string>;
+  legendas: Map<string, string>;
+}): ContextoDeProducao {
+  const porUrl = new Map(e.pautas.map((p) => [p.grupo.primary.url, p]));
+  const pacotes: Record<string, PacoteFactual> = {};
+  const pautas: PautaDoContexto[] = e.historias.map((st) => {
+    const id = identidadeDaPauta(st);
+    const pacote = e.pacotesPorUrl.get(st.source_url);
+    if (pacote) pacotes[id] = pacote;
+    const p = porUrl.get(st.source_url);
+    if (p) return { ...pautaDoContexto(p), storyId: id };
+    return {
+      storyId: id,
+      titulo: st.title,
+      url: st.source_url,
+      fonteNome: st.source_name,
+      publicadoEm: "",
+      resumo: [st.summary, st.context].filter(Boolean).join("\n\n"),
+      categoria: st.category,
+      eixo: "",
+      pais: "",
+      atores: [],
+      lugares: [],
+      acontecimento: [],
+    };
+  });
+  return {
+    versao: 1,
+    data: e.data,
+    pautas,
+    ...(Object.keys(pacotes).length ? { pacotes } : {}),
+    ...(e.pool.length ? { pool: e.pool } : {}),
+    imagens: Object.fromEntries(e.imagens),
+    legendas: Object.fromEntries(e.legendas),
+  };
+}
 
 /** A mesma identidade usada no histórico editorial, para as duas pontas casarem. */
 export function identidadeDaPauta(story: { source_url?: string; title: string }): string {
@@ -1085,7 +1143,7 @@ export async function runNewsroom(
  * diária: o que está a noventa dias não muda uma linha do texto de hoje, e
  * encheria o briefing de ruído que o modelo tentaria usar.
  */
-function agendaDoBriefing(hoje: string): string {
+export function agendaDoBriefing(hoje: string): string {
   const texto = agendaEmTexto(hoje, 30);
   if (!texto) return "";
 
@@ -1273,37 +1331,47 @@ async function executarRedacaoDoDia(
    */
   const usadosNoDia = new Set<string>();
   let bibliotecaDoDia: ReturnType<typeof criarBiblioteca> | null = null;
+  /*
+   * `doCanal` existe desde 06/10/2026 (aprendizado da fila): quando a foto
+   * compartilhada da pauta é uma que ESTE canal recusou, só ele resolve
+   * outra, sem reuso, com as recusadas fora e o motivo do editor na cena.
+   */
+  const resolverFotoDaPauta = (p: PautaAvaliada, doCanal?: AprendizadoDaImagem) => {
+    bibliotecaDoDia ??= criarBiblioteca(getSupabaseAdminClient());
+    return imagemDaPauta(
+      {
+        storyId: p.storyId,
+        titulo: p.grupo.primary.title,
+        resumo: p.enriquecimento?.texto ?? "",
+        categoria: p.classificacao.eixo,
+        classificacao: {
+          atores: p.classificacao.atores,
+          lugares: p.classificacao.lugares,
+          acontecimento: p.classificacao.acontecimento,
+          pais: p.classificacao.pais,
+        },
+      },
+      {
+        client: getSupabaseAdminClient(),
+        projeto: project,
+        ...(doCanal ? { ignorarReuso: true } : {}),
+        opcoes: {
+          client: getSupabaseAdminClient(),
+          biblioteca: bibliotecaDoDia,
+          env,
+          fetcher,
+          jaUsadosNestaEdicao: usadosNoDia,
+          somenteLeitura: true,
+          ...(doCanal
+            ? { jaUsadasRecentemente: doCanal.evitar, ...(doCanal.motivos.length ? { recusasDoEditor: doCanal.motivos } : {}) }
+            : {}),
+        },
+      },
+    );
+  };
   const fotosDoDia = criarFotosDoDia<PautaAvaliada>(
     (p) => p.storyId,
-    (p) => {
-      bibliotecaDoDia ??= criarBiblioteca(getSupabaseAdminClient());
-      return imagemDaPauta(
-        {
-          storyId: p.storyId,
-          titulo: p.grupo.primary.title,
-          resumo: p.enriquecimento?.texto ?? "",
-          categoria: p.classificacao.eixo,
-          classificacao: {
-            atores: p.classificacao.atores,
-            lugares: p.classificacao.lugares,
-            acontecimento: p.classificacao.acontecimento,
-            pais: p.classificacao.pais,
-          },
-        },
-        {
-          client: getSupabaseAdminClient(),
-          projeto: project,
-          opcoes: {
-            client: getSupabaseAdminClient(),
-            biblioteca: bibliotecaDoDia,
-            env,
-            fetcher,
-            jaUsadosNestaEdicao: usadosNoDia,
-            somenteLeitura: true,
-          },
-        },
-      );
-    },
+    (p) => resolverFotoDaPauta(p),
   );
   /** As pautas que caíram por falta de foto, por canal, para o painel. */
   const quedasSemFoto: Array<{ canal: string; quedas: QuedaSemFoto[] }> = [];
@@ -1328,6 +1396,26 @@ async function executarRedacaoDoDia(
    * a fila fora de `off`; desligada, as vozes saem byte a byte como antes.
    */
   const vozes: VozesDosRamos | null = modoRamos !== "off" ? await vozesDosRamosComMemoria(project) : null;
+  /*
+   * O aprendizado de cada canal (06/10/2026): a seleção da newsletter e a do
+   * portal penalizam o que o editor recusou NAQUELE canal, e cada um vê a
+   * foto compartilhada pelo próprio filtro. Só com a fila fora de `off` e os
+   * ramos ligados; sem isso o aprendizado é vazio e nada muda.
+   */
+  const comAprendizado = modoRamos !== "off" && modoDaFila(project) !== "off";
+  const lojaDaFila = comAprendizado ? criarFilaStore(getSupabaseAdminClient()) : null;
+  const [aprendizadoDaNewsletter, aprendizadoDoPortal] = lojaDaFila
+    ? await Promise.all([
+        aprendizadoDoCanal(lojaDaFila, project.id, "newsletter"),
+        aprendizadoDoCanal(lojaDaFila, project.id, "artigo"),
+      ])
+    : [aprendizadoVazio("newsletter"), aprendizadoVazio("artigo")];
+  const fotosDaNewsletter = fotosDoCanal(fotosDoDia, (p) => p.storyId, aprendizadoDaNewsletter.imagem, (p) =>
+    resolverFotoDaPauta(p, aprendizadoDaNewsletter.imagem),
+  );
+  const fotosDoPortal = fotosDoCanal(fotosDoDia, (p) => p.storyId, aprendizadoDoPortal.imagem, (p) =>
+    resolverFotoDaPauta(p, aprendizadoDoPortal.imagem),
+  );
   let resultadoDoPortal: ResultadoDoRamoDoPortal | null = null;
   // O registro dos ramos vai para o banco só fora de ensaio, como o resto.
   const registrarRamos = modoRamos !== "off" && !dryRun;
@@ -1354,6 +1442,8 @@ async function executarRedacaoDoDia(
 
   let ranked: RankedCandidate[];
   let pautasDaGuarda: PautaAvaliada[] = [];
+  /** O pool aprovado do dia, por storyId, só como referência da fila de aprovação (06/10/2026). */
+  let poolAprovadoDoDia: string[] = [];
   let diagnosticoDeCandidatas: {
     degraded: boolean;
     lidas: number;
@@ -1451,6 +1541,7 @@ async function executarRedacaoDoDia(
      */
     /* Quantas a linha editorial aprovou, antes de a composição escolher. */
     rastro.funil = { ...rastro.funil, approvedCount: resultado.approvedEditorialPool.length };
+    poolAprovadoDoDia = resultado.approvedEditorialPool.map((p) => p.storyId);
 
     const modoSocialDoEnsaio = modoSocialParaOEnsaio(dryRun, env, project);
     /*
@@ -1546,6 +1637,19 @@ async function executarRedacaoDoDia(
     let viavelDaNewsletter = resultado.viavel;
     let motivoDaInviabilidade = resultado.motivoDaInviabilidade;
 
+    /*
+     * O pool de cada canal, com o que o editor recusou na seleção DAQUELE
+     * canal (06/10/2026): a pauta parecida desce, a fonte ou o ator recusado
+     * três vezes sai. Sem reprovação de seleção, é o mesmo pool.
+     */
+    const doPoolDaNewsletter = aprenderNaSelecao(
+      resultado.approvedEditorialPool,
+      aprendizadoDaNewsletter.selecao,
+      "newsletter",
+    );
+    const doPoolDoPortal = aprenderNaSelecao(resultado.approvedEditorialPool, aprendizadoDoPortal.selecao, "artigo");
+    for (const l of [...doPoolDaNewsletter.linhas, ...doPoolDoPortal.linhas]) console.log(l);
+
     if (modoRamos !== "off") {
       /*
        * A pré-seleção já sem as pautas sem foto (05/10/2026): o pacote factual
@@ -1577,7 +1681,7 @@ async function executarRedacaoDoDia(
        */
       try {
         resultadoDoPortal = await rodarRamoDoPortal({
-          pool: resultado.approvedEditorialPool,
+          pool: doPoolDoPortal.pool,
           pacotes: pacotesDoDia,
           historico,
           config: configEditorial,
@@ -1603,8 +1707,11 @@ async function executarRedacaoDoDia(
            * Desde a regra "pauta sem foto não vira conteúdo" (05/10/2026), a
            * mesma memória decide também quais pautas o portal pode escrever: a
            * sem foto cai antes da redação e a vaga vai para a próxima.
+           *
+           * Pelo filtro do portal (06/10/2026): a foto que o portal recusou não
+           * volta a ser capa dele, e só ele resolve outra.
            */
-          fotos: fotosDoDia,
+          fotos: fotosDoPortal,
         });
         if (resultadoDoPortal.semFoto.length > 0) quedasSemFoto.push({ canal: "artigo", quedas: resultadoDoPortal.semFoto });
         for (const l of resultadoDoPortal.linhasDeLog) console.log(l);
@@ -1676,11 +1783,11 @@ async function executarRedacaoDoDia(
       if (ramosNoComando && modoVisual === "enforce") {
         const r = await selecionarComFoto({
           selecionar: (excluir) =>
-            selecionarParaNewsletter(resultado.approvedEditorialPool, pacotesDoDia, configEditorial, excluir),
+            selecionarParaNewsletter(doPoolDaNewsletter.pool, pacotesDoDia, configEditorial, excluir),
           escolhidas: (sel) => sel.escolhidas,
           chave: (p) => p.storyId,
           titulo: (p) => p.grupo.primary.title,
-          fotos: fotosDoDia,
+          fotos: fotosDaNewsletter,
         });
         daNewsletter = r.selecao;
         if (r.semFoto.length > 0) {
@@ -1693,7 +1800,7 @@ async function executarRedacaoDoDia(
           }
         }
       } else {
-        daNewsletter = selecionarParaNewsletter(resultado.approvedEditorialPool, pacotesDoDia, configEditorial);
+        daNewsletter = selecionarParaNewsletter(doPoolDaNewsletter.pool, pacotesDoDia, configEditorial);
       }
       for (const l of daNewsletter.linhasDeLog) console.log(l);
       if (ramosNoComando) {
@@ -2180,7 +2287,15 @@ async function executarRedacaoDoDia(
        * o uso é confirmado depois, só para o que de fato for ao ar.
        */
       const daSelecao = pautaPorUrl.get(story.source_url);
-      const jaConferida = daSelecao ? fotosDoDia.jaResolvido(daSelecao.storyId) : undefined;
+      /*
+       * Pelo filtro da newsletter (06/10/2026): a compartilhada que a
+       * newsletter recusou não conta como conferida, e a da própria newsletter
+       * é resolvida aqui, só para ela.
+       */
+      let jaConferida = daSelecao ? fotosDaNewsletter.jaResolvido(daSelecao.storyId) : undefined;
+      if (daSelecao && jaConferida === undefined && fotosDoDia.jaResolvido(daSelecao.storyId)) {
+        jaConferida = (await fotosDaNewsletter.resultado(daSelecao)).visual ?? undefined;
+      }
       if (jaConferida) {
         const resultado = { ...jaConferida, storyId: identidadeDaPauta(story) };
         resultadosVisuais.push(resultado);
@@ -2206,27 +2321,39 @@ async function executarRedacaoDoDia(
       }
 
       // Por `imagemDaPauta` (05/10/2026): ver a capa do portal, acima.
-      const resultado = await imagemDaPauta(
-        {
-          storyId: identidadeDaPauta(story),
-          titulo: story.title,
-          resumo: story.summary,
-          categoria: story.category,
-          classificacao,
-        },
-        {
-          client: getSupabaseAdminClient(),
-          projeto: project,
-          opcoes: {
+      const pautaDaFoto = {
+        storyId: identidadeDaPauta(story),
+        titulo: story.title,
+        resumo: story.summary,
+        categoria: story.category,
+        classificacao,
+      };
+      const opcoesDaFoto = {
+        client: getSupabaseAdminClient(),
+        biblioteca,
+        env,
+        fetcher,
+        jaUsadosNestaEdicao: usadosNestaEdicao,
+        // Grava só quando o V2 manda de verdade e a execução publica.
+        somenteLeitura: modoVisual !== "enforce" || dryRun,
+      };
+      // A foto que a newsletter recusou não volta a ela (06/10/2026); os outros canais não sentem.
+      const resultado = await comFotoDoCanal(
+        await imagemDaPauta(pautaDaFoto, { client: getSupabaseAdminClient(), projeto: project, opcoes: opcoesDaFoto }),
+        aprendizadoDaNewsletter.imagem,
+        () =>
+          imagemDaPauta(pautaDaFoto, {
             client: getSupabaseAdminClient(),
-            biblioteca,
-            env,
-            fetcher,
-            jaUsadosNestaEdicao: usadosNestaEdicao,
-            // Grava só quando o V2 manda de verdade e a execução publica.
-            somenteLeitura: modoVisual !== "enforce" || dryRun,
-          },
-        },
+            projeto: project,
+            ignorarReuso: true,
+            opcoes: {
+              ...opcoesDaFoto,
+              jaUsadasRecentemente: aprendizadoDaNewsletter.imagem.evitar,
+              ...(aprendizadoDaNewsletter.imagem.motivos.length
+                ? { recusasDoEditor: aprendizadoDaNewsletter.imagem.motivos }
+                : {}),
+            },
+          }),
       );
 
       resultadosVisuais.push(resultado);
@@ -2732,6 +2859,15 @@ async function executarRedacaoDoDia(
         titulo: pipelineResult.edition.subject,
         texto: pipelineResult.edition.subject,
         pacoteFactual: pipelineResult.edition.stories.map((st) => st.title).filter(Boolean),
+        contexto: contextoDaNewsletterNaFila({
+          data: todayStr,
+          historias: pipelineResult.edition.stories,
+          pautas: pautasDaGuarda,
+          pacotesPorUrl: pacotes,
+          pool: poolAprovadoDoDia,
+          imagens: imagensDaEdicao,
+          legendas: legendasDaEdicao,
+        }),
       },
     });
   }

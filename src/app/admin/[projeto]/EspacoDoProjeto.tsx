@@ -16,6 +16,7 @@ import { LayoutDosPosts } from "@/components/admin/LayoutDosPosts";
 import { CalendarioDeConteudo } from "@/components/admin/CalendarioDeConteudo";
 import { InstrucoesEditoriais } from "@/components/admin/InstrucoesEditoriais";
 import { LogsDoDia } from "@/components/admin/LogsDoDia";
+import { PainelDeAprendizado } from "@/components/admin/PainelDeAprendizado";
 
 /**
  * A área de um projeto.
@@ -40,6 +41,7 @@ type Secao =
   | "blog"
   | "calendario"
   | "instrucoes"
+  | "aprendizado"
   | "logs"
   | "avancado";
 
@@ -60,8 +62,27 @@ const SECOES: Array<{ id: Secao; rotulo: string; descricao: string }> = [
   // 05/10/2026: o calendário (só leitura) e as instruções editoriais (RF-26).
   { id: "calendario", rotulo: "Calendário", descricao: "A semana planejada e o que existe em cada canal." },
   { id: "instrucoes", rotulo: "Instruções", descricao: "O julgamento editorial de cada etapa, com versões." },
+  // 06/10/2026: o que cada canal aprendeu com a fila, e as propostas de regra.
+  {
+    id: "aprendizado",
+    rotulo: "Aprendizado",
+    descricao: "O que cada canal aprendeu com aprovações, reprovações e edições.",
+  },
   { id: "logs", rotulo: "Logs", descricao: "O que cada rodada da redação registrou, e por quê." },
   { id: "avancado", rotulo: "Avançado", descricao: "Etapas ligadas e ferramentas arquivadas." },
+];
+
+/*
+ * As telas do projeto que moram em endereço próprio (06/10/2026). Nasceram
+ * fora deste arquivo de propósito, para várias frentes não disputarem o mesmo
+ * menu, e ficavam alcançáveis só por quem sabia a URL. Aqui viram links, sem
+ * entrar em `SECOES`, que são as abas desta página.
+ */
+const PAGINAS: Array<{ caminho: string; rotulo: string }> = [
+  { caminho: "cadencia", rotulo: "Cadência" },
+  { caminho: "perfis-de-referencia", rotulo: "Perfis de referência" },
+  { caminho: "acervo", rotulo: "Acervo de imagens" },
+  { caminho: "autores", rotulo: "Autores" },
 ];
 
 function secaoDaUrl(): Secao {
@@ -190,6 +211,17 @@ function AreaDoProjeto({ slug }: { slug: string }) {
               {item.rotulo}
             </button>
           ))}
+          <div className="mt-3 border-t border-slate-100 pt-3">
+            {PAGINAS.map((p) => (
+              <Link
+                key={p.caminho}
+                href={`/admin/${projeto.slug}/${p.caminho}`}
+                className="admin-sidebar-link flex w-full items-center px-4 py-2.5 text-left text-[13px]"
+              >
+                {p.rotulo}
+              </Link>
+            ))}
+          </div>
         </nav>
 
         <div className="border-t border-slate-200 p-3">
@@ -248,6 +280,15 @@ function AreaDoProjeto({ slug }: { slug: string }) {
               {item.rotulo}
             </button>
           ))}
+          {PAGINAS.map((p) => (
+            <Link
+              key={p.caminho}
+              href={`/admin/${projeto.slug}/${p.caminho}`}
+              className="admin-sidebar-link shrink-0 px-3 py-1.5 text-[12px]"
+            >
+              {p.rotulo}
+            </Link>
+          ))}
         </nav>
 
         <main className="flex-1 space-y-8 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -268,6 +309,7 @@ function AreaDoProjeto({ slug }: { slug: string }) {
           ) : null}
           {secao === "calendario" ? <CalendarioDeConteudo projeto={projeto} /> : null}
           {secao === "instrucoes" ? <InstrucoesEditoriais projeto={projeto} /> : null}
+          {secao === "aprendizado" ? <PainelDeAprendizado slug={projeto.slug} embutido /> : null}
           {secao === "logs" ? (
             <div className="space-y-8">
               <LogsDoDia projeto={projeto} />

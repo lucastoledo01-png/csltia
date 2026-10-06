@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { notFound, permanentRedirect } from "next/navigation";
 import { PaginaDaMateria } from "@/components/PaginaDaMateria";
 import { destinoDoLinkDaEdicao, getArticleBySlug } from "@/lib/server/articles-service";
@@ -8,6 +9,8 @@ import { dataDeModificacao, tituloDaAba } from "@/lib/server/dados-estruturados-
 import { buscarRelacionadas } from "@/lib/server/materias-relacionadas";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import { DEFAULT_PROJECT_ID } from "@/lib/server/projects";
+import { autorDaMateria } from "@/lib/server/autores";
+import { urlDoAutor } from "@/lib/autores";
 
 /**
  * A listagem sai do banco, e o banco muda depois do build.
@@ -21,6 +24,12 @@ import { DEFAULT_PROJECT_ID } from "@/lib/server/projects";
  * página em cache na quase totalidade dos acessos.
  */
 export const revalidate = 300;
+
+/*
+ * A metadata e a página pedem a mesma matéria. Com `cache` a leitura é uma por
+ * renderização, e não duas (06/10/2026).
+ */
+const lerMateria = cache((slug: string) => getArticleBySlug(slug));
 
 /*
  * `getArticleBySlug` devolve dois formatos: o registro do banco, com
@@ -60,7 +69,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const article = await getArticleBySlug(slug).catch(() => null);
+  const article = await lerMateria(slug).catch(() => null);
 
   if (!article) return {};
 
@@ -70,10 +79,12 @@ export async function generateMetadata({
   const publicada = datas.published_at ?? undefined;
   // A mesma regra do JSON-LD: só muda quando o conteúdo mudou.
   const modificada = dataDeModificacao(datas.published_at, datas.updated_at);
+  const autor = await autorDaMateria(article as { author_id?: string | null; project_id?: string | null });
 
   return {
     title: { absolute: tituloDaAba(tituloDeBusca(article)) },
     description: descricao,
+    ...(autor ? { authors: [{ name: autor.nome, url: urlDoAutor(autor.slug) }] } : {}),
     alternates: { canonical: `${MARCA.site}/artigos/${article.slug}` },
     openGraph: {
       type: "article",
@@ -85,6 +96,7 @@ export async function generateMetadata({
       ...(publicada ? { publishedTime: publicada } : {}),
       ...(modificada ? { modifiedTime: modificada } : {}),
       ...(article.category ? { section: article.category } : {}),
+      ...(autor ? { authors: [urlDoAutor(autor.slug)] } : {}),
       ...(capa ? { images: [{ url: capa }] } : {}),
     },
   };
@@ -118,7 +130,7 @@ async function relacionadasDaMateria(article: NonNullable<ArtigoDaPagina>) {
 
 export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const article = await getArticleBySlug(slug);
+  const article = await lerMateria(slug);
 
   if (!article) {
     /*
@@ -130,5 +142,11 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
     notFound();
   }
 
-  return <PaginaDaMateria article={article} relacionadas={await relacionadasDaMateria(article)} />;
+  /*
+   * O autor cadastrado (06/10/2026). A leitura degrada: sem a coluna, sem a
+   * tabela ou com o autor desativado, a matéria assina como a Redação.
+   */
+  const autor = await autorDaMateria(article as { author_id?: string | null; project_id?: string | null });
+
+  return <PaginaDaMateria article={article} relacionadas={await relacionadasDaMateria(article)} autor={autor} />;
 }

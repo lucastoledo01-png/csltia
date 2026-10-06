@@ -24,9 +24,16 @@ const spaceMono = Space_Mono({
   preload: false,
 });
 
+/*
+ * Inter é a letra do painel, e o portal não a desenha em lugar nenhum (o
+ * `.portal` troca tudo por Sora). Sem `preload` desde 06/10/2026: ela era
+ * pré-carregada em toda página do portal, contra a capa. No painel o arquivo
+ * vem quando a página pede, um instante depois.
+ */
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+  preload: false,
 });
 
 /*
@@ -46,7 +53,13 @@ const inter = Inter({
  */
 const sora = Sora({
   variable: "--fonte-sora",
-  subsets: ["latin", "latin-ext"],
+  /*
+   * Só `latin` é pré-carregado (06/10/2026). O português inteiro está nele;
+   * `latin-ext` era um segundo arquivo baixado em toda página para letra que
+   * quase nunca aparece. O `subsets` do `next/font` decide o que é
+   * pré-carregado; a conferência do CSS gerado está no PR.
+   */
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {

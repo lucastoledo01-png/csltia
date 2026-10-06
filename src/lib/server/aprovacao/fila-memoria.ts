@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Aprovacao } from "./contrato";
-import type { FilaStore, RegraProposta, Reprovacao } from "./fila-store";
+import type { EdicaoDoEditor, FilaStore, RegraProposta, Reprovacao } from "./fila-store";
 
 /**
  * A fila em memória, com o mesmo contrato do banco.
@@ -13,16 +13,19 @@ export function criarFilaEmMemoria(relogio: () => number = Date.now): FilaStore 
   aprovacoes: Aprovacao[];
   reprovacoes: Reprovacao[];
   regrasGravadas: RegraProposta[];
+  edicoes: EdicaoDoEditor[];
 } {
   const aprovacoes: Aprovacao[] = [];
   const reprovacoes: Reprovacao[] = [];
   const regrasGravadas: RegraProposta[] = [];
+  const edicoes: EdicaoDoEditor[] = [];
   const agoraIso = () => new Date(relogio()).toISOString();
 
   return {
     aprovacoes,
     reprovacoes,
     regrasGravadas,
+    edicoes,
 
     async porId(id) {
       return aprovacoes.find((a) => a.id === id) ?? null;
@@ -79,6 +82,17 @@ export function criarFilaEmMemoria(relogio: () => number = Date.now): FilaStore 
       return true;
     },
 
+    async reivindicarRefacao(id, esperado, resumo) {
+      const alvo = aprovacoes.find((a) => a.id === id);
+      if (!alvo || alvo.estado !== "refazendo") return null;
+      const atual = alvo.resumo?.refacao ?? null;
+      if (esperado.estado === "ausente" ? atual !== null : atual?.estado !== esperado.estado) return null;
+      if (esperado.iniciadaAntesDe && !((atual?.iniciadaEm ?? "") < esperado.iniciadaAntesDe)) return null;
+      alvo.resumo = resumo;
+      alvo.updatedAt = agoraIso();
+      return { ...alvo };
+    },
+
     async soltarLiberacao(id) {
       const alvo = aprovacoes.find((a) => a.id === id);
       if (alvo) alvo.liberadoEm = null;
@@ -106,12 +120,20 @@ export function criarFilaEmMemoria(relogio: () => number = Date.now): FilaStore 
     },
 
     async registrarReprovacao(r) {
-      reprovacoes.push({ ...r, id: randomUUID(), createdAt: agoraIso() });
+      reprovacoes.push({ ...r, detalhes: r.detalhes ?? {}, id: randomUUID(), createdAt: agoraIso() });
     },
 
-    async reprovacoesDaEtapa(projectId, etapa, limite) {
+    async reprovacoesDaEtapa(projectId, ramo, etapa, limite) {
       return reprovacoes
-        .filter((r) => r.projectId === projectId && r.etapa === etapa)
+        .filter((r) => r.projectId === projectId && r.ramo === ramo && r.etapa === etapa)
+        .slice()
+        .reverse()
+        .slice(0, limite);
+    },
+
+    async reprovacoesDesde(projectId, desdeIso, limite, ramo) {
+      return reprovacoes
+        .filter((r) => r.projectId === projectId && r.createdAt >= desdeIso && (!ramo || r.ramo === ramo))
         .slice()
         .reverse()
         .slice(0, limite);
@@ -121,29 +143,62 @@ export function criarFilaEmMemoria(relogio: () => number = Date.now): FilaStore 
       return regrasGravadas.filter(
         (r) =>
           r.projectId === projectId &&
+          (!filtro.ramo || r.ramo === filtro.ramo) &&
           (!filtro.etapa || r.etapa === filtro.etapa) &&
-          (!filtro.estado || r.estado === filtro.estado),
+          (!filtro.estado || r.estado === filtro.estado) &&
+          (!filtro.origem || r.origem === filtro.origem),
       );
     },
 
     async proporRegra(p) {
       const existente = regrasGravadas.find(
-        (r) => r.projectId === p.projectId && r.etapa === p.etapa && r.chave === p.chave,
+        (r) => r.projectId === p.projectId && r.ramo === p.ramo && r.etapa === p.etapa && r.chave === p.chave,
       );
       if (existente) {
-        if (existente.estado !== "proposta") return;
+        if (existente.estado !== "proposta") return "ja_decidida";
         existente.ocorrencias = p.ocorrencias;
         existente.exemplos = p.exemplos;
-        return;
+        return "atualizada";
       }
       regrasGravadas.push({
         ...p,
+        origem: p.origem ?? "reprovacoes",
         id: randomUUID(),
         estado: "proposta",
         decididoPor: null,
         decididoEm: null,
         createdAt: agoraIso(),
       });
+      return "criada";
+    },
+
+    async registrarEdicao(e) {
+      if (e.antes === e.depois) throw new Error("[FILA] gravar a edição do editor: edicoes_do_editor_mudou");
+      edicoes.push({ ...e, id: randomUUID(), criadoEm: agoraIso() });
+    },
+
+    async edicoesDesde(projectId, desdeIso, limite, ramo) {
+      return edicoes
+        .filter((e) => e.projectId === projectId && e.criadoEm >= desdeIso && (!ramo || e.ramo === ramo))
+        .slice()
+        .reverse()
+        .slice(0, limite);
+    },
+
+    async aprovadasSemRetrabalho(projectId, ramo, desdeIso, limite) {
+      return aprovacoes
+        .filter(
+          (a) =>
+            a.projectId === projectId &&
+            a.ramo === ramo &&
+            a.estado === "aprovada" &&
+            a.refazimentos === 0 &&
+            !a.automatica &&
+            (a.decididoEm ?? "") >= desdeIso,
+        )
+        .sort((x, y) => (y.decididoEm ?? "").localeCompare(x.decididoEm ?? ""))
+        .slice(0, limite)
+        .map((a) => ({ ...a }));
     },
 
     async decidirRegra(id, estado, quem) {

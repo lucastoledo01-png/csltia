@@ -191,6 +191,7 @@ export async function rodarRamoDoPortal(e: EntradaDoRamoDoPortal): Promise<Resul
       capa,
       publicarEm: horarios[i],
       slug,
+      poolDoDia: e.pool.map((p) => p.storyId),
     };
 
     pecas.push(

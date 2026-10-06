@@ -97,7 +97,7 @@ export function ArticleComments({ articleSlug }: { articleSlug: string }) {
     <section className="mt-16 border-t border-[#e5e7eb] pt-10">
       <div className="flex items-center justify-between gap-4">
         <h3 className="text-2xl font-black tracking-[-0.04em] text-black">
-          comentários dos leitores <span className="ml-2 font-mono text-base font-normal text-[#E4344A]">({comments.length})</span>
+          comentários dos leitores <span className="ml-2 text-base font-normal tabular-nums text-[#E4344A]">({comments.length})</span>
         </h3>
       </div>
 
@@ -201,7 +201,13 @@ export function ArticleComments({ articleSlug }: { articleSlug: string }) {
                     </button>
                   </div>
 
-                  <span className="font-mono text-xs font-semibold text-[#667085]">
+                  {/*
+                    Sem `font-mono` (06/10/2026): no tema, mono aponta para a
+                    Inter, e este número sozinho fazia toda página de matéria
+                    baixar a Inter inteira (48 KB) para o contador. A Sora com
+                    algarismos tabulares alinha o número do mesmo jeito.
+                  */}
+                  <span className="text-xs font-semibold tabular-nums text-[#667085]">
                     Saldo: <strong className={score > 0 ? "text-[#12b76a]" : score < 0 ? "text-[#b42318]" : "text-black"}>{score > 0 ? `+${score}` : score}</strong>
                   </span>
                 </div>

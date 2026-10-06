@@ -92,11 +92,14 @@ const PREFERENCIA: Record<FamiliaEvergreen, PreferenciaDaFamilia> = {
    * a pergunta pedir uma sequência, e aí a estrutura já vira processo.
    */
   faq: { estrutura: "faq", forca: "estatico_por_padrao", min: 3, max: 4 },
-  visa_explainer: { estrutura: "explainer", forca: "prefere_carrossel", min: 4, max: 6 },
+  /*
+   * `explainer` era `visa_explainer` até 06/10/2026, e herdou a preferência
+   * dele. `professional_education` e `evidence_education` tinham a mesma, e
+   * saíram com o catálogo de imigração.
+   */
+  explainer: { estrutura: "explainer", forca: "prefere_carrossel", min: 4, max: 6 },
   comparison: { estrutura: "comparison", forca: "carrossel_forte", min: 5, max: 7 },
   process_explainer: { estrutura: "process", forca: "carrossel_forte", min: 4, max: 6 },
-  professional_education: { estrutura: "explainer", forca: "prefere_carrossel", min: 4, max: 6 },
-  evidence_education: { estrutura: "explainer", forca: "prefere_carrossel", min: 4, max: 6 },
 };
 
 export function preferenciaDaFamilia(familia: FamiliaEvergreen): PreferenciaDaFamilia {

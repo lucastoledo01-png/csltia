@@ -163,6 +163,9 @@ export function entradasDoCarrossel(
     asset: FotoDaCapa | null;
     /** A vice-campeã do resolvedor, que a capa desenha em círculo. */
     assetSecundario?: FotoDaCapa | null;
+    /** Onde a bolha fica e os rostos que ela evita. Ver `bolha-sem-rosto.ts`. */
+    posicaoDaBolha?: string;
+    rostosDaBolha?: EntradaDaCapa["rostosDaBolha"];
     motivoSemFoto: string;
     /**
      * A gramática da CAPA, decidida pelo ritmo e não aqui.
@@ -217,6 +220,8 @@ export function entradasDoCarrossel(
         // A bolha vale para a CAPA. Os slides de miolo usam a mesma gramática
         // sem ela: um círculo repetido em cinco telas vira moldura, não ênfase.
         assetSecundario: opcoes.assetSecundario ?? null,
+        posicaoDaBolha: opcoes.posicaoDaBolha,
+        rostosDaBolha: opcoes.rostosDaBolha,
         motivoSemFoto: opcoes.motivoSemFoto,
         posicao,
         total,

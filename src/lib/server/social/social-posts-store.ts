@@ -1,3 +1,4 @@
+import type { ContextoDeProducao } from "../aprovacao/contrato";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RegistroHistorico } from "../editorial/history";
 import type { PostGerado } from "./gerador";
@@ -7,6 +8,7 @@ import type { ArtefatoDeSlide } from "./artefato";
 import type { FormatoDoPost } from "./carrossel/formato";
 import { varianteDaCapa } from "./arte";
 import type { GramaticaDaCapa } from "./arte";
+import type { DecisaoDaBolha } from "./bolha-sem-rosto";
 import { statusDeEntradaDoPost } from "../aprovacao/portao";
 import type { OpcoesDaFilaNoStore } from "../aprovacao/integracao";
 
@@ -123,6 +125,14 @@ export type PostParaGravar = {
    */
   bolha: boolean;
   /**
+   * Por que a capa tem ou não tem bolha, e onde ela ficou (06/10/2026).
+   *
+   * Os rostos achados na foto de fundo, a posição escolhida ou o motivo de não
+   * haver nenhuma, a origem da segunda foto e o custo. Opcional para quem
+   * grava sem passar pela decisão (scripts antigos, testes).
+   */
+  decisaoDaBolha?: DecisaoDaBolha | null;
+  /**
    * Qual gramática esta capa usou, jornal ou recorte.
    *
    * Gravado, e não deduzido, pela mesma razão do campo acima: a gramática
@@ -143,6 +153,14 @@ export type PostParaGravar = {
    * antes de 18/09/2026.
    */
   legendaFinal?: string;
+  /**
+   * O contexto da refação na fila de aprovação (06/10/2026): pauta, pacote,
+   * pool do dia. Vai para `content_json.contexto_da_refacao` e de lá para a
+   * linha da fila. Ausente nos chamadores antigos.
+   */
+  contexto?: ContextoDeProducao;
+  /** A posição na leva do dia, que decide o CTA. Gravada junto do contexto. */
+  posicao?: number;
 };
 
 /** O artefato como a linha o registra. Um formato, usado pela capa e por slide. */
@@ -376,6 +394,21 @@ export function criarSocialPostsStore(client: SupabaseClient, fila: OpcoesDaFila
              */
             formato: p.formato,
             copy: p.post.copy,
+            /*
+             * A forma do carrossel, para a fila de aprovação refazer o texto
+             * slide a slide e recongelar as telas (06/10/2026). Sem a
+             * estrutura e os papéis, um carrossel não se redesenha igual.
+             */
+            ...(p.post.carrossel
+              ? {
+                  carrossel: {
+                    estrutura: p.post.carrossel.estrutura,
+                    slides: p.post.carrossel.slides.length,
+                    papeis: p.post.carrossel.papeis,
+                  },
+                }
+              : {}),
+            ...(p.contexto ? { contexto_da_refacao: { ...p.contexto, ...(p.posicao ? { posicao: p.posicao } : {}) } } : {}),
             hashtags: p.post.veredicto.hashtagsFinais,
             origem: p.origem.motivo,
             /*
@@ -443,6 +476,12 @@ export function criarSocialPostsStore(client: SupabaseClient, fila: OpcoesDaFila
                * 16/09/2026.
                */
               bolha: p.bolha,
+              /*
+               * A decisão que produziu o campo acima, para auditoria: quem
+               * pergunta "a bolha deste post cobria alguém?" encontra aqui os
+               * rostos e a posição, sem renderizar de novo.
+               */
+              ...(p.decisaoDaBolha ? { bolha_decisao: p.decisaoDaBolha } : {}),
             },
             /*
              * O registro do direito é completo mesmo quando a arte não imprime
