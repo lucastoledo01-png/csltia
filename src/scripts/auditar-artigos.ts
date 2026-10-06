@@ -10,7 +10,9 @@ import {
 } from "../lib/server/auditoria-de-artigo";
 import { urlDoArtigo } from "../lib/server/dados-estruturados-do-artigo";
 import { identidadeDaImagem } from "../lib/imagem-da-capa";
-import { distribuicaoDaEstrutura, estruturaDaMateria, estruturaEmMarkdown } from "../lib/server/estrutura-da-materia";
+import { conferenciaDaCapa, distribuicaoDaEstrutura, estruturaDaMateria, estruturaEmMarkdown } from "../lib/server/estrutura-da-materia";
+import { resolverCreditoDaCapa } from "../lib/server/capa-da-materia";
+import { creditoCompleto, textoDoCredito } from "../lib/credito-da-capa";
 import { argumento, carregarEnv, clienteDoBanco, lerEnsaioDoDesmonte, lerPagina, lerPublicadas, type LinhaDoArtigo } from "./artigos-comum";
 
 /**
@@ -36,6 +38,13 @@ import { argumento, carregarEnv, clienteDoBanco, lerEnsaioDoDesmonte, lerPagina,
  *       GEO (`estrutura-da-materia.ts`): palavras, intertítulo em pergunta,
  *       fonte na abertura, perguntas, legenda, crédito, assuntos e o piso de
  *       dois assuntos. Lê o banco, não a página; com --saida, grava a tabela
+ *
+ *   npx tsx src/scripts/auditar-artigos.ts --capas
+ *       só a capa de cada publicada (06/10/2026): endereço sem `&amp;`,
+ *       legenda e crédito gravados, crédito com autor, licença e link, e
+ *       `image` do NewsArticle com largura e altura. Para quem não gravou
+ *       crédito, pergunta à origem (Commons, Pexels) o que a página vai
+ *       desenhar. Só leitura: GET no Commons e no Pexels, nada no banco
  *
  * O JSON-LD de quem está no ar vem da PÁGINA servida, não do código: o
  * relatório mede o que o Google lê hoje. Para as matérias do desmonte, que
@@ -75,6 +84,30 @@ async function main(): Promise<void> {
   const blocos: string[] = [];
   const csv: string[] = [];
   const data = new Date().toISOString().slice(0, 10);
+
+  if (process.argv.includes("--capas")) {
+    const publicadas = await lerPublicadas(client);
+    let semProblema = 0;
+    for (const a of publicadas) {
+      const c = conferenciaDaCapa(a);
+      if (!c.temCapa) {
+        console.log(`\n${a.slug}\n  sem capa`);
+        continue;
+      }
+      let naPagina = "";
+      if (!c.creditoGravado) {
+        const r = await resolverCreditoDaCapa(a.cover_image);
+        naPagina = r ? `${textoDoCredito(r)} -> ${r.href || "(sem link)"}${creditoCompleto(r) ? "" : "  [INCOMPLETO]"}` : "(nenhum)";
+      }
+      if (c.problemas.length === 0) semProblema += 1;
+      console.log(`\n${a.slug}`);
+      for (const p of c.problemas) console.log(`  FALHA ${p}`);
+      if (naPagina) console.log(`  crédito que a página resolve na origem: ${naPagina}`);
+      if (c.problemas.length === 0) console.log("  ok");
+    }
+    console.log(`\n== ${semProblema} de ${publicadas.length} publicadas sem nenhum problema de capa gravado`);
+    return;
+  }
 
   if (process.argv.includes("--estrutura")) {
     const publicadas = await lerPublicadas(client);

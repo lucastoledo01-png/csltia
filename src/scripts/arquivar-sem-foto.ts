@@ -1,4 +1,6 @@
 import { carregarEnv, clienteDoBanco } from "./artigos-comum";
+import { avisarBuscadores } from "../lib/server/indexnow";
+import { DEFAULT_PROJECT_ID } from "../lib/server/projects";
 import { publicadasSemFoto, type ArtigoParaConferir } from "../lib/server/arquivar-sem-foto";
 
 /**
@@ -53,6 +55,7 @@ async function main(): Promise<void> {
   let statusFora: (typeof STATUS_FORA_DA_LISTA)[number] = STATUS_FORA_DA_LISTA[0];
   const agoraIso = new Date().toISOString();
   let arquivadas = 0;
+  const saidas: string[] = [];
   for (const a of alvo) {
     let r = await client
       .from("articles")
@@ -71,9 +74,15 @@ async function main(): Promise<void> {
         .select("slug");
     }
     if (r.error) console.error(`  ERRO ${a.slug}: ${r.error.message}`);
-    else arquivadas += (r.data ?? []).length;
+    else {
+      arquivadas += (r.data ?? []).length;
+      for (const x of (r.data ?? []) as Array<{ slug: string }>) saidas.push(x.slug);
+    }
   }
   console.log(`\n${arquivadas} matéria(s) fora da lista do portal, com status ${statusFora}.`);
+  // A matéria saiu do ar: o IndexNow avisa que o endereço mudou (06/10/2026).
+  const aviso = await avisarBuscadores(client, DEFAULT_PROJECT_ID, saidas, "arquivada sem foto");
+  console.log(`IndexNow: ${aviso.situacao}${aviso.detalhe ? ` (${aviso.detalhe})` : ""}`);
 }
 
 main().catch((erro) => {

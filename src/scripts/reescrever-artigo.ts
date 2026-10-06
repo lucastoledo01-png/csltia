@@ -25,6 +25,12 @@ import { vozesDosRamos } from "../lib/server/ramos/vozes";
 import { conferirImagem } from "../lib/server/visual/conferencia-visual";
 import { resolverEntidadeNoWikidata } from "../lib/server/visual/wikidata";
 import { argumento, carregarEnv, clienteDoBanco, type LinhaDoArtigo } from "./artigos-comum";
+import { creditoCompleto, htmlDoCredito } from "../lib/credito-da-capa";
+import { enderecoLimpoDaImagem } from "../lib/imagem-da-capa";
+import { resolverCreditoDaCapa } from "../lib/server/capa-da-materia";
+import { avisarBuscadores } from "../lib/server/indexnow";
+import { reunirFontesDaMateria } from "../lib/server/ramos/fontes-da-materia";
+import { candidatasComVetor } from "../lib/server/ramos/materia-profunda";
 
 /**
  * Reescreve UMA matéria publicada no molde de matéria completa (06/10/2026),
@@ -35,6 +41,7 @@ import { argumento, carregarEnv, clienteDoBanco, type LinhaDoArtigo } from "./ar
  *   npx tsx src/scripts/reescrever-artigo.ts --so <slug> --aplicar --de <arq>  grava EXATAMENTE o que foi revisado
  *   npx tsx src/scripts/reescrever-artigo.ts --so <slug> --aplicar             reescreve de novo e grava
  *   --trocar-titulo                                                            aceita o título do redator
+ *   --uma-fonte                                                                só a fonte original, sem as outras do mesmo fato
  *   npx tsx src/scripts/reescrever-artigo.ts --so <slug> --so-ajustes [--aplicar]
  *       SEM modelo: aplica à matéria GRAVADA as regras do "O que você precisa
  *       saber" e recalcula assuntos e entidades pelo validador. Grava só
@@ -104,7 +111,7 @@ function contarLinks(html: string): Resultado["contagem"] {
   };
 }
 
-async function reescrever(a: LinhaDoArtigo, opcoes: { trocarTitulo: boolean }): Promise<Resultado | null> {
+async function reescrever(a: LinhaDoArtigo, opcoes: { trocarTitulo: boolean; umaFonte: boolean }): Promise<Resultado | null> {
   const client = clienteDoBanco();
   const livro = criarLivroDeCustos();
   const url = (a.source_urls ?? [])[0];
@@ -122,7 +129,29 @@ async function reescrever(a: LinhaDoArtigo, opcoes: { trocarTitulo: boolean }): 
   // 2. O pacote factual.
   const p = await montarPacoteFactual({ titulo: fonte.metadados.titulo || a.title, texto: fonte.texto, urls: [url] });
   livro.lancar("pacote_factual", "comum", p.custoUsd, p.tokens);
-  const pacote = p.pacote;
+  let pacote = p.pacote;
+
+  // 2b. As outras fontes do mesmo fato (06/10/2026), as mesmas réguas do ramo do portal.
+  if (!opcoes.umaFonte) {
+    const { data: cand } = await client
+      .from("news_candidates")
+      .select("embedding")
+      .eq("project_id", a.project_id)
+      .or(`url.eq.${url},canonical_url.eq.${url}`)
+      .limit(1)
+      .maybeSingle();
+    const bruto = (cand as { embedding?: unknown } | null)?.embedding;
+    const vetor = Array.isArray(bruto) ? (bruto as number[]) : typeof bruto === "string" && bruto.startsWith("[") ? (JSON.parse(bruto) as number[]) : null;
+    const quando = new Date(a.published_at ?? Date.now());
+    const r = await reunirFontesDaMateria({
+      principal: { url, titulo: fonte.metadados.titulo || a.title, nome: fonte.metadados.veiculo || url, vetor, pacote },
+      candidatas: vetor ? await candidatasComVetor(client, a.project_id, new Date(quando.getTime() - 3 * 86_400_000), new Date(quando.getTime() + 86_400_000)) : [],
+      linksOficiais: fonte.linksOficiais ?? [],
+      livro,
+    });
+    console.log(`\n== Fontes do mesmo fato\n${r.linhasDeLog.map((l) => `   ${l}`).join("\n")}`);
+    pacote = r.pacote;
+  }
 
   // 3. A matéria, com a instrução do projeto valendo (a versão editável, se a capacidade estiver ligada).
   const projeto = await getProjectById(a.project_id);
@@ -174,7 +203,11 @@ async function reescrever(a: LinhaDoArtigo, opcoes: { trocarTitulo: boolean }): 
   ]
     .filter(Boolean)
     .join(", ");
-  const fontes = [{ nome: fonte.metadados.veiculo || veiculo, url, detalhe }];
+  const fontes = [
+    { nome: fonte.metadados.veiculo || veiculo, url, detalhe },
+    ...(pacote.fontes ?? []).filter((f) => !f.principal).map((f) => ({ nome: f.nome, url: f.url })),
+  ];
+  const fontesDoTexto = pacote.fontes?.length ? pacote.fontes.map((f) => ({ id: f.id, nome: f.id === "F1" ? fonte.metadados.veiculo || veiculo : f.nome, url: f.url })) : undefined;
 
   // 6. A foto da capa, descrita pela conferência visual e conferida contra o pacote.
   const custoNaoMedido: string[] = [];
@@ -193,10 +226,16 @@ async function reescrever(a: LinhaDoArtigo, opcoes: { trocarTitulo: boolean }): 
     console.log(`\n== Capa\n   descrição do modelo: ${v.falhou ? `(falhou: ${v.motivo})` : v.descricao}\n   usada: ${segura ?? "(recusada pela ancoragem, vai a legenda neutra)"}`);
     legenda = segura ?? legendaNeutra((artigo.assuntos ?? [])[0]);
   }
-  const creditoAntigo = (a.content_html ?? "").match(/<p[^>]*class="credito-da-foto"[^>]*>[\s\S]*?<\/p>/i)?.[0] ?? "";
+  let creditoAntigo = (a.content_html ?? "").match(/<p[^>]*class="credito-da-foto"[^>]*>[\s\S]*?<\/p>/i)?.[0] ?? "";
+  // Sem crédito gravado, o da origem (06/10/2026); pela metade não grava, e a página segue perguntando.
+  if (!creditoAntigo && a.cover_image) {
+    const c = await resolverCreditoDaCapa(enderecoLimpoDaImagem(a.cover_image));
+    if (c && creditoCompleto(c)) creditoAntigo = htmlDoCredito(c);
+  }
 
   const corpo = renderizarArtigoHtml(artigoFinal, { nome: veiculo, url }, {
     fontes,
+    ...(fontesDoTexto ? { fontesDoTexto } : {}),
     relacionadas,
     ...(editoria ? { editoria: { nome: editoria.nome, href: hrefDaEditoria(editoria.id) } } : {}),
   });
@@ -314,6 +353,10 @@ async function soAjustes(client: ReturnType<typeof clienteDoBanco>, a: LinhaDoAr
     .eq("slug", a.slug);
   if (error) throw new Error(`não gravou: ${error.message}`);
   console.log(`\nGravada: ${a.slug} (content_html, tags, updated_at).`);
+  if (a.status === "published") {
+    const aviso = await avisarBuscadores(client, a.project_id, [a.slug], "ajustes da matéria");
+    console.log(`IndexNow: ${aviso.situacao}${aviso.detalhe ? ` (${aviso.detalhe})` : ""}`);
+  }
 }
 
 async function main(): Promise<void> {
@@ -354,7 +397,7 @@ async function main(): Promise<void> {
     if (r.slug !== so) throw new Error(`${de} é da matéria ${r.slug}, não de ${so}.`);
     console.log(`Usando o resultado revisado em ${de}.`);
   } else {
-    r = await reescrever(a, { trocarTitulo });
+    r = await reescrever(a, { trocarTitulo, umaFonte: process.argv.includes("--uma-fonte") });
   }
   if (!r) process.exit(2);
   imprimir(r);
@@ -369,6 +412,10 @@ async function main(): Promise<void> {
   const { error: erroDeGravacao } = await client.from("articles").update(r.patch).eq("id", a.id ?? "").eq("slug", so);
   if (erroDeGravacao) throw new Error(`não gravou: ${erroDeGravacao.message}`);
   console.log(`\nGravada: ${so}.`);
+  if (a.status === "published") {
+    const aviso = await avisarBuscadores(client, a.project_id, [so], "matéria reescrita");
+    console.log(`IndexNow: ${aviso.situacao}${aviso.detalhe ? ` (${aviso.detalhe})` : ""}`);
+  }
 }
 
 main().catch((erro) => {

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { avisarSemEsperar } from "../indexnow";
 import { MARCA } from "@/lib/marca";
 import { envDoListmonk } from "../credenciais-do-projeto";
 import { createListmonkClient } from "../listmonk";
@@ -100,7 +101,7 @@ export function criarAdaptadorSupabase(
    *      alerta a cada giro sobre uma matéria que está no ar.
    */
   async function despacharArtigo(pecaId: string, agora: Date): Promise<ResultadoDoDespacho> {
-    const l = await lerLinha("articles", "id, status, published_at", pecaId);
+    const l = await lerLinha("articles", "id, slug, status, published_at", pecaId);
     if (!l) return { ok: false, motivo: "o artigo não existe mais" };
     if (l.status === "published") return { ok: true, detalhe: "artigo já estava publicado no portal" };
 
@@ -123,6 +124,8 @@ export function criarAdaptadorSupabase(
       .select("id");
     if (error) return { ok: false, motivo: error.message };
     if (!data || data.length === 0) return { ok: false, motivo: "o artigo não estava em rascunho nem agendado" };
+    // Publicada agora pela liberação da fila: o IndexNow avisa sem segurar o despacho (06/10/2026).
+    if (!futuro && typeof l.slug === "string") avisarSemEsperar(client, projeto.id, [l.slug], "publicada pela liberação da fila");
     return futuro
       ? { ok: true, detalhe: `artigo aprovado e agendado para ${String(l.published_at)}` }
       : { ok: true, detalhe: "artigo publicado no portal" };

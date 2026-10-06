@@ -218,6 +218,9 @@ export function mundoDaRefacaoDeProducao(
         horarios: horariosDoPortal(projeto),
         env,
         buscarRelacionadas: (alvo) => buscarRelacionadas(client(), projeto.id, alvo),
+        // A matéria substituta também junta as fontes do mesmo fato e descreve a capa (06/10/2026).
+        ampliarPacote: (await import("../ramos/materia-profunda")).criarAmpliadorDePacote({ client: client(), projectId: projeto.id, env }),
+        descreverCapa: async (url) => (await import("../ramos/materia-profunda")).descreverCapaSemManchete(url, env),
         fotos: criarFotosDoDia<PautaAvaliada>(
           (p) => p.storyId,
           (p) => fotoEmLeitura(paraImagem(p), client(), projeto, env),

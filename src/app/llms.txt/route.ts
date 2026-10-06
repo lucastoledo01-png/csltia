@@ -8,7 +8,12 @@ import { llmsTxt, materiasRecentes } from "@/lib/server/arquivos-para-maquinas";
 export const dynamic = "force-dynamic";
 
 export async function GET(): Promise<Response> {
-  const materias = await materiasRecentes(20);
+  /*
+   * Todas as publicadas, e não as 20 mais recentes (06/10/2026): o índice é o
+   * caminho pelo qual o agente acha a matéria de três semanas atrás, e o
+   * portal publica três por dia. O teto de mil é o do sitemap de notícias.
+   */
+  const materias = await materiasRecentes(1000);
   return new Response(llmsTxt(materias), {
     headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=300" },
   });

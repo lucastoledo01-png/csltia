@@ -92,6 +92,7 @@ import {
 } from "../ramos/sem-foto";
 import type { QuedaSemFoto } from "../ramos/sem-foto";
 import { garantirPacotes, rodarRamoDoPortal } from "../ramos/ramo-do-portal";
+import { criarAmpliadorDePacote, descreverCapaSemManchete } from "../ramos/materia-profunda";
 import type { ResultadoDoRamoDoPortal } from "../ramos/ramo-do-portal";
 import { gravarArtigosAgendados, horariosDoPortal } from "../ramos/portal";
 import { gravarCustos, gravarVeredito, vereditoDaPeca } from "../ramos/registro";
@@ -1699,6 +1700,21 @@ async function executarRedacaoDoDia(
           env,
           fetcher,
           buscarRelacionadas: (alvo) => buscarRelacionadas(getSupabaseAdminClient(), project.id, alvo),
+          /*
+           * A matéria profunda (06/10/2026): o pacote de cada matéria junta as
+           * outras fontes do mesmo fato (grupo da deduplicação, candidatas com
+           * cosseno de 0.70 ou mais nos últimos dias e a fonte primária citada),
+           * e a capa ganha a descrição da conferência visual sem a manchete.
+           */
+          ampliarPacote: criarAmpliadorDePacote({
+            client: getSupabaseAdminClient(),
+            projectId: project.id,
+            env,
+            fetcher,
+            livro,
+            limiar: configEditorial.limiarDeAgrupamento,
+          }),
+          descreverCapa: (url) => descreverCapaSemManchete(url, env),
           /*
            * A capa da matéria sai de `imagemDaPauta` (05/10/2026, integração):
            * com o acervo em `enforce`, a mesma pauta ganha a MESMA foto no

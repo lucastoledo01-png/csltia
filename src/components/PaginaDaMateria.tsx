@@ -3,6 +3,7 @@ import { ArticleComments } from "@/components/ArticleComments";
 import { CaixaDeAssinatura, MolduraDoPortal } from "@/components/PortalChrome";
 import { SubstackArticleRenderer } from "@/components/SubstackArticleRenderer";
 import { creditoDoCommons, enderecoLimpoDaImagem, fotoNaLargura, miniaturaDoCommons, semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
+import { creditoPorEndereco, legendaNeutra, textoDoCredito, type CreditoDaFoto } from "@/lib/credito-da-capa";
 import { editoriaPeloNome, hrefDaEditoria } from "@/lib/editorias";
 import { indexacaoValidadaDoArtigo } from "@/lib/indexacao-do-artigo";
 import { hrefDoAutor, type AutorDaAssinatura } from "@/lib/autores";
@@ -143,6 +144,7 @@ export function PaginaDaMateria({
   article,
   comComentarios = true,
   relacionadas = [],
+  creditoResolvido = null,
   autor = null,
 }: {
   article: MateriaDaPagina;
@@ -151,6 +153,11 @@ export function PaginaDaMateria({
   autor?: AutorDaAssinatura | null;
   /** Para o "Leia também" da matéria que nasceu sem ele. Lidas pela rota; vazio não acrescenta nada. */
   relacionadas?: ReadonlyArray<{ slug: string; titulo: string }>;
+  /**
+   * O crédito da capa resolvido na origem pela rota (`resolverCreditoDaCapa`),
+   * para a linha que não gravou crédito. O gravado no corpo vence.
+   */
+  creditoResolvido?: CreditoDaFoto | null;
 }) {
   // Limpa do `&amp%3B` que 15 capas do Pexels gravaram (auditoria de 05/10/2026).
   const capa = enderecoLimpoDaImagem(article.cover_image);
@@ -162,7 +169,7 @@ export function PaginaDaMateria({
    * página desenhava a mesma foto como capa logo acima. O crédito que vinha
    * colado na foto passa para baixo da capa, que é onde a obra está agora.
    */
-  const { html: corpoSemCapa, creditoDaCapa, legendaDaCapa } = semImagemDaCapaNoCorpo(article.content_html, capa);
+  const { html: corpoSemCapa, creditoDaCapa, creditoDaCapaHref, dimensoesDaCapa, legendaDaCapa } = semImagemDaCapaNoCorpo(article.content_html, capa);
 
   /*
    * Perguntas e respostas VISÍVEIS, e só então o FAQPage. As gravadas em
@@ -181,7 +188,34 @@ export function PaginaDaMateria({
    * arquivo, onde estão autor e licença (auditoria de 05/10/2026: 41 capas
    * do Commons, nenhuma com crédito, e a mais usada é CC BY-SA 4.0).
    */
+  /*
+   * Desde 06/10/2026 toda capa tem crédito com autor, licença e link: o
+   * gravado no corpo primeiro; depois o que a rota resolveu na origem (página
+   * do arquivo no Commons, API do Pexels); por último o que o endereço deixa
+   * saber, que tem a origem e o link da página do arquivo.
+   */
   const creditoPadrao = creditoDaCapa ? null : creditoDoCommons(capa);
+  const piso = capa ? creditoPorEndereco(capa) : null;
+  const credito: { texto?: string; href?: string } = creditoDaCapa
+    ? { texto: creditoDaCapa, href: creditoDaCapaHref ?? piso?.href ?? undefined }
+    : creditoResolvido && (creditoResolvido.autor || creditoResolvido.licenca)
+      ? { texto: textoDoCredito(creditoResolvido), href: creditoResolvido.href || undefined }
+      : creditoPadrao
+        ? { texto: creditoPadrao.texto, href: creditoPadrao.href }
+        : piso
+          ? { texto: textoDoCredito(piso), href: piso.href || undefined }
+          : {};
+  /*
+   * Capa sem legenda gravada (a matéria anterior a 06/10/2026, ou a do ramo
+   * antes desta data) ganha a legenda neutra, que não afirma nada sobre a
+   * foto: só o assunto. É a mesma saída do ramo quando a descrição não passa
+   * na ancoragem.
+   */
+  const assuntos = indexacaoValidadaDoArtigo(article).assuntos;
+  const legenda = capa ? (legendaDaCapa ?? legendaNeutra(assuntos[0] ?? editoria?.nome ?? article.category)) : legendaDaCapa;
+  const dimensoes =
+    dimensoesDaCapa ??
+    (creditoResolvido?.largura && creditoResolvido?.altura ? { largura: creditoResolvido.largura, altura: creditoResolvido.altura } : null);
   const datas = datasDaMateria(article);
   const perguntasNaPagina = perguntasVisiveisDoArtigo({ aeo_questions: article.aeo_questions, content_html: corpo });
 
@@ -191,7 +225,7 @@ export function PaginaDaMateria({
    * indica para JSON-LD: o conteúdo vem do banco, e um título com
    * `</script>` fecharia a tag.
    */
-  const dadosEstruturados = dadosEstruturadosDoArtigo(article, { perguntasVisiveis: perguntasNaPagina, autor });
+  const dadosEstruturados = dadosEstruturadosDoArtigo(article, { perguntasVisiveis: perguntasNaPagina, dimensoesDaCapa: dimensoes, autor });
   const minutos = minutosDeLeitura(article);
 
   return (
@@ -218,11 +252,12 @@ export function PaginaDaMateria({
             categoryHref={editoria ? hrefDaEditoria(editoria.id) : undefined}
             readTime={minutos ? `${minutos} min` : undefined}
             coverImage={capa ? fotoNaLargura(capa, 1280) : null}
-            coverCredit={creditoDaCapa ?? creditoPadrao?.texto}
-            coverCreditHref={creditoPadrao?.href}
-            coverDescription={legendaDaCapa}
+            coverCredit={credito.texto}
+            coverCreditHref={credito.href}
+            coverDescription={legenda}
+            coverAlt={legendaDaCapa ?? article.title}
             shareUrl={urlDoArtigo(article.slug)}
-            topics={indexacaoValidadaDoArtigo(article).assuntos}
+            topics={assuntos}
             contentHtml={corpoComMiniaturas(corpo)}
             sections={article.content}
             quote={article.age_summary}

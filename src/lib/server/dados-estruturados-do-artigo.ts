@@ -2,7 +2,7 @@ import { MARCA } from "@/lib/marca";
 import { editoriaPeloNome, hrefDaEditoria } from "@/lib/editorias";
 import { escapeHtml } from "./html";
 import { camposDeIndexacaoNoJsonLd, indexacaoValidadaDoArtigo } from "@/lib/indexacao-do-artigo";
-import { imagemParaCompartilhar } from "@/lib/imagem-da-capa";
+import { imagensDaCapaParaJsonLd, semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
 import { ASSINATURA_DA_REDACAO, areaDoAutor, pessoaDoAutor, urlDoAutor, type Autor, type AutorDaAssinatura } from "@/lib/autores";
 
 /**
@@ -323,13 +323,27 @@ export function descricaoParaBusca(a: ArtigoParaBusca): string {
  */
 export function dadosEstruturadosDoArtigo(
   a: ArtigoParaBusca,
-  opcoes: { perguntasVisiveis: PerguntaVisivel[]; autor?: AutorDaAssinatura | null },
+  opcoes: {
+    perguntasVisiveis: PerguntaVisivel[];
+    autor?: AutorDaAssinatura | null;
+    /**
+     * As dimensões do original da capa, quando quem chama as resolveu (a
+     * página do arquivo no Commons). Ausentes, valem as do crédito gravado no
+     * corpo (`data-largura`, `data-altura`).
+     */
+    dimensoesDaCapa?: { largura: number; altura: number } | null;
+  },
 ): Record<string, unknown> {
   const url = urlDoArtigo(a.slug);
   const editoria = editoriaPeloNome(a.category);
   const secao = editoria?.nome ?? (a.category || undefined);
-  // Limpa (`&amp%3B` do Pexels) e na miniatura de 1280 do Commons, nunca o original de 9 MB.
-  const capa = imagemParaCompartilhar(a.cover_image);
+  /*
+   * Limpa (`&amp%3B` do Pexels) e na miniatura de 1280 do Commons, nunca o
+   * original de 9 MB. Desde 06/10/2026 como `ImageObject` com largura e altura
+   * sempre que a medida é conhecida (`imagensDaCapaParaJsonLd`).
+   */
+  const dimensoes = opcoes.dimensoesDaCapa ?? semImagemDaCapaNoCorpo(a.content_html ?? "", null).dimensoesDaCapa;
+  const imagens = imagensDaCapaParaJsonLd(a.cover_image, dimensoes);
   const publicada = iso(a.published_at);
   const idOrganizacao = ID_DA_ORGANIZACAO;
 
@@ -351,7 +365,7 @@ export function dadosEstruturadosDoArtigo(
       description: descricaoParaBusca(a),
       ...(publicada ? { datePublished: publicada } : {}),
       ...(publicada ? { dateModified: dataDeModificacao(a.published_at, a.updated_at) } : {}),
-      ...(capa ? { image: [capa] } : {}),
+      ...(imagens.length ? { image: imagens } : {}),
       ...(secao ? { articleSection: secao } : {}),
       // `keywords`, `about` e `mentions` só com o que a matéria gravou; nunca
       // meta keywords, que nenhum buscador lê. Passam pelo validador na

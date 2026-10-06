@@ -171,7 +171,7 @@ export function llmsTxt(materias: MateriaParaMaquina[]): string {
   );
   linhas.push("## Editorias", "");
   for (const e of EDITORIAS) linhas.push(`- [${e.nome}](${MARCA.site}${hrefDaEditoria(e.id)}): ${e.descricao}`);
-  linhas.push("", "## Matérias recentes", "");
+  linhas.push("", "## Matérias", "");
   if (materias.length === 0) linhas.push(`- [Todas as matérias](${MARCA.site}/artigos)`);
   for (const m of materias) {
     const resumo = (m.seo_description || m.description || "").trim();

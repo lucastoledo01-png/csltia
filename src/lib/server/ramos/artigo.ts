@@ -16,6 +16,8 @@ import { temasParaOPrompt } from "@/lib/temas";
 import { MINIMO_DE_ASSUNTOS, descreverDescartes, entidadesDoPacote, validarAssuntos, type AssuntoDescartado, type EntidadeDaMateria } from "@/lib/indexacao-do-artigo";
 import type { LivroDeCustos } from "./custos";
 import { corpoNaOrdemDoFim, tituloDasPerguntas } from "../dados-estruturados-do-artigo";
+import { extrairNumeros, numeroCompativel, numerosDoMaterial } from "../editorial/numeros-com-sentido";
+import type { FonteDoPacote } from "../editorial/pacote-factual";
 
 /**
  * A matéria do portal, escrita para a busca (RF-13).
@@ -122,7 +124,20 @@ export type MarcaDoArtigo = {
   voz: string;
 };
 
-export function montarSystemDoArtigo(marca: MarcaDoArtigo): string {
+/**
+ * O contrato a mais quando o pacote vem de várias fontes (06/10/2026,
+ * `fontes-da-materia.ts`). Só entra no prompt nesse caso: com uma fonte, o
+ * prompt continua byte a byte o de antes.
+ */
+const CONTRATO_DE_VARIAS_FONTES = `
+VÁRIAS FONTES (o pacote abaixo vem separado por fonte, cada uma com um id: F1 é a principal):
+- Cada fato pertence à fonte em que está. Ao atribuir ("segundo X", "de acordo com X"), X é a fonte que traz aquele fato, ou quem essa fonte diz que o deu (o órgão, a empresa, a cidade). Número atribuído a uma fonte que não o traz é APAGADO.
+- O que uma fonte não informa e outra informa, vale o que a outra informa, com a atribuição dela.
+- Use as outras fontes para o que elas ACRESCENTAM (outro dado, o outro lado, o documento oficial, o próximo passo), nunca para repetir com outras palavras o que a principal já disse.
+- Marque o link de cada fonte que você usar UMA vez, no primeiro trecho que a cita, com o id dela depois de uma barra: [[segundo a Reuters|F2]], [[a ordem publicada pela Casa Branca|F3]]. O link da principal continua na abertura: [[segundo a The Hill|F1]].
+`.trim();
+
+export function montarSystemDoArtigo(marca: MarcaDoArtigo, opcoes: { variasFontes?: boolean } = {}): string {
   return `
 Você escreve uma matéria para o portal da publicação "${marca.nome}".
 
@@ -156,7 +171,7 @@ FORMA (o contrato do JSON):
 
 TEMAS PERMITIDOS EM "assuntos" (por editoria; use o nome exato):
 ${temasParaOPrompt()}
-
+${opcoes.variasFontes ? `\n${CONTRATO_DE_VARIAS_FONTES}\n` : ""}
 Devolva EXCLUSIVAMENTE este JSON:
 {"titulo":"...","subtitulo":"...","titulo_seo":"...","descricao_seo":"...","essencial":["..."],"abertura":["...[[...]]...","..."],"secoes":[{"intertitulo":"...?","paragrafos":["..."]}],"tabela":{"titulo":"...","colunas":["...","..."],"linhas":[["...","..."]]},"significado":[],"perguntas":[{"pergunta":"...","resposta":"..."}],"assuntos":["..."]}
 `.trim();
@@ -174,7 +189,39 @@ export type PautaDoArtigo = {
   grupo: { primary: { source_name: string } };
 };
 
+/** O pacote tem mais de uma fonte, cada uma com os fatos que deu. */
+export function temVariasFontes(pacote: Pick<PacoteFactual, "fontes">): pacote is { fontes: FonteDoPacote[] } {
+  return Array.isArray(pacote.fontes) && pacote.fontes.length > 1;
+}
+
 function montarUserDoArtigo(pauta: PautaDoArtigo, pacote: PacoteFactual): string {
+  if (temVariasFontes(pacote)) {
+    return [
+      `PAÍS: ${pauta.classificacao.pais}`,
+      `EDITORIA: ${pauta.classificacao.eixo}`,
+      `FONTE PRINCIPAL: ${pauta.grupo.primary.source_name}`,
+      "",
+      "FONTES:",
+      ...pacote.fontes.map((f) => `[${f.id}] ${f.nome}${f.principal ? " (principal)" : ""}`),
+      "",
+      "PACOTE FACTUAL POR FONTE (é tudo o que existe; nada fora daqui pode ser afirmado, e cada fato é de quem o deu):",
+      JSON.stringify(
+        pacote.fontes.map((f) => ({
+          fonte: f.id,
+          nome: f.nome,
+          verified_facts: f.verified_facts,
+          people: f.people,
+          organizations: f.organizations,
+          places: f.places,
+          dates: f.dates,
+          numbers: f.numbers,
+          gaps: f.gaps,
+        })),
+        null,
+        2,
+      ),
+    ].join("\n");
+  }
   return [
     `PAÍS: ${pauta.classificacao.pais}`,
     `EDITORIA: ${pauta.classificacao.eixo}`,
@@ -199,7 +246,62 @@ function montarUserDoArtigo(pauta: PautaDoArtigo, pacote: PacoteFactual): string
 
 /** O texto sem o marcador do link da fonte, que não é palavra de ninguém. */
 export function semMarcadorDeLink(t: string): string {
-  return t.replace(/\[\[([^\]]+)\]\]/g, "$1");
+  // Com o id da fonte depois da barra (06/10/2026): [[segundo a Reuters|F2]].
+  return t.replace(/\[\[([^\]|]+)(?:\|\s*F?\d+\s*)?\]\]/g, "$1");
+}
+
+/** Os ids de fonte marcados num trecho: [[...|F2]] dá "F2"; marca sem id é a principal. */
+function idsMarcados(t: string): string[] {
+  return [...t.matchAll(/\[\[[^\]|]+(?:\|\s*(F?\d+)\s*)?\]\]/g)].map((m) => {
+    const id = (m[1] ?? "F1").toUpperCase();
+    return id.startsWith("F") ? id : `F${id}`;
+  });
+}
+
+function normalizarNome(t: string): string {
+  return t
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Atribuição sem lastro (06/10/2026): o trecho diz que um número é de uma
+ * fonte, e o número não está NESSA fonte.
+ *
+ * É o defeito da matéria de Chicago ("39 data centers, segundo a Axios",
+ * quando quem disse foi a cidade) com várias fontes no pacote: a ancoragem
+ * dura procura o número no pacote INTEIRO e o acharia na outra fonte. Aqui a
+ * procura é só no material da fonte citada, pelo marcador do link ou por
+ * "segundo", "de acordo com" ou "conforme" seguido do nome dela. Trecho sem
+ * número não é conferido: a régua só afirma o que sabe medir.
+ */
+export function atribuicaoSemLastro(texto: string, pacote: Pick<PacoteFactual, "fontes">): string | null {
+  if (!temVariasFontes(pacote)) return null;
+  const marcadas = new Set(idsMarcados(texto));
+  const limpo = semMarcadorDeLink(texto);
+  const normal = ` ${normalizarNome(limpo)} `;
+  const citadas = pacote.fontes.filter((f) => {
+    if (marcadas.has(f.id)) return true;
+    const nome = normalizarNome(f.nome);
+    if (!nome) return false;
+    // `normalizarNome` já deixou só letra, número e espaço: o nome entra na expressão sem escape.
+    return new RegExp(`\\b(segundo|de acordo com|conforme)( (a|o|os|as))? ${nome}\\b`).test(normal);
+  });
+  if (citadas.length === 0) return null;
+  const numeros = extrairNumeros(limpo);
+  if (numeros.length === 0) return null;
+  const material = numerosDoMaterial(
+    citadas.flatMap((f) => [f.texto_de_origem, ...f.verified_facts, ...f.numbers, ...f.dates]),
+  );
+  for (const n of numeros) {
+    const r = numeroCompativel(n, material);
+    if (!r.ok) return `atribuição sem lastro: "${n.bruto}" não está em ${citadas.map((f) => f.nome).join(" nem em ")}`;
+  }
+  return null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -256,6 +358,20 @@ export function unidadesDoArtigo(a: Artigo): Unidade[] {
     add("tabela.h", "tabela", [a.tabela.titulo, ...a.tabela.colunas].join(" | "));
     a.tabela.linhas.forEach((l, i) => add(`tabela.${i}`, "tabela", l.join(" | ")));
   }
+  (a.significado ?? []).forEach((t, i) => add(`significado.${i}`, "significado", t));
+  a.perguntas.forEach((p, i) => add(`pergunta.${i}`, "pergunta", `${p.pergunta}\n${p.resposta}`));
+  return u;
+}
+
+/** As unidades com o marcador do link ainda no texto, para a conferência de atribuição. */
+function unidadesCruas(a: Artigo): Unidade[] {
+  const u: Unidade[] = [];
+  const add = (id: string, campo: CampoDaUnidade, texto: string) => {
+    if ((texto ?? "").trim()) u.push({ id, campo, texto });
+  };
+  (a.essencial ?? []).forEach((t, i) => add(`essencial.${i}`, "essencial", t));
+  (a.abertura ?? []).forEach((t, i) => add(`abertura.${i}`, "abertura", t));
+  a.secoes.forEach((s, i) => s.paragrafos.forEach((p, j) => add(`secao.${i}.${j}`, "secao", p)));
   (a.significado ?? []).forEach((t, i) => add(`significado.${i}`, "significado", t));
   a.perguntas.forEach((p, i) => add(`pergunta.${i}`, "pergunta", `${p.pergunta}\n${p.resposta}`));
   return u;
@@ -372,6 +488,16 @@ export async function auditarArtigo(
   const avisos: string[] = [];
   const reprovadas: UnidadeReprovada[] = [];
 
+  /*
+   * Atribuição, unidade por unidade, quando o pacote tem várias fontes
+   * (06/10/2026). Lê o texto CRU, com o marcador do link, porque é ele que diz
+   * a qual fonte o trecho atribuiu o fato.
+   */
+  for (const u of unidadesCruas(artigo)) {
+    const motivo = atribuicaoSemLastro(u.texto, pacote);
+    if (motivo) reprovadas.push({ id: u.id, campo: u.campo, texto: semMarcadorDeLink(u.texto), motivo });
+  }
+
   // Ancoragem dura, unidade por unidade: o mesmo juiz, aplicado a cada pedaço.
   for (const u of unidades) {
     const r = validarAncoragem(u.texto, pacote);
@@ -379,6 +505,12 @@ export async function auditarArtigo(
     if (duros.length) {
       reprovadas.push({ ...u, motivo: `sem lastro: ${duros.map((c) => `${c.tipo} "${c.valor}"`).join(", ")}` });
     }
+  }
+
+  const atribuicoes = reprovadas.filter((r) => r.motivo.startsWith("atribuição sem lastro"));
+  if (atribuicoes.length > 0) {
+    // Bloqueio para o reparo ver e corrigir; o que sobrar, a poda apaga, unidade por unidade.
+    bloqueios.push(`REJECT_MISATTRIBUTED_NUMBER: ${atribuicoes.map((r) => r.motivo.replace(/^atribuição sem lastro: /, "")).join(" | ")}`);
   }
 
   if (!anc.ancorado) {
@@ -599,7 +731,7 @@ export async function escreverArtigoDaPauta(
   const env = opcoes.env ?? process.env;
   const fetcher = opcoes.fetcher ?? fetch;
   const config = getAIProviderConfig(env);
-  const system = montarSystemDoArtigo(marca);
+  const system = montarSystemDoArtigo(marca, { variasFontes: temVariasFontes(pacote) });
   const user = [montarUserDoArtigo(pauta, pacote), opcoes.instrucaoExtra ?? ""].filter(Boolean).join("\n\n");
 
   const escrever = async (instrucaoExtra: string): Promise<Artigo> => {
@@ -707,6 +839,31 @@ function paragrafoHtml(texto: string): string {
   return escapeHtml(semMarcadorDeLink(texto)).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\*/g, "");
 }
 
+/** Uma fonte que o texto pode linkar pelo id do marcador: F1 é a principal. */
+export type FonteDoTexto = { id: string; nome: string; url: string };
+
+/**
+ * O parágrafo com o link de cada fonte DENTRO do texto (06/10/2026).
+ *
+ * O redator marca o trecho com [[colchetes duplos]], e com várias fontes põe
+ * o id dela depois da barra: [[segundo a Reuters|F2]]. Marca sem id é a
+ * principal. Cada fonte vira link uma vez só, no primeiro trecho que a cita
+ * (`usadas` atravessa os parágrafos); as marcas seguintes ficam texto puro.
+ */
+function paragrafoComLinks(texto: string, fontes: FonteDoTexto[], usadas: Set<string>): string {
+  const html = escapeHtml(texto)
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\[\[([^\]|]+)(?:\|\s*(F?\d+)\s*)?\]\]/g, (_m, dentro: string, idBruto?: string) => {
+      const id = idBruto ? (idBruto.toUpperCase().startsWith("F") ? idBruto.toUpperCase() : `F${idBruto}`) : "F1";
+      const f = fontes.find((x) => x.id === id);
+      const url = f ? safeHttpUrl(f.url, "") : "";
+      if (!f || !url || usadas.has(f.id)) return dentro;
+      usadas.add(f.id);
+      return `<a href="${url}" rel="noopener" target="_blank">${dentro}</a>`;
+    });
+  return html.replace(/\*/g, "");
+}
+
 /**
  * O parágrafo da abertura com o link para a fonte DENTRO do texto.
  *
@@ -716,25 +873,20 @@ function paragrafoHtml(texto: string): string {
  * seção "Fontes": inventar uma frase para pendurar o link seria texto sem
  * lastro.
  */
-export function aberturaComLink(paragrafos: string[], fonte: { nome: string; url: string }): string[] {
+export function aberturaComLink(
+  paragrafos: string[],
+  fonte: { nome: string; url: string },
+  fontes: FonteDoTexto[] = [{ id: "F1", ...fonte }],
+  usadas: Set<string> = new Set(),
+): string[] {
   const url = safeHttpUrl(fonte.url, "");
-  const ancora = (t: string) => `<a href="${url}" rel="noopener" target="_blank">${t}</a>`;
-  let feito = false;
-  const marcados = paragrafos.map((p) => {
-    let html = escapeHtml(p).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-    html = html.replace(/\[\[([^\]]+)\]\]/g, (_m, dentro: string) => {
-      if (feito || !url) return dentro;
-      feito = true;
-      return ancora(dentro);
-    });
-    return html.replace(/\*/g, "");
-  });
-  if (!feito && url && fonte.nome.trim()) {
+  const marcados = paragrafos.map((p) => paragrafoComLinks(p, fontes, usadas));
+  if (!usadas.has("F1") && url && fonte.nome.trim()) {
     const nome = escapeHtml(fonte.nome.trim());
     const i = marcados.findIndex((h) => h.includes(nome));
     if (i >= 0) {
-      marcados[i] = marcados[i].replace(nome, ancora(nome));
-      feito = true;
+      marcados[i] = marcados[i].replace(nome, `<a href="${url}" rel="noopener" target="_blank">${nome}</a>`);
+      usadas.add("F1");
     }
   }
   return marcados;
@@ -752,6 +904,11 @@ export type ExtrasDoHtml = {
    * Ausente: o crédito antigo, um parágrafo `.fonte` (o desmonte das edições).
    */
   fontes?: Array<{ nome: string; url: string; detalhe?: string }>;
+  /**
+   * As fontes que o texto pode linkar pelo id do marcador (06/10/2026), da
+   * principal (F1) às outras. Ausente, só a principal.
+   */
+  fontesDoTexto?: FonteDoTexto[];
 };
 
 export const TITULO_DO_ESSENCIAL = "O que você precisa saber";
@@ -777,14 +934,17 @@ export function renderizarArtigoHtml(artigo: Artigo, fonte: { nome: string; url:
     );
   }
 
+  const fontesDoTexto = extras.fontesDoTexto?.length ? extras.fontesDoTexto : [{ id: "F1", nome: fonte.nome, url: fonte.url }];
+  const usadas = new Set<string>();
   const abertura = artigo.abertura ?? [];
   if (abertura.length) {
-    partes.push(`<section class="abertura">${aberturaComLink(abertura, fonte).map((p) => `<p>${p}</p>`).join("")}</section>`);
+    partes.push(`<section class="abertura">${aberturaComLink(abertura, fonte, fontesDoTexto, usadas).map((p) => `<p>${p}</p>`).join("")}</section>`);
   }
 
+  // O link de cada fonte no primeiro trecho que a cita, também fora da abertura (06/10/2026).
   for (const s of artigo.secoes) {
     partes.push(
-      `<section>${s.intertitulo ? `<h2>${escapeHtml(s.intertitulo)}</h2>` : ""}${s.paragrafos.map((p) => `<p>${paragrafoHtml(p)}</p>`).join("")}</section>`,
+      `<section>${s.intertitulo ? `<h2>${escapeHtml(semMarcadorDeLink(s.intertitulo))}</h2>` : ""}${s.paragrafos.map((p) => `<p>${paragrafoComLinks(p, fontesDoTexto, usadas)}</p>`).join("")}</section>`,
     );
   }
 
@@ -801,7 +961,9 @@ export function renderizarArtigoHtml(artigo: Artigo, fonte: { nome: string; url:
 
   const significado = artigo.significado ?? [];
   if (significado.length) {
-    partes.push(`<section class="significado"><h2>${TITULO_DO_SIGNIFICADO}</h2>${significado.map((p) => `<p>${paragrafoHtml(p)}</p>`).join("")}</section>`);
+    partes.push(
+      `<section class="significado"><h2>${TITULO_DO_SIGNIFICADO}</h2>${significado.map((p) => `<p>${paragrafoComLinks(p, fontesDoTexto, usadas)}</p>`).join("")}</section>`,
+    );
   }
 
   const relacionadas = extras.relacionadas ?? [];

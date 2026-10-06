@@ -1,5 +1,5 @@
 import { indexacaoDasTags, indexacaoValidadaDoArtigo, MINIMO_DE_ASSUNTOS, validarAssuntos } from "@/lib/indexacao-do-artigo";
-import { creditoDoCommons, enderecoLimpoDaImagem } from "@/lib/imagem-da-capa";
+import { creditoDoCommons, enderecoLimpoDaImagem, imagensDaCapaParaJsonLd, semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
 import { cobertura, corpoSemPerguntas, intertitulosDoCorpo, paragrafosDoCorpo, textoDeHtml, type ArtigoAuditavel } from "./auditoria-de-artigo";
 import { perguntasVisiveisDoArtigo } from "./dados-estruturados-do-artigo";
 
@@ -177,4 +177,58 @@ export function estruturaEmMarkdown(d: DistribuicaoDaEstrutura): string {
     `| Com parágrafo que abre por referência solta | ${pct(d.comParagrafoDependente)} |`,
   ];
   return linhas.join("\n");
+}
+
+/**
+ * A capa de uma matéria, conferida contra o que o dono pediu em 06/10/2026:
+ * endereço gravado sem `&amp;`, legenda gravada, crédito com autor, licença e
+ * link, e a medida que o NewsArticle precisa. Só lê o que o banco guarda; o
+ * que a página resolveria na origem (`resolverCreditoDaCapa`) quem chama
+ * confere à parte, se quiser pagar a rede.
+ */
+export type ConferenciaDaCapa = {
+  slug: string;
+  temCapa: boolean;
+  capaMalformada: boolean;
+  legendaGravada: boolean;
+  creditoGravado: boolean;
+  /** Autor, licença e link no crédito gravado. */
+  creditoGravadoCompleto: boolean;
+  /** O `image` do NewsArticle sai como `ImageObject` com largura e altura. */
+  imagemComMedida: boolean;
+  problemas: string[];
+};
+
+export function conferenciaDaCapa(a: ArtigoAuditavel): ConferenciaDaCapa {
+  const html = a.content_html ?? "";
+  const bruta = (a.cover_image ?? "").trim();
+  const capa = enderecoLimpoDaImagem(bruta);
+  const extraido = semImagemDaCapaNoCorpo(html, capa || null);
+  const imagens = imagensDaCapaParaJsonLd(capa, extraido.dimensoesDaCapa);
+  const texto = extraido.creditoDaCapa ?? "";
+  const creditoGravado = Boolean(texto);
+  // "Foto: Fulano, CC BY 4.0, via ...": autor depois de "Foto:", e a licença depois da primeira vírgula.
+  const autor = /^Foto:\s*[^,]+/.test(texto);
+  const resto = texto.replace(/^Foto:\s*[^,]+,?/, "").trim();
+  const licenca = Boolean(resto) && !/^via\b/i.test(resto);
+  const creditoGravadoCompleto = creditoGravado && autor && licenca && Boolean(extraido.creditoDaCapaHref);
+  const imagemComMedida = imagens.length > 0 && imagens.every((i) => typeof i !== "string");
+  const problemas: string[] = [];
+  if (capa) {
+    if (capa !== bruta) problemas.push("endereço da capa gravado com &amp;");
+    if (!extraido.legendaDaCapa) problemas.push("sem legenda gravada (a página desenha a neutra)");
+    if (!creditoGravado) problemas.push("sem crédito gravado (a página resolve na origem)");
+    else if (!creditoGravadoCompleto) problemas.push("crédito gravado sem autor, licença ou link");
+    if (!imagemComMedida) problemas.push("image do NewsArticle sem largura e altura");
+  }
+  return {
+    slug: a.slug,
+    temCapa: Boolean(capa),
+    capaMalformada: Boolean(capa) && capa !== bruta,
+    legendaGravada: Boolean(extraido.legendaDaCapa),
+    creditoGravado,
+    creditoGravadoCompleto,
+    imagemComMedida,
+    problemas,
+  };
 }

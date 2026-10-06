@@ -8,6 +8,7 @@ import { secoesParaConteudo, type Artigo } from "./artigo";
 import type { PacoteFactual } from "../editorial/pacote-factual";
 import type { PecaPronta } from "./peca";
 import type { ArtigoCandidato } from "../aprovacao/portao-do-portal";
+import { avisarSemEsperar } from "../indexnow";
 
 /**
  * A agenda do portal (RF-14): três horários, e só sai o que foi aprovado.
@@ -225,7 +226,10 @@ export async function publicarArtigosAprovados(
   const { data, error } = await escrita.lte("published_at", agora.toISOString()).select("slug");
 
   if (error) return { publicados: [], erro: error.message };
-  return { publicados: ((data ?? []) as Array<{ slug: string }>).map((r) => r.slug), erro: null };
+  const publicados = ((data ?? []) as Array<{ slug: string }>).map((r) => r.slug);
+  // Bing e Yandex sabem na hora, sem segurar a publicação (06/10/2026).
+  avisarSemEsperar(client, projectId, publicados, "publicada pelo relógio do portal");
+  return { publicados, erro: null };
 }
 
 /**
@@ -270,5 +274,7 @@ async function publicarPeloPortao(
     )
     .select("slug");
   if (error) return { publicados: [], erro: error.message, segurados: seguradas };
-  return { publicados: ((data ?? []) as Array<{ slug: string }>).map((r) => r.slug), erro: null, segurados: seguradas };
+  const publicados = ((data ?? []) as Array<{ slug: string }>).map((r) => r.slug);
+  avisarSemEsperar(client, projectId, publicados, "publicada pelo relógio do portal");
+  return { publicados, erro: null, segurados: seguradas };
 }
