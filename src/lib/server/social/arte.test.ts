@@ -122,6 +122,21 @@ describe("capa do post do feed", () => {
     expect(montar(comPD)).not.toContain(`<div class="s-credito">`);
   });
 
+  /*
+   * Regra do dono de 06/10/2026: nenhuma tira na arte do Instagram, capa ou
+   * slide do carrossel, para licença nenhuma. O crédito é a última linha da
+   * legenda (`linhaDeCredito`, testada em `legenda-final.test.ts`).
+   */
+  it("o slide do carrossel com foto CC BY-SA também sai sem tira", () => {
+    const slide = montarCapaDoPost({
+      headline: "Passo do carrossel",
+      asset: asset(),
+      slidePronto: { index: 2, type: "content", title: "Passo", body: "Texto do passo." } as never,
+    });
+    // O render só desenha a tira quando `credito` vem preenchido (`renderShell`).
+    expect(slide.credito).toBe("");
+  });
+
   /**
    * O dado do autor continua vivo e completo no registro, e é de lá que a
    * legenda o tira. Perder isso seria perder a capacidade de creditar.

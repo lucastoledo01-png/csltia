@@ -164,7 +164,12 @@ export function varianteDaCapa(comFoto: boolean, gramatica: GramaticaDaCapa = "j
   return comFoto ? "capa_jornal" : "noticia_sem_foto";
 }
 
-export type FotoDaCapa = Pick<AssetVisual, "imageUrl" | "attribution">;
+/*
+ * Autor e licença vão junto desde 06/10/2026: a linha curta do crédito na
+ * legenda ("Foto: X") sai deles, inclusive para Pexels, cuja `attribution` vem
+ * vazia. Opcionais para quem monta a foto sem o asset inteiro.
+ */
+export type FotoDaCapa = Pick<AssetVisual, "imageUrl" | "attribution"> & Partial<Pick<AssetVisual, "author" | "license">>;
 
 export type EntradaDaCapa = {
   headline: string;
@@ -576,6 +581,14 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
      *
      * Quem monta a legenda é `creditoParaLegenda`, e ele lê o MESMO
      * `asset.attribution` que esta linha lia. Uma origem só para o texto.
+     *
+     * ATUALIZADO em 06/10/2026: regra do dono, para TODA licença e para todo
+     * slide (capa, miolo, convite): a arte do Instagram não leva tira de
+     * crédito. O crédito é a última linha da legenda, curta ("Foto: X", com a
+     * sigla CC só quando a licença exige), montada por `linhaDeCredito` em
+     * `legenda-final.ts`; `creditoParaLegenda` saiu. Isto substitui, para o
+     * Instagram, o "requisito de RENDER" do incidente de 06/09. Portal e
+     * newsletter continuam com o crédito deles.
      */
     credito: "",
     motivoSemFoto: comFoto ? "" : (entrada.motivoSemFoto || "NO_VALID_VISUAL_ASSET").trim(),

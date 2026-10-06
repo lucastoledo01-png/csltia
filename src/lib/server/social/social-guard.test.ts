@@ -107,14 +107,23 @@ describe("post bem escrito passa", () => {
     expect(r.issues).toEqual([]);
     expect(r.passed).toBe(true);
     expect(r.finalDecision).toBe("publicar");
-    expect(r.hashtagsFinais.length).toBeGreaterThanOrEqual(3);
+    // Sem hashtag por padrão desde 06/10/2026 (método do Not Journal).
+    expect(r.hashtagsFinais).toEqual([]);
   });
 
-  it("a legenda final sai com hashtags no fim e sem despedida", () => {
+  it("com o projeto pedindo hashtag, elas voltam, antes do fecho", () => {
+    const r = avaliarPostSocial(copy(), { ...contexto(), hashtags: true });
+    expect(r.hashtagsFinais.length).toBeGreaterThanOrEqual(3);
+    const blocos = r.legendaFinal.split("\n\n");
+    expect(blocos[blocos.length - 2]).toBe(r.hashtagsFinais.join(" "));
+    expect(blocos[blocos.length - 1]).toBe("Siga @eua.journal");
+  });
+
+  it("a legenda final termina com o fecho, sem despedida e sem hashtag", () => {
     const r = avaliarPostSocial(copy(), contexto());
     expect(r.legendaFinal).not.toMatch(/Até amanhã/);
-    const linhas = r.legendaFinal.split("\n").filter(Boolean);
-    expect(linhas[linhas.length - 1]).toBe(r.hashtagsFinais.join(" "));
+    expect(r.legendaFinal).not.toContain("#");
+    expect(r.legendaFinal.endsWith("\n\nSiga @eua.journal")).toBe(true);
   });
 });
 
@@ -288,15 +297,18 @@ describe("SEM_CTA é decisão, não esquecimento", () => {
     expect(r.legendaFinal).not.toMatch(/Comente/);
   });
 
-  it("post com CTA continua tendo o CTA", () => {
+  it("post com CTA de comentário não o leva para a legenda: o fecho é o Siga (06/10/2026)", () => {
+    // O convite "Comente" vive no último slide do carrossel; a legenda fecha com o Siga.
     const r = avaliarPostSocial(copy(), contexto());
-    expect(r.legendaFinal).toContain("Comente VISA");
+    expect(r.legendaFinal).not.toContain("Comente VISA");
+    expect(r.legendaFinal.endsWith("Siga @eua.journal")).toBe(true);
   });
 
-  it("e as hashtags continuam no fim nos dois casos", () => {
-    const semCta = avaliarPostSocial(copy({ cta: "" }), contexto());
-    const linhas = semCta.legendaFinal.split("\n").filter(Boolean);
-    expect(linhas[linhas.length - 1]).toBe(semCta.hashtagsFinais.join(" "));
+  it("e o fecho aparece uma vez só nos dois casos", () => {
+    for (const c of [copy(), copy({ cta: "" })]) {
+      const r = avaliarPostSocial(c, contexto());
+      expect(r.legendaFinal.match(/Siga @eua\.journal/g)?.length).toBe(1);
+    }
   });
 });
 

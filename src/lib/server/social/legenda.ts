@@ -1,4 +1,5 @@
 import type { InstagramCarouselContent } from "./instagram/schemas";
+import { CTA_DA_LEGENDA, fecharLegenda } from "./legenda-final";
 
 /**
  * A legenda que sai no Instagram, e o que ela nunca pode carregar.
@@ -18,6 +19,13 @@ import type { InstagramCarouselContent } from "./instagram/schemas";
  * costurada na legenda publicada, então bastava o modelo esquecer de repeti-la
  * dentro de `full_caption` para o post sair sem nenhuma. Aqui ela volta, no
  * fim, e derivada da pauta em vez de um conjunto fixo repetido todo dia.
+ *
+ * ATUALIZADO em 06/10/2026: a legenda segue o método do Not Journal, que não
+ * usa hashtag, e termina sempre com "Siga @eua.journal". O conjunto continua
+ * sendo calculado (vai para `caption.hashtags`, que o schema do caminho legado
+ * exige), mas só entra no TEXTO com `settings.instagram.hashtags` ligado. O
+ * fecho, o crédito que nunca entra e o resto da forma final moram em
+ * `legenda-final.ts`.
  */
 
 export const MOTIVOS_DA_LEGENDA = {
@@ -49,6 +57,11 @@ export type ContextoDaLegenda = {
    * ninguém precisar acrescentar padrão nenhum aqui.
    */
   fechamentoDaNewsletter?: string;
+  /**
+   * `settings.instagram.hashtags` do projeto. Desligado (o padrão) a legenda
+   * sai sem hashtag nenhuma, e a falta delas deixa de ser problema.
+   */
+  hashtags?: boolean;
 };
 
 /**
@@ -613,7 +626,8 @@ export function validarLegendaSocial(
   }
 
   const separacao = separarHashtags(texto);
-  if (separacao.tags.length === 0) {
+  // Sem hashtag é o padrão desde 06/10/2026; a falta só é problema com o projeto pedindo.
+  if (contexto.hashtags === true && separacao.tags.length === 0) {
     problemas.push({
       motivo: MOTIVOS_DA_LEGENDA.SEM_HASHTAG,
       detalhe: "a legenda publicada não tem nenhuma hashtag",
@@ -644,12 +658,19 @@ export type ReparoDaLegenda = {
 };
 
 /**
- * Deixa a legenda publicável: sem despedida de e-mail, com CTA único no fim e
- * hashtags no bloco final.
+ * Deixa a legenda publicável: sem despedida de e-mail, sem crédito de foto, sem
+ * o convite de comentário, e com "Siga @eua.journal" na última linha.
  *
- * A ordem final é gancho, informação, contexto, ressalva, CTA e hashtags. As
- * quatro primeiras são do modelo, e continuam como ele escreveu. As duas
- * últimas são posição, e posição dá para garantir.
+ * A ordem final é o lide e os parágrafos, como o modelo escreveu, e o fecho.
+ * Com `settings.instagram.hashtags` ligado, as hashtags entram num bloco logo
+ * antes do fecho, porque o fecho é a última linha sempre (regra do dono,
+ * 06/10/2026).
+ *
+ * O convite "Comente NEWS" saiu da legenda nesta data, trocado pelo fecho fixo.
+ * O funil de comentário continua vivo onde ele mora de verdade: a automação do
+ * OpenReply escuta o comentário, e o último slide do carrossel continua
+ * dizendo "Comente NEWS e receba o link" quando há keyword escutada. Por isso
+ * `cta_call` passa a ser o fecho, e não a frase do comentário.
  */
 export function repararLegendaSocial(
   caption: InstagramCarouselContent["caption"],
@@ -667,42 +688,26 @@ export function repararLegendaSocial(
   }
 
   const separacao = separarHashtags(semFechamento.texto);
-  if (separacao.noMeio) reparos.push("hashtags movidas para o fim");
-
   const cta = frasesDeCta(separacao.corpo, contexto.keyword);
+  if (cta.frases.length > 0) reparos.push(`convite de comentário tirado da legenda (${cta.frases.length})`);
 
   /*
-   * O CTA sai do meio e volta uma vez só, no fim.
-   *
-   * Quando o modelo escreveu um, ele é preservado (o texto dele é melhor que
-   * qualquer molde). Quando escreveu dois, fica o mais completo. Quando não
-   * escreveu nenhum, entra o `cta_call`, que o schema já garante existir.
+   * O conjunto é calculado mesmo desligado: ele vai para `caption.hashtags`,
+   * que o schema do caminho legado exige com pelo menos três, e é o que a
+   * chave do projeto liga de volta sem mudar código.
    */
-  const melhorCta =
-    cta.frases.slice().sort((a, b) => b.length - a.length)[0] || (caption.cta_call || "").trim();
-
-  if (cta.frases.length > 1) reparos.push(`CTA duplicado (${cta.frases.length}), mantido um`);
-
-  const ctaLimpo = removerFechamentoDeNewsletter(melhorCta, contexto.fechamentoDaNewsletter).texto;
-
   const tags = hashtagsDaPauta(contexto, separacao.tags);
-  if (separacao.tags.length === 0) reparos.push(`hashtags ausentes, geradas ${tags.length}`);
+  const ligadas = contexto.hashtags === true;
+  if (ligadas && separacao.tags.length === 0) reparos.push(`hashtags ausentes, geradas ${tags.length}`);
+  if (!ligadas && separacao.tags.length > 0) reparos.push(`hashtags tiradas da legenda (${separacao.tags.length})`);
 
-  const linhaDeHashtags = tags.join(" ");
-  const corpo = cta.texto.trim();
-
-  /*
-   * O corpo cede espaço, nunca as hashtags.
-   *
-   * Estourar o teto do campo derrubava a validação e custava o post inteiro.
-   * Cortar a cauda de um parágrafo custa uma frase.
-   */
-  const cauda = [ctaLimpo, linhaDeHashtags].filter(Boolean).join("\n\n");
-  const espacoDoCorpo = LIMITE_DA_LEGENDA - cauda.length - 2;
-  const corpoCabendo = corpo.length > espacoDoCorpo ? corpo.slice(0, Math.max(0, espacoDoCorpo)).trimEnd() : corpo;
-  if (corpoCabendo.length < corpo.length) reparos.push("corpo aparado para caber com as hashtags");
-
-  const full = [corpoCabendo, cauda].filter(Boolean).join("\n\n").trim();
+  const fecho = fecharLegenda(cta.texto, {
+    hashtags: ligadas ? tags : "remover",
+    keyword: contexto.keyword,
+    limite: LIMITE_DA_LEGENDA,
+  });
+  if (fecho.removidos.creditos.length > 0) reparos.push(`crédito de foto tirado da legenda (${fecho.removidos.creditos.length})`);
+  if (fecho.removidos.fontes.length > 0) reparos.push(`linha de "Fonte:" tirada da legenda`);
 
   const intro = removerFechamentoDeNewsletter(
     caption.intro_summary || "",
@@ -714,9 +719,9 @@ export function repararLegendaSocial(
     caption: {
       ...caption,
       intro_summary: introFinal,
-      cta_call: (ctaLimpo || caption.cta_call).slice(0, 150),
+      cta_call: CTA_DA_LEGENDA,
       hashtags: tags,
-      full_caption: full.slice(0, LIMITE_DA_LEGENDA),
+      full_caption: fecho.texto,
     },
     problemas,
     reparos,
@@ -739,46 +744,12 @@ export function garantirLegendaSocial(
   return { carousel: { ...carousel, caption }, problemas, reparos };
 }
 
-/**
- * O crédito da foto, para o fim da legenda do post.
- *
- * Até 18/09/2026 ele era queimado na imagem, numa tira sobre o rodapé da peça.
- * O dono pediu para tirar da arte, e a licença continua sendo cumprida: CC BY e
- * CC BY-SA exigem atribuição "de maneira razoável", e crédito na legenda do
- * post é a prática corrente de quem publica em rede social. O que mudou foi
- * onde ele aparece, nunca se aparece.
- *
- * A régua de QUANDO creditar não mora aqui: ela é do módulo de licenças, que
- * já devolve `attribution` vazio quando a licença não exige nada. Pexels,
- * Unsplash, domínio público e CC0 caem nesse caso, e foram 18 das 23 últimas
- * peças medidas. Repetir a régua aqui criaria a segunda cópia de uma decisão
- * que só pode ter uma.
+/*
+ * `creditoParaLegenda` e `legendaComCredito` saíram em 06/10/2026, por regra do
+ * dono: crédito de foto não entra na legenda do Instagram, nunca. Eles levavam
+ * a atribuição para o fim da legenda desde 18/09/2026, quando a tira saiu da
+ * arte. O crédito continua gravado no post (`content_json.visual.attribution` e
+ * `content_json.creditos_das_fotos`), e `fecharLegenda` tira qualquer linha de
+ * crédito que alguém ou algum modelo escreva. Não volte a costurá-los: a regra
+ * vale em código justamente para não depender de quem lembra dela.
  */
-export function creditoParaLegenda(atribuicao: string | null | undefined): string {
-  const texto = (atribuicao ?? "").trim();
-  return texto ? texto : "";
-}
-
-/**
- * A legenda com o crédito no fim, depois das hashtags.
- *
- * Depois, e não antes, porque o crédito é obrigação e não conteúdo: ele não
- * disputa as primeiras linhas, que é o que o leitor vê sem tocar em "mais".
- *
- * Se não couber no limite do campo, o crédito entra e o corpo cede, que é o
- * contrário da regra das hashtags. Atribuição cortada não cumpre licença;
- * parágrafo cortado custa uma frase.
- */
-export function legendaComCredito(legenda: string, atribuicao: string | null | undefined): string {
-  const credito = creditoParaLegenda(atribuicao);
-  if (!credito) return legenda;
-  if (legenda.includes(credito)) return legenda;
-
-  const linha = `· ${credito}`;
-  const corpo = (legenda ?? "").trim();
-  const total = `${corpo}\n\n${linha}`;
-  if (total.length <= LIMITE_DA_LEGENDA) return total;
-
-  const espaco = LIMITE_DA_LEGENDA - linha.length - 2;
-  return `${corpo.slice(0, Math.max(0, espaco)).trimEnd()}\n\n${linha}`;
-}

@@ -37,9 +37,11 @@ export function resumoDoPostDaLinha(linha: Linha): ResumoDaPeca {
     titulo: String(linha.title ?? ""),
     texto: String(linha.caption ?? ""),
     imagens: manifesto.map((m) => String(m.url ?? "")).filter(Boolean),
-    pacoteFactual: ["fato_principal", "contexto", "informacao_util", "ressalva"]
-      .map((k) => String(copy[k] ?? ""))
-      .filter(Boolean),
+    // `paragrafos` é o corpo da legenda desde 06/10/2026; os campos antigos ficam para linha antiga.
+    pacoteFactual: [
+      ...(Array.isArray(copy.paragrafos) ? (copy.paragrafos as unknown[]).map((p) => String(p ?? "")) : []),
+      ...["fato_principal", "contexto", "informacao_util", "ressalva"].map((k) => String(copy[k] ?? "")),
+    ].filter(Boolean),
     ...(contexto && Array.isArray(contexto.pautas) ? { contexto } : {}),
   };
 }

@@ -9,6 +9,7 @@ import type { CandidataPersistida } from "../editorial/candidatos-store";
 import { podePublicar } from "../editorial/candidatos-store";
 import { escolherUrlPublicavel } from "../editorial/regras-duras";
 import { FORMA_DA_MANCHETE } from "./manchete";
+import { atribuicoesDaLegendaSemLastro, conferirDiasDaSemana, conferirFormaDaLegenda } from "./forma-da-legenda";
 
 /**
  * A última pergunta antes de um post existir.
@@ -81,6 +82,15 @@ export const MOTIVOS_DO_SOCIAL_GUARD = {
    */
   CLAIM_SEM_LASTRO: "SOCIAL_REJECT_CLAIM_UNSUPPORTED",
   CLAIM_NAO_AUDITADA: "SOCIAL_REJECT_CLAIM_NOT_AUDITED",
+  /*
+   * A legenda no método do Not Journal (06/10/2026): lide de uma ou duas
+   * frases, parágrafos curtos, teto de palavras, sem repetir a manchete
+   * (`conferirFormaDaLegenda`). E a atribuição na frase ("segundo X") tem de
+   * ser a quem deu a informação (`atribuicoesDaLegendaSemLastro`). As duas
+   * são reparáveis: é texto, e a reescrita com o problema nomeado resolve.
+   */
+  CAPTION_FORA_DA_FORMA: "SOCIAL_REJECT_CAPTION_SHAPE",
+  CAPTION_ATRIBUICAO_SEM_LASTRO: "SOCIAL_REJECT_CAPTION_ATTRIBUTION",
 } as const;
 
 export type MotivoDoSocialGuard =
@@ -229,6 +239,11 @@ export type ContextoDoPost = {
    * passaria por um caminho e não pelo outro.
    */
   problemasDoFormato?: ProblemaDoPost[];
+  /**
+   * `settings.instagram.hashtags` do projeto (06/10/2026). Desligado, que é o
+   * padrão, a legenda sai sem hashtag e ter poucas deixa de ser problema.
+   */
+  hashtags?: boolean;
 };
 
 export type VeredictoDoPost = {
@@ -313,13 +328,39 @@ export function avaliarPostSocial(
       });
     }
 
-    const corpo = montarLegenda(copy);
+    // O "(5)" de "na segunda-feira (5)" é do calendário, não do pacote (06/10/2026).
+    const corpo = conferirDiasDaSemana(montarLegenda(copy), new Date(), {
+      pacote,
+      publicadaEm: pauta.grupo.primary.published_at,
+    }).paraAncorar;
     const naLegenda = validarAncoragem(corpo, pacote);
     const bloqueiosLegenda = naLegenda.naoSustentadas.filter((c) => c.severidade === "bloqueio");
     if (bloqueiosLegenda.length > 0) {
       problemas.push({
         motivo: MOTIVOS_DO_SOCIAL_GUARD.CAPTION_SEM_ANCORAGEM,
         detalhe: `a legenda afirma o que a fonte não diz: ${bloqueiosLegenda.map((c) => `${c.tipo} "${c.valor}"`).join(", ")}`,
+        reparavel: true,
+      });
+    }
+  }
+
+  /*
+   * A forma da legenda e a atribuição dentro dela (06/10/2026).
+   *
+   * A ancoragem acima confere número e nome contra o pacote inteiro; ela não
+   * sabe se "segundo a Axios" é de quem deu o número. Isso, e a forma do
+   * método (lide, parágrafos, teto de palavras, manchete repetida), é
+   * conferido aqui, sobre o MESMO corpo que vai ao ar.
+   */
+  {
+    const corpo = montarLegenda(copy);
+    for (const p of [...conferirFormaDaLegenda(corpo, copy.headline), ...conferirDiasDaSemana(corpo, new Date(), { pacote, publicadaEm: pauta.grupo.primary.published_at }).problemas]) {
+      problemas.push({ motivo: MOTIVOS_DO_SOCIAL_GUARD.CAPTION_FORA_DA_FORMA, detalhe: p.detalhe, reparavel: true });
+    }
+    for (const p of atribuicoesDaLegendaSemLastro(corpo, pacote, pauta.grupo.primary.source_name ?? "")) {
+      problemas.push({
+        motivo: MOTIVOS_DO_SOCIAL_GUARD.CAPTION_ATRIBUICAO_SEM_LASTRO,
+        detalhe: p.detalhe,
         reparavel: true,
       });
     }
@@ -368,9 +409,16 @@ export function avaliarPostSocial(
     entidades: [...pauta.classificacao.atores, ...pauta.classificacao.lugares],
     keyword: contexto.keyword,
     fechamentoDaNewsletter: contexto.fechamentoDaNewsletter,
+    hashtags: contexto.hashtags === true,
   };
 
-  const bruta = [montarLegenda(copy), copy.cta, (copy.hashtags ?? []).join(" ")]
+  /*
+   * O `copy.cta` ("Comente NEWS...") não entra mais na legenda (06/10/2026): o
+   * fecho dela é "Siga @eua.journal", posto por `fecharLegenda`. O campo
+   * continua existindo porque é ele que desenha o convite no último slide do
+   * carrossel, onde o funil de comentário vive.
+   */
+  const bruta = [montarLegenda(copy), (copy.hashtags ?? []).join(" ")]
     .filter(Boolean)
     .join("\n\n");
 
@@ -413,8 +461,14 @@ export function avaliarPostSocial(
     contextoDaLegenda,
   );
 
-  const hashtagsFinais = auditada.carousel.caption.hashtags;
-  if (hashtagsFinais.length < 3) {
+  /*
+   * Hashtag só conta com o projeto pedindo (06/10/2026). Desligada, a lista
+   * final é vazia: o conjunto calculado fica no caption do caminho legado,
+   * mas o post não tem hashtag nenhuma, nem na legenda nem no registro.
+   */
+  const ligadas = contexto.hashtags === true;
+  const hashtagsFinais = ligadas ? auditada.carousel.caption.hashtags : [];
+  if (ligadas && hashtagsFinais.length < 3) {
     problemas.push({
       motivo: MOTIVOS_DO_SOCIAL_GUARD.HASHTAGS,
       detalhe: `só ${hashtagsFinais.length} hashtag(s) com base na pauta`,

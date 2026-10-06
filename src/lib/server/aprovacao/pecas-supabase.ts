@@ -7,6 +7,7 @@ import type { Ramo } from "./contrato";
 import type { AdaptadorDePecas, PecaLida, ProjetoDaFila, ResultadoDoDespacho } from "./fila";
 import { hashDaNewsletter, hashDoArtigo, hashDoPostDaLinha } from "./hash";
 import { arteDaLinhaDoPost } from "../aprendizado/detalhes";
+import { legendaDoInstagram } from "../social/legenda-final";
 
 /**
  * As peças de verdade, nas tabelas de verdade.
@@ -26,8 +27,9 @@ function s(v: unknown): string {
 /** As frases da copy que servem de lastro para um número editado à mão. */
 function materialDoPost(conteudo: Linha | null): string[] {
   const copy = (conteudo?.copy ?? {}) as Linha;
-  return ["headline", "gancho", "fato_principal", "contexto", "informacao_util", "ressalva", "destaque"]
-    .map((k) => s(copy[k]))
+  // `paragrafos` desde 06/10/2026: é onde mora o corpo da legenda no método do Not Journal.
+  const paragrafos = Array.isArray(copy.paragrafos) ? (copy.paragrafos as unknown[]).map(s) : [];
+  return [...["headline", "gancho", "fato_principal", "contexto", "informacao_util", "ressalva", "destaque"].map((k) => s(copy[k])), ...paragrafos]
     .filter(Boolean);
 }
 
@@ -174,7 +176,13 @@ export function criarAdaptadorSupabase(
       if (ramo === "post") {
         const { error } = await client
           .from("social_posts")
-          .update({ caption: novoTexto, updated_at: agora })
+          /*
+           * A edição à mão passa pelo mesmo fecho da esteira (06/10/2026): o
+           * crédito fora do lugar sai, "Siga @eua.journal" fica uma vez, e a
+           * linha curta do crédito logo abaixo dele é preservada. As regras do
+           * dono valem para quem digita também.
+           */
+          .update({ caption: legendaDoInstagram(novoTexto, { hashtags: "manter", credito: "manter", keyword }), updated_at: agora })
           .eq("id", pecaId)
           .eq("project_id", projeto.id);
         if (error) throw new Error(`[FILA] não consegui gravar a legenda: ${error.message}`);

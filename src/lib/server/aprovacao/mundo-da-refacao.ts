@@ -7,6 +7,7 @@ import type { PautaDoContexto } from "./contrato";
 import type { MundoDaRefacao } from "./ganchos-por-etapa";
 import { getSupabaseAdminClient } from "../supabase-admin";
 import { carregarConfigEditorial } from "../editorial/config";
+import { hashtagsLigadasNoProjeto } from "../social/legenda-final";
 
 /**
  * As funções do ciclo, de verdade, para os ganchos de 06/10/2026.
@@ -130,6 +131,7 @@ export function mundoDaRefacaoDeProducao(
         nicho: projeto.niche,
         extra: [projeto.editorialPromptExtra ?? "", v.post, instrucao].filter(Boolean).join("\n\n"),
         keyword: canonica.ok ? canonica.keyword : "",
+        hashtags: hashtagsLigadasNoProjeto(projeto.settings),
       };
     },
 
@@ -165,6 +167,7 @@ export function mundoDaRefacaoDeProducao(
           nicho: projeto.niche,
           extra: [projeto.editorialPromptExtra ?? "", v.post].filter(Boolean).join("\n\n"),
           keyword: String(projeto.settings?.instagram_keyword ?? "").trim(),
+          hashtags: hashtagsLigadasNoProjeto(projeto.settings),
         },
         historico,
         config,

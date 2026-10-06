@@ -119,6 +119,9 @@ export type FotosDoCarrossel = {
 const PARA_FOTO = (r: ResultadoVisual): FotoDaCapa => ({
   imageUrl: r.asset!.imageUrl,
   attribution: r.asset!.attribution,
+  // Para a linha curta do crédito na legenda (06/10/2026).
+  author: r.asset!.author,
+  license: r.asset!.license,
 });
 
 /**

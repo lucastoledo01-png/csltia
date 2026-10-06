@@ -97,6 +97,7 @@ import type { ResultadoDoRamoDoPortal } from "../ramos/ramo-do-portal";
 import { gravarArtigosAgendados, horariosDoPortal } from "../ramos/portal";
 import { gravarCustos, gravarVeredito, vereditoDaPeca } from "../ramos/registro";
 import { lancarCustosDoInstagram, pecasDoInstagram } from "../ramos/instagram";
+import { hashtagsLigadasNoProjeto } from "../social/legenda-final";
 
 export type RunNewsroomOptions = {
   /** Projeto para o qual a edição é produzida. Sem valor, usa o projeto semente. */
@@ -1579,6 +1580,7 @@ async function executarRedacaoDoDia(
           nicho: project.niche,
           extra: extraDoSocial,
           keyword: String(project.settings?.instagram_keyword ?? "").trim(),
+          hashtags: hashtagsLigadasNoProjeto(project.settings),
         },
         historico,
         config: configEditorial,

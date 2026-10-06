@@ -75,6 +75,8 @@ export type PostDescartado = {
   problemas: ProblemaDoPost[];
   tentativas: number;
   tokens: number;
+  /** O que o descarte custou em modelo, para quem soma o custo do dia (06/10/2026). */
+  custoUsd?: number;
 };
 
 export type OpcoesDoGerador = {
@@ -156,6 +158,8 @@ export async function gerarPostDaPauta(
     candidata,
     keyword: opcoes.marca.keyword,
     fechamentoDaNewsletter: env.NEWSLETTER_FINAL_LINE,
+    // `settings.instagram.hashtags`, desligado por padrão desde 06/10/2026.
+    hashtags: opcoes.marca.hashtags === true,
   };
 
   let tokens = 0;
@@ -268,7 +272,7 @@ export async function gerarPostDaPauta(
 
     return {
       post: null,
-      descarte: { pauta, motivo, problemas: veredicto.issues, tentativas: veredicto.attempts, tokens },
+      descarte: { pauta, motivo, problemas: veredicto.issues, tentativas: veredicto.attempts, tokens, custoUsd },
     };
   } catch (erro) {
     // Uma candidata que explode não pode levar as outras junto.
@@ -453,7 +457,7 @@ async function gerarCarrosselDaPauta(
 
     return {
       post: null,
-      descarte: { pauta, motivo, problemas: veredicto.issues, tentativas: veredicto.attempts, tokens },
+      descarte: { pauta, motivo, problemas: veredicto.issues, tentativas: veredicto.attempts, tokens, custoUsd },
     };
   } catch (erro) {
     return {

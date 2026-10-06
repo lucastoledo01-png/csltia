@@ -36,7 +36,7 @@ import { entradasDoCarrossel } from "./carrossel/arte";
 import { ehEstruturaDaNoticia } from "./carrossel/estrutura";
 import { podarMioloSemFoto, type FotosDoCarrossel, type MioloPodado } from "./carrossel/fotos";
 import { alternarFormatos } from "./carrossel/formato";
-import { legendaComCredito } from "./legenda";
+import { legendaDoInstagram, linhaDeCredito } from "./legenda-final";
 import { comporFeedDoDia } from "./evergreen/compositor";
 import type { DecisaoDeFormato } from "./carrossel/formato";
 import type { EntradaDoCongelamento, ResultadoDoCongelamento } from "./artefato";
@@ -1009,18 +1009,34 @@ export async function rodarCicloSocial(
        * Quando a licença não exige nada, `attribution` já vem vazio do módulo
        * de licenças e a legenda sai intacta. Foi o caso de 18 das 23 últimas
        * peças: Pexels, Unsplash, domínio público e CC0.
+       *
+       * ATUALIZADO em 06/10/2026, por regra do dono: o crédito é UMA linha
+       * curta, a última, logo abaixo de "Siga @eua.journal", com o nome do
+       * autor de TODA foto que foi ao ar (Pexels inclusive, que antes ficava
+       * sem nada) e a sigla da licença só onde ela exige ("Foto: Gage Skidmore
+       * (CC BY-SA 4.0)"). Entram a capa, a bolha da capa quando ela foi
+       * desenhada, e a foto e a bolha de cada slide que ficou. A atribuição
+       * completa continua no registro do post.
        */
-      /*
-       * Com uma foto por slide, os créditos são vários, e todos entram: a
-       * licença vale para cada foto, não só para a da capa.
-       */
-      legendaFinal: legendaComCredito(
-        p.post.veredicto.legendaFinal,
-        [p.visual?.asset?.attribution ?? "", ...(podado?.creditos ?? [])]
-          .map((c) => c.trim())
-          .filter((c, i, todos) => c && todos.indexOf(c) === i)
-          .join("; "),
-      ),
+      ...(() => {
+        const fotosQueForam = [
+          p.visual?.asset ?? null,
+          bolhaFoi ? (secundarioDaCapa ?? null) : null,
+          ...(podado?.fotos ?? []),
+          ...(podado?.bolhas ?? []),
+        ];
+        const creditoDaLegenda = linhaDeCredito(fotosQueForam);
+        return {
+          creditoDaLegenda,
+          creditosDasFotos: [
+            ...new Set(fotosQueForam.map((f) => (f?.attribution ?? "").trim()).filter(Boolean)),
+          ],
+          legendaFinal: legendaDoInstagram(p.post.veredicto.legendaFinal, {
+            hashtags: "manter",
+            credito: creditoDaLegenda,
+          }),
+        };
+      })(),
       /*
        * O que a fila de aprovação precisa para refazer só a etapa culpada
        * (06/10/2026): a pauta, o pacote factual, a posição na leva (que decide

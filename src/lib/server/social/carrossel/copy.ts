@@ -19,7 +19,14 @@ import { limparVicios } from "../../newsroom/anti-vicios";
 import { REGRA_DO_DOLAR } from "../../editorial/dolar-em-portugues";
 import type { PacoteFactual } from "../../editorial/pacote-factual";
 import type { PautaAvaliada } from "../../editorial/guarda";
-import { CopyDoPostSchema, ctaDaPosicao, levaCta, type MarcaSocial } from "../copy";
+import {
+  CopyDoPostSchema,
+  LEGENDA_NO_METODO_NOT_JOURNAL,
+  calendarioDaSemana,
+  ctaDaPosicao,
+  levaCta,
+  type MarcaSocial,
+} from "../copy";
 import {
   ehEstruturaDaNoticia,
   papeisDoModelo,
@@ -112,6 +119,11 @@ export type CopyDoCarrossel = z.infer<typeof CopyDoCarrosselSchema>;
  * pipeline já usam, PROVADAMENTE igual à legenda curta do carrossel. A
  * alternativa era uma segunda função de legenda, e aí a guarda ancoraria um
  * texto e o post publicaria outro.
+ *
+ * ATUALIZADO em 06/10/2026: a legenda do carrossel deixou de ser curta. No
+ * método do Not Journal ela conta MAIS que a capa e os slides, em lide e
+ * `paragrafos`, e esses não são tocados aqui. Os dois campos antigos continuam
+ * esvaziados, para uma resposta no formato antigo não repetir os slides.
  */
 export function encurtarLegenda(copy: CopyDoCarrossel): void {
   copy.contexto = "";
@@ -224,26 +236,18 @@ O SLIDE 1 É O ÚNICO QUE APARECE NO FEED de quem não deslizou. Ele precisa fun
 
 ${vozSocialVigente()}
 
-A LEGENDA não repete o carrossel. O detalhe está nos slides. A legenda tem gancho, resumo, ressalva quando necessária, e nada mais.
-
 ${regraDaMancheteVigente()}
 
-Os outros campos:
-
 destaque: de 1 a 4 palavras copiadas LITERALMENTE do headline. Vazio se não houver nada óbvio.
-gancho: a primeira linha da legenda, e ela é o LIDE INTEIRO em uma frase: quem fez o quê, com o número exato e a atribuição, de 20 a 35 palavras. Pode partir da manchete com o detalhe que não coube, sem copiá-la palavra por palavra.
-fato_principal: o resumo do carrossel em duas frases no máximo, sem repetir o gancho.
-contexto: deixe VAZIO. No carrossel, contexto é slide.
-informacao_util: deixe VAZIO. No carrossel, isso é slide.
-ressalva: quase sempre VAZIA. Ela só existe quando calar seria enganoso, e mesmo aí ela fala do FATO, nunca da reportagem.
-- Proibido: "a fonte não informa", "a fonte não detalha", "não há detalhes", "o veículo não diz". Isso é confissão dentro do post, e vira tique: o leitor não quer saber o que a matéria deixou de apurar.
-- Quando a falta É a notícia, escreva falando da divulgação: "a nova data ainda não foi divulgada".
-- Na dúvida, deixe vazio. Post mais curto é melhor que post que explica o que não tem.
-cta: deixe VAZIO. O CTA é montado em código.
-hashtags: de 4 a 7, específicas DESTE assunto.
+
+${LEGENDA_NO_METODO_NOT_JOURNAL}
+
+No carrossel, a legenda é a versão completa da notícia: quem não deslizou lê tudo nela, e quem deslizou encontra camadas que os slides não tinham. Ela pode retomar o número de um slide para dar o contexto dele, mas não copia o texto de slide nenhum.
+
+Os campos da legenda: o lide em "gancho" e os parágrafos em "paragrafos", um parágrafo por item. "fato_principal", "contexto", "informacao_util" e "ressalva" vão VAZIOS. "cta" vai vazio: o convite é montado em código. "hashtags" vai vazio: hashtag e o fecho da legenda são do código.
 
 Devolva JSON:
-{"headline":"...","destaque":"...","gancho":"...","fato_principal":"...","contexto":"","informacao_util":"","ressalva":"...","cta":"","hashtags":["..."],"slides":[{"papel":"...","titulo":"...","corpo":"...","bullets":[],"lado_a":"","lado_b":""}]}
+{"headline":"...","destaque":"...","gancho":"...","paragrafos":["...","..."],"fato_principal":"","contexto":"","informacao_util":"","ressalva":"","cta":"","hashtags":[],"slides":[{"papel":"...","titulo":"...","corpo":"...","bullets":[],"lado_a":"","lado_b":""}]}
 `;
 }
 
@@ -254,6 +258,8 @@ function montarUserDoCarrossel(pauta: PautaAvaliada, pacote: PacoteFactual | nul
     `ASSUNTO: ${p.title}`,
     `FONTE OFICIAL: ${p.source_name}`,
     `EIXO: ${pauta.classificacao.eixo}`,
+    ...(p.published_at ? [`PUBLICADA EM: ${p.published_at}`] : []),
+    `CALENDÁRIO (do mais recente para o mais antigo): ${calendarioDaSemana()}`,
   ];
 
   if (pacote) {
