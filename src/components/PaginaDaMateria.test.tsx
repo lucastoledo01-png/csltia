@@ -87,13 +87,13 @@ describe("PaginaDaMateria depois da auditoria de SEO (05/10/2026)", () => {
     expect(container.textContent).not.toContain("Atualizado em");
   });
 
-  it("modificada em outro dia, mostra 'Atualizado em' com o dateModified", () => {
+  it("modificada em outro dia, a tela mostra só a publicação e o JSON-LD guarda a modificação (06/10/2026)", () => {
     const { container } = render(
       <PaginaDaMateria article={{ ...semCredito, updated_at: "2026-10-06T12:00:00.000Z" }} comComentarios={false} />,
     );
-    expect(container.textContent).toContain("Atualizado em");
-    const tempos = [...container.querySelectorAll("article time")].map((t) => t.getAttribute("dateTime"));
-    expect(tempos).toContain("2026-10-06T12:00:00.000Z");
+    expect(container.textContent).not.toContain("Atualizado em");
+    const jsonLd = container.querySelector('script[type="application/ld+json"]')?.textContent ?? "";
+    expect(jsonLd).toContain("dateModified");
   });
 
   it("foto do Commons sem crédito gravado ganha o link para a página do arquivo", () => {
