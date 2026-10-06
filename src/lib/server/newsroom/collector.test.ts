@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { corpoUtil, janelaDaFonte, parseRSSItems } from "./collector";
+import { corpoUtil, janelaDaFonte, parseRSSItems, textoDoFeed } from "./collector";
 
 
 describe("parseRSSItems", () => {
@@ -90,5 +90,18 @@ describe("janelaDaFonte", () => {
 
   it("não quebra com URL inválida", () => {
     expect(janelaDaFonte({ ...base, url: "não é url" })).toBe(72);
+  });
+});
+
+describe("textoDoFeed", () => {
+  it("lê o feed em ISO-8859-1 pela declaração do XML, como o da Folha", () => {
+    const xml = '<?xml version="1.0" encoding="ISO-8859-1" ?><rss><title>Dólar cai</title></rss>';
+    const bytes = Uint8Array.from([...xml].map((c) => c.charCodeAt(0)));
+    expect(textoDoFeed(bytes, "text/xml")).toContain("Dólar cai");
+  });
+
+  it("sem declaração, continua UTF-8", () => {
+    const bytes = new TextEncoder().encode("<rss><title>Preço</title></rss>");
+    expect(textoDoFeed(bytes, null)).toContain("Preço");
   });
 });

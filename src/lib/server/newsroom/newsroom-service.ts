@@ -49,6 +49,8 @@ import { formatarNumerosDaEdicao } from "./numeros-editoriais";
 import type { ContextoDeProducao, PautaDoContexto } from "../aprovacao/contrato";
 import { pautaDoContexto } from "../aprovacao/contexto-de-producao";
 import { rodarSocialDoDia, diagnosticoSocialAusente } from "../social/ciclo-do-dia";
+import { calorNaAberturaDaNewsletter } from "../social/calor-no-feed";
+import { fontesPadraoDoCalor, modoDoCalor } from "../editorial/calor-do-dia";
 import type { DiagnosticoSocialDoDia } from "../social/ciclo-do-dia";
 import { gravarDiagnosticoDoSocial, montarRegistroDoSocial } from "../social/diagnostico-gravado";
 import { descreverModo, modoDaGuarda } from "../editorial/modo";
@@ -1851,6 +1853,30 @@ async function executarRedacaoDoDia(
       }
     }
     await registrarQuedasSemFoto();
+
+    /*
+     * O calor na abertura da newsletter (06/10/2026). As pautas são as mesmas
+     * que a seleção escolheu; em `enforce` a mais quente passa a abrir o
+     * e-mail, em `dry_run` só se grava qual abriria. Falha aqui não toca a
+     * edição.
+     */
+    const modoCalorDaNewsletter = modoDoCalor(project);
+    if (modoCalorDaNewsletter !== "off" && selecionadasDaNewsletter.length > 1) {
+      try {
+        const abertura = await calorNaAberturaDaNewsletter(selecionadasDaNewsletter, {
+          modo: modoCalorDaNewsletter,
+          fontes: fontesPadraoDoCalor({ client: getSupabaseAdminClient(), projectId: project.id, env, fetcher }),
+          client: dryRun ? null : getSupabaseAdminClient(),
+          projectId: project.id,
+          editionDate: todayStr,
+          limiar: configEditorial.limiarDeAgrupamento,
+        });
+        selecionadasDaNewsletter = abertura.escolhidas;
+        for (const l of abertura.linhas) console.log(l);
+      } catch (erro) {
+        console.warn(`[CALOR] abertura da newsletter sem calor: ${(erro as Error)?.message ?? erro}`);
+      }
+    }
 
     const daGuarda: RankedCandidate[] = selecionadasDaNewsletter.map((p) => ({
       group: p.grupo,

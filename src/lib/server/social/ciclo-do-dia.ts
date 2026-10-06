@@ -19,6 +19,8 @@ import { modoDoPipelineSocial } from "./modo";
 import type { ModoSocial, ResumoVisualDoDia } from "./modo";
 import type { ProjetoComCapacidades } from "../capacidades";
 import { rodarCicloSocial } from "./pipeline-v2";
+import { calorNoPoolDoInstagram } from "./calor-no-feed";
+import { fontesPadraoDoCalor, modoDoCalor, type FontesDoCalor } from "../editorial/calor-do-dia";
 import { moldesLigados } from "./moldes-do-feed";
 import { modoDaFila } from "../aprovacao/modo";
 import { criarFilaStore } from "../aprovacao/fila-store";
@@ -153,6 +155,12 @@ export type OpcoesDoSocialDoDia = {
    * pauta sem ele sai do dia. Ausente, o comportamento é o de antes.
    */
   exigirPacoteFactual?: boolean;
+  /**
+   * As fontes de sinal do calor (06/10/2026), injetáveis no teste. Ausentes,
+   * valem as de verdade, e só são chamadas com a capacidade `calor` fora de
+   * `off`.
+   */
+  fontesDoCalor?: FontesDoCalor;
   /*
    * Injetados só em teste, pelas mesmas razões de sempre: um abre navegador e
    * escreve no Storage, o outro lê `prompt_campaigns` no banco. Em produção os
@@ -233,6 +241,34 @@ export async function rodarSocialDoDia(
   if (modo === "off") return { diagnostico, ciclo: null, conferencia: null };
 
   const configSocial = limitarTetoDoDia(carregarConfigSocial(env), opcoes.tetoDoDia);
+
+  /*
+   * O calor (06/10/2026), antes dos finalistas: é a ordem do pool que decide
+   * quem é verificado. Em `off` nada é chamado; em `dry_run` o pool volta o
+   * mesmo e o que mudaria vai para `platform_events`; em `enforce` a nota leva
+   * o calor somado. Falha aqui nunca derruba o dia: o pool segue como veio.
+   */
+  const modoCalor = modoDoCalor(opcoes.projeto);
+  if (modoCalor !== "off") {
+    try {
+      const comCalor = await calorNoPoolDoInstagram(approvedEditorialPool, {
+        modo: modoCalor,
+        fontes:
+          opcoes.fontesDoCalor ??
+          fontesPadraoDoCalor({ client: opcoes.client, projectId: opcoes.projectId, env, fetcher, agoraMs: opcoes.agoraMs }),
+        configSocial,
+        client: opcoes.client,
+        projectId: opcoes.projectId,
+        editionDate: opcoes.editionDate,
+        agoraMs: opcoes.agoraMs,
+      });
+      approvedEditorialPool = comCalor.pool;
+      for (const l of comCalor.linhas) console.log(l);
+    } catch (erro) {
+      console.warn(`[CALOR] não rodou, o pool segue sem calor: ${(erro as Error)?.message ?? erro}`);
+    }
+  }
+
   const candidatosStore = criarCandidatosStore(opcoes.client);
 
   /*

@@ -131,6 +131,7 @@ describe("o cardápio de capacidades", () => {
       "instrucoes",
       "aprovacao",
       "carrossel_noticia",
+      "calor",
     ]);
   });
 });

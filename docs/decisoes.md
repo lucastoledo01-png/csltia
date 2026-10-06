@@ -1780,6 +1780,145 @@ com "PREÇO DO PETRÓLEO", que não é o assunto dela.
 logotipo" em "Produto e marca". O convite final desenha o remetente da caixa de
 entrada com o avatar novo, e não mais em CSS.
 
+## O calor da pauta (06/10/2026)
+
+O dono achou a seleção "muito fria". A auditoria
+(`docs/auditorias/noticia-quente-2026-10-06.md`) mediu 200 posts do Not
+Journal e 200 do Brazil Journal pela Graph API, os nossos 60 últimos e as 3.857
+candidatas da semana, e achou três coisas: o pool tinha as histórias quentes
+(Trump, Musk, Bezos, o acordo de IA na Casa Branca, o dólar abaixo de R$ 5) e
+a nota as deixava atrás de pauta útil e fria; o post sai em mediana 31 horas
+depois da fonte; e 21 dos 60 posts repetem história do dia anterior.
+
+**A nota da pauta mede utilidade; o calor mede se alguém está falando dela.**
+Os dois somam. `editorial/calor.ts` dá de 0 a 100 por pauta aprovada, com
+cinco sinais deterministas:
+
+| sinal | peso | de onde |
+|---|---|---|
+| veículos | 30 | domínios distintos com o mesmo fato em 24h, vetor do TÍTULO dos dois lados, limiar de agrupamento de sempre (0.70) |
+| tendência | 25 | Google Trends EUA e Brasil, Bluesky, mais lidos da Wikipédia em inglês e em PORTUGUÊS (nova); duas fontes valem 25, uma vale 18 |
+| fama | 25 | quantas Wikipédias têm artigo da pessoa ou organização citada (Wikidata); 150 ou mais vale 25 |
+| recência | 10 | até 6h, 10; até 24h, 5; depois de 48h, zero |
+| número forte | 10 | percentual, dinheiro com escala, recorde, contagem grande; ano não conta |
+
+O bônus na nota é `0.35 x calor`, até 35 pontos: o bastante para a pauta
+quente passar a fria de nota parecida, e não para a irrelevante passar a
+importante. **O calor só reordena o que a linha aprovou.** Imigração, notícia
+ruim dos EUA e o que a guarda recusa continuam fora; nada na linha mudou.
+
+**Três medições que viraram regra:**
+
+- **O vetor é do título, e não o gravado.** `news_candidates.embedding` só
+  existe para a aprovada (36 de 1.010 nas últimas 48h). Para contar quem mais
+  cobriu o fato, as matérias do dia (todas, aprovadas ou não) ganham vetor do
+  título, alguns centavos de centavo por dia, com memória no processo. No vetor
+  só do título o 0.70 é mais severo: a faixa 0.65 a 0.70 é quase toda o mesmo
+  fato. Ficou 0.70; baixar é decisão do dono.
+- **A fama passa pela busca da Wikipédia, e não pela do Wikidata.** O
+  classificador escreve "Trump" (210 vezes na semana) e "Lula" (100). A busca
+  do Wikidata devolve o sobrenome Trump (6 Wikipédias) e a lula, o molusco
+  (94); a busca de texto da Wikipédia em português devolve Donald Trump (266),
+  Lula da Silva, Flávio Bolsonaro e Alexandre de Moraes. O título achado
+  precisa ter uma palavra do nome ("Neko Health" achava "Gato").
+- **Fama é de pessoa ou organização.** Sem isso, "Virgínia Ocidental" (192)
+  virava o famoso de uma pauta de indenização. Vale ser humano (Q5), ou ter
+  sede (P159) ou setor (P452).
+
+**Onde entra.** No Instagram, ANTES dos finalistas (`ciclo-do-dia.ts`), porque
+é a ordem do pool que decide quem é verificado. Na newsletter, só a ABERTURA:
+as pautas são as mesmas da seleção, e a mais quente passa para o topo
+(`liderPeloCalor`); empate fica com a de cima.
+
+**Atrás de `settings.capacidades.calor`, sem fallback de ambiente.** Ausente
+ou `off`: nenhuma chamada sai, o dia é o de antes. `dry_run`: calcula e grava
+em `platform_events` (`calor_da_selecao`) o calor de cada pauta, a ordem e o
+feed que `comporFeedSocial` montaria com e sem calor, e a abertura que a
+newsletter teria; a seleção não muda. `enforce`: a nota leva o calor. Toda
+fonte de sinal que falha vira aviso e vale zero; nada aqui derruba o dia.
+
+**Ensaio sem gravar:** `npx tsx src/scripts/ensaiar-calor.ts 48` lê as
+aprovadas das últimas 48h e imprime as duas ordens. No de 06/10/2026, "Inside
+Trump's new AI playbook" subiu de 30º para 12º, o Ibovespa acima de 200 mil
+pontos de 32º para 16º, e "Mortgage rates today" desceu de 14º para 26º.
+
+**A Folha chegava com os acentos quebrados**, achado na mesma auditoria: o feed
+declara ISO-8859-1 e a coleta lia UTF-8. `textoDoFeed`, em `collector.ts`,
+decodifica pelo charset do cabeçalho, depois o do XML, depois UTF-8.
+
+**A foto e a voz já estavam prontas para isso.** O resolvedor prefere pessoa,
+depois organização, depois lugar, pela centralidade (`entidade-visual.ts`,
+`centralidade.ts`), e busca o retrato da entidade no Commons; os cinco textos
+editoriais aprovados em 06/10 já pedem ator, verbo e fato. O que faltava era a
+seleção entregar a eles a pauta com gente no centro.
+
+### Fontes quentes propostas, desligadas
+
+Em `supabase/2026-10-06-fontes-quentes.sql`, para o dono rodar. Entram com
+`enabled = false`: o pool já tinha as histórias quentes e a linha as recusou,
+então fonte nova sem decisão de linha só paga classificação de mais recusa. O
+arquivo traz, comentados, o primeiro grupo a ligar (negócio e tecnologia dos
+EUA, mercado brasileiro), o segundo (política brasileira, só com decisão do
+dono) e o desligamento das buscas fixas do Google News (248 candidatas por dia,
+zero aprovadas). Reuters (sem RSS), AP (403), as seções de Axios, CNN Brasil e
+InfoMoney (404 ou vazias), Metrópoles, Yahoo Finance, Forbes Brasil, ABC e
+Guardian US ficaram de fora, com o motivo no arquivo.
+
+```sql
+insert into public.project_news_sources
+  (project_id, source_key, name, company_name, type, url, enabled, priority, category, region, keywords)
+select p.id, v.source_key, v.name, v.company_name, 'rss', v.url, false, v.priority, v.category, v.region, '{}'::text[]
+from public.projects p
+cross join (values
+  -- EUA: negócios, tecnologia e política com gente conhecida no centro
+  ('cnbc-politics', 'CNBC, política', 'CNBC', 'https://www.cnbc.com/id/10000113/device/rss/rss.html', 1, 'politica', 'eua'),
+  ('cnbc-technology', 'CNBC, tecnologia', 'CNBC', 'https://www.cnbc.com/id/19854910/device/rss/rss.html', 1, 'tecnologia', 'eua'),
+  ('cnbc-markets', 'CNBC, mercados', 'CNBC', 'https://www.cnbc.com/id/15839069/device/rss/rss.html', 2, 'economia', 'eua'),
+  ('fortune', 'Fortune', 'Fortune', 'https://fortune.com/feed/fortune-feeds/?id=3230629', 2, 'economia', 'eua'),
+  ('business-insider', 'Business Insider', 'Business Insider', 'https://feeds.businessinsider.com/custom/all', 2, 'economia', 'eua'),
+  ('semafor', 'Semafor', 'Semafor', 'https://www.semafor.com/rss.xml', 2, 'politica', 'eua'),
+  ('fox-business', 'Fox Business', 'Fox Business', 'https://moxie.foxbusiness.com/google-publisher/latest.xml', 2, 'economia', 'eua'),
+  ('politico-top', 'Politico, manchetes', 'Politico', 'https://rss.politico.com/politics-news.xml', 2, 'politica', 'eua'),
+  ('nyt-politics', 'New York Times, política', 'The New York Times', 'https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml', 2, 'politica', 'eua'),
+  ('nyt-technology', 'New York Times, tecnologia', 'The New York Times', 'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml', 2, 'tecnologia', 'eua'),
+  ('wapo-business', 'Washington Post, negócios', 'The Washington Post', 'https://feeds.washingtonpost.com/rss/business', 2, 'economia', 'eua'),
+  ('wapo-politics', 'Washington Post, política', 'The Washington Post', 'https://feeds.washingtonpost.com/rss/politics', 2, 'politica', 'eua'),
+  ('bbc-business', 'BBC, negócios', 'BBC', 'https://feeds.bbci.co.uk/news/business/rss.xml', 2, 'economia', 'global'),
+  ('bbc-us-canada', 'BBC, EUA e Canadá', 'BBC', 'https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml', 2, 'politica', 'eua'),
+  -- Brasil: mercado, dólar e a relação com os EUA
+  ('bloomberg-linea-br', 'Bloomberg Línea Brasil', 'Bloomberg Línea', 'https://www.bloomberglinea.com.br/arc/outboundfeeds/rss/?outputType=xml', 2, 'br_media', 'br'),
+  ('estadao-economia', 'Estadão, economia', 'Estadão', 'https://www.estadao.com.br/arc/outboundfeeds/feeds/rss/sections/economia/', 2, 'br_media', 'br'),
+  ('estadao-politica', 'Estadão, política', 'Estadão', 'https://www.estadao.com.br/arc/outboundfeeds/feeds/rss/sections/politica/', 2, 'br_media', 'br'),
+  ('estadao-internacional', 'Estadão, internacional', 'Estadão', 'https://www.estadao.com.br/arc/outboundfeeds/feeds/rss/sections/internacional/', 2, 'br_media', 'br'),
+  ('cnn-brasil', 'CNN Brasil', 'CNN Brasil', 'https://www.cnnbrasil.com.br/feed/', 2, 'br_media', 'br'),
+  ('poder360', 'Poder360', 'Poder360', 'https://www.poder360.com.br/feed/', 2, 'br_media', 'br'),
+  ('folha-poder', 'Folha de S.Paulo, Poder', 'Folha de S.Paulo', 'https://feeds.folha.uol.com.br/poder/rss091.xml', 2, 'br_media', 'br'),
+  ('folha-tec', 'Folha de S.Paulo, tecnologia', 'Folha de S.Paulo', 'https://feeds.folha.uol.com.br/tec/rss091.xml', 2, 'br_media', 'br'),
+  ('g1-tecnologia', 'G1 Tecnologia', 'G1', 'https://g1.globo.com/rss/g1/tecnologia/', 2, 'br_media', 'br'),
+  ('exame', 'Exame', 'Exame', 'https://exame.com/feed/', 2, 'br_media', 'br'),
+  ('valor-empresas', 'Valor Econômico, empresas', 'Valor Econômico', 'https://pox.globo.com/rss/valor/empresas/', 2, 'br_media', 'br'),
+  ('valor-financas', 'Valor Econômico, finanças', 'Valor Econômico', 'https://pox.globo.com/rss/valor/financas/', 2, 'br_media', 'br'),
+  ('neofeed', 'NeoFeed', 'NeoFeed', 'https://neofeed.com.br/feed/', 2, 'br_media', 'br')
+) as v(source_key, name, company_name, url, priority, category, region)
+where p.slug = 'desbuguei'
+  and not exists (
+    select 1 from public.project_news_sources s
+    where s.project_id = p.id and s.source_key = v.source_key
+  );
+```
+
+### O que fica para o dono
+
+- **A repetição do Instagram não é conferida.** A guarda confere a repetição
+  contra o histórico da newsletter, e `editorial_history` não tem nenhuma linha
+  de Instagram desde 20/09. É por isso que 21 dos 60 posts repetem história de
+  ontem. Consertar antes de pôr o calor em `enforce`, senão a pauta quente de
+  ontem volta hoje.
+- **As perguntas de linha** (política brasileira, geopolítica, citação de
+  famoso, esporte como negócio, o limiar de 0.65, publicar no dia do fato)
+  estão no fim da auditoria, com a recomendação de cada uma. Nenhuma foi
+  mudada no código.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.
