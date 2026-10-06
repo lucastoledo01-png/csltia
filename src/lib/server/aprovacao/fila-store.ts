@@ -157,6 +157,14 @@ export type FilaStore = {
   ): Promise<Aprovacao | null>;
   /** O que está na fila e ainda não saiu: aguardando, refazendo e aprovada sem liberação. */
   abertas(projectId: string): Promise<Aprovacao[]>;
+  /**
+   * As peças dos últimos dias em QUALQUER estado (06/10/2026), para os filtros
+   * do painel: aprovadas, reprovadas, canceladas e as que já saíram. `abertas`
+   * continua sendo o que o relógio da fila lê; esta é só do painel. Opcional
+   * porque os dublês de teste antigos não a têm, e sem ela o painel mostra só
+   * as abertas, como antes.
+   */
+  recentes?(projectId: string, desdeIso: string): Promise<Aprovacao[]>;
   /** Decididas desde `desdeIso`, para a taxa de aprovação sem retrabalho. */
   decididasDesde(projectId: string, desdeIso: string): Promise<Aprovacao[]>;
   registrarReprovacao(r: Omit<Reprovacao, "id" | "createdAt">): Promise<void>;
@@ -403,6 +411,18 @@ export function criarFilaStore(client: SupabaseClient): FilaStore {
         .order("publicar_em", { ascending: true, nullsFirst: false })
         .limit(200);
       if (error) falhou("listar a fila", error.message);
+      return ((data ?? []) as Linha[]).map(linhaParaAprovacao);
+    },
+
+    async recentes(projectId, desdeIso) {
+      const { data, error } = await client
+        .from("aprovacoes")
+        .select("*")
+        .eq("project_id", projectId)
+        .or(`publicar_em.gte.${desdeIso},updated_at.gte.${desdeIso}`)
+        .order("publicar_em", { ascending: true, nullsFirst: false })
+        .limit(300);
+      if (error) falhou("listar as peças recentes", error.message);
       return ((data ?? []) as Linha[]).map(linhaParaAprovacao);
     },
 

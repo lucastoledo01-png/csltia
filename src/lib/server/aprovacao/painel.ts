@@ -31,9 +31,26 @@ export type VisaoDaFila = {
   regras: RegraProposta[];
 };
 
+/**
+ * Quantos dias para trás o painel mostra além do que está aberto (06/10/2026):
+ * o bastante para ver o que saiu ontem e o que foi reprovado anteontem, sem
+ * transformar a tela do celular em arquivo.
+ */
+export const DIAS_DE_HISTORICO_NO_PAINEL = 3;
+
+/** Abertas e recentes, sem repetir a peça que está nas duas listas. */
+function juntarSemRepetir(abertas: Aprovacao[], recentes: Aprovacao[]): Aprovacao[] {
+  const porId = new Map<string, Aprovacao>();
+  for (const a of [...recentes, ...abertas]) porId.set(a.id, a);
+  return [...porId.values()];
+}
+
 export async function visaoDaFila(projeto: ProjetoDaFila, deps: DepsDaFila): Promise<VisaoDaFila> {
-  const [abertas, taxa, regras] = await Promise.all([
+  const agora = deps.agora ? deps.agora() : Date.now();
+  const desde = new Date(agora - DIAS_DE_HISTORICO_NO_PAINEL * 24 * 60 * 60 * 1000).toISOString();
+  const [abertas, recentes, taxa, regras] = await Promise.all([
     deps.store.abertas(projeto.id),
+    deps.store.recentes ? deps.store.recentes(projeto.id, desde) : Promise.resolve([] as Aprovacao[]),
     taxaSemRetrabalho(projeto, deps),
     deps.store.regras(projeto.id),
   ]);
@@ -41,7 +58,7 @@ export async function visaoDaFila(projeto: ProjetoDaFila, deps: DepsDaFila): Pro
     modo: modoDaFila(projeto),
     ramos: Object.fromEntries(RAMOS.map((r) => [r, modoDoRamo(projeto, r)])) as Record<Ramo, ModoDoRamo>,
     horarios: horariosDaNewsletter(projeto),
-    fila: ordenarFila(abertas),
+    fila: ordenarFila(juntarSemRepetir(abertas, recentes)),
     taxa,
     regras: regras.filter((r) => r.estado !== "recusada"),
   };
