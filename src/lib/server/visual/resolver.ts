@@ -40,6 +40,15 @@ import {
   marcarUso,
   type ContextoDaBusca,
 } from "./acervo/na-resolucao";
+import {
+  buscarCenaNosBancosOficiais,
+  buscarNosBancosOficiais,
+  cenaDeGovernoPara,
+  entidadeElegivel,
+  oficiaisPrimeiro,
+} from "./bancos-oficiais";
+import { BANCOS_OFICIAIS } from "./bancos-oficiais/registro";
+import type { DefinicaoDoBanco, PaisDoBanco } from "./bancos-oficiais/tipos";
 
 /**
  * A imagem de uma pauta, resolvida pela entidade.
@@ -114,7 +123,22 @@ export type OpcoesDeResolucao = {
    * de arquivo. Ausente ou vazio, a pergunta sai byte a byte como antes.
    */
   recusasDoEditor?: string[];
+  /**
+   * Os bancos de imagem oficiais (06/10/2026), ou nada.
+   *
+   * Ausente ou `false` é o caminho de antes, byte a byte: nenhuma consulta a
+   * mais. Quem decide é `settings.imagens.bancos_oficiais` do projeto
+   * (`bancosOficiaisLigados`), lido por `imagemDaPauta` e pelo ciclo social.
+   * Uma lista de bancos no lugar do `true` é para o teste trocar a rede.
+   */
+  bancosOficiais?: boolean | DefinicaoDoBanco[];
 };
+
+/** Os bancos que esta resolução consulta, ou nenhum. */
+function bancosDaResolucao(opcoes: OpcoesDeResolucao): DefinicaoDoBanco[] | null {
+  if (!opcoes.bancosOficiais) return null;
+  return opcoes.bancosOficiais === true ? BANCOS_OFICIAIS : opcoes.bancosOficiais;
+}
 
 export type Conferente = (
   asset: AssetVisual,
@@ -349,13 +373,26 @@ export async function resolveVisualAsset(
         disponiveis.push(g);
       }
 
+      /*
+       * Com os bancos oficiais ligados (06/10/2026), a biblioteca só devolve
+       * na hora o que veio de banco oficial. A foto do Commons guardada antes
+       * continua existindo e volta pela busca do Commons, mas não passa na
+       * frente: o pedido do dono é a foto atual da Agência Brasil ou da Casa
+       * Branca ANTES da do Commons, e a biblioteca devolvendo a de 2019 seria
+       * o Commons passando na frente por ter chegado antes.
+       */
+      const soOficiais = bancosDaResolucao(opcoes) && entidadeElegivel(entidade);
+      const daBiblioteca = soOficiais ? disponiveis.filter((g) => g.source === "banco_oficial") : disponiveis;
+
       fontesConsultadas.push({
         fonte: "biblioteca_interna",
         encontrados: guardados.length,
-        nota: `${disponiveis.length} disponível(is) depois da janela de repetição`,
+        nota:
+          `${disponiveis.length} disponível(is) depois da janela de repetição` +
+          (soOficiais ? `, ${daBiblioteca.length} de banco oficial (bancos oficiais ligados: as outras esperam a busca)` : ""),
       });
 
-      const { melhor } = melhorPontuado(disponiveis, entidade, piso, recusados, config.larguraMinima, {
+      const { melhor } = melhorPontuado(daBiblioteca, entidade, piso, recusados, config.larguraMinima, {
         titulo: pauta.titulo,
         resumo: pauta.resumo,
         atores: pauta.classificacao.atores,
@@ -374,8 +411,37 @@ export async function resolveVisualAsset(
     }
   }
 
-  // 3. Wikimedia Commons.
   const novos: AssetVisual[] = [];
+
+  /*
+   * 2.5. Os bancos de imagem oficiais (06/10/2026), antes do Commons.
+   *
+   * Pessoa e instituição pública: Agência Brasil, Câmara, Senado e Planalto
+   * para a política brasileira, a Casa Branca e os órgãos federais para a
+   * americana. As fotos entram na MESMA fila do Commons e da fonte oficial,
+   * pontuadas pela mesma régua; o que muda é a ordem de conferência, mais
+   * abaixo (`oficiaisPrimeiro`): a foto do banco que a legenda prova ser da
+   * pessoa, e mais recente, é aberta antes.
+   *
+   * Falha de banco nunca derruba a pauta: vira nota, e o Commons segue.
+   */
+  const bancos = bancosDaResolucao(opcoes);
+  if (bancos && entidadeElegivel(entidade)) {
+    try {
+      const busca = await buscarNosBancosOficiais(
+        entidade,
+        { atores: pauta.classificacao.atores, pais: pauta.classificacao.pais },
+        { env, fetcher: opcoes.fetcher, bancos },
+      );
+      novos.push(...busca.assets);
+      recusados.push(...busca.recusados);
+      fontesConsultadas.push({ fonte: "banco_oficial", encontrados: busca.assets.length, nota: busca.notas.join(" ; ") });
+    } catch (erro) {
+      fontesConsultadas.push({ fonte: "banco_oficial", encontrados: 0, nota: `falhou: ${(erro as Error).message}` });
+    }
+  }
+
+  // 3. Wikimedia Commons.
   if (entidade.tipo !== "conceptual") {
     try {
       const busca = await buscarNoCommons(entidade, { env, fetcher: opcoes.fetcher });
@@ -501,11 +567,17 @@ export async function resolveVisualAsset(
    */
   const disponiveisDeFato = novos.filter((a) => !usadosAgora.has(a.imageUrl) && !jaSaiu(a.imageUrl));
   const desta = [] as CandidatoRecusado[];
-  const { aprovadas: aprovadasDeFato } = melhorPontuado(disponiveisDeFato, entidade, piso, desta, config.larguraMinima, {
+  const { aprovadas: pontuadasDeFato } = melhorPontuado(disponiveisDeFato, entidade, piso, desta, config.larguraMinima, {
     titulo: pauta.titulo,
     resumo: pauta.resumo,
     atores: pauta.classificacao.atores,
   });
+  /*
+   * Com os bancos oficiais, a foto do banco cuja legenda nomeia a entidade é
+   * conferida primeiro, da mais recente para a mais antiga. Sem eles, a ordem
+   * é a da nota, como sempre foi.
+   */
+  const aprovadasDeFato = bancos ? oficiaisPrimeiro(pontuadasDeFato) : pontuadasDeFato;
 
   /*
    * 6.1. Alguém abre a imagem antes de ela virar peça.
@@ -790,14 +862,28 @@ export async function resolveVisualAsset(
   const especifica = cena.falhou ? temaFixo : cena.consulta;
   const contextoDaEditoria = contextoDaEditoriaPara(pauta.categoria, pauta.classificacao.pais);
 
-  const degraus: Array<{ degrau: DegrauDaCena; consultas: string[]; openverse?: string; reuso?: boolean }> = [
+  /*
+   * O lugar do governo, nos bancos oficiais (06/10/2026), no degrau da
+   * editoria: a fachada do Congresso para a política brasileira, a Casa
+   * Branca para a americana. Só com os bancos ligados e só em pauta de
+   * governo; a conferência continua recusando o plenário cheio de rostos.
+   */
+  const cenaDeGoverno = bancos ? cenaDeGovernoPara(pauta.categoria, pauta.classificacao.pais) : null;
+
+  const degraus: Array<{
+    degrau: DegrauDaCena;
+    consultas: string[];
+    openverse?: string;
+    reuso?: boolean;
+    oficial?: { consulta: string; pais: PaisDoBanco } | null;
+  }> = [
     { degrau: "cena", consultas: [especifica] },
     {
       degrau: "cena_ampla",
       consultas: [cena.falhou ? "" : (cena.consultaAmpla ?? ""), cena.falhou ? "" : temaFixo],
       openverse: (!cena.falhou && cena.consultaAmpla) || especifica,
     },
-    { degrau: "editoria", consultas: [contextoDaEditoria] },
+    { degrau: "editoria", consultas: [contextoDaEditoria], oficial: cenaDeGoverno },
     { degrau: "reuso", consultas: [especifica, contextoDaEditoria], reuso: true },
   ];
 
@@ -844,6 +930,20 @@ export async function resolveVisualAsset(
         notas.push(`openverse "${passo.openverse}": ${convertidos}`);
       } catch (erro) {
         notas.push(`openverse falhou: ${(erro as Error).message}`);
+      }
+    }
+
+    if (passo.oficial && bancos) {
+      try {
+        const busca = await buscarCenaNosBancosOficiais(passo.oficial.consulta, passo.oficial.pais, entidadeDaCena, {
+          env,
+          fetcher: opcoes.fetcher,
+          bancos,
+        });
+        daCena.push(...busca.assets);
+        notas.push(`bancos oficiais: ${busca.notas.join(", ") || "nenhum do país"}`);
+      } catch (erro) {
+        notas.push(`bancos oficiais falharam: ${(erro as Error).message}`);
       }
     }
 
@@ -1398,6 +1498,21 @@ export async function buscarSegundaFoto(
   } catch (erro) {
     notas.push(`openverse falhou: ${(erro as Error).message}`);
   }
+  // Os bancos oficiais (06/10/2026): a mesma régua da vice, e na frente da fila.
+  const bancos = bancosDaResolucao(opcoes);
+  if (bancos && entidadeElegivel(entidade)) {
+    try {
+      const busca = await buscarNosBancosOficiais(
+        entidade,
+        { atores: pauta.classificacao.atores, pais: pauta.classificacao.pais },
+        { env, fetcher: opcoes.fetcher, bancos },
+      );
+      candidatos.push(...busca.assets);
+      notas.push(`bancos oficiais: ${busca.assets.length}`);
+    } catch (erro) {
+      notas.push(`bancos oficiais falharam: ${(erro as Error).message}`);
+    }
+  }
 
   const vistos = new Set<string>();
   const disponiveis = candidatos.filter((c) => {
@@ -1416,7 +1531,9 @@ export async function buscarSegundaFoto(
     config.larguraMinima,
     { titulo: pauta.titulo, resumo: pauta.resumo, atores: pauta.classificacao.atores },
   );
-  const comIdentidade = escolherVice(aprovadas, { imageUrl: principal.imageUrl } as AssetVisual);
+  const comIdentidade = escolherVice(bancos ? oficiaisPrimeiro(aprovadas) : aprovadas, {
+    imageUrl: principal.imageUrl,
+  } as AssetVisual);
   notas.push(`${disponiveis.length} candidata(s), ${comIdentidade.length} com identidade`);
 
   const vice = await primeiraAprovada(

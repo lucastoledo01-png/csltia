@@ -90,6 +90,12 @@ export type FonteDeImagem =
    * o que veio de FORA e foi aprovado; este é o que nós produzimos.
    */
   | "acervo_proprio"
+  /**
+   * Os bancos de imagem oficiais (06/10/2026): Agência Brasil, Câmara,
+   * Senado, Planalto, Casa Branca e afins. Qual deles está em
+   * `metadata.banco`; o crédito curto, em `attribution`.
+   */
+  | "banco_oficial"
   /** A bandeira da publicação, quando nem o banco conceitual entregou nada. */
   | "ultimo_recurso";
 

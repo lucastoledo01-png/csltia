@@ -1,0 +1,739 @@
+{
+  "resumo": {
+    "pautas": 21,
+    "brasileiras": 10,
+    "antes": {
+      "fotoDaPessoa": 11,
+      "comFoto": 21
+    },
+    "depois": {
+      "fotoDaPessoa": 12,
+      "comFoto": 21,
+      "deBancoOficial": 5
+    },
+    "brasileirasAntes": 3,
+    "brasileirasDepois": 3,
+    "custoUsd": 0
+  },
+  "linhas": [
+    {
+      "id": "2026-10-05 u_5f968da14033b67f3b3e",
+      "pessoa": "Lula",
+      "titulo": "Ibovespa dispara e bate recorde de 209 mil pontos, com foco em Lula e Flávio no 2º turno; dólar cai abaixo de R$ 4,95",
+      "pais": "Brasil",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "alta da bolsa economia",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/39545525/pexels-photo-39545525.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "alta da bolsa economia",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/39545525/pexels-photo-39545525.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "notas": []
+    },
+    {
+      "id": "2026-09-22 u_4d43d49a235546d6308b",
+      "pessoa": "Lula",
+      "titulo": "Brasil far� consultas aos EUA sobre tarifa�o na OMC; governo Lula v� reuni�o como protocolar",
+      "pais": "Brasil",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "governo Lula (2003–2011)",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/39545525/pexels-photo-39545525.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "governo Lula (2003–2011)",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/39545525/pexels-photo-39545525.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "notas": []
+    },
+    {
+      "id": "2026-09-21 u_874882d6725e532a40dd",
+      "pessoa": "Lula",
+      "titulo": "Como o aumento de etanol na gasolina entrou no debate eleitoral entre Lula e Fl�vio Bolsonaro",
+      "pais": "Brasil",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Flávio Bolsonaro",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/9/90/Carlos_jair_flavio_eduardo_redes_sociais_%2822304264854%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2015-11-01 00:00",
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Flávio Bolsonaro",
+        "tipo": "person",
+        "fonte": "banco_oficial",
+        "banco": "Agência Senado",
+        "imagem": "https://live.staticflickr.com/65535/55501326912_67340aa0f0_o.jpg",
+        "credito": "Foto: Geraldo Magela/Agência Senado",
+        "data": "2026-09-01",
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "notas": [
+        "busca \"Flávio Bolsonaro\" ; Câmara dos Deputados: 35 evento(s), 12 foto(s) na primeira página ; Agência Senado: 500 no acervo, 4 citam \"Flávio Bolsonaro\" na legenda, 4 com licença lida ; Palácio do Planalto: sem FLICKR_API_KEY, pulado ; STF: sem FLICKR_API_KEY, pulado ; Casa Branca: 0 galeria(s) citam \"Flávio Bolsonaro\", 0 aberta(s), 0 foto(s) oficiais ; Federal Reserve: 993 na galeria, 0 citam \"Flávio Bolsonaro\" ; NASA: 0 foto(s) da NASA para \"Flávio Bolsonaro\""
+      ]
+    },
+    {
+      "id": "2026-09-16 u_b8d8487fa3fde2dee8de",
+      "pessoa": "Fachin",
+      "titulo": "Dino pede a Fachin investigação sobre elo entre Banco Master e instituto ligado a André Mendonça",
+      "pais": "Brasil",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "pedido deterioracao_brasil",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/1841051/pexels-photo-1841051.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "pedido deterioracao_brasil",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/1841051/pexels-photo-1841051.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "notas": []
+    },
+    {
+      "id": "2026-09-16 u_6948b47dfb123377416e",
+      "pessoa": "Fachin",
+      "titulo": "Ao abrir sessão, Fachin diz que STF atravessa período difícil da história e não julga pessoas, mas fatos",
+      "pais": "Brasil",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Luiz Edson Fachin",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/5/58/Luiz_Edson_Fachin-12-05.2015.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "Foto: Marcelo Camargo/Agência Brasil / Wikimedia Commons / CC BY",
+        "data": "2015-05-12 12:13:04",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Luiz Edson Fachin",
+        "tipo": "person",
+        "fonte": "banco_oficial",
+        "banco": "Agência Senado",
+        "imagem": "https://live.staticflickr.com/5333/17688795038_7d463ad1d7_k.jpg",
+        "credito": "Foto: Moreira Mariz/Agência Senado",
+        "data": "2015-05-19",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "notas": [
+        "busca \"Edson Fachin\" ; Câmara dos Deputados: 14 evento(s), 11 foto(s) na primeira página ; Agência Senado: 429 no acervo, 4 citam \"Edson Fachin\" na legenda, 3 com licença lida, 1 sem detalhe ; Palácio do Planalto: sem FLICKR_API_KEY, pulado ; STF: sem FLICKR_API_KEY, pulado ; Casa Branca: 0 galeria(s) citam \"Edson Fachin\", 0 aberta(s), 0 foto(s) oficiais ; Federal Reserve: 993 na galeria, 0 citam \"Edson Fachin\" ; NASA: 0 foto(s) da NASA para \"Edson Fachin\""
+      ]
+    },
+    {
+      "id": "2026-09-16 u_214a982e0a358bbbccbf",
+      "pessoa": "Alexandre de Moraes",
+      "titulo": "AO VIVO: STF analisa troca de mensagens entre Alexandre de Moraes e Vorcaro",
+      "pais": "Brasil",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "sessão deterioracao_brasil",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/16476343/pexels-photo-16476343.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "sessão deterioracao_brasil",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/16476343/pexels-photo-16476343.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "notas": []
+    },
+    {
+      "id": "2026-09-16 u_c8484ae4528eeb7ba196",
+      "pessoa": "Moraes",
+      "titulo": "Ministros fora do julgamento, bate-boca e debate sobre juntar acusações contra Moraes e Mendonça: como foi a sessão do STF até agora",
+      "pais": "Brasil",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Alexandre de Moraes",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/e/e0/07.09.2024_-_Desfile_de_7_de_Setembro_%2853978379274%29_Alexandre_de_Moraes_3x4_portrait_crop.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "Foto: Lula Oficial / Wikimedia Commons / CC BY-SA",
+        "data": "2024-09-07 10:38",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Alexandre de Moraes",
+        "tipo": "person",
+        "fonte": "banco_oficial",
+        "banco": "Agência Senado",
+        "imagem": "https://live.staticflickr.com/65535/52601393158_b83bf3f96c_k.jpg",
+        "credito": "Foto: Edilson Rodrigues/Agência Senado",
+        "data": "2023-01-01",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "notas": [
+        "busca \"Alexandre de Moraes\" ; Câmara dos Deputados: 64 evento(s), 12 foto(s) na primeira página ; Agência Senado: 500 no acervo, 4 citam \"Alexandre de Moraes\" na legenda, 4 com licença lida ; Palácio do Planalto: sem FLICKR_API_KEY, pulado ; STF: sem FLICKR_API_KEY, pulado ; Casa Branca: 0 galeria(s) citam \"Alexandre de Moraes\", 0 aberta(s), 0 foto(s) oficiais ; Federal Reserve: 993 na galeria, 0 citam \"Alexandre de Moraes\" ; NASA: 0 foto(s) da NASA para \"Alexandre de Moraes\""
+      ]
+    },
+    {
+      "id": "2026-09-11 u_10176f6f0de35617a0e7",
+      "pessoa": "Moraes",
+      "titulo": "Contrato de R$ 131 mi com mulher de Moraes incluía casos na PF e Banco Central",
+      "pais": "Brasil",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Alexandre de Moraes",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/e/e0/07.09.2024_-_Desfile_de_7_de_Setembro_%2853978379274%29_Alexandre_de_Moraes_3x4_portrait_crop.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "Foto: Lula Oficial / Wikimedia Commons / CC BY-SA",
+        "data": "2024-09-07 10:38",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Alexandre de Moraes",
+        "tipo": "person",
+        "fonte": "banco_oficial",
+        "banco": "Agência Senado",
+        "imagem": "https://live.staticflickr.com/65535/52601393158_b83bf3f96c_k.jpg",
+        "credito": "Foto: Edilson Rodrigues/Agência Senado",
+        "data": "2023-01-01",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "notas": [
+        "busca \"Alexandre de Moraes\" ; Câmara dos Deputados: 64 evento(s), 12 foto(s) na primeira página ; Agência Senado: 500 no acervo, 4 citam \"Alexandre de Moraes\" na legenda, 4 com licença lida ; Palácio do Planalto: sem FLICKR_API_KEY, pulado ; STF: sem FLICKR_API_KEY, pulado ; Casa Branca: 0 galeria(s) citam \"Alexandre de Moraes\", 0 aberta(s), 0 foto(s) oficiais ; Federal Reserve: 993 na galeria, 0 citam \"Alexandre de Moraes\" ; NASA: 0 foto(s) da NASA para \"Alexandre de Moraes\""
+      ]
+    },
+    {
+      "id": "2026-09-10 u_2d40e9ee1ff33bab2ad0",
+      "pessoa": "Moraes",
+      "titulo": "Mendonça, Moraes, Dino e Fachin: o STF em rota de colisão - O Assunto #1801",
+      "pais": "Brasil",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "suspensão de decisão deterioracao_brasil",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/16476343/pexels-photo-16476343.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "suspensão de decisão deterioracao_brasil",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/16476343/pexels-photo-16476343.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "notas": []
+    },
+    {
+      "id": "2026-09-10 u_6987a447cf989ebec240",
+      "pessoa": "Fachin",
+      "titulo": "'Zelar pela integridade da Corte': Fachin envia recados em meio à crise no STF; veja o que pode acontecer",
+      "pais": "Brasil",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "suspensão de decisão deterioracao_brasil",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/3751006/pexels-photo-3751006.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "suspensão de decisão deterioracao_brasil",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/3751006/pexels-photo-3751006.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "notas": []
+    },
+    {
+      "id": "2026-10-06 u_bbb56b369afa0368bf25",
+      "pessoa": "Trump",
+      "titulo": "Trump libera compra de diesel vermelho, antes restrito a maquinas agrícolas: 'Não sei que diabo é isso, mas dizem que é bom'",
+      "pais": "EUA",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "ordem executiva custo_de_vida",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/2295434/pexels-photo-2295434.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Donald Trump",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2025-06-02",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "notas": [
+        "busca \"Donald Trump\" ; Casa Branca: 505 galeria(s) citam \"Donald Trump\", 2 aberta(s), 38 foto(s) oficiais ; Federal Reserve: 993 na galeria, 0 citam \"Donald Trump\" ; NASA: 16 foto(s) da NASA para \"Donald Trump\" ; Câmara dos Deputados: 0 evento(s), 0 foto(s) na primeira página ; Agência Senado: 100 no acervo, 4 citam \"Donald Trump\" na legenda, 4 com licença lida ; Palácio do Planalto: sem FLICKR_API_KEY, pulado ; STF: sem FLICKR_API_KEY, pulado"
+      ]
+    },
+    {
+      "id": "2026-10-06 u_52e1cdb7a2e39e79c9f5",
+      "pessoa": "Trump",
+      "titulo": "Inside Trump's new AI playbook",
+      "pais": "EUA",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Donald Trump",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2025-06-02",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Donald Trump",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2025-06-02",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "notas": [
+        "busca \"Donald Trump\" ; Casa Branca: 505 galeria(s) citam \"Donald Trump\", 2 aberta(s), 38 foto(s) oficiais ; Federal Reserve: 993 na galeria, 0 citam \"Donald Trump\" ; NASA: 16 foto(s) da NASA para \"Donald Trump\" ; Câmara dos Deputados: 0 evento(s), 0 foto(s) na primeira página ; Agência Senado: 100 no acervo, 4 citam \"Donald Trump\" na legenda, 4 com licença lida ; Palácio do Planalto: sem FLICKR_API_KEY, pulado ; STF: sem FLICKR_API_KEY, pulado"
+      ]
+    },
+    {
+      "id": "2026-10-06 u_20a861cbb1b2f619cc5c",
+      "pessoa": "Trump",
+      "titulo": "Trump’s plan to buy votes, briefly explained",
+      "pais": "EUA",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Donald Trump",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2025-06-02",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Donald Trump",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2025-06-02",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "notas": [
+        "busca \"Donald Trump\" ; Casa Branca: 505 galeria(s) citam \"Donald Trump\", 2 aberta(s), 38 foto(s) oficiais ; Federal Reserve: 993 na galeria, 0 citam \"Donald Trump\" ; NASA: 16 foto(s) da NASA para \"Donald Trump\" ; Câmara dos Deputados: 0 evento(s), 0 foto(s) na primeira página ; Agência Senado: 100 no acervo, 4 citam \"Donald Trump\" na legenda, 4 com licença lida ; Palácio do Planalto: sem FLICKR_API_KEY, pulado ; STF: sem FLICKR_API_KEY, pulado"
+      ]
+    },
+    {
+      "id": "2026-10-03 u_606ce6e9a79cff35262e",
+      "pessoa": "Powell",
+      "titulo": "Fed watchdog clears former chair Powell in renovation probe",
+      "pais": "EUA",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Jerome Powell",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/9/92/Jerome_H._Powell%2C_Federal_Reserve_Chair.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2022-08-16 08:29",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Jerome Powell",
+        "tipo": "person",
+        "fonte": "banco_oficial",
+        "banco": "Federal Reserve",
+        "imagem": "https://www.federalreserve.gov/photogallery/files/DSC_2938-pw.jpg",
+        "credito": "Foto: Federal Reserve",
+        "data": "2026-04-29",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "notas": [
+        "busca \"Jerome Powell\" ; Casa Branca: 1 galeria(s) citam \"Jerome Powell\", 1 aberta(s), 49 foto(s) oficiais ; Federal Reserve: 993 na galeria, 4 citam \"Jerome Powell\" ; NASA: 0 foto(s) da NASA para \"Jerome Powell\" ; Câmara dos Deputados: 0 evento(s), 0 foto(s) na primeira página ; Agência Senado: 0 no acervo, 0 citam \"Jerome Powell\" na legenda, 0 com licença lida ; Palácio do Planalto: sem FLICKR_API_KEY, pulado ; STF: sem FLICKR_API_KEY, pulado"
+      ]
+    },
+    {
+      "id": "2026-09-29 u_7191952790e32ed8a54b",
+      "pessoa": "Hegseth",
+      "titulo": "Hegseth instructs Pentagon to defend 2026 elections from ‘foreign actors’",
+      "pais": "EUA",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Pete Hegseth",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Pete_Hegseth_Official_Portrait.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2025-01-27",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Pete Hegseth",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Pete_Hegseth_Official_Portrait.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2025-01-27",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "notas": [
+        "busca \"Pete Hegseth\" ; Casa Branca: 0 galeria(s) citam \"Pete Hegseth\", 0 aberta(s), 0 foto(s) oficiais ; Federal Reserve: 993 na galeria, 0 citam \"Pete Hegseth\" ; NASA: 14 foto(s) da NASA para \"Pete Hegseth\" ; Câmara dos Deputados: 0 evento(s), 0 foto(s) na primeira página ; Agência Senado: 0 no acervo, 0 citam \"Pete Hegseth\" na legenda, 0 com licença lida ; Palácio do Planalto: sem FLICKR_API_KEY, pulado ; STF: sem FLICKR_API_KEY, pulado"
+      ]
+    },
+    {
+      "id": "2026-09-29 u_e0463360a464f520981a",
+      "pessoa": "Hegseth",
+      "titulo": "Exclusive: Hegseth directs Defense Dept. to fight foreigners who \"meddle\" in U.S. elections",
+      "pais": "EUA",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Pete Hegseth",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Pete_Hegseth_Official_Portrait.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2025-01-27",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Pete Hegseth",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Pete_Hegseth_Official_Portrait.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2025-01-27",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "notas": [
+        "busca \"Pete Hegseth\" ; Casa Branca: 0 galeria(s) citam \"Pete Hegseth\", 0 aberta(s), 0 foto(s) oficiais ; Federal Reserve: 993 na galeria, 0 citam \"Pete Hegseth\" ; NASA: 14 foto(s) da NASA para \"Pete Hegseth\" ; Câmara dos Deputados: 0 evento(s), 0 foto(s) na primeira página ; Agência Senado: 0 no acervo, 0 citam \"Pete Hegseth\" na legenda, 0 com licença lida ; Palácio do Planalto: sem FLICKR_API_KEY, pulado ; STF: sem FLICKR_API_KEY, pulado"
+      ]
+    },
+    {
+      "id": "2026-09-29 u_b3801c2f439619ed536f",
+      "pessoa": "Biden",
+      "titulo": "The economic legacy of the Biden immigration surge",
+      "pais": "EUA",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Joe Biden",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/6/68/Joe_Biden_presidential_portrait.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2021-03-03",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Joe Biden",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/6/68/Joe_Biden_presidential_portrait.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2021-03-03",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "notas": [
+        "busca \"Joe Biden\" ; Casa Branca: 1 galeria(s) citam \"Joe Biden\", 1 aberta(s), 14 foto(s) oficiais ; Federal Reserve: 993 na galeria, 0 citam \"Joe Biden\" ; NASA: 16 foto(s) da NASA para \"Joe Biden\" ; Câmara dos Deputados: 1 evento(s), 1 foto(s) na primeira página ; Agência Senado: 0 no acervo, 0 citam \"Joe Biden\" na legenda, 0 com licença lida ; Palácio do Planalto: sem FLICKR_API_KEY, pulado ; STF: sem FLICKR_API_KEY, pulado"
+      ]
+    },
+    {
+      "id": "2026-09-23 u_967f18a454b9065a7326",
+      "pessoa": "Rubio",
+      "titulo": "Secretários de Estado dos EUA e da Rússia, Rubio e Lavrov se reunirão durante Assembleia da ONU",
+      "pais": "EUA",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "reunião politica",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/17168258/pexels-photo-17168258.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "reunião politica",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/17168258/pexels-photo-17168258.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "notas": []
+    },
+    {
+      "id": "2026-09-19 u_649cc1cf725a044cb7f8",
+      "pessoa": "Newsom",
+      "titulo": "Gavin Newsom is pushing for an AI kill switch",
+      "pais": "EUA",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Gavin Newsom",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/2/20/Gavin_Newsom_official_photo.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2011-01-10",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Gavin Newsom",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/2/20/Gavin_Newsom_official_photo.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2011-01-10",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "notas": [
+        "busca \"Gavin Newsom\" ; Casa Branca: 0 galeria(s) citam \"Gavin Newsom\", 0 aberta(s), 0 foto(s) oficiais ; Federal Reserve: 993 na galeria, 0 citam \"Gavin Newsom\" ; NASA: 0 foto(s) da NASA para \"Gavin Newsom\" ; Câmara dos Deputados: 0 evento(s), 0 foto(s) na primeira página ; Agência Senado: 0 no acervo, 0 citam \"Gavin Newsom\" na legenda, 0 com licença lida ; Palácio do Planalto: sem FLICKR_API_KEY, pulado ; STF: sem FLICKR_API_KEY, pulado"
+      ]
+    },
+    {
+      "id": "2026-09-19 u_98310e445451faa0ef8f",
+      "pessoa": "Newsom",
+      "titulo": "2028 Democrats like Newsom and Pritzker lean in on AI safety as Washington stalls",
+      "pais": "EUA",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Gavin Newsom",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/2/20/Gavin_Newsom_official_photo.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2011-01-10",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "entidade",
+        "entidade": "Gavin Newsom",
+        "tipo": "person",
+        "fonte": "wikimedia_commons",
+        "banco": null,
+        "imagem": "https://upload.wikimedia.org/wikipedia/commons/2/20/Gavin_Newsom_official_photo.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "credito": "",
+        "data": "2011-01-10",
+        "vista": null,
+        "fotoDaPessoa": true
+      },
+      "notas": [
+        "busca \"Gavin Newsom\" ; Casa Branca: 0 galeria(s) citam \"Gavin Newsom\", 0 aberta(s), 0 foto(s) oficiais ; Federal Reserve: 993 na galeria, 0 citam \"Gavin Newsom\" ; NASA: 0 foto(s) da NASA para \"Gavin Newsom\" ; Câmara dos Deputados: 0 evento(s), 0 foto(s) na primeira página ; Agência Senado: 0 no acervo, 0 citam \"Gavin Newsom\" na legenda, 0 com licença lida ; Palácio do Planalto: sem FLICKR_API_KEY, pulado ; STF: sem FLICKR_API_KEY, pulado"
+      ]
+    },
+    {
+      "id": "2026-09-18 u_2c57df003e128fcf27e1",
+      "pessoa": "Hegseth",
+      "titulo": "Massie moves to impeach Pete Hegseth over Iran War",
+      "pais": "EUA",
+      "antes": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "abertura de processo de impeachment politica",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/17168258/pexels-photo-17168258.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "depois": {
+        "status": "SELECTED",
+        "caminho": "cena",
+        "entidade": "abertura de processo de impeachment politica",
+        "tipo": "conceptual",
+        "fonte": "banco_conceitual",
+        "banco": null,
+        "imagem": "https://images.pexels.com/photos/17168258/pexels-photo-17168258.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "credito": "",
+        "data": null,
+        "vista": null,
+        "fotoDaPessoa": false
+      },
+      "notas": []
+    }
+  ]
+}

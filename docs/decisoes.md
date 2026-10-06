@@ -2349,6 +2349,174 @@ do Instagram explica o dia com o registro mais recente
 (`recentes`, opcional no store): aprovadas, reprovadas, canceladas e
 publicadas, para os filtros. O relógio da fila continua lendo só `abertas`.
 
+## Os bancos de imagem oficiais (06/10/2026)
+
+O pedido do dono: mais bancos de foto, sobretudo brasileiros, porque a linha
+passou a ter política brasileira (ano de eleição) e gente conhecida. O Commons
+tem do Flávio Bolsonaro, quando tem, a foto de 2019; a Câmara e o Senado o
+fotografam toda semana. O código mora em `src/lib/server/visual/bancos-oficiais/`.
+
+**A pesquisa, banco a banco, com o agente honesto (`eua.journal/1.0`).** Entra
+só banco cuja licença permite uso COMERCIAL com crédito, conferida na página da
+própria foto ou do próprio banco, e que responde ao agente declarado. A conta é
+comercial: o feed tem CTA de produto.
+
+| banco | licença | crédito | acesso | entrou? |
+|---|---|---|---|---|
+| Câmara dos Deputados (banco de imagens) | CC BY, no rodapé da página de busca | "Nome/Câmara dos Deputados" | HTML da busca, sem API; robots livre | sim |
+| Agência Senado (www12.senado.leg.br/fotos) | a da foto no Flickr: CC BY-SA 4.0 em 2025 e 2026, CC BY 2.0 de 2015 a 2023, CC BY-NC numa de 2013 | "Nome/Agência Senado" | proxy JSON do próprio Senado sobre a API do Flickr, sem chave | sim, com a licença lida foto a foto |
+| Casa Branca (galerias do whitehouse.gov) | domínio público do governo; terceiro é CC BY 3.0 | "Official White House Photo by Nome", na legenda | mapa de galerias e HTML; sem API, busca interna proibida no robots | sim, só a foto assinada pelo fotógrafo oficial |
+| Federal Reserve (photogallery.htm) | domínio público salvo indicação; "Photo Credit" de terceiro fica fora | "Federal Reserve" | uma página HTML, sem robots | sim |
+| NASA (images-api.nasa.gov) | não protegida; uso editorial sem sugerir endosso | "NASA/Nome" | API pública sem chave | sim |
+| Palácio do Planalto (Flickr) | CC BY 2.0 até 2023, pelos registros do Commons; o atual não deu para conferir | "Nome/Palácio do Planalto" | o robots do flickr.com proíbe tudo fora da API | com `FLICKR_API_KEY` |
+| STF (Flickr) | Public Domain Mark nas de 2026, pelos registros do Commons | "Nome/STF" | idem; o portal do STF dá 403 ao agente | com `FLICKR_API_KEY` |
+| Agência Brasil (EBC) | NÃO é CC BY: "© Todos os direitos reservados pela EBC"; reprodução autorizada para fim jornalístico, e "redes sociais aliadas a produtos" pedem licenciamento | "Nome/Agência Brasil" | HTML; o original tem proteção de hotlink (403 sem Referer) | NÃO |
+| Fiocruz Imagens | 7.290 de 7.303 itens CC BY-NC | | API Omeka S | NÃO (não comercial, e acervo de saúde) |
+| Agência Gov | portal de notícia, sem banco de fotos nem crédito estruturado | | robots proíbe busca | NÃO |
+| Library of Congress | | | 403 do Cloudflare ao agente | NÃO |
+| senate.gov, bioguide | | | 403 do Akamai; robots `Disallow: /` | NÃO |
+| Congress.gov (API) | "Courtesy of the Member", não é licença | | chave do api.data.gov | NÃO (175x219, e sem licença) |
+| retratos oficiais da Câmara e do Senado (dados abertos) | termos gerais das casas | | JSON sem chave | NÃO por ora: 354x472 e 480x600, abaixo dos 800 px |
+| DVIDS (Defesa) | domínio público, uso comercial liberado nos termos da API | "U.S. Army photo by ..." | API com chave gratuita | fica para quando houver chave |
+
+**A Agência Brasil fica de fora, e é decisão de licença, não de técnica.** O
+pedido citava "Creative Commons com crédito", e não é o que a página diz hoje.
+O caminho é o dono escrever para licenciamento@ebc.com.br; com licença por
+escrito, o adaptador é pequeno (busca HTML, crédito em `div.credito-foto`), mas
+precisa mandar o Referer da página para baixar o original, e o portal, que
+carrega a capa direto do host, levaria 403.
+
+**O que muda no resolvedor, e o que NÃO muda.**
+
+- **Pela entidade, antes do Commons na ordem de conferência.** Pessoa e
+  instituição pública consultam os bancos (o do país da pauta primeiro, e o
+  outro também: o Lula da pauta americana é foto do Brasil). As fotos entram na
+  MESMA fila do Commons, da fonte oficial e do Openverse, com a mesma
+  pontuação, piso de identidade, régua de país, temporalidade, figura não
+  central e conferência visual. O que muda é QUEM é aberto primeiro:
+  `oficiaisPrimeiro` põe na frente, até três, as fotos de banco cuja LEGENDA
+  nomeia a entidade, da mais recente para a mais antiga. A pessoa como ela está
+  hoje.
+- **A identidade vem da legenda, nunca da busca.** O banco devolve para "Lula"
+  a foto do ministro que "se reuniu com Lula", o deputado Lula da Fonte e o
+  fotógrafo Lula Marques; para "Tarcísio", o deputado Tarcísio Motta; para
+  "Vance", na NASA, o astronauta Vance Brand. Duas réguas, e as duas valem.
+  `legendaCita` exige o nome com fronteira de palavra, aceita o apelido de uma
+  palavra só quando o que vem depois não é outro sobrenome, e aceita cargo mais
+  sobrenome ("Chairman Warsh", "presidente Lula"). `protagonistaDaLegenda`
+  exige que a entidade seja a PRIMEIRA pessoa que a legenda nomeia, depois de
+  tirar os trechos de assunto ("sobre", "envolvendo", "contra", "about"): a
+  legenda de agência abre por quem está na foto, e cita o tema da pauta também.
+  E foto de grupo não é retrato de ninguém: legenda com lista ("Mesa:",
+  "Participam:", "da esquerda para a direita") ou com três pessoas nomeadas ou
+  mais não prova a pessoa (`fotoDeGrupo`). O pedido é a pessoa como assunto
+  claro da foto, e a mesa de sete da posse não é o Fachin.
+  Foto de banco de PESSOA que não passa nas duas sai da fila
+  (`NON_CENTRAL_PUBLIC_FIGURE`), porque pela pontuação ela ainda passaria. A
+  que passa ganha o nome resolvido em `metadata.categorias`, que é onde a
+  pontuação procura. O caso que fez a régua: ver "A legenda citava o Moraes,
+  e a foto era de um senador" no `aprendizados-e-incidentes.md`.
+- **A vice da bolha e a busca extra da bolha** usam a mesma fila, com as
+  oficiais na frente e o piso de identidade de sempre.
+- **Na escada da cena**, no degrau `editoria` e só em pauta de governo do
+  Brasil ou dos EUA, os bancos do país entram com o lugar (a fachada do
+  Congresso, a Esplanada, a Casa Branca, o prédio do Fed). A conferência
+  continua recusando pessoa identificável, então o plenário cheio cai.
+- **Com os bancos ligados, a biblioteca só devolve na hora a foto que veio de
+  banco oficial.** A do Commons guardada antes volta pela busca, mas não passa
+  na frente por ter chegado primeiro.
+- **A memória de 30 dias, a do dia e as regras de rosto da bolha** são as de
+  sempre: a foto de banco é um `AssetVisual` como qualquer outro.
+
+**O registro e o crédito.** `source = "banco_oficial"`, e em `metadata`: o
+banco, o nome dele, o autor, a licença como o banco a declara, a página, a
+data, a legenda e o crédito curto. O `attribution` é o crédito no formato do
+dono, "Foto: Marcelo Camargo/Agência Brasil" (aqui, "Foto: Kayo
+Magalhães/Câmara dos Deputados" ou "Foto: Daniel Torok/Casa Branca"), SEMPRE,
+inclusive no domínio público americano, que não exige: foto de agência oficial
+sem o nome de quem fez parece apropriada. Na legenda do Instagram quem monta a
+linha é `linhaDeCredito` (`social/legenda-final.ts`, da frente da legenda no
+método do Not Journal): para foto de banco ela usa o autor COM o banco
+(`autorComBanco`), porque a CC BY da Câmara exige "Nome do Fotógrafo/Câmara dos
+Deputados", e mantém a regra dela de pôr a sigla só onde a licença pede
+("Foto: Kayo Magalhães/Câmara dos Deputados (CC BY)"; "Foto: Jonas
+Pereira/Agência Senado (CC BY-SA 4.0)"; "Foto: Daniel Torok/Casa Branca"). O
+filtro que tira crédito com "/" de outra origem deixa passar "/" mais o nome
+de um banco da lista (`NOMES_DOS_BANCOS`), e o teste confere que todo banco do
+registro está nela. No portal, o crédito da capa usa o banco como origem.
+
+**CC BY-SA na peça.** A Agência Senado publica em CC BY-SA 4.0 desde 2025, e a
+arte do post é obra derivada (recorte e texto por cima). A allowlist já aceita
+BY-SA desde a fase 2, para o Commons; o compartilhamento pela mesma licença
+vale para a peça, e isso é uma decisão do dono que esta frente não mudou.
+
+**A rede.** Agente honesto, prazo de 12 s, um pedido por vez por host com
+intervalo mínimo (1,1 s; 2 s no Senado, cuja busca leva de 4 a 10 s e pesa 1
+MB), memória de 10 minutos por busca (a newsletter, o portal e o post resolvem
+a mesma pauta em sequência), e a falha nunca fica na memória. Banco fora do ar,
+recusa, resposta ilegível ou falta de chave viram nota em `fontesConsultadas`
+(`banco_oficial`), e o Commons segue como antes. A medida da foto que o banco
+não declara (Câmara, Fed) é lida do próprio JPEG, nos primeiros 64 KB.
+
+**Hosts.** `www.camara.leg.br`, `www.whitehouse.gov`, `www.federalreserve.gov`
+e `images-assets.nasa.gov` entraram no `next.config.ts`; o Senado e o Flickr
+usam `live.staticflickr.com`, que já estava. Cada banco declara os hosts dele,
+e o teste de hosts confere todos contra a lista do `next/image`.
+
+**O interruptor é `settings.imagens.bancos_oficiais`.** Só o `true` booleano
+liga; ausente é desligado no código e a resolução é byte a byte a de antes.
+`imagemDaPauta` lê do projeto, e o ciclo social passa o mesmo valor à foto do
+carrossel e à busca extra da bolha, que chamam o resolvedor direto. Para ligar:
+`supabase/2026-10-06-bancos-oficiais.sql`.
+
+**A chave do Flickr, para o Planalto e o STF.** O robots do flickr.com proíbe
+tudo para agente não listado, inclusive o feed público, então a API com chave é
+o único caminho legítimo. Uso comercial pede a chave comercial: em
+https://www.flickr.com/services/apps/create/apply/, "Apply for a Commercial
+Key", descrevendo o uso (busca de fotos editoriais nas contas oficiais do
+Planalto e do STF, com crédito e link para a página da foto). Os termos da API
+pedem respeitar a licença e o autor de cada foto, linkar a página da foto e
+exibir "This product uses the Flickr API but is not endorsed or certified by
+SmugMug, Inc." A chave vai para `FLICKR_API_KEY` no ambiente dos dois serviços.
+A busca já pede só as licenças comerciais (4, 5, 8, 9, 10, 11 e 12) e confere
+de novo foto a foto.
+
+**Medição.** `npx tsx src/scripts/medir-bancos-oficiais.ts` passa pautas reais
+(só SELECT) cuja manchete nomeia um político brasileiro ou uma autoridade
+americana, antes e depois, e grava `medicao.json` e a folha de contato em
+`docs/design/bancos-oficiais-2026-10-06/`. 
+
+Medido em 06/10/2026, em 21 pautas aprovadas dos últimos 30 dias (10 brasileiras), SEM a
+conferência visual: a conta do modelo estava sem crédito (ver o incidente do
+mesmo dia), então o resolvedor aprovou a primeira da fila, que é a foto que a
+conferência abriria primeiro, e quem conferiu fui eu, olhando a folha. Foram
+cinco rodadas, porque as três primeiras acharam fotos erradas que as réguas de
+identidade deixavam passar.
+
+```
+                                    antes    depois (rodada final)
+pauta com foto da pessoa              11       12      (de 21)
+  dessas, de banco oficial             0        5
+pautas brasileiras com a pessoa        3        3      (de 10)
+```
+
+O que a folha mostra, foto a foto, nas cinco de banco oficial: Moraes nas
+duas pautas dele (Agência Senado, 2023, ele como assunto claro), Powell (Fed,
+abril de 2026) estão certos e mais novos que o Commons. Flávio Bolsonaro (Senado,
+setembro de 2026) e Fachin (Senado, 2015) vieram em plano aberto, com muita
+gente, e é a conferência visual que decide se a pessoa aparece; sem crédito
+na conta, ela recusa, e essas duas não iriam ao ar. A diferença de 11 para 12
+é variação de rede numa pauta de Trump, e não efeito dos bancos.
+
+Duas conclusões medidas. **Nas pautas brasileiras o gargalo não é o banco, é
+a entidade:** em 6 das 10 nenhuma pessoa foi resolvida como entidade (a pauta
+"Ibovespa dispara, com foco em Lula" é do Ibovespa, e "STF analisa mensagens
+entre Moraes e Vorcaro" saiu como cena), e nesses casos nenhum banco é
+consultado pela pessoa. **A régua de polaridade de texto recusa legenda
+legislativa:** "Deliberação dos dispositivos do Veto nº 51" tem "veto", que o
+detector lê como rejeição, e derrubou as fotos de 2026 do Flávio na Câmara
+numa pauta de tom positivo. Nenhuma das duas foi mexida aqui.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

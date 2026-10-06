@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import nextConfig from "../../../../next.config";
+import { BANCOS_OFICIAIS } from "./bancos-oficiais/registro";
 
 /**
  * Todo host que o resolvedor visual escolhe precisa estar liberado no next/image.
@@ -33,6 +34,15 @@ describe("hosts de imagem", () => {
 
     for (const host of HOSTS_DO_PIPELINE) {
       expect(liberados).toContain(host);
+    }
+  });
+
+  it("todo host de banco oficial está liberado no next/image (06/10/2026)", () => {
+    const liberados = (nextConfig.images?.remotePatterns ?? []).map((p) =>
+      typeof p === "string" ? p : String(p.hostname),
+    );
+    for (const banco of BANCOS_OFICIAIS) {
+      for (const host of banco.hostsDeImagem) expect(liberados, `${banco.nome}: ${host}`).toContain(host);
     }
   });
 

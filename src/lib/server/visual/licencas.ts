@@ -26,7 +26,18 @@ export type LicencaAceita = {
 const ACEITAS: LicencaAceita[] = [
   { padrao: /(^|[^a-z])cc0([^a-z]|$)|creative commons zero/i, nome: "CC0", exigeAtribuicao: false, permiteCopia: true },
   { padrao: /public domain|pd-|dom[íi]nio p[úu]blico/i, nome: "Public Domain", exigeAtribuicao: false, permiteCopia: true },
-  { padrao: /pd-usgov|work of the united states federal government/i, nome: "PD-USGov", exigeAtribuicao: false, permiteCopia: true },
+  /*
+   * "United States Government Work" é como o Flickr chama a licença 8, a das
+   * contas oficiais do governo americano (Casa Branca, Departamento de
+   * Estado...). Entrou em 06/10/2026 com os bancos oficiais: sem ela, a foto
+   * de domínio público era recusada por não estar na lista.
+   */
+  {
+    padrao: /pd-usgov|work of the united states federal government|united states government work|u\.s\. government work/i,
+    nome: "PD-USGov",
+    exigeAtribuicao: false,
+    permiteCopia: true,
+  },
   { padrao: /cc[ -]by[ -]sa/i, nome: "CC BY-SA", exigeAtribuicao: true, permiteCopia: true },
   { padrao: /cc[ -]by(?![ -]sa)(?![ -]nc)(?![ -]nd)/i, nome: "CC BY", exigeAtribuicao: true, permiteCopia: true },
 ];

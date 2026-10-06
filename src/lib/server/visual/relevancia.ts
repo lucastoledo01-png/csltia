@@ -87,7 +87,14 @@ export function pontuarImagem(asset: AssetVisual, entidade: EntidadeVisual): Not
   const licencaPontos = asset.license ? PESO.licenca : 0;
 
   const origemPontos =
-    asset.source === "wikimedia_commons" || asset.source === "fonte_oficial"
+    /*
+     * O banco oficial (06/10/2026) pesa como o Commons: licença declarada
+     * foto a foto, autor conhecido e arquivo da própria instituição. A
+     * preferência por ele sobre o Commons não mora aqui, mora na ORDEM de
+     * conferência (`oficiaisPrimeiro`), para a nota continuar medindo só
+     * o quanto a foto é da pauta.
+     */
+    asset.source === "wikimedia_commons" || asset.source === "fonte_oficial" || asset.source === "banco_oficial"
       ? PESO.origem
       : asset.source === "press_kit" || asset.source === "flickr_commons" || asset.source === "openverse"
         /*
