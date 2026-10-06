@@ -92,7 +92,19 @@ export function mundoDaRefacaoDeProducao(
     historico: async (projectId) => {
       const { criarHistoricoStore } = await import("../editorial/history");
       const { carregarConfigEditorial } = await import("../editorial/config");
-      return criarHistoricoStore(client()).janela(projectId, carregarConfigEditorial(env).janelaDeDias);
+      const { comHistoricoDoFeed, lerHistoricoDoFeed } = await import("../social/historico-do-feed");
+      const dias = carregarConfigEditorial(env).janelaDeDias;
+      /*
+       * O canal `instagram` vem do feed, e não do histórico editorial
+       * (06/10/2026): a troca de pauta do post perguntava `verificarRepeticao`
+       * a um canal vazio, e podia escolher a pauta que o feed levou ontem. Ver
+       * `historico-do-feed.ts`. Os outros canais seguem como eram.
+       */
+      const [editorial, doFeed] = await Promise.all([
+        criarHistoricoStore(client()).janela(projectId, dias),
+        lerHistoricoDoFeed(client(), projectId, dias),
+      ]);
+      return comHistoricoDoFeed(editorial, doFeed);
     },
 
     // O módulo de configuração não importa nada: entra pelo grafo estático sem peso.
