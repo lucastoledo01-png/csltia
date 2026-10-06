@@ -773,6 +773,8 @@ imagem e arte, nunca o texto; a terceira reprovação descarta. As funções de
 cada etapa existem, mas pedem a pauta avaliada inteira, que não está gravada na
 linha do post. Até alguém registrar o gancho em `GANCHOS_DE_PRODUCAO`, a peça
 reprovada fica em `refazendo` com o motivo no painel.
+ATUALIZADO em 06/10/2026: toda etapa de todo ramo tem gancho, e a refação
+roda fora do clique. Ver "A refação completa, por peça e por canal".
 
 **Regra fixa só com o dono.** O mesmo erro três vezes, na mesma etapa, vira
 PROPOSTA em `regras_propostas`. Só a aprovada entra no bloco "não repetir"
@@ -832,6 +834,8 @@ o pacote factual passaram a ser gravados no `resumo` da fila, em
 Seleção, texto do post, newsletter e carrossel continuam sem gancho, com o
 motivo em `ganchos-de-producao.ts`: cada um pediria um segundo gerador fora do
 gerador.
+ATUALIZADO em 06/10/2026: ligados todos, ver "A refação completa, por peça e
+por canal".
 
 **A home mostra a matéria do portal.** Com os ramos em `enforce`, a home junta
 as matérias publicadas às pautas das edições, mais recente primeiro, sem o
@@ -1254,6 +1258,75 @@ posição escolhida e as recusadas, a origem da segunda foto e o custo.
 render (regra de 05/10). Os três recortes de 05/10 nasceram às 09:21, antes do
 interruptor. O recorte também deixou de carregar a segunda foto: ele não
 desenha bolha, e o campo ia preenchido assim mesmo.
+
+## A refação completa, por peça e por canal (06/10/2026)
+
+Véspera de a fila valer com aprovação manual nos três ramos. Até aqui a
+seleção (todos os ramos), o texto do post, a newsletter inteira e o carrossel
+deixavam a peça reprovada em `refazendo` para sempre.
+
+**A aprovação e a refação são por PEÇA e por CANAL** (decisão do dono, com
+estas palavras: os três canais comunicam de jeitos diferentes). Reprovar a
+newsletter nunca toca a matéria nem o post da mesma pauta, e vice-versa; cada
+um é aprovado e reprovado sozinho. Os ganchos só escrevem na linha da peça
+reprovada (ou criam a substituta), e há teste que reprova o texto do post e
+confere que a matéria e a newsletter ficaram iguais, linha e conteúdo.
+
+**A foto refeita é da peça, não da pauta.** A foto de uma pauta é resolvida uma
+vez para os três canais (`imagem_da_pauta`). A refação de imagem resolve outra
+(`imagemDaPauta` com `ignorarReuso`) e grava só na peça; desde esta data
+`ignorarReuso` não regrava a tabela nem a memória, e os outros canais seguem
+com a foto que tinham. Até 05/10 a foto refeita substituía a compartilhada.
+
+**O contexto vai para a linha da fila.** `resumo.contexto` guarda a pauta (o
+que os redatores e o resolvedor leem dela), o pacote factual, a referência ao
+pool aprovado do dia (só os `storyId`, em ordem) e, na newsletter, as fotos e os
+créditos de cada história. O post leva o mesmo em `content_json.contexto_da_refacao`
+e a forma do carrossel em `content_json.carrossel`. Peça anterior a isto é
+remontada de `news_candidates`, `articles.source_urls`, `news_editions.stories`
+e do histórico editorial; sem como remontar, o painel diz o que faltou.
+
+**Cada etapa, por ramo:**
+
+| ramo | seleção | texto | imagem | arte |
+|---|---|---|---|---|
+| post | outra pauta, pelo ciclo social inteiro (`rodarSocialDoDia`, teto 1), na vaga da reprovada | `gerarPostDaPauta` com motivo e memória, depois a arte | foto nova só da peça, depois a arte | recongela |
+| carrossel | idem | o mesmo gerador, na mesma estrutura, e recongela todas as telas | foto da capa, e recongela as telas | recongela as telas |
+| artigo | outra pauta, pelo ramo do portal (`rodarRamoDoPortal`), no horário da reprovada | `escreverArtigoDaPauta` | capa nova | não existe |
+| newsletter | troca UMA história, apontada pelo editor, e reescreve a edição | `runNewsroomPipeline` com motivo e memória (a edição inteira; a pauta apontada vai como foco) | foto nova da história apontada, ou de todas; só o HTML é redesenhado | não existe |
+
+**A seleção refeita respeita a régua do ramo:** aprovada pela linha editorial,
+imigração fora, nada que o canal já tenha no dia (nem a pauta recusada), nenhum
+acontecimento repetido no canal (cosseno 0.70 contra as peças do dia, e a
+impressão do acontecimento no post), nada já publicado no canal
+(`verificarRepeticao`), foto real e pacote factual. No post e no artigo a peça
+nova entra na fila com hash próprio e herda a contagem de refações da vaga; a
+reprovada é descartada com o motivo e o id da substituta. A newsletter é uma
+peça por dia, então a troca é dentro dela, e o editor escolhe no painel qual
+pauta sai (sem escolher, a refação diz que precisa saber).
+
+**O Listmonk não é tocado.** A campanha só nasce na liberação, com o que está
+na linha naquela hora.
+
+**A refação roda fora do clique.** A reprovação grava `resumo.refacao` em
+`na_fila` e responde. Roda o `after` da própria reprovação e, a cada minuto, o
+relógio da fila (`processarRefacoes`); a reivindicação é condicional, então os
+dois nunca refazem a mesma peça. Falha técnica volta para a fila (na terceira
+vira "não dá"); processo que morreu no meio deixa `rodando`, e depois de 20
+minutos a linha é pega de novo. Com a fila fora de `enforce`, nada roda.
+
+**"Não dá" nunca é silêncio.** Se o gancho recusou sem escrever, a peça volta a
+`aguardando` intacta, com o motivo: o editor aprova como está, reprova outra
+etapa ou cancela. Se a peça mudou pela metade (texto novo, arte que não
+fechou), fica em `refazendo`, porque aprovar a meia-versão publicaria a
+manchete de uma peça na arte de outra; a saída é cancelar. O painel mostra
+"refazendo X, refação n de 2" com a previsão de volta (estimativa por etapa,
+`MINUTOS_DA_REFACAO`) e se atualiza sozinho enquanto houver refação andando.
+
+**O que continua manual:** a peça cujo contexto não dá para remontar (a matéria
+que é a edição da newsletter, `edicao-AAAA-MM-DD`; o carrossel gravado antes
+desta data, sem a forma; a edição antiga sem a foto no histórico, para refazer
+o texto), e a terceira reprovação, que descarta como sempre.
 
 ## Armadilhas que já custaram tempo
 

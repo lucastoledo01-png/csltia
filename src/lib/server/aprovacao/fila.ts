@@ -6,15 +6,16 @@ import {
   type Aprovacao,
   type AvisoDaPeca,
   type Etapa,
+  type EstadoDaRefacao,
   type Ramo,
   type ResumoDaPeca,
 } from "./contrato";
 import type { FilaStore } from "./fila-store";
 import { conferirEdicao, type ProblemaDaEdicao } from "./guarda-da-edicao";
-import { errosRecentesDaEtapa, proporRegrasDaEtapa } from "./memoria-de-reprovacao";
+import { proporRegrasDaEtapa } from "./memoria-de-reprovacao";
 import { horariosDaNewsletter, modoDaFila, modoDoRamo } from "./modo";
 import { decidirPublicacao, type DecisaoDoPortao } from "./portao";
-import { executarRefacao, type GanchosDeRefazer } from "./refazer";
+import { etapaSemGancho, MOTIVO_SEM_REGENERACAO, type GanchosDeRefazer } from "./refazer";
 
 /**
  * O serviço da fila: enfileirar, aprovar, reprovar, refazer, cancelar, editar,
@@ -270,7 +271,12 @@ export type ResultadoDaReprovacao =
   | {
       ok: true;
       aprovacao: Aprovacao;
-      desfecho: "refeita" | "refacao_pendente" | "descartada";
+      /**
+       * `refacao_agendada`: a refação entrou na fila e roda fora do clique
+       * (06/10/2026). `refacao_impossivel`: não há como refazer a etapa sozinha,
+       * e o motivo já está no painel. `descartada`: terceira reprovação.
+       */
+      desfecho: "refacao_agendada" | "refacao_impossivel" | "descartada";
       detalhe: string;
     }
   | { ok: false; motivo: string };
@@ -281,6 +287,15 @@ export type ResultadoDaReprovacao =
  * Duas refações; a terceira reprovação descarta, com o motivo. A contagem é da
  * PEÇA, não da etapa: reprovar o texto duas vezes e a imagem uma é a terceira
  * reprovação da mesma peça, e ela já custou três rodadas de atenção.
+ *
+ * Desde 06/10/2026 a reprovação só AGENDA a refação, em `resumo.refacao`, e
+ * responde na hora. Quem refaz é `processarRefacoes` (`refacao-assincrona.ts`),
+ * chamado pelo relógio da fila a cada minuto e logo depois da resposta desta
+ * reprovação. Refazer uma seleção são minutos de pacote, redação, auditoria,
+ * foto e arte, e o clique do celular não espera isso.
+ *
+ * A reprovação é da PEÇA, e de um canal só (decisão do dono, 06/10/2026):
+ * reprovar o post não toca a matéria nem a newsletter da mesma pauta.
  */
 export async function reprovar(
   projeto: ProjetoDaFila,
@@ -289,6 +304,7 @@ export async function reprovar(
   motivo: string,
   quem: string,
   deps: DepsDaFila,
+  opcoes: { alvo?: string | null } = {},
 ): Promise<ResultadoDaReprovacao> {
   const motivoLimpo = motivo.trim();
   if (!motivoLimpo) return { ok: false, motivo: "reprovação precisa de motivo escrito: é ele que a memória guarda" };
@@ -328,7 +344,14 @@ export async function reprovar(
       `Última etapa culpada: ${etapa}. Motivo: ${motivoLimpo}`;
     const descartada = await deps.store.atualizar(
       id,
-      { estado: "descartada", decididoPor: quem, decididoEm: agora, motivo: motivoFinal, etapaCulpada: etapa },
+      {
+        estado: "descartada",
+        decididoPor: quem,
+        decididoEm: agora,
+        motivo: motivoFinal,
+        etapaCulpada: etapa,
+        resumo: { ...atual.resumo, refacao: null },
+      },
       ["aguardando", "aprovada"],
     );
     if (!descartada) return { ok: false, motivo: "outra decisão chegou antes desta" };
@@ -336,72 +359,52 @@ export async function reprovar(
     return { ok: true, aprovacao: descartada, desfecho: "descartada", detalhe: motivoFinal };
   }
 
+  const tentativa = atual.refazimentos + 1;
+  /*
+   * Sem gancho para a etapa, nem se agenda: a peça fica em `refazendo` com o
+   * "não dá" escrito, na hora, em vez de esperar um giro para descobrir.
+   */
+  const semGancho = etapaSemGancho(atual.ramo, etapa, deps.ganchos ?? {});
+  const refacao: EstadoDaRefacao = semGancho
+    ? {
+        estado: "impossivel",
+        etapa,
+        motivo: motivoLimpo,
+        alvo: opcoes.alvo ?? null,
+        tentativa,
+        pedidaEm: agora,
+        execucoes: 0,
+        motivoImpossivel: `${MOTIVO_SEM_REGENERACAO}: a etapa "${semGancho}" do ramo ${atual.ramo} ainda não tem regeneração automática`,
+      }
+    : { estado: "na_fila", etapa, motivo: motivoLimpo, alvo: opcoes.alvo ?? null, tentativa, pedidaEm: agora, execucoes: 0 };
+
+  /*
+   * Sem gancho a peça não foi tocada, então volta à mão do editor na hora,
+   * com o "não dá" escrito (ver `marcarImpossivel` em `refacao-assincrona.ts`).
+   */
   const refazendo = await deps.store.atualizar(
     id,
     {
-      estado: "refazendo",
+      estado: semGancho ? "aguardando" : "refazendo",
       decididoPor: quem,
       decididoEm: agora,
       motivo: motivoLimpo,
       etapaCulpada: etapa,
-      refazimentos: atual.refazimentos + 1,
+      refazimentos: tentativa,
+      resumo: { ...atual.resumo, refacao, refacaoPendente: refacao.motivoImpossivel ?? null },
     },
     ["aguardando", "aprovada"],
   );
   if (!refazendo) return { ok: false, motivo: "outra decisão chegou antes desta" };
 
-  return refazerEtapa(projeto, refazendo, etapa, motivoLimpo, deps);
-}
-
-/**
- * Roda a refação da etapa com a memória injetada, e devolve a peça à fila.
- *
- * O bloco "não repetir" sai da mesma função que os redatores das outras
- * frentes chamam, então a refação e a pauta do dia seguinte aprendem com o
- * mesmo registro.
- */
-export async function refazerEtapa(
-  projeto: ProjetoDaFila,
-  aprovacao: Aprovacao,
-  etapa: Etapa,
-  motivo: string,
-  deps: DepsDaFila,
-): Promise<ResultadoDaReprovacao> {
-  const naoRepetir = await errosRecentesDaEtapa(projeto.id, etapa, undefined, deps.store);
-  const r = await executarRefacao({ aprovacao, etapa, motivo, naoRepetir }, deps.ganchos ?? {});
-
-  if (!r.ok) {
-    const pendente = await deps.store.atualizar(aprovacao.id, {
-      resumo: { ...aprovacao.resumo, refacaoPendente: r.motivo },
-    });
-    return {
-      ok: true,
-      aprovacao: pendente ?? aprovacao,
-      desfecho: "refacao_pendente",
-      detalhe: r.motivo,
-    };
-  }
-
-  const peca = await deps.pecas.ler(aprovacao.ramo, aprovacao.pecaId);
-  if (!peca) return { ok: false, motivo: "a peça sumiu durante a refação" };
-
-  const devolvida = await deps.store.atualizar(
-    aprovacao.id,
-    {
-      estado: "aguardando",
-      hashArtefato: peca.hashAtual,
-      resumo: { ...aprovacao.resumo, ...r.resumo, texto: peca.texto, titulo: peca.titulo, refacaoPendente: null },
-      decididoPor: null,
-      decididoEm: null,
-    },
-    ["refazendo"],
-  );
-  return {
-    ok: true,
-    aprovacao: devolvida ?? aprovacao,
-    desfecho: "refeita",
-    detalhe: `refeitas: ${r.executadas.join(", ")}`,
-  };
+  return refacao.estado === "impossivel"
+    ? { ok: true, aprovacao: refazendo, desfecho: "refacao_impossivel", detalhe: refacao.motivoImpossivel ?? "" }
+    : {
+        ok: true,
+        aprovacao: refazendo,
+        desfecho: "refacao_agendada",
+        detalhe: `refação ${tentativa} de ${LIMITE_DE_REFAZIMENTOS} na fila: começa em até um minuto`,
+      };
 }
 
 // ---------------------------------------------------------------------------

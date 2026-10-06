@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ETAPAS_DO_RAMO,
+  LIMITE_DE_REFAZIMENTOS,
+  MINUTOS_DA_REFACAO,
   ROTULO_DA_ETAPA,
   type Aprovacao,
   type Etapa,
@@ -85,6 +87,20 @@ export function FilaDeAprovacao({ slug }: { slug: string }) {
   useEffect(() => {
     void carregar();
   }, [carregar]);
+
+  /*
+   * Enquanto houver refação na fila ou rodando, a tela se atualiza sozinha a
+   * cada 20 segundos (06/10/2026): a refação roda fora do clique, e o dono não
+   * pode ficar recarregando para saber se a peça voltou.
+   */
+  const temRefacaoAndando = Boolean(
+    visao?.fila.some((a) => a.estado === "refazendo" && a.resumo.refacao && a.resumo.refacao.estado !== "impossivel"),
+  );
+  useEffect(() => {
+    if (!temRefacaoAndando) return;
+    const t = setInterval(() => void carregar(), 20_000);
+    return () => clearInterval(t);
+  }, [temRefacaoAndando, carregar]);
 
   async function agir(corpo: Record<string, unknown>, sucesso: string) {
     setOcupado(true);
@@ -281,7 +297,10 @@ function Cartao({
   const [etapa, setEtapa] = useState<Etapa | null>(null);
   const [motivo, setMotivo] = useState("");
   const [texto, setTexto] = useState(a.resumo.texto ?? "");
+  const [alvo, setAlvo] = useState<string | null>(null);
   const comAviso = a.avisos.length > 0;
+  const pautasDaEdicao = a.ramo === "newsletter" ? (a.resumo.contexto?.pautas ?? []) : [];
+  const precisaDeAlvo = a.ramo === "newsletter" && etapa === "selecao" && pautasDaEdicao.length > 0;
   const imagem = a.resumo.imagens?.[0];
 
   return (
@@ -303,8 +322,12 @@ function Cartao({
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
           <span className="rounded bg-slate-100 px-2 py-0.5 font-medium text-slate-700">{ROTULO_DO_RAMO[a.ramo]}</span>
           <span>{hora(a.publicarEm)}</span>
-          <span>{a.estado}</span>
-          {a.refazimentos > 0 ? <span>refeita {a.refazimentos}x</span> : null}
+          <span data-estado={a.estado}>{ROTULO_DO_ESTADO[a.estado] ?? a.estado}</span>
+          {a.refazimentos > 0 ? (
+            <span>
+              {a.refazimentos} de {LIMITE_DE_REFAZIMENTOS} refações usadas
+            </span>
+          ) : null}
           {a.automatica ? <span>aprovada pela máquina</span> : null}
         </div>
 
@@ -329,10 +352,8 @@ function Cartao({
           </details>
         ) : null}
 
-        {a.resumo.refacaoPendente ? (
-          <p className="rounded bg-amber-50 p-2 text-[12px] text-amber-800">Refação pendente: {a.resumo.refacaoPendente}</p>
-        ) : null}
-        {a.motivo && a.estado !== "aguardando" ? <p className="text-[12px] text-slate-500">Motivo: {a.motivo}</p> : null}
+        <StatusDaRefacao a={a} />
+        {a.motivo && a.estado !== "aguardando" && !a.resumo.refacao ? <p className="text-[12px] text-slate-500">Motivo: {a.motivo}</p> : null}
 
         {a.estado === "aguardando" ? (
           <div className="grid grid-cols-2 gap-2">
@@ -374,7 +395,12 @@ function Cartao({
 
         {painel === "reprovar" ? (
           <div className="space-y-2">
-            <p className="text-[12px] text-slate-600">Qual etapa errou? Só ela é refeita.</p>
+            <p className="text-[12px] text-slate-600">
+              Qual etapa errou? Só ela é refeita, só nesta peça.{" "}
+              {a.refazimentos >= LIMITE_DE_REFAZIMENTOS
+                ? "Esta é a terceira reprovação: a peça será descartada."
+                : `Refação ${a.refazimentos + 1} de ${LIMITE_DE_REFAZIMENTOS}.`}
+            </p>
             <div className="flex flex-wrap gap-2">
               {ETAPAS_DO_RAMO[a.ramo].map((e) => (
                 <button
@@ -386,6 +412,28 @@ function Cartao({
                 </button>
               ))}
             </div>
+            {a.ramo === "newsletter" && etapa && pautasDaEdicao.length > 0 ? (
+              <div className="space-y-1">
+                <p className="text-[12px] text-slate-600">
+                  {etapa === "selecao"
+                    ? "Qual pauta sai da edição?"
+                    : etapa === "imagem"
+                      ? "A foto de qual pauta? Sem escolher, todas as fotos são trocadas."
+                      : "Alguma pauta em especial? Sem escolher, a edição inteira é reescrita."}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {pautasDaEdicao.map((p) => (
+                    <button
+                      key={p.storyId}
+                      className={alvo === p.storyId ? "admin-botao" : "admin-botao-secundario"}
+                      onClick={() => setAlvo(alvo === p.storyId ? null : p.storyId)}
+                    >
+                      {p.titulo.slice(0, 60)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <textarea
               className="admin-campo min-h-20 w-full"
               placeholder="O que estava errado (vai para a memória e para o próximo prompt)"
@@ -394,9 +442,14 @@ function Cartao({
             />
             <button
               className="admin-botao w-full"
-              disabled={ocupado || !etapa || !motivo.trim()}
+              disabled={ocupado || !etapa || !motivo.trim() || (precisaDeAlvo && !alvo)}
               onClick={() =>
-                void agir({ acao: "reprovar", id: a.id, etapa, motivo }, "Reprovada.").then(() => setPainel("nenhum"))
+                void agir(
+                  { acao: "reprovar", id: a.id, etapa, motivo, ...(alvo ? { alvo } : {}) },
+                  a.refazimentos + 1 > LIMITE_DE_REFAZIMENTOS
+                    ? "Reprovada pela terceira vez: a peça foi descartada."
+                    : "Reprovada. A refação entrou na fila e começa em até um minuto.",
+                ).then(() => setPainel("nenhum"))
               }
             >
               Reprovar {etapa ? ROTULO_DA_ETAPA[etapa].toLowerCase() : ""}
@@ -439,5 +492,95 @@ function Cartao({
         ) : null}
       </div>
     </article>
+  );
+}
+
+const ROTULO_DO_ESTADO: Record<string, string> = {
+  aguardando: "aguardando",
+  aprovada: "aprovada",
+  refazendo: "refazendo",
+  reprovada: "reprovada",
+  descartada: "descartada",
+  cancelada: "cancelada",
+};
+
+function horaCurta(ms: number): string {
+  return new Date(ms).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * O andamento da refação, com palavras (06/10/2026).
+ *
+ * Três estados e nenhum silêncio: na fila (começa em até um minuto, volta por
+ * volta de tal hora), rodando (desde quando, previsão) e "não dá para refazer",
+ * com o motivo e o que fazer. A previsão é estimativa por etapa
+ * (`MINUTOS_DA_REFACAO`), e a tela diz que é.
+ */
+function StatusDaRefacao({ a }: { a: Aprovacao }) {
+  const r = a.resumo.refacao;
+  const pendenteAntiga = a.estado === "refazendo" && !r ? a.resumo.refacaoPendente : null;
+
+  if (a.estado === "refazendo" && r && r.estado !== "impossivel") {
+    const minutos = MINUTOS_DA_REFACAO[a.ramo][r.etapa];
+    const inicio = r.estado === "rodando" && r.iniciadaEm ? Date.parse(r.iniciadaEm) : Date.parse(r.pedidaEm) + 60_000;
+    const previsao = horaCurta(inicio + minutos * 60_000);
+    return (
+      <div className="rounded bg-sky-50 p-2 text-[12px] text-sky-900" data-refacao={r.estado}>
+        <p>
+          <strong>
+            Refazendo {ROTULO_DA_ETAPA[r.etapa].toLowerCase()}, refação {r.tentativa} de {LIMITE_DE_REFAZIMENTOS}.
+          </strong>{" "}
+          {r.estado === "na_fila"
+            ? `Na fila: começa em até um minuto. Previsão de volta: por volta de ${previsao}.`
+            : `Rodando desde ${horaCurta(inicio)}. Previsão de volta: por volta de ${previsao}.`}
+        </p>
+        <p className="mt-1 text-sky-800">Motivo: {r.motivo}</p>
+        {r.erro ? <p className="mt-1 text-sky-800">A tentativa anterior falhou e vai de novo: {r.erro}</p> : null}
+      </div>
+    );
+  }
+
+  if (pendenteAntiga) {
+    // Reprovada antes de 06/10/2026, quando a refação ficava parada: o relógio a pega no próximo giro.
+    return (
+      <div className="rounded bg-sky-50 p-2 text-[12px] text-sky-900" data-refacao="antiga">
+        <p>
+          <strong>Refação pedida antes da refação automática.</strong> Entra na fila no próximo minuto. Antes dizia:{" "}
+          {pendenteAntiga}
+        </p>
+      </div>
+    );
+  }
+
+  if ((a.estado === "refazendo" || a.estado === "aguardando") && r?.estado === "impossivel") {
+    return (
+      <div className="rounded bg-amber-50 p-2 text-[12px] text-amber-900" data-refacao="impossivel">
+        <p>
+          <strong>Não dá para refazer {ROTULO_DA_ETAPA[r.etapa].toLowerCase()}:</strong> {r.motivoImpossivel}
+        </p>
+        <p className="mt-1">
+          {a.estado === "aguardando"
+            ? "A peça voltou como estava: aprove assim, reprove outra etapa ou cancele."
+            : "A peça mudou pela metade e não sai assim: cancele."}
+        </p>
+      </div>
+    );
+  }
+
+  const ultima = a.resumo.ultimaRefacao;
+  return (
+    <>
+      {a.resumo.substituiu ? (
+        <p className="rounded bg-emerald-50 p-2 text-[12px] text-emerald-900">
+          Pauta nova: entrou no lugar de uma peça reprovada na seleção.
+        </p>
+      ) : null}
+      {ultima && a.estado === "aguardando" ? (
+        <p className="rounded bg-emerald-50 p-2 text-[12px] text-emerald-900" data-refacao="refeita">
+          Refeita ({ROTULO_DA_ETAPA[ultima.etapa].toLowerCase()}) às {horaCurta(Date.parse(ultima.em))}: versão nova, confira de
+          novo.{ultima.detalhe ? ` ${ultima.detalhe}` : ""}
+        </p>
+      ) : null}
+    </>
   );
 }

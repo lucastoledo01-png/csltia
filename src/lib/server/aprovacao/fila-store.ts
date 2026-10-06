@@ -102,6 +102,24 @@ export type FilaStore = {
   reivindicarLiberacao(id: string, quandoIso: string): Promise<boolean>;
   /** Desfaz a marcação quando o despacho falhou, para o próximo ciclo tentar de novo. */
   soltarLiberacao(id: string): Promise<void>;
+  /**
+   * Reivindica uma refação, e só se ela ainda estiver como quem chama a viu
+   * (06/10/2026).
+   *
+   * O relógio da fila roda a cada minuto e a reprovação dispara a refação logo
+   * depois da resposta: os dois podem chegar à mesma linha. A condição é o
+   * estado da linha (`refazendo`) mais o estado da refação dentro do `resumo`
+   * (`na_fila`, ou `rodando` desde antes de um instante, que é o processo que
+   * morreu no meio). Quem não vence não roda.
+   *
+   * `esperado.estado` "ausente" é a peça reprovada antes desta data, que ficou
+   * em `refazendo` sem refação gravada.
+   */
+  reivindicarRefacao(
+    id: string,
+    esperado: { estado: "na_fila" | "rodando" | "ausente"; iniciadaAntesDe?: string },
+    resumo: ResumoDaPeca,
+  ): Promise<Aprovacao | null>;
   /** O que está na fila e ainda não saiu: aguardando, refazendo e aprovada sem liberação. */
   abertas(projectId: string): Promise<Aprovacao[]>;
   /** Decididas desde `desdeIso`, para a taxa de aprovação sem retrabalho. */
@@ -275,6 +293,23 @@ export function criarFilaStore(client: SupabaseClient): FilaStore {
         .select("id");
       if (error) falhou("reivindicar a liberação", error.message);
       return ((data ?? []) as Linha[]).length > 0;
+    },
+
+    async reivindicarRefacao(id, esperado, resumo) {
+      let q = client
+        .from("aprovacoes")
+        .update({ resumo, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("estado", "refazendo");
+      q =
+        esperado.estado === "ausente"
+          ? q.is("resumo->refacao", null)
+          : q.eq("resumo->refacao->>estado", esperado.estado);
+      if (esperado.iniciadaAntesDe) q = q.lt("resumo->refacao->>iniciadaEm", esperado.iniciadaAntesDe);
+      const { data, error } = await q.select("*");
+      if (error) falhou("reivindicar a refação", error.message);
+      const linhas = (data ?? []) as Linha[];
+      return linhas.length > 0 ? linhaParaAprovacao(linhas[0]) : null;
     },
 
     async soltarLiberacao(id) {

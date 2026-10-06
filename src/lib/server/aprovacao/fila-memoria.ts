@@ -79,6 +79,17 @@ export function criarFilaEmMemoria(relogio: () => number = Date.now): FilaStore 
       return true;
     },
 
+    async reivindicarRefacao(id, esperado, resumo) {
+      const alvo = aprovacoes.find((a) => a.id === id);
+      if (!alvo || alvo.estado !== "refazendo") return null;
+      const atual = alvo.resumo?.refacao ?? null;
+      if (esperado.estado === "ausente" ? atual !== null : atual?.estado !== esperado.estado) return null;
+      if (esperado.iniciadaAntesDe && !((atual?.iniciadaEm ?? "") < esperado.iniciadaAntesDe)) return null;
+      alvo.resumo = resumo;
+      alvo.updatedAt = agoraIso();
+      return { ...alvo };
+    },
+
     async soltarLiberacao(id) {
       const alvo = aprovacoes.find((a) => a.id === id);
       if (alvo) alvo.liberadoEm = null;

@@ -32,6 +32,15 @@ describe("o painel recusa o pedido malformado com a frase certa", () => {
     expect(String(r.corpo.error)).toMatch(/etapa culpada/);
   });
 
+  it("reprovar responde na hora com a refação agendada, e leva a pauta apontada (06/10/2026)", async () => {
+    const d = deps();
+    d.ganchos = { newsletter: { selecao: async () => ({ ok: true }) } };
+    const a = await d.store.inserir({ projectId: "proj-1", ramo: "newsletter", pecaId: "ed", hashArtefato: "h", publicarEm: null, avisos: [], resumo: {} });
+    const r = await executarAcao(projeto, { acao: "reprovar", id: a.id, etapa: "selecao", motivo: "pauta fraca", alvo: "s2" }, "dono", d);
+    expect(r.corpo).toMatchObject({ ok: true, desfecho: "refacao_agendada" });
+    expect((await d.store.porId(a.id))?.resumo.refacao).toMatchObject({ estado: "na_fila", etapa: "selecao", alvo: "s2", tentativa: 1 });
+  });
+
   it("lote com ramo inventado", async () => {
     const r = await executarAcao(projeto, { acao: "lote", ramo: "reels" }, "dono", deps());
     expect(r.status).toBe(400);
