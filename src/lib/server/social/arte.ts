@@ -326,18 +326,27 @@ const EDITORIA_DO_EIXO: Record<string, EditoriaId> = {
  * verdade e é larga demais para orientar quem rola o feed. O tema sai da lista
  * FECHADA de `src/lib/temas.ts`, a mesma da fileira "Assuntos" do portal, e
  * só quando o texto da pauta o trata de verdade: duas menções ou mais (nome ou
- * sinônimo), a régua conservadora de `temasNoTexto`. Uma citação de passagem
- * não faz de um tema o assunto, e chapéu errado é pior que chapéu largo.
+ * sinônimo), a régua conservadora de `temasNoTexto`, e uma delas na manchete,
+ * que é o primeiro texto. Uma citação de passagem não faz de um tema o
+ * assunto, e chapéu errado é pior que chapéu largo.
  *
  * Sem tema, vale a editoria de sempre; eixo sem rótulo continua sem chapéu.
  * Determinístico: a mesma pauta dá o mesmo chapéu na capa, no miolo e na
  * refação.
  */
 export function chapeuDaPeca(entrada: { eixo?: string; textos?: Array<string | null | undefined> }): string {
-  const texto = (entrada.textos ?? []).filter(Boolean).join("\n");
-  if (texto.trim()) {
+  const textos = (entrada.textos ?? []).map((t) => String(t ?? "")).filter((t) => t.trim());
+  if (textos.length > 0) {
     const editoria = EDITORIA_DO_EIXO[(entrada.eixo ?? "").trim()] ?? null;
-    const [tema] = temasNoTexto(texto, { editoria, minimo: 2 });
+    /*
+     * E o tema tem que estar na MANCHETE, que é o primeiro texto. Medido nas
+     * amostras de 06/10/2026: a pauta das ações climáticas contra petroleiras
+     * citava "petróleo" duas vezes na legenda e saía com "PREÇO DO PETRÓLEO",
+     * que não é o assunto. O chapéu fica em cima da manchete, e diz de que ela
+     * trata.
+     */
+    const naManchete = new Set(temasNoTexto(textos[0], { editoria, minimo: 1 }).map((t) => t.slug));
+    const tema = temasNoTexto(textos.join("\n"), { editoria, minimo: 2 }).find((t) => naManchete.has(t.slug));
     if (tema) return tema.nome.toLocaleUpperCase("pt-BR");
   }
   return sobrancelha(entrada.eixo);

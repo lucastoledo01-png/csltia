@@ -694,6 +694,10 @@ ${bolha ? bolhaDoMiolo(bolha, slide.inset_position) : ""}
  * avatar ainda desenha ".usa" (achado em 06/10/2026, ao renderizar esta peça),
  * e a peça que convida a assinar não pode sair com a marca antiga.
  *
+ * ATUALIZADO no mesmo dia: o avatar foi refeito a partir do ícone do site, e
+ * o remetente passou a ser o arquivo. O desenho em CSS punha o ponto antes do
+ * "eua", que era a marca antiga.
+ *
  * A linha de como pedir o link só aparece quando há palavra de comentário
  * escutada pela automação. Sem ela o convite continua de pé, porque a
  * newsletter existe com ou sem listener.
@@ -713,7 +717,7 @@ const ctaAssinatura: SlideVariant = {
   <div class="ja-tela">
     <div class="ja-topo"><span>Caixa de entrada</span></div>
     <div class="ja-linha ja-nossa">
-      <span class="ja-ava"><i></i>${esc(MARCA.nomeBase)}</span>
+      <img class="ja-ava" src="${esc(MARCA.avatar)}" alt="" />
       <div class="ja-msg">
         <div class="ja-de">${esc(MARCA.nome)}<span>hoje</span></div>
         <div class="ja-assunto">a edição de hoje chegou</div>

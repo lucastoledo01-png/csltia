@@ -578,10 +578,7 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 .ja-linha i{display:block;height:18px;border-radius:9px;background:#2a2a2a;margin:8px 0 14px;width:88%;}
 .ja-linha i + i{width:62%;}
 .ja-nossa{border-top:none;}
-.ja-ava{flex:0 0 64px;width:64px;height:64px;border-radius:50%;background:#0A3161;color:#fff;
-  display:flex;align-items:center;justify-content:center;gap:2px;font-family:var(--s-font-display);
-  font-size:21px;font-weight:800;letter-spacing:-0.01em;}
-.ja-ava i{display:block;width:9px;height:9px;border-radius:50%;background:#E4344A;margin-top:9px;}
+.ja-ava{flex:0 0 64px;width:64px;height:64px;border-radius:50%;object-fit:cover;display:block;}
 .ja-msg{flex:1 1 auto;min-width:0;}
 .ja-de{display:flex;justify-content:space-between;font-family:var(--s-font-display);
   font-size:25px;font-weight:800;color:#fff;}

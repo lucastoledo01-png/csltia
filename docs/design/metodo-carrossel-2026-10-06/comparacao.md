@@ -141,6 +141,13 @@ prováveis, contra 28% de Karen Bass; 33% seguem indecisos" (fato).
 
 ## 5. Pontos abertos para o dono
 
+> **Fechados em 06/10/2026.** Os quatro pontos abaixo e o avatar foram decididos
+> pelo dono; as decisões estão em "As decisões do dono sobre o método", no
+> `docs/decisoes.md`, e as amostras novas em `v2/` (capas com a marca do
+> Instagram e o chapéu por tema, o carrossel do Sanders inteiro, o mesmo
+> carrossel com uma foto faltando e o convite final). O texto abaixo fica como
+> estava, como registro.
+
 - **A régua de título do carrossel corta em 95 caracteres** (`HEADLINE_TOO_LONG`,
   do `leitor.ts`), mais curta que os 130 da capa de imagem única. Manchetes do
   método com 16 a 18 palavras passam disso e pedem reparo no carrossel.

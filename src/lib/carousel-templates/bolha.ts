@@ -43,6 +43,8 @@ export type PosicaoDaBolha = {
  * A marca do topo: `.j-marca` tem topo 7,5%, esquerda 9% e 52px de altura,
  * com largura automática. O arquivo é 800x143, então a 52px a marca tem 291px,
  * que num canvas de 1080 vai até 36%. A caixa abaixo arredonda para cima.
+ * Desde 06/10/2026 a marca do topo é a do Instagram, mais compacta (480x129:
+ * a 52px tem 193px, até 27%), e a caixa continua cobrindo com folga.
  *
  * A faixa do texto: `.j-texto` começa em 64% da altura e vai até a base, com
  * o chapéu de editoria e a manchete apoiados embaixo. A manchete curta deixa

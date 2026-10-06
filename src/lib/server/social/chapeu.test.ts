@@ -21,6 +21,18 @@ describe("o chapéu da peça", () => {
     expect(chapeu).toBe("DATA CENTERS");
   });
 
+  it("o tema que não está na manchete não vira chapéu, mesmo citado duas vezes no resto", () => {
+    // O caso medido nas amostras: ações climáticas contra petroleiras, com "petróleo" só na legenda.
+    const chapeu = chapeuDaPeca({
+      eixo: "politica",
+      textos: [
+        "Governos estaduais e locais levam indenizações climáticas a tribunal, com bilhões em jogo",
+        "As ações miram empresas de petróleo. As petroleiras dizem que o petróleo é regulado pelo governo federal.",
+      ],
+    });
+    expect(chapeu).toBe("POLÍTICA");
+  });
+
   it("uma menção de passagem não faz do tema o chapéu: fica a editoria", () => {
     const chapeu = chapeuDaPeca({
       eixo: "politica",

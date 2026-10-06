@@ -1502,6 +1502,8 @@ importa sem o pacote nomear o grupo. A régua de lastro não mudou.
 **No mesmo ensaio.** `MARCA.avatar` (`public/marca/eua-journal-avatar.png`)
 ainda desenha ".usa". O convite de assinatura desenha o remetente em CSS; o
 recorte de post continua usando o arquivo e precisa do avatar novo do dono.
+RESOLVIDO no mesmo dia: o avatar passou a ser o ícone do site, e o convite
+voltou a usar o arquivo.
 
 ## Legal & marca
 
