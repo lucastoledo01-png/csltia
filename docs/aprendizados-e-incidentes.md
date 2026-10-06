@@ -1823,6 +1823,22 @@ genérico. Cada uma é razoável sozinha; juntas, trocaram um governador por um
 casamento. E falha de rede que vira "lista vazia" é o mesmo colapso de
 `if (error || !data)` de 13/09: "não consegui olhar" lido como "não existe".
 
+**Segundo ato, no `--aplicar` (06/10/2026, 23:14 UTC).** As matérias voltaram
+certas; os posts, não: Anthropic e Meta ganharam outra foto do Pexels, e o
+Caiado ganhou o Capitólio e depois "o resolvedor não achou outra foto". A linha
+gravou `visual.protagonista: null` e `caminho: "cena"`. O gancho de imagem do
+post lia `news_candidates.classificacao`, coluna que não existe: o PostgREST
+devolvia erro, o código lia `data` nulo e mandava `atores: []` ao resolvedor,
+e sem atores a manchete não tem protagonista que case. A matéria lia a pauta de
+`origemDoArtigo` e não sofria. Corrigido: o gancho lê a pauta que o post guarda
+(`contexto_da_refacao`) e, sem ela, as colunas reais (`actors`, `places`,
+`event_terms`); e a linha do crédito da legenda passou a ser remontada com a
+foto nova, que antes ficava com o fotógrafo da foto velha. O ensaio do script
+não pegou isso porque montava a pauta sozinho, pelo mesmo `contexto_da_refacao`,
+e não passava pelo gancho: ensaio que não percorre o caminho do `--aplicar` não
+prova o `--aplicar`. O `src/scripts/reencapar-arte.ts` tem a mesma leitura da
+coluna inexistente e ficou como está.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

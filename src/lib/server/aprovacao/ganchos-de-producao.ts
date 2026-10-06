@@ -24,6 +24,7 @@ import { moldesLigados } from "../social/moldes-do-feed";
 import { aprendizadoDaArteVazio, arteNaRefacao } from "../aprendizado/arte";
 import { arteDaLinhaDoPost } from "../aprendizado/detalhes";
 import { fotoNovaServe, imagemNaRefacao } from "../aprendizado/imagem";
+import { legendaDoInstagram, linhaDeCredito } from "../social/legenda-final";
 
 /**
  * Os ganchos de refação ligados de verdade (RF-22, integração de 05/10/2026).
@@ -130,6 +131,44 @@ function mundoCompleto(m: MundoDosGanchos): m is MundoDosGanchos & MundoDaRefaca
     "renderizarNewsletter",
   ];
   return chaves.every((k) => typeof (m as Record<string, unknown>)[k] === "function");
+}
+
+/** A pauta que o post guardou em `content_json.contexto_da_refacao`: a dele (pelo `story_id`) ou a primeira. */
+export function pautaGuardadaNoPost(contentJson: Linha, storyId: unknown): Linha | null {
+  const cx = (contentJson.contexto_da_refacao ?? null) as Linha | null;
+  const pautas = cx && Array.isArray(cx.pautas) ? (cx.pautas as Linha[]) : [];
+  return pautas.find((p) => p && p.storyId === storyId) ?? pautas[0] ?? null;
+}
+
+/**
+ * A pauta que a refação da foto do post entrega ao resolvedor (06/10/2026).
+ *
+ * O título é o da FONTE e a manchete é a do post, como no ciclo: o
+ * protagonista sai das duas. Os atores vêm da pauta guardada no post ou, sem
+ * ela, das colunas de `news_candidates` (`actors`, `places`, `event_terms`).
+ */
+export function pautaDoPostParaImagem(
+  post: { storyId: string; manchete: string; eixo: string },
+  guardada: Linha | null,
+  candidata: Linha | null,
+): PautaParaImagem {
+  const lista = (v: unknown) => (Array.isArray(v) ? v.map(String).filter(Boolean) : []);
+  const txt = (v: unknown) => (typeof v === "string" ? v : "");
+  const p = guardada ?? {};
+  const c = candidata ?? {};
+  return {
+    storyId: post.storyId,
+    titulo: txt(p.titulo) || txt(c.title) || post.manchete,
+    manchete: post.manchete,
+    resumo: txt(p.resumo) || txt(c.summary),
+    categoria: txt(p.eixo) || txt(p.categoria) || txt(c.editorial_axis) || post.eixo,
+    classificacao: {
+      atores: guardada ? lista(p.atores) : lista(c.actors),
+      lugares: guardada ? lista(p.lugares) : lista(c.places),
+      acontecimento: guardada ? lista(p.acontecimento) : lista(c.event_terms),
+      pais: txt(p.pais) || txt(c.country) || "EUA",
+    },
+  };
 }
 
 function falha(motivo: string): ResultadoDaEtapa {
@@ -295,7 +334,7 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     );
   }
 
-  const COLUNAS_DO_POST = "id, story_id, title, edition_date, content_json, asset_paths";
+  const COLUNAS_DO_POST = "id, story_id, title, caption, edition_date, content_json, asset_paths";
 
   const imagemDoPost = async (ctx: ContextoDaRefacao): Promise<ResultadoDaEtapa> => {
     const projeto = await mundo.projeto(ctx.aprovacao.projectId);
@@ -317,49 +356,61 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     const atual = typeof visual.imageUrl === "string" ? visual.imageUrl : "";
     const storyId = typeof l.story_id === "string" && l.story_id ? l.story_id : String(l.id);
 
-    // A classificação mora na candidata, como no `reencapar-arte.ts`.
-    let classificacao = { atores: [] as string[], lugares: [] as string[], acontecimento: [] as string[], pais: "EUA" };
-    let resumo = "";
-    if (typeof l.story_id === "string" && l.story_id) {
+    /*
+     * A pauta do post, para o resolvedor (corrigido em 06/10/2026, depois do
+     * `--aplicar` da fila de 07/10). Esta leitura pedia a coluna
+     * `news_candidates.classificacao`, que NÃO existe no banco: o PostgREST
+     * devolvia erro, `data` vinha nulo e o resolvedor recebia `atores: []`.
+     * Sem atores, a manchete não tem protagonista que case, e a refação da
+     * foto do post descia para a cena: o post da Anthropic ganhou outro
+     * escritório do Pexels e o do Caiado, o Capitólio, com
+     * `content_json.visual.protagonista: null` gravado como prova. A matéria
+     * não sofria porque lê a pauta de `origemDoArtigo`.
+     *
+     * Agora a fonte é a pauta que o próprio post guarda
+     * (`content_json.contexto_da_refacao`), e a candidata, pelas colunas que
+     * existem, só quando o post não guarda.
+     */
+    const guardada = pautaGuardadaNoPost(cj, l.story_id);
+    let candidata: Linha | null = null;
+    if (!guardada && typeof l.story_id === "string" && l.story_id) {
       const { data } = await client
         .from("news_candidates")
-        .select("summary, classificacao")
+        .select("title, summary, editorial_axis, actors, places, event_terms, country")
         .eq("project_id", projeto.id)
         .eq("story_id", l.story_id)
         .limit(1);
-      const c = ((data ?? []) as Linha[])[0];
-      const k = (c?.classificacao ?? null) as Linha | null;
-      if (k) {
-        classificacao = {
-          atores: Array.isArray(k.atores) ? (k.atores as string[]) : [],
-          lugares: Array.isArray(k.lugares) ? (k.lugares as string[]) : [],
-          acontecimento: Array.isArray(k.acontecimento) ? (k.acontecimento as string[]) : [],
-          pais: typeof k.pais === "string" ? k.pais : "EUA",
-        };
-      }
-      resumo = typeof c?.summary === "string" ? c.summary : "";
+      candidata = ((data ?? []) as Linha[])[0] ?? null;
     }
+    const daPauta = pautaDoPostParaImagem(
+      { storyId, manchete: String(copy.headline ?? l.title ?? ""), eixo: String(arte.eixo ?? "") },
+      guardada,
+      candidata,
+    );
 
     // O canal não volta a uma foto que já recusou, e a cena recebe o porquê (06/10/2026).
     const { evitar, recusas } = imagemNaRefacao([atual], ctx.motivo, ctx.aprendizado?.imagem);
-    const r = await mundo.imagem(
-      {
-        storyId,
-        titulo: String(copy.headline ?? l.title ?? ""),
-        manchete: String(copy.headline ?? l.title ?? ""),
-        resumo,
-        categoria: String(arte.eixo ?? ""),
-        classificacao,
-      },
-      { client, projeto, evitar, recusas },
-    );
+    const r = await mundo.imagem(daPauta, { client, projeto, evitar, recusas });
     // Só foto real da pauta; a bandeira não é publicada desde 05/10/2026 (`sem-foto.ts`).
     const nova = temFotoDaPauta(r) ? (r.asset?.imageUrl ?? "") : "";
     if (!fotoNovaServe(nova, [atual], evitar)) return falha("o resolvedor não achou outra foto para esta pauta");
 
+    /*
+     * O crédito da legenda acompanha a foto (06/10/2026). A refação trocava a
+     * foto e deixava "Foto: Brett Sayles" (o fotógrafo do Pexels da foto
+     * velha) embaixo do logotipo da Anthropic. Na peça única a linha é
+     * remontada do asset novo; no carrossel as outras telas têm fotos
+     * próprias, e a linha fica como estava.
+     */
+    const creditoNovo = linhaDeCredito([r.asset ?? null]);
+    const legendaAtual = typeof l.caption === "string" ? l.caption : "";
+    const legendaNova =
+      legendaAtual && !ehCarrossel(l) ? legendaDoInstagram(legendaAtual, { hashtags: "manter", credito: creditoNovo }) : null;
+
     const { error } = await client
       .from("social_posts")
       .update({
+        ...(legendaNova !== null ? { caption: legendaNova } : {}),
         content_json: {
           ...cj,
           visual: {
@@ -390,6 +441,7 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
                   degrau: r.degrau ?? null,
                   protagonista: r.protagonista ?? null,
                   verificacao: (r.asset.metadata?.verificacao as Record<string, unknown> | undefined) ?? null,
+                  ...(legendaNova !== null ? { creditoNaLegenda: creditoNovo || null, creditosDasFotos: r.asset.attribution ? [r.asset.attribution] : [] } : {}),
                 }
               : {}),
           },
