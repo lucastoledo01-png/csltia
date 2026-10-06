@@ -206,3 +206,63 @@ export function creditoDoCommons(src: string | null | undefined): { texto: strin
   if (!m) return null;
   return { texto: "Foto: Wikimedia Commons (autor e licença na página do arquivo)", href: `https://commons.wikimedia.org/wiki/File:${m[1]}` };
 }
+
+/**
+ * Os hosts que o otimizador do `next/image` aceita, os mesmos de
+ * `images.remotePatterns` no `next.config.ts` (há teste que compara as duas
+ * listas). Foto de host fora daqui não passa pelo otimizador: o `next/image`
+ * lança e derruba a página, e quem desenha cai no `<img>` simples.
+ */
+export const HOSTS_OTIMIZAVEIS = [
+  "images.pexels.com",
+  "images.unsplash.com",
+  "azqpdesusdzqndvsqmko.supabase.co",
+  "casaloti.ia.br",
+  "upload.wikimedia.org",
+  "live.staticflickr.com",
+] as const;
+
+export function hostOtimizavel(src: string | null | undefined): boolean {
+  try {
+    const u = new URL(src ?? "");
+    return u.protocol === "https:" && (HOSTS_OTIMIZAVEIS as readonly string[]).includes(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A foto na largura pedida, quando o banco de imagem sabe redimensionar
+ * (06/10/2026).
+ *
+ * A capa do Pexels é gravada como `w=600&h=360&fit=crop`, pequena demais para
+ * a manchete (auditoria de SEO, item 24: no celular de 412px a 1,75x a foto é
+ * esticada; no computador, mais ainda). Aqui ela vira a mesma foto na largura
+ * pedida, sem altura nem corte, que a caixa de proporção fixa já recorta com
+ * `object-cover`. O Commons vai para a miniatura (o original chega a 9 MB), e
+ * o Unsplash ganha a largura. Os demais hosts ficam como estão.
+ *
+ * O resultado é a FONTE para o otimizador, que entrega WebP no tamanho da
+ * tela: é ele, e não o banco de imagem, que decide os bytes que o leitor baixa.
+ */
+export function fotoNaLargura(src: string | null | undefined, largura: number): string {
+  const limpo = enderecoLimpoDaImagem(src);
+  if (!limpo) return "";
+  let u: URL;
+  try {
+    u = new URL(limpo);
+  } catch {
+    return limpo;
+  }
+  if (u.hostname === "upload.wikimedia.org") return miniaturaDoCommons(limpo, largura);
+  if (u.hostname === "images.pexels.com" || u.hostname === "images.unsplash.com") {
+    for (const p of ["h", "fit", "dpr", "crop"]) u.searchParams.delete(p);
+    u.searchParams.set("w", String(largura));
+    if (u.hostname === "images.pexels.com") {
+      u.searchParams.set("auto", "compress");
+      u.searchParams.set("cs", "tinysrgb");
+    }
+    return u.toString();
+  }
+  return limpo;
+}

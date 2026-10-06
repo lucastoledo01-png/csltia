@@ -86,7 +86,16 @@ LISTMONK_URL / LISTMONK_API_USER / LISTMONK_API_TOKEN / LISTMONK_DEFAULT_LIST_ID
 # Domingo agrega a semana em prompt_learnings (?agregar=1).
 0 23 * * 1-6 /usr/bin/curl -fsS -m 300 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" https://casaloti.ia.br/api/cron/prompt-loop >> /home/deploy/prompt-loop-cron.log 2>&1
 0 23 * * 0   /usr/bin/curl -fsS -m 300 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" "https://casaloti.ia.br/api/cron/prompt-loop?agregar=1" >> /home/deploy/prompt-loop-cron.log 2>&1
+
+# Produção da véspera (06/10/2026): de 15 em 15 minutos, e a rota decide pelo
+# horário gravado na cadência do projeto (painel, Cadência). Substitui a linha
+# fixa das 20:00 UTC; não mantenha as duas.
+*/15 * * * * /usr/bin/curl -fsS -m 60 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" "https://casaloti.ia.br/api/cron/producao?relogio=1" >> /home/deploy/producao-cron.log 2>&1
 ```
+
+A produção sai no primeiro disparo entre o horário gravado e 15 minutos depois
+dele; fora disso a rota responde `{"produzido":false,"motivo":"FORA_DO_HORARIO"}`
+e não grava nada, então o log ganha uma linha curta por disparo.
 
 O loop roda às 23:00 UTC (20:00 em Brasília), depois de o dia de publicação ter
 acontecido: retrato tirado de manhã mediria um post que ainda não circulou.

@@ -141,7 +141,7 @@ export function SubstackArticleRenderer({
               src={coverImage}
               fill
               sizes="(min-width: 768px) 680px, 100vw"
-              priority
+              preload
               className="object-cover"
             />
           </div>

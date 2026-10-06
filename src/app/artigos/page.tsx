@@ -16,8 +16,15 @@ import { getPublishedArticles } from "@/lib/server/articles-service";
  *
  * Cinco minutos é folga suficiente para uma edição diária e ainda mantém a
  * página em cache na quase totalidade dos acessos.
+ *
+ * Por requisição desde 06/10/2026, pelo motivo da home ("O portal nascia vazio
+ * a cada deploy", em `aprendizados-e-incidentes.md`): com `revalidate` a lista
+ * era gerada no BUILD, e o build na VPS não tem as variáveis do banco. A
+ * leitura falhava e a página nascia com os três artigos estáticos da vertical
+ * de imigração, por cinco minutos depois de cada deploy. A consulta agora é só
+ * das publicadas e sem o corpo, e custa pouco a cada visita.
  */
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 /*
  * Título, descrição e canônico próprios (auditoria de SEO, 05/10/2026): a

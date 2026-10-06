@@ -59,6 +59,7 @@ function Manchete({ pauta }: { pauta: PautaDoPortal }) {
           rotulo={pauta.rotulo}
           editoria={pauta.editoria}
           prioridade
+          tamanhos="(min-width: 1280px) 830px, (min-width: 1024px) 66vw, 100vw"
         />
         <div className="absolute left-4 top-4 md:left-6 md:top-6">
           <Selo texto={pauta.rotulo} />
@@ -114,6 +115,7 @@ function CardDaGrade({ pauta }: { pauta: PautaDoPortal }) {
         className="w-24 shrink-0 md:mb-4 md:w-full"
         rotulo={pauta.rotulo}
         editoria={pauta.editoria}
+        tamanhos="(min-width: 768px) 33vw, 96px"
       />
       <div className="min-w-0">
         <Chapeu texto={pauta.rotulo} />
@@ -141,6 +143,7 @@ export function LinhaDoFeed({ pauta, className = "" }: { pauta: PautaDoPortal; c
         className="shrink-0"
         rotulo={pauta.rotulo}
         editoria={pauta.editoria}
+        tamanhos="(min-width: 768px) 224px, 96px"
       />
       <div className="min-w-0 flex-1">
         <Chapeu texto={pauta.rotulo} />
@@ -166,6 +169,7 @@ export function PrimeiroDoFeedMovel({ pauta }: { pauta: PautaDoPortal }) {
         arredondado="rounded-2xl"
         rotulo={pauta.rotulo}
         editoria={pauta.editoria}
+        tamanhos="100vw"
       />
       <Chapeu texto={pauta.rotulo} className="mt-4" />
       <h3 className="mt-2 text-xl font-semibold leading-snug text-[#0A0A0A]">{pauta.titulo}</h3>
@@ -213,7 +217,13 @@ function CardDaSecao({ secao }: { secao: SecaoEmFoco }) {
       className="w-[80%] shrink-0 snap-start scroll-mt-28 sm:w-[calc((100%-1rem)/2)] md:w-[calc((100%-3rem)/3)] lg:w-[calc((100%-4.5rem)/4)]"
     >
       <Link href={hrefDaEditoria(secao.editoria)} className="group block h-full rounded-2xl border border-[#E4E4E7] bg-white p-2 transition-colors hover:border-[#D4D4D8]">
-        <FotoDaPauta src={secao.imagem} proporcao="aspect-video" rotulo={editoria.nome} editoria={secao.editoria} />
+        <FotoDaPauta
+          src={secao.imagem}
+          proporcao="aspect-video"
+          rotulo={editoria.nome}
+          editoria={secao.editoria}
+          tamanhos="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 80vw"
+        />
         <div className="p-4">
           <h3 className="mb-2 text-lg font-semibold text-[#0A0A0A] transition-colors group-hover:text-marca-texto">{editoria.nome}</h3>
           <p className="text-xs leading-relaxed text-[#71717A]">{editoria.descricao}</p>
