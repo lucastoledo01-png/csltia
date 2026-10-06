@@ -229,6 +229,18 @@ export type CortadaDoSocial = {
  * aprovado e de tarde recusado, ou pior, sair duas vezes.
  *
  * Dry-run continua rodando, porque diagnóstico não publica nada.
+ *
+ * ATUALIZADO em 06/10/2026: só a LEITURA das candidatas acende este bloqueio.
+ * Em 06/10 o feed ficou sem nenhum post de notícia porque qualquer erro da
+ * camada, gravação inclusive, contava como persistência degradada. Desde a
+ * correção da repetição no feed, a antirrepetição lê `social_posts`
+ * (`historico-do-feed.ts`), e a verificação do social roda de novo quando não
+ * acha veredito gravado. O que ainda depende desta camada é o reuso da
+ * classificação, e esse só falta quando a LEITURA falha: aí o pool inteiro é
+ * reclassificado e o sorteio de 24% volta, que é o que este bloqueio impede.
+ * A gravação que falha segue com os posts e manda aviso no Telegram (ver
+ * `errosDeGravacao` em `guarda.ts` e `candidatasNaoGravadas` em
+ * `ciclo-do-dia.ts`).
  */
 export const SOCIAL_PERSISTENCE_UNAVAILABLE = "SOCIAL_PERSISTENCE_UNAVAILABLE";
 
@@ -262,7 +274,7 @@ export type ComposicaoSocial = {
  * saem três.
  */
 export type ContextoDaComposicao = {
-  /** A camada de candidatas falhou nesta execução? */
+  /** A LEITURA da camada de candidatas falhou nesta execução? A gravação não conta (06/10/2026). */
   persistenciaDegradada?: boolean;
   /** Dry-run diagnostica sem publicar, então não é bloqueado. */
   paraPublicar?: boolean;
@@ -408,8 +420,8 @@ export function comporFeedSocial(
 
   if (bloqueio) {
     linhas.push(
-      `[SOCIAL] ${bloqueio}: a camada de candidatas falhou, e sem ela o feed perde antirrepetição ` +
-        `e reuso de verificação. ${escolhidas.length} post(s) calculado(s) e nenhum liberado.`,
+      `[SOCIAL] ${bloqueio}: a leitura das candidatas falhou, e sem ela a classificação do pool ` +
+        `foi refeita do zero. ${escolhidas.length} post(s) calculado(s) e nenhum liberado.`,
     );
   }
 

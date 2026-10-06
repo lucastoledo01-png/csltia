@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   JANELAS,
+  avisarCandidatasNaoGravadas,
   avisarFimDaProducao,
+  textoCandidatasNaoGravadas,
   cicloDosAvisos,
   classificarMotivo,
   contarPorRamo,
@@ -463,5 +465,64 @@ describe("avisarFimDaProducao", () => {
     const r = await avisarFimDaProducao(projeto(), { ok: true, modo: "enforce", decisao: { ...decisao, produzir: false } }, m.deps);
     expect(r.enviados).toEqual([]);
     expect(m.enviados).toHaveLength(0);
+  });
+});
+
+/*
+ * A gravação das candidatas falhou e os posts seguiram (06/10/2026). Até essa
+ * data a falha fechava o feed do dia em silêncio; agora ela não fecha, e o
+ * aviso é o que impede a falha de passar despercebida.
+ */
+describe("candidatas não gravadas", () => {
+  const ERRO = "gravação de candidatas, lote 1: duplicate key value violates unique constraint code: 23505";
+
+  it("manda um aviso curto, em português, com o erro e dizendo que os posts seguiram", async () => {
+    const m = mundo({ agora: sp("2026-10-06", "06:11") });
+    const enviado = await avisarCandidatasNaoGravadas(
+      { id: "p1" },
+      { dia: "2026-10-06", erros: [ERRO], postsGravados: 4 },
+      m.deps,
+    );
+
+    expect(enviado).toBe(true);
+    expect(m.enviados).toHaveLength(1);
+    expect(m.enviados[0].nivel).toBe("warning");
+    expect(m.enviados[0].texto).toContain("06/10");
+    expect(m.enviados[0].texto).toContain("gravação das pautas candidatas");
+    expect(m.enviados[0].texto).toContain("os posts seguiram normalmente (4 posts gravados)");
+    expect(m.enviados[0].texto).toContain("23505");
+    // Sem travessão (regra do projeto), escrito pelo código para não pôr o caractere aqui.
+    expect(m.enviados[0].texto).not.toContain(String.fromCharCode(0x2014));
+    expect(m.registros[0]).toMatchObject({ chave: "candidatas_nao_gravadas:2026-10-06", enviado: true });
+  });
+
+  it("um por dia: o ciclo da tarde que falha de novo não repete o aviso", async () => {
+    const m = mundo({ agora: sp("2026-10-06", "06:11") });
+    const falha = { dia: "2026-10-06", erros: [ERRO], postsGravados: 1 };
+    await avisarCandidatasNaoGravadas({ id: "p1" }, falha, m.deps);
+    const segundo = await avisarCandidatasNaoGravadas({ id: "p1" }, falha, m.deps);
+
+    expect(segundo).toBe(false);
+    expect(m.enviados).toHaveLength(1);
+  });
+
+  it("envio que falha fica gravado com o motivo do Telegram", async () => {
+    const m = mundo({ agora: sp("2026-10-06", "06:11"), envioFalha: true });
+    await avisarCandidatasNaoGravadas({ id: "p1" }, { dia: "2026-10-06", erros: [ERRO], postsGravados: 2 }, m.deps);
+
+    expect(m.registros[0]).toMatchObject({ enviado: false, motivo: "telegram_recusou" });
+  });
+
+  it("sem erro, nada", async () => {
+    const m = mundo({ agora: sp("2026-10-06", "06:11") });
+    expect(await avisarCandidatasNaoGravadas({ id: "p1" }, { dia: "2026-10-06", erros: [], postsGravados: 3 }, m.deps)).toBe(false);
+    expect(m.enviados).toHaveLength(0);
+  });
+
+  it("o texto cabe numa mensagem e conta os erros a mais", () => {
+    const t = textoCandidatasNaoGravadas({ dia: "2026-10-06", erros: [ERRO.repeat(30), ERRO], postsGravados: 1 });
+    expect(t.length).toBeLessThanOrEqual(900);
+    expect(textoCandidatasNaoGravadas({ dia: "2026-10-06", erros: [ERRO, ERRO], postsGravados: 1 })).toContain("(e mais 1)");
+    expect(textoCandidatasNaoGravadas({ dia: "2026-10-06", erros: [ERRO], postsGravados: 1 })).toContain("1 post gravado");
   });
 });

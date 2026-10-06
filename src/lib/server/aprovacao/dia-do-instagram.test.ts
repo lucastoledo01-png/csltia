@@ -41,7 +41,7 @@ describe("a aba do Instagram explica o dia sem post", () => {
       ...REGISTRO_DE_06_10,
       payload: { ...REGISTRO_DE_06_10.payload, bloqueio: "SOCIAL_PERSISTENCE_UNAVAILABLE", escolhidasNaComposicao: 5 },
     });
-    expect(d.frase).toMatch(/gravação das pautas candidatas falhou/);
+    expect(d.frase).toMatch(/camada de pautas candidatas no banco falhou/);
     expect(d.frase).toMatch(/5 posts foram calculados e nenhum liberado/);
   });
 

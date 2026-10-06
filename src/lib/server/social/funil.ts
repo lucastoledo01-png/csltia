@@ -1,6 +1,6 @@
 import type { NewsCandidate } from "../newsroom/collector";
 import { deduplicateCandidates } from "../newsroom/deduplicator";
-import { avaliarPautas } from "../editorial/guarda";
+import { avaliarPautas, persistenciaParaOSocial } from "../editorial/guarda";
 import type { ResultadoDosFinalistas } from "../editorial/finalistas";
 import { criarCandidatosStore } from "../editorial/candidatos-store";
 import { rodarSocialDoDia } from "./ciclo-do-dia";
@@ -162,7 +162,8 @@ export async function rodarFunilDoDia(
     historico: opcoes.historico,
     config: opcoes.config,
     client: opcoes.client,
-    persistenciaDegradada: guarda.reuso.erros.length > 0,
+    // Só a leitura fecha o feed; a gravação falha avisando (06/10/2026).
+    ...persistenciaParaOSocial(guarda.reuso),
     env,
     fetcher,
     // A véspera da janela do dia simulado, para a grade sair no dia certo.

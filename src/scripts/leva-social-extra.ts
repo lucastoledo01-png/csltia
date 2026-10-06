@@ -9,7 +9,7 @@ import { carregarConfigEditorial } from "../lib/server/editorial/config";
 import { criarProvedorOpenAI } from "../lib/server/editorial/embeddings";
 import { criarHistoricoStore } from "../lib/server/editorial/history";
 import { criarCandidatosStore } from "../lib/server/editorial/candidatos-store";
-import { avaliarPautas } from "../lib/server/editorial/guarda";
+import { avaliarPautas, persistenciaParaOSocial } from "../lib/server/editorial/guarda";
 import { rodarSocialDoDia } from "../lib/server/social/ciclo-do-dia";
 import { getSupabaseAdminClient } from "../lib/server/supabase-admin";
 
@@ -175,7 +175,8 @@ async function main() {
     historico,
     config,
     client,
-    persistenciaDegradada: guarda.reuso.erros.length > 0,
+    // Só a leitura fecha o feed; a gravação falha avisando (06/10/2026).
+    ...persistenciaParaOSocial(guarda.reuso),
     modoForcado: valendo ? "enforce" : "dry_run",
   });
 

@@ -1621,6 +1621,91 @@ o efeito é o dia inteiro sem peça. O motivo aparece nas recusas como
 `VISUAL_CHECK_UNAVAILABLE`, e é a primeira coisa a olhar quando a queda por
 foto subir de repente.
 
+### 06/10/2026: zero post de notícia porque a camada de candidatas falhou, e nenhum erro gravado
+
+**Sintoma.** O ciclo do Instagram das 06:11 conferiu 7 pautas e gravou zero
+posts, sem custo de redação de post. Nenhum erro técnico no diagnóstico. A
+causa só apareceu por eliminação (PR #98): o bloqueio da composição
+`SOCIAL_PERSISTENCE_UNAVAILABLE`, que corta todo post do dia.
+
+**Causa.** O bloqueio acendia com QUALQUER erro em `reuso.erros` da guarda,
+leitura ou gravação das candidatas em `news_candidates`. A regra é de 06/09,
+quando esta camada era a antirrepetição do feed. Desde a correção da repetição
+(acima), a antirrepetição lê `social_posts`, e a gravação deixou de proteger o
+dia: falhar ao gravar custa o reuso da classificação AMANHÃ, não a segurança
+de hoje. E o texto do erro morria no log do contêiner: o diagnóstico gravava
+o bloqueio sem o porquê, e a camada guardava só o `message` do PostgREST, sem
+`code`, `details` nem a causa do `fetch failed`.
+
+**O que o banco diz de 06/10, lido sem gravar nada.** O erro em si não ficou
+em lugar nenhum: o diagnóstico daquele dia tem `errors: []`, o
+`candidatePersistence` da redação só existe na resposta HTTP, e
+`newsroom_runs` não tem coluna para ele. O que dá para medir: 209 candidatas
+foram gravadas às 09:10 daquele dia (12 aprovadas, 197 recusadas), então a
+gravação não falhou inteira. Sobram duas hipóteses, que o banco não separa:
+um lote de 100 recusado pelo upsert, ou a LEITURA da janela no começo da
+guarda (45 dias, 13 mil linhas, cerca de 40 MB em 27 páginas, que hoje leva
+uns 40 segundos e respondeu 200 em todas as páginas). A classificação do dia
+custou US$ 1,42, o que é compatível com a leitura ter falhado e o pool ter
+sido reclassificado inteiro, mas não prova.
+
+**Corrigido.**
+
+1. A guarda separa `errosDeLeitura` de `errosDeGravacao`. Só a leitura acende
+   o bloqueio, porque sem ela o pool é reclassificado do zero e o sorteio de
+   24% volta. A gravação que falha segue com os posts.
+2. **A guarda que dependia da gravação, e que quase anulou o conserto.** O
+   Social Guard só deixa sair notícia com veredito `confirm` (`podePublicar`),
+   e lê o veredito da linha de `news_candidates`. Sem a linha, o verificador
+   não tem onde gravar e todo post cairia como `SOCIAL_REJECT_UNVERIFIED`:
+   tirar o bloqueio trocaria um dia sem post por outro, com a copy paga. Com a
+   gravação falhada, as pautas que o verificador confirmou NESTA execução e
+   não têm linha recebem a prova em memória (`ciclo-do-dia.ts`), como o
+   evergreen já fazia. A regra não muda: recusada ou em conflito continua de
+   fora, e há teste dos dois lados.
+3. O diagnóstico grava `candidatasNaoGravadas` com o texto do banco, e o
+   Telegram recebe UM aviso por dia (`candidatas_nao_gravadas`, pelo mesmo
+   registro e envio dos avisos de operação), dizendo o que falhou e que os
+   posts seguiram. Em ensaio só o diagnóstico.
+4. Os erros da camada levam o texto inteiro (`texto-do-erro.ts`: `message`,
+   `code`, `details`, `hint` e a causa), e a leitura que falha também vai para
+   `errors` do diagnóstico, junto do bloqueio.
+
+**O que ainda se perde.** O post gravado sem candidata tem `candidate_id`
+nulo, e a régua de repetição dos dias seguintes perde, para ele, a URL, o
+vetor e as entidades da matéria de origem; continuam o `story_id` (que sai da
+URL e pega a mesma matéria voltando) e a impressão do acontecimento.
+
+**Em aberto, para o dono.** Se 06/10 foi a leitura, este conserto não teria
+salvado o dia: a leitura que falha continua fechando a notícia. A pergunta é
+se o reuso da classificação vale um dia sem post, agora que nada de segurança
+depende dele. O próximo caso vai dizer qual das duas foi, com o texto.
+
+**Lição.** Quando a guarda que motivou um bloqueio muda de lugar, o bloqueio
+precisa ser relido: ele continua acendendo pelo motivo velho. E desligar um
+bloqueio pede a mesma pergunta de "a régua lia uma chave": quem mais lê o que
+ele protegia. Aqui era o Social Guard, e o teste que roda o ciclo inteiro é o
+que mostrou.
+
+### O conserto de capas quebrou uma aprovação pendente (06/10/2026)
+
+**O que.** O `consertar-capas.ts`, rodado pelo Claude em 06/10/2026, gravou
+crédito e legenda no HTML da matéria do diesel enquanto ela esperava aprovação
+em `aprovacoes`. Com a fila em `dry_run` a matéria já estava `published` e
+continuava `aguardando`; o script só se protegia das `scheduled`. O hash da
+fila cobre o HTML, deixou de bater, e a aprovação ficou impossível.
+
+**Corrigido.** Antes de gravar, o script confere a peça na fila
+(`aprovacao/manutencao.ts`), inclusive no ensaio. Aguardando: grava e reentra
+por `enfileirar` com o hash relido da linha, que é a regra da fila para versão
+nova (continua aguardando, e a aprovação anterior não cobre a versão nova).
+Refazendo, ou aprovada sem liberar: pula com o motivo. Não usa `editarTexto`,
+porque crédito de foto não é edição do editor e não deve virar aprendizado.
+
+**Lição.** Script de manutenção que grava conteúdo é mais um escritor da peça,
+e todo escritor de peça na fila precisa falar com a fila. "Só published" não
+é proxy de "fora da fila" quando a fila está em ensaio.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

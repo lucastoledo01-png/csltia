@@ -2,7 +2,7 @@ import { getSupabaseAdminClient } from "../supabase-admin";
 import { getProjectNewsSources, projectToday, requireActiveProject } from "../projects";
 import { collectAllNews } from "../newsroom/collector";
 import { deduplicateCandidates } from "../newsroom/deduplicator";
-import { avaliarPautas } from "../editorial/guarda";
+import { avaliarPautas, persistenciaParaOSocial } from "../editorial/guarda";
 import { carregarConfigEditorial } from "../editorial/config";
 import { criarProvedorOpenAI } from "../editorial/embeddings";
 import { criarHistoricoStore } from "../editorial/history";
@@ -172,7 +172,8 @@ export async function rodarQuenteDaTarde(
       historicoDoFeed,
       config: configEditorial,
       client,
-      persistenciaDegradada: guarda.reuso.erros.length > 0,
+      // Só a leitura fecha o feed; a gravação falha avisando (06/10/2026).
+      ...persistenciaParaOSocial(guarda.reuso),
       env: ambienteDaTarde(projeto, env, vagas),
       fetcher,
       tetoDoDia: vagas.teto,

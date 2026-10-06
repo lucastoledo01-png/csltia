@@ -242,6 +242,69 @@ describe("reuso da classificação persistida", () => {
   });
 });
 
+/*
+ * Leitura e gravação separadas (06/10/2026): só a leitura fecha o feed, e a
+ * gravação que falha vai para o aviso. O texto do banco tem de chegar inteiro,
+ * com o `details`, porque em 06/10 o erro não ficou em lugar nenhum.
+ */
+describe("a falha da camada diz se foi leitura ou gravação", () => {
+  it("gravação que falha vai para errosDeGravacao, com o texto do banco, e não para a leitura", async () => {
+    const { store } = storeFalso();
+    store.gravarNovas = async () => {
+      throw Object.assign(new Error("duplicate key value violates unique constraint"), {
+        details: "Key (project_id, story_id)=(p, s1) already exists.",
+      });
+    };
+    const { fetcher } = fetcherCom([classificacao({ id: "1" })]);
+
+    const r = await avaliarPautas([grupo("1", "USCIS amplia prazo do EAD", "https://a.com/1")], {
+      canal: "newsletter", historico: [], config, env: ENV, fetcher,
+      candidatos: { store, projectId: PROJ },
+    });
+
+    expect(r.approvedEditorialPool).toHaveLength(1);
+    expect(r.reuso.errosDeLeitura).toEqual([]);
+    expect(r.reuso.errosDeGravacao).toHaveLength(1);
+    expect(r.reuso.errosDeGravacao[0]).toContain("gravação de candidatas falhou");
+    expect(r.reuso.errosDeGravacao[0]).toContain("Key (project_id, story_id)");
+    expect(r.reuso.erros).toEqual(r.reuso.errosDeGravacao);
+  });
+
+  it("lote recusado pelo banco também é gravação", async () => {
+    const { store } = storeFalso();
+    store.gravarNovas = async () => ({
+      gravadas: 0, reaproveitadas: 0, jaClassificadas: [],
+      erros: ["gravação de candidatas, lote 1: canceling statement due to statement timeout code: 57014"],
+    });
+    const { fetcher } = fetcherCom([classificacao({ id: "1" })]);
+
+    const r = await avaliarPautas([grupo("1", "USCIS amplia prazo do EAD", "https://a.com/1")], {
+      canal: "newsletter", historico: [], config, env: ENV, fetcher,
+      candidatos: { store, projectId: PROJ },
+    });
+
+    expect(r.reuso.errosDeLeitura).toEqual([]);
+    expect(r.reuso.errosDeGravacao[0]).toContain("57014");
+  });
+
+  it("leitura que falha vai para errosDeLeitura, com a causa do fetch", async () => {
+    const { store } = storeFalso();
+    store.buscarDaJanela = async () => {
+      throw new TypeError("fetch failed", { cause: new Error("Connect Timeout Error") });
+    };
+    const { fetcher } = fetcherCom([classificacao({ id: "1" })]);
+
+    const r = await avaliarPautas([grupo("1", "USCIS amplia prazo do EAD", "https://a.com/1")], {
+      canal: "newsletter", historico: [], config, env: ENV, fetcher,
+      candidatos: { store, projectId: PROJ },
+    });
+
+    expect(r.reuso.errosDeLeitura).toHaveLength(1);
+    expect(r.reuso.errosDeLeitura[0]).toContain("Connect Timeout Error");
+    expect(r.reuso.errosDeGravacao).toEqual([]);
+  });
+});
+
 describe("sem a camada persistida, nada muda", () => {
   it("a newsletter que já chamava esta função continua igual", async () => {
     const { fetcher } = fetcherCom([classificacao({ id: "1" })]);

@@ -101,8 +101,14 @@ export function explicarDiaDoInstagram(registro: RegistroDoInstagram | null): Di
     frase = `O ciclo do Instagram gravou ${gravados} ${gravados === 1 ? "post" : "posts"} às ${quando}.`;
   } else if (bloqueio === "SOCIAL_PERSISTENCE_UNAVAILABLE") {
     frase =
-      `O ciclo do Instagram rodou às ${quando} e não gravou nenhum post: a gravação das pautas candidatas falhou nessa execução, ` +
-      "e sem ela o feed perde a proteção contra repetir pauta. Por regra, o dia fica sem post de notícia" +
+      /*
+       * Desde 07/10/2026 só a LEITURA das candidatas fecha o feed; a gravação
+       * que falha segue com os posts e manda aviso (`guarda.ts`,
+       * `errosDeGravacao`). A frase não diz qual das duas porque o registro de
+       * 06/10, gravado antes da separação, não sabe.
+       */
+      `O ciclo do Instagram rodou às ${quando} e não gravou nenhum post: a camada de pautas candidatas no banco falhou nessa execução, ` +
+      "e sem ela a classificação das pautas seria refeita do zero. Por regra, o dia fica sem post de notícia" +
       (escolhidas ? ` (${escolhidas} ${escolhidas === 1 ? "post foi calculado" : "posts foram calculados"} e nenhum liberado).` : ".");
   } else if (bloqueio) {
     frase = `O ciclo do Instagram rodou às ${quando} e foi bloqueado antes de escrever: ${bloqueio}.`;
