@@ -1706,6 +1706,26 @@ porque crédito de foto não é edição do editor e não deve virar aprendizado
 e todo escritor de peça na fila precisa falar com a fila. "Só published" não
 é proxy de "fora da fila" quando a fila está em ensaio.
 
+### O valor colado cabia, segundo o encaixe, e a palavra saía partida (06/10/2026)
+
+**Sintoma.** Achado pela medição no navegador, antes de ir ao ar. Com "US$
+1,03 trilhão" colado por espaço sem quebra (a regra do dono da mesma noite), a
+capa de texto saiu com "TRILHÃ" numa linha e "O" na seguinte.
+
+**Causa.** A unidade colada é larga demais para a linha no corpo máximo, e o
+`overflow-wrap: break-word` do bloco a partia no meio das letras. Partida, ela
+não estoura a largura, e o script de encaixe, que encolhe por altura e por
+`scrollWidth`, achava que tudo cabia e não descia o tipo.
+
+**Corrigido.** Durante a medida o bloco fica com `overflow-wrap: normal`: a
+unidade larga estoura a largura e o tipo desce; o `break-word` volta depois,
+só como rede no piso. `validar-valores-na-arte.ts` mede 390 peças e prova que
+a régua diz "não" com o espaço comum de volta (108 valores partidos).
+
+**Lição.** Uma proteção de quebra cria uma palavra mais larga, e a rede de
+quebra de palavra longa esconde do encaixe que ela não cabe. Ao juntar texto,
+medir com a rede desligada.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

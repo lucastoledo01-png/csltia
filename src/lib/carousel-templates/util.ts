@@ -1,6 +1,45 @@
-/** Escapa texto que vai pra dentro do HTML do slide. */
+/**
+ * Valor com unidade não se parte na virada da linha (regra do dono, 06/10/2026).
+ *
+ * A capa da Anthropic na fila de 07/10/2026 saiu com "US$" no fim de uma linha
+ * e "45.000" no começo da outra. Para o navegador o espaço entre o símbolo e o
+ * número é oportunidade de quebra como qualquer outro. A regra: símbolo de
+ * moeda, número, escala ("mil", "milhões", "bilhões") e percentual andam
+ * juntos, em toda peça do Instagram (capa, slides, recorte).
+ *
+ * O espaço vira U+00A0 (espaço sem quebra), e não um `span` com `nowrap`,
+ * por dois motivos medidos aqui: o destaque em cor (`<mark>`) pode começar no
+ * meio do valor ("US$ <mark>45.000</mark>"), e um `span` não atravessa a
+ * fronteira do `mark`; e as normalizações de espaço que rodam ANTES do escape
+ * (`replace(/\s+/g, " ")`, que casa U+00A0) desfariam o caractere se ele fosse
+ * posto antes. Por isso mora dentro de `esc`, o único ponto por onde todo texto
+ * da arte passa, depois de tudo. As fontes da arte carregam o subconjunto
+ * latino inteiro, que tem o U+00A0 (conferido no render por
+ * `validar-valores-na-arte.ts`).
+ */
+const NBSP = "\u00a0";
+const MOEDA = "(?:US\\$|R\\$|U\\$|A\\$|C\\$|HK\\$|€|£|\\$)";
+const ESCALA = "(?:mil|milh(?:ão|ões|ao|oes)|bilh(?:ão|ões|ao|oes)|trilh(?:ão|ões|ao|oes)|bi|tri|mi|thousand|million|billion|trillion)";
+const NUMERO = "\\d[\\d.,]*";
+/** "US$ 2,9 bilhões": moeda, número e escala opcional. */
+const VALOR_EM_MOEDA = new RegExp(`(${MOEDA})\\s+(${NUMERO})(?:\\s+(${ESCALA})\\b)?`, "gu");
+/** "45 mil", "2,9 bilhões", "8 %", "0,25 ponto percentual": número e unidade sem moeda. */
+const NUMERO_COM_UNIDADE = new RegExp(
+  `(?<![\\d.,])(${NUMERO})\\s+(${ESCALA}\\b|%|por\\s+cento\\b|pontos?\\s+percentua(?:l|is)\\b|p\\.p\\.)`,
+  "gu",
+);
+
+export function juntarValores(texto: string): string {
+  return texto
+    .replace(VALOR_EM_MOEDA, (_m, moeda: string, numero: string, escala?: string) =>
+      escala ? `${moeda}${NBSP}${numero}${NBSP}${escala}` : `${moeda}${NBSP}${numero}`,
+    )
+    .replace(NUMERO_COM_UNIDADE, (_m, numero: string, unidade: string) => `${numero}${NBSP}${unidade.replace(/\s+/g, NBSP)}`);
+}
+
+/** Escapa texto que vai pra dentro do HTML do slide, com os valores colados ao número ({@link juntarValores}). */
 export function esc(value: unknown): string {
-  return String(value ?? "")
+  return juntarValores(String(value ?? ""))
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")

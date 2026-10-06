@@ -10,6 +10,7 @@ import { podePublicar } from "../editorial/candidatos-store";
 import { escolherUrlPublicavel } from "../editorial/regras-duras";
 import { FORMA_DA_MANCHETE } from "./manchete";
 import { atribuicoesDaLegendaSemLastro, conferirDiasDaSemana, conferirFormaDaLegenda } from "./forma-da-legenda";
+import { conferirContextoDaManchete } from "./manchete-com-contexto";
 
 /**
  * A última pergunta antes de um post existir.
@@ -93,6 +94,16 @@ export const MOTIVOS_DO_SOCIAL_GUARD = {
    */
   CAPTION_FORA_DA_FORMA: "SOCIAL_REJECT_CAPTION_SHAPE",
   CAPTION_ATRIBUICAO_SEM_LASTRO: "SOCIAL_REJECT_CAPTION_ATTRIBUTION",
+  /*
+   * As regras do dono depois da fila de 07/10/2026 (`manchete-com-contexto.ts`):
+   * a manchete se explica sozinha (fala sem dêitico solto, pessoa apresentada,
+   * sujeito nomeado) e toda variação diz O QUE variou. Reparáveis: é texto, e
+   * a reescrita com o problema nomeado resolve. Motivos separados porque o
+   * aprendizado conta reprovação por motivo, e "sem contexto" e "sem métrica"
+   * pedem consertos diferentes.
+   */
+  MANCHETE_SEM_CONTEXTO: "SOCIAL_REJECT_HEADLINE_CONTEXT",
+  VARIACAO_SEM_METRICA: "SOCIAL_REJECT_VARIATION_METRIC",
 } as const;
 
 export type MotivoDoSocialGuard =
@@ -312,6 +323,29 @@ export function avaliarPostSocial(
 
   const forma = conferirFormaDaHeadline(copy.headline);
   if (forma) problemas.push(forma);
+
+  /*
+   * A manchete se explica sozinha? (regras do dono, 06/10/2026). Vem antes da
+   * ancoragem porque é o defeito que o leitor vê primeiro: "Bret Taylor: “É
+   * uma espécie de caos até que tal padrão exista”" estava ancorada, literal e
+   * atribuída, e não dizia nada a quem não tinha lido a matéria. O lide entra
+   * junto na conferência da variação: "subiram 8%" sem dizer o quê é o mesmo
+   * defeito na primeira linha da legenda.
+   */
+  for (const p of conferirContextoDaManchete(copy.headline, {
+    pacote,
+    quemFala: pauta.classificacao.citacao_de_famoso ? pauta.classificacao.quem_fala ?? null : null,
+    lide: copy.gancho,
+  })) {
+    problemas.push({
+      motivo:
+        p.regra === "variacao_sem_metrica"
+          ? MOTIVOS_DO_SOCIAL_GUARD.VARIACAO_SEM_METRICA
+          : MOTIVOS_DO_SOCIAL_GUARD.MANCHETE_SEM_CONTEXTO,
+      detalhe: p.detalhe,
+      reparavel: true,
+    });
+  }
 
   /*
    * Ancoragem, e a manchete é conferida separada da legenda de propósito.

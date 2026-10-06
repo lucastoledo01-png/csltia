@@ -1,4 +1,4 @@
-import { esc, manterCodigosJuntos, pad2, protegerQuebras, safeImageUrl } from "./util";
+import { esc, juntarValores, manterCodigosJuntos, pad2, protegerQuebras, safeImageUrl } from "./util";
 import { overlayBrand } from "./shell";
 import { MARCA } from "@/lib/marca";
 import { POSICAO_PADRAO, POSICOES_DA_BOLHA_DO_MIOLO, estiloDaPosicao, posicaoPorChave } from "./bolha";
@@ -209,7 +209,14 @@ const coverNoticiaSemFoto: SlideVariant = {
  * disponível ANTES de mexer na fonte, e num bloco sem altura não há o que medir.
  */
 function marcarDestaque(titulo: string, destaque: string): string {
-  const limpo = titulo.trim().replace(/\s+/g, " ");
+  /*
+   * Os valores são colados ANTES de fatiar (regra do dono, 06/10/2026): o
+   * destaque pode começar no meio de "US$ 45.000", e cada fatia escapada à
+   * parte deixaria o espaço comum na fronteira do `mark`. A troca é de um
+   * caractere por um, então os índices do mapa abaixo continuam valendo, e o
+   * U+00A0 conta como espaço na busca do trecho.
+   */
+  const limpo = juntarValores(titulo.trim().replace(/\s+/g, " "));
   const alvo = (destaque ?? "").trim().replace(/\s+/g, " ");
   if (!alvo) return manterCodigosJuntos(esc(limpo));
 
@@ -220,6 +227,7 @@ function marcarDestaque(titulo: string, destaque: string): string {
   let normal = "";
   for (let i = 0; i < limpo.length; i += 1) {
     const c = limpo[i]
+      .replace(/\u00a0/g, " ")
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");

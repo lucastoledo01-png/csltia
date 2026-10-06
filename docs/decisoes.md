@@ -2201,6 +2201,11 @@ junto da obra, na forma curta, e a tira sai da arte para toda licença.
   repetir, até três nomes e depois "e outros".
 - Sem autor conhecido, sem linha. Nunca "Foto: desconhecido". Nada de "via
   Wikimedia Commons", link, "Licença Pexels" ou texto jurídico.
+- ATUALIZADO em 06/10/2026, à noite, por escolha explícita do dono depois de
+  ler a fila de 07/10: a linha leva SÓ o nome de quem fez a foto, e a sigla
+  de licença saiu. "Fotos: Lucio Bernardo Jr./Câmara dos Deputados (CC BY) e
+  Leonardo Prado/Câmara dos Deputados (CC BY)" virou "Fotos: Lucio Bernardo
+  Jr. e Leonardo Prado". Ver "As regras do dono depois da fila de 07/10".
 - O ÚNICO crédito é o que o código monta (`linhaDeCredito`, em
   `social/legenda-final.ts`) a partir do autor e da licença gravados no asset
   de cada foto que foi ao ar. Qualquer outra linha com cara de crédito, em
@@ -2436,7 +2441,10 @@ Magalhães/Câmara dos Deputados" ou "Foto: Daniel Torok/Casa Branca"), SEMPRE,
 inclusive no domínio público americano, que não exige: foto de agência oficial
 sem o nome de quem fez parece apropriada. Na legenda do Instagram quem monta a
 linha é `linhaDeCredito` (`social/legenda-final.ts`, da frente da legenda no
-método do Not Journal): para foto de banco ela usa o autor COM o banco
+método do Not Journal; ATUALIZADO na mesma noite: na legenda do Instagram
+ficou SÓ o nome do fotógrafo, sem o banco e sem a sigla, por escolha do dono,
+e o "Nome/Banco" continua em `asset.attribution` e no portal; ver "As regras
+do dono depois da fila de 07/10"): para foto de banco ela usava o autor COM o banco
 (`autorComBanco`), porque a CC BY da Câmara exige "Nome do Fotógrafo/Câmara dos
 Deputados", e mantém a regra dela de pôr a sigla só onde a licença pede
 ("Foto: Kayo Magalhães/Câmara dos Deputados (CC BY)"; "Foto: Jonas
@@ -2516,6 +2524,55 @@ consultado pela pessoa. **A régua de polaridade de texto recusa legenda
 legislativa:** "Deliberação dos dispositivos do Veto nº 51" tem "veto", que o
 detector lê como rejeição, e derrubou as fotos de 2026 do Flávio na Câmara
 numa pauta de tom positivo. Nenhuma das duas foi mexida aqui.
+
+## As regras do dono depois da fila de 07/10 (06/10/2026)
+
+O dono leu os cinco posts do Instagram de 07/10/2026 e devolveu cinco pontos,
+com o pedido de que cada um virasse regra em CÓDIGO: "senão eu vou ficar num
+loop infinito corrigindo o erro". O prompt pede; a guarda confere; a fila
+aprende.
+
+| ponto do dono | o caso real | onde mora |
+|---|---|---|
+| 1. Citação com contexto | "Bret Taylor: “É uma espécie de caos até que tal padrão exista”" | `social/manchete-com-contexto.ts`: dêitico dentro das aspas ("tal padrão", "isso", "eles") sem o referente nomeado fora delas é recusa; pessoa que fala ou abre a manchete, fora da lista de conhecidos do público brasileiro (`FAMOSOS_PARA_O_PUBLICO_BRASILEIRO`) e sem cargo ou empresa ao lado, é recusa. Motivo `SOCIAL_REJECT_HEADLINE_CONTEXT`, reparável |
+| 2. Valor não quebra de linha | "US$" no fim de uma linha e "45.000" na outra | `carousel-templates/util.ts`: `esc` cola moeda, número, escala e percentual com U+00A0 em toda peça do feed; o destaque em cor é fatiado depois da colagem; o encaixe do tipo mede sem partir palavra. Conferido no navegador por `src/scripts/validar-valores-na-arte.ts` |
+| 3. Crédito só com o nome | "Fotos: Lucio Bernardo Jr./Câmara dos Deputados (CC BY) e ..." | `social/legenda-final.ts`: só o nome de quem fotografou, sem banco, sigla, barra nem o "from Washington, DC, USA" do Flickr; sem pessoa, a instituição ("Foto: NASA"). `fecharLegenda` reescreve também a linha antiga que chega pronta (a refação e o painel) |
+| 4. Variação diz o que variou | "SpaceX sobe quase 8%" | `variacoesSemMetrica`, na manchete e no lide da legenda: verbo de variação com percentual, pontos ou dinheiro, sem métrica na oração (ações, valor de mercado, avaliação, receita, índice...). Motivo `SOCIAL_REJECT_VARIATION_METRIC`, reparável |
+| 5. A manchete se explica para o público brasileiro | "Douglas Ruas pode vencer no primeiro turno..." | o que dá para conferir: sujeito nomeado (nunca pronome, sempre alguém ou algo com nome) e pessoa apresentada (ponto 1). O resto é prompt: `REGRAS_DO_DONO_PARA_A_MANCHETE`, em `social/manchete.ts`, com os pares reais |
+
+**Por que o bloco do prompt fica fora do texto editável.** A regra da manchete
+é editável no painel (etapa `manchete`), e uma versão gravada antes desta data
+apagaria o pedido. O bloco do dono vem sempre DEPOIS da regra vigente, como o
+contrato do JSON, nos dois prompts (peça única e carrossel).
+
+**A crença sobre o cargo de Bret Taylor.** O dono escreveu "ex-presidente do
+conselho da OpenAI"; o pacote factual da CNBC diz "chairman of OpenAI", atual.
+Os exemplos seguem o pacote ("presidente do conselho da OpenAI"), porque é a
+régua da ancoragem.
+
+**A fama é uma lista curta, de propósito.** Errar para fora custa uma aposição
+("Sam Altman, CEO da OpenAI"); errar para dentro é o post que o dono devolve.
+O sobrenome sozinho só vale quando nenhuma outra pessoa do pacote o tem: no
+ensaio, "Ronaldo Caiado" casava "Gracinha Caiado" pelo sobrenome e a manchete
+certa era recusada. A lista está exportada para a seleção (outra frente) poder
+usar a mesma régua.
+
+**Newsletter e portal não passam por esta guarda.** O título deles tem auditor
+próprio, sem helper comum com o post; as regras chegam a eles pelo aprendizado
+(as regras aprovadas abaixo, por canal) e não por código. O valor colado também
+é só do Instagram: o e-mail e o portal são HTML que o leitor redimensiona, e
+`esc` não é o escape deles.
+
+**A fila aprende as cinco.** `supabase/2026-10-06-regras-do-dono.sql` (para o
+dono rodar) grava as regras como APROVADAS em `regras_propostas`, por canal:
+as de manchete nos três, a do valor na arte do post, a do crédito no texto do
+post. `origem = 'reprovacoes'` e `ocorrencias = 3`, o piso do CHECK.
+
+**Refazer os cinco posts.** `npx tsx src/scripts/refazer-textos-da-fila.ts`
+(ensaio, roda o gancho de texto de produção com um cliente que só lê) e, depois
+do deploy, `--aplicar`, que REPROVA cada peça na fila com o retorno do dono como
+motivo (texto; arte para a da Anthropic, cujo texto estava certo). A reprovação
+ensina o canal, e o relógio da fila refaz com o código novo.
 
 ## Armadilhas que já custaram tempo
 

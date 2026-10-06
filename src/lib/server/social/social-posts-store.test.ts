@@ -147,7 +147,8 @@ describe("persistência", () => {
         creditoDaLegenda: "Foto: Fulano (CC BY-SA 4.0)",
       },
     ]);
-    expect(gravadas[0].caption).toBe("Legenda do post.\n\nSiga @eua.journal\nFoto: Fulano (CC BY-SA 4.0)");
+    // Só o nome desde 06/10/2026, à noite: a sigla sai até da linha que chega pronta.
+    expect(gravadas[0].caption).toBe("Legenda do post.\n\nSiga @eua.journal\nFoto: Fulano");
   });
 
   it("grava usando as colunas que já existem", async () => {
