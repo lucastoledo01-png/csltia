@@ -399,6 +399,18 @@ const NAO_E_NOME_DE_PESSOA = new Set([
   "university", "institute", "college", "school", "center", "centre", "museum", "library",
   "airport", "terminal", "station", "bridge", "park", "plaza", "hall", "building", "tower",
   "images", "collection", "photographs", "file", "jpg", "jpeg", "png",
+  /*
+   * Lugar e instituição em português (06/10/2026). Com os bancos oficiais
+   * brasileiros, a legenda chega em português, e "Esplanada dos Ministérios"
+   * e "Palácio do Planalto" têm a forma de nome de gente: no primeiro replay,
+   * toda foto de fachada da Esplanada foi recusada como "figura não central".
+   * Cargo ("Presidente", "Senador") NÃO entra aqui de propósito: ele vem
+   * colado ao nome ("Presidente Davi Alcolumbre"), e descartar o trecho
+   * esconderia a pessoa que a régua precisa ver.
+   */
+  "esplanada", "ministerios", "ministerio", "palacio", "planalto", "alvorada", "congresso", "nacional",
+  "camara", "deputados", "tribunal", "supremo", "superior", "praca", "poderes", "plenario", "comissao",
+  "republica", "agencia", "brasil", "brasilia", "receita", "banco", "central", "itamaraty", "eixo",
 ]);
 
 /**

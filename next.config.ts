@@ -80,6 +80,16 @@ const nextConfig: NextConfig = {
       // Host que falta aqui faz `next/image` LANÇAR e derrubar a página
       // inteira do artigo, não apenas esconder a capa.
       { protocol: "https", hostname: "live.staticflickr.com" },
+      /*
+       * Os bancos de imagem oficiais (06/10/2026). Cada banco declara os
+       * hosts dele em `hostsDeImagem`, e o teste de hosts confere que todos
+       * estão aqui: a foto da Agência Brasil ou da Casa Branca sem o host
+       * listado derrubaria a página da matéria inteira.
+       */
+      { protocol: "https", hostname: "www.camara.leg.br" },
+      { protocol: "https", hostname: "www.whitehouse.gov" },
+      { protocol: "https", hostname: "www.federalreserve.gov" },
+      { protocol: "https", hostname: "images-assets.nasa.gov" },
     ],
   },
 };

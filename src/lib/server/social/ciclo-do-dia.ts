@@ -48,6 +48,7 @@ import type { UsoAnterior } from "./evergreen/tipos";
 import type { DiagnosticoDoEvergreen, OpcoesDoEvergreen, ResultadoDoEvergreen } from "./evergreen/ciclo";
 import type { MarcaSocial } from "./copy";
 import type { OpcoesDoCiclo, ResultadoDoCicloSocial } from "./pipeline-v2";
+import { bancosOficiaisLigados } from "../visual/bancos-oficiais/modo";
 
 /**
  * O dia do Instagram, a partir do trabalho editorial que a newsletter também usa.
@@ -556,6 +557,12 @@ export async function rodarSocialDoDia(
     somenteLeitura: true,
     jaUsadosNestaEdicao: fotosDaEdicao,
     jaUsadasRecentemente: fotosAntigas,
+    /*
+     * Os bancos oficiais do projeto (06/10/2026). Vai aqui, e não só em
+     * `imagemDaPauta`, porque a foto do carrossel e a segunda foto da bolha
+     * chamam o resolvedor direto, com estas mesmas opções.
+     */
+    bancosOficiais: bancosOficiaisLigados(opcoes.projeto),
   };
 
   /*
@@ -655,6 +662,8 @@ export async function rodarSocialDoDia(
                   jaUsadosNestaEdicao: jaUsadas,
                   // Também por identidade, que ignora os parâmetros do endereço.
                   jaUsadasRecentemente: [...fotosAntigas, ...fotosDaEdicao, ...jaUsadas],
+                  // O protagonista do carrossel em fotos diferentes: os bancos oficiais têm várias, e recentes.
+                  bancosOficiais: opcoesDaImagem.bancosOficiais,
                 }),
             });
           },

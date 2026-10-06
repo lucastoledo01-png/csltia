@@ -241,6 +241,11 @@ export const HOSTS_OTIMIZAVEIS = [
   "casaloti.ia.br",
   "upload.wikimedia.org",
   "live.staticflickr.com",
+  // Os bancos de imagem oficiais (06/10/2026); o Senado e o Flickr usam o host acima.
+  "www.camara.leg.br",
+  "www.whitehouse.gov",
+  "www.federalreserve.gov",
+  "images-assets.nasa.gov",
 ] as const;
 
 export function hostOtimizavel(src: string | null | undefined): boolean {

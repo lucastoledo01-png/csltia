@@ -5,6 +5,7 @@ import type { Biblioteca } from "../biblioteca";
 import { acervoDoProjeto, type Acervo } from "./acervo";
 import { capacidadeDoAcervo } from "./modo";
 import type { ProjetoComCapacidades } from "../../capacidades";
+import { bancosOficiaisLigados } from "../bancos-oficiais/modo";
 
 /**
  * A imagem de uma pauta, resolvida UMA vez e reusada por todos os ramos.
@@ -119,7 +120,16 @@ export async function imagemDaPauta(
   ctx: ContextoDaImagemDaPauta = {},
 ): Promise<ResultadoVisual> {
   const resolver = ctx.resolver ?? resolveVisualAsset;
-  const opcoes = ctx.opcoes ?? {};
+  /*
+   * Os bancos oficiais (06/10/2026) são do projeto, como o acervo: quem chama
+   * passa o projeto, e o interruptor é lido aqui. Quem já decidiu nas opções
+   * (o teste, o script de medição) não é contrariado. Desligado, as opções
+   * seguem exatamente como vieram.
+   */
+  const opcoes =
+    ctx.opcoes?.bancosOficiais === undefined && bancosOficiaisLigados(ctx.projeto)
+      ? { ...(ctx.opcoes ?? {}), bancosOficiais: true }
+      : (ctx.opcoes ?? {});
   const modo = capacidadeDoAcervo(ctx.projeto);
   const acervo = ctx.acervo !== undefined ? ctx.acervo : acervoDoProjeto(ctx.client, ctx.projeto);
 

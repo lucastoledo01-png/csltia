@@ -1,4 +1,5 @@
 import { MARCA } from "@/lib/marca";
+import { autorComBanco, semSufixoDeBanco } from "../visual/bancos-oficiais/credito";
 
 /**
  * O fecho de toda legenda do Instagram, e as duas regras do dono que moram em
@@ -201,6 +202,15 @@ export function siglaDaLicenca(texto: string): string {
  * 4.0, via Wikimedia Commons"), que é o formato dos dois montadores da casa.
  */
 export function autorDaFoto(foto: FotoCreditavel): string {
+  /*
+   * Foto de banco oficial (06/10/2026): o crédito leva o banco, no formato que
+   * o próprio banco exige e que o dono pediu, "Kayo Magalhães/Câmara dos
+   * Deputados". A licença CC BY da Câmara pede exatamente isso, e sem o banco
+   * a linha não cumpriria a licença. O resolvedor grava esse formato em
+   * `attribution` ("Foto: Nome/Banco"), e só os bancos da lista o têm.
+   */
+  const comBanco = autorComBanco(foto.attribution ?? "");
+  if (comBanco) return comBanco.length > 80 ? comBanco.slice(0, 80) : comBanco;
   let nome = limparNome(foto.author ?? "");
   if (!nome) {
     const atribuicao = limparNome(foto.attribution ?? "");
@@ -245,7 +255,8 @@ const CREDITO_CURTO = /^fotos?: [^\n]{1,240}$/i;
 function ehCreditoCurto(linha: string): boolean {
   const t = linha.trim();
   if (!CREDITO_CURTO.test(t)) return false;
-  const n = normalizar(t);
+  // O "/Banco" de banco oficial é o formato exigido, e não sobra de outra origem.
+  const n = normalizar(semSufixoDeBanco(t));
   return !/\bvia\b|https?|www|licenca|license|wikimedia|commons|pexels|unsplash|\//.test(n);
 }
 

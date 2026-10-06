@@ -1570,6 +1570,57 @@ contar as linhas que ela lê. Zero linhas do canal faz `verificarRepeticao`
 devolver "histórico vazio, nada a comparar", que é aprovação, e aprovação em
 silêncio é indistinguível de régua funcionando.
 
+### A legenda citava o Moraes, e a foto era de um senador (06/10/2026)
+
+**Sintoma.** Nenhum em produção: achado olhando a folha de contato do primeiro
+replay dos bancos oficiais. Duas pautas sobre Alexandre de Moraes ganharam a
+foto de um senador apontando o dedo numa coletiva, da Agência Senado, e a
+pauta do legado de Biden ganhou uma foto noturna da Casa Branca na festa de
+Halloween, sem rosto reconhecível.
+
+**Causa.** A régua de identidade da foto de banco era "a legenda cita a
+pessoa". A legenda da Agência Senado diz do que a entrevista tratou ("o
+senador Fulano fala sobre o ministro Alexandre de Moraes"), e a pontuação ainda
+somava 27 pontos de entidade pelo sobrenome solto, o que, com resolução,
+proporção, licença e origem, fecha os 70 do piso de pessoa. Citar não é estar
+na foto.
+
+**Corrigido.** A pessoa tem que ser a PROTAGONISTA da legenda, a primeira
+pessoa que ela nomeia (`protagonistaDaLegenda`), e a foto de banco de pessoa
+que não passa sai da fila com `NON_CENTRAL_PUBLIC_FIGURE`, em vez de só ir para
+trás. A primeira versão dessa régua NÃO pegou o caso, e a segunda rodada da
+folha mostrou a mesma foto: a legenda real começa pelo tema ("investigação
+envolvendo o ministro Alexandre de Moraes") e só na frase seguinte diz quem
+está na foto ("Senador Jorge Seif durante entrevista"). O nome que vem depois de
+"sobre", "envolvendo", "contra" (e "about", "regarding", "against") até o fim
+da frase deixou de contar (`semTrechosDeAssunto`), e a legenda real virou teste.
+A terceira rodada da folha achou o caso seguinte: com o Moraes fora da frase de
+assunto, sobrou uma coletiva de doze senadores ("Participam: ...") e, para o
+Fachin, a mesa de uma posse com sete pessoas ("Mesa: ..."). Foto de grupo
+deixou de provar identidade (`fotoDeGrupo`): lista na legenda ou três pessoas
+nomeadas ou mais. As duas legendas reais viraram teste. A mesma regra pega "Hugo Motta e Lula" (a foto é do Hugo Motta), o
+deputado Lula da Fonte e o Jair numa pauta do Flávio. O caso do Biden não é de
+legenda: ele é o protagonista, só que pequeno no plano aberto. Esse é o
+trabalho da conferência visual, que abre a imagem, e é por isso que ela existe.
+
+**Lição.** Em texto de agência, nome na legenda descreve o assunto da pauta
+tanto quanto o da foto. Prova de identidade é a POSIÇÃO do nome e o TAMANHO do
+elenco, não a presença. E foram três rodadas da folha de contato, cada uma
+achando o caso que a régua anterior deixava passar, em minutos, enquanto os
+testes passavam todos: eles tinham sido escritos com a legenda que eu
+imaginava, e não com a que o banco escreve. Régua sobre legenda de terceiro se
+testa com a legenda dele.
+
+### A conta do modelo ficou sem crédito, e toda foto virou recusa (06/10/2026)
+
+**Medido no replay.** Toda conferência visual e toda pergunta da cena
+voltaram `OpenAI API error (429): You have no credits remaining`. Pela regra de
+17/09, falha de conferência é recusa: com a conta assim, a produção recusa toda
+foto externa e a pauta sem foto não vira conteúdo. Não é defeito do código, e
+o efeito é o dia inteiro sem peça. O motivo aparece nas recusas como
+`VISUAL_CHECK_UNAVAILABLE`, e é a primeira coisa a olhar quando a queda por
+foto subir de repente.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

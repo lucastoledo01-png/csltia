@@ -111,6 +111,12 @@ export function creditoDoAsset(
   let origem = ORIGEM_DA_FONTE[asset.source ?? ""] ?? "";
   if (asset.source === "banco_conceitual") origem = provedor === "unsplash" ? "Unsplash" : "Pexels";
   if (asset.source === "acervo_proprio") origem = nomeDoAcervo;
+  /*
+   * Banco oficial (06/10/2026): a origem é o nome do banco ("Agência
+   * Brasil", "Câmara dos Deputados"), que é o que o crédito exigido por eles
+   * nomeia, e não o host do arquivo.
+   */
+  if (asset.source === "banco_oficial") origem = String(asset.metadata?.banco_nome ?? "") || origem;
   if (asset.source === "fonte_oficial") {
     try {
       origem = new URL(asset.sourcePageUrl || asset.imageUrl).hostname.replace(/^www\./, "");
