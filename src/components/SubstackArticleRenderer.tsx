@@ -79,7 +79,7 @@ export function SubstackArticleRenderer({
   return (
     <article className="mx-auto max-w-[680px] bg-white py-6 text-[#0A0A0A]">
       {/* 1. Cabeçalho */}
-      <header className="border-b border-[#F4F4F5] pb-6">
+      <header>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.16em]">
           {categoryHref ? (
             <a href={categoryHref} className="rounded-sm bg-[var(--portal-vermelho)] px-3 py-1 text-white hover:underline">
@@ -99,18 +99,18 @@ export function SubstackArticleRenderer({
           <p className="mt-4 text-[17px] leading-relaxed text-[#52525B] sm:text-lg">{subtitle}</p>
         ) : null}
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[#F4F4F5] pt-4">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-y border-[#F4F4F5] py-4">
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[#71717A]">
             <span>Por {assinatura}</span>
             {date ? (
               <>
-                <span aria-hidden="true" className="h-1 w-1 rounded-full bg-[#D4D4D8]" />
+                <span aria-hidden="true" className="hidden h-1 w-1 rounded-full bg-[#D4D4D8] sm:inline-block" />
                 {dateTime ? <time dateTime={dateTime}>{date}</time> : <span>{date}</span>}
               </>
             ) : null}
             {updated ? (
               <>
-                <span aria-hidden="true" className="h-1 w-1 rounded-full bg-[#D4D4D8]" />
+                <span aria-hidden="true" className="hidden h-1 w-1 rounded-full bg-[#D4D4D8] sm:inline-block" />
                 <span>
                   Atualizado em {updatedTime ? <time dateTime={updatedTime}>{updated}</time> : updated}
                 </span>
@@ -134,7 +134,7 @@ export function SubstackArticleRenderer({
 
       {/* 2. Capa, em caixa de proporção fixa */}
       {coverImage ? (
-        <figure className="my-8">
+        <figure className="mb-0 mt-8">
           <div className="relative aspect-[16/9] overflow-hidden rounded-2xl bg-[#F4F4F5]">
             <Image
               alt={coverDescription?.trim() || title}
@@ -176,7 +176,7 @@ export function SubstackArticleRenderer({
       {/* 4. Corpo do Artigo em HTML Fluido ou Seções */}
       {contentHtml && contentHtml.trim().length > 0 ? (
         <div
-          className="artigo-corpo my-6 max-w-none text-base leading-relaxed text-[#27272A]"
+          className="artigo-corpo mb-0 mt-8 max-w-none text-base leading-relaxed text-[#27272A]"
           dangerouslySetInnerHTML={{ __html: contentHtml }}
         />
       ) : (
