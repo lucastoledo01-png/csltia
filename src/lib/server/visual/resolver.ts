@@ -191,13 +191,19 @@ export async function resolveVisualAsset(
    * sem imagem. Foto do estado de Washington numa matéria sobre a embaixada em
    * Washington D.C. é um erro que o leitor percebe.
    */
+  /*
+   * ATUALIZADO em 06/10/2026: ambiguidade continua não virando palpite sobre
+   * a ENTIDADE, mas deixou de matar a pauta. Ela segue como pauta sem
+   * entidade, pela escada da cena: a foto de contexto não afirma qual das duas
+   * Washington é, e é por isso que ela pode ficar. Medido no catálogo do
+   * evergreen: "paridade regional" morria aqui toda vez.
+   */
   if (!escolha.entidade && escolha.ambigua) {
     fontesConsultadas.push({
       fonte: "biblioteca_interna",
       encontrados: 0,
-      nota: escolha.tentativas.map((t) => t.resultado).join(" ; "),
+      nota: `entidade ambígua, a pauta segue pela cena: ${escolha.tentativas.map((t) => t.resultado).join(" ; ")}`,
     });
-    return semFotoDaPauta(null, MOTIVOS_DE_RECUSA.ENTIDADE_AMBIGUA);
   }
 
   const entidade =

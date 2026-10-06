@@ -1357,7 +1357,44 @@ que a bolha procura: fundo de cena e círculo do órgão é uma capa válida.
   nenhuma passou na pontuação); o asset ganha `metadata.fallback_de_cena`; e
   `content_json.visual.caminho` guarda o caminho no post.
 - **Custo:** a pauta que cai na cena depois da entidade paga a pergunta da cena
-  e até quatro conferências a mais. Só acontece quando a entidade falhou.
+  e as conferências da escada. Só acontece quando a entidade falhou.
+
+**A cena desce uma escada antes de desistir.** Pedido do dono no mesmo dia:
+"o ideal é que nunca haja falha de imagem; sempre tem que ter foto de
+contexto". Medido no catálogo do evergreen, TODA pauta que ficava sem foto
+tinha o mesmo perfil: três fotos de banco, as três recusadas pela conferência,
+e nenhum outro lugar onde procurar. A cena agora desce degraus e para no
+primeiro que entrega foto aprovada:
+
+| degrau | o que pede |
+|---|---|
+| `acervo` | o acervo próprio pela tag, como antes |
+| `cena` | a busca que descreve o objeto da pauta (ou o tema fixo, se a pergunta falhou) |
+| `cena_ampla` | a busca ampla que o mesmo modelo devolve, o tema fixo e o Openverse |
+| `editoria` | o contexto da editoria (Capitólio para política, servidores para tecnologia, Brasília para Brasil) |
+| `reuso` | os mesmos pedidos aceitando foto dos últimos 30 dias; nunca a que saiu hoje |
+
+- **As regras duras não descem com a escada.** Toda candidata passa pela
+  pontuação e pela conferência visual. O que muda é a PERGUNTA para a foto de
+  cena (`papel: "cena"`): ela é contexto, e "é genérica" ou "não identifica o
+  órgão" deixam de ser motivo de recusa, que eram as recusas mais comuns.
+  Pessoa identificável, texto como assunto, outro país e logotipo de terceiro
+  continuam recusa, e estão repetidos na instrução de propósito.
+- **O degrau fica gravado**: `ResultadoVisual.degrau`, `metadata.degrau`,
+  `content_json.visual.degrau` e uma nota por degrau em `fontesConsultadas`.
+- **Teto:** quatro conferências por degrau e doze na escada inteira. O caso
+  comum para no primeiro degrau.
+- **O banco faz uma chamada por provedor, não uma por foto.** Eram três
+  chamadas iguais por pauta, cada uma baixando os mesmos 15 resultados para
+  ficar com o seguinte. Além de triplicar o custo, era rajada, e o Pexels
+  responde 429 a rajada: em medição, uma rajada recusada virava "não há foto".
+  Agora uma busca devolve até seis candidatas.
+- **O Commons grande é conferido pela miniatura.** O modelo recusa baixar mais
+  de 20 MB, e o original do Commons passa disso: duas fotos do IRS viraram
+  VISUAL_CHECK_UNAVAILABLE por isso. A conferência abre a miniatura de 1280 px
+  do mesmo arquivo; a URL gravada e publicada continua a original.
+- **Vale para todos os canais**, porque newsletter, portal, post e carrossel
+  resolvem a foto pelo mesmo `resolveVisualAsset`.
 
 **Dólar em texto português é `US$` com número brasileiro.** A manchete do FDIC
 saiu "até $250,000". O modelo copiou a grafia da fonte, que é o que o prompt
