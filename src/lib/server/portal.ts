@@ -200,6 +200,11 @@ export function pautasDasEdicoes(
   return { pautas, fontesDasPautas };
 }
 
+/** Só a pauta cuja matéria está publicada vira cartão (06/10/2026). */
+export function soComMateriaPublicada(pautas: PautaDoPortal[], slugsPublicados: Set<string>): PautaDoPortal[] {
+  return pautas.filter((p) => p.href.startsWith("/artigos/") && slugsPublicados.has(p.href.slice("/artigos/".length)));
+}
+
 export async function pautasRecentes(
   projectId: string,
   limite = 40,
@@ -252,9 +257,17 @@ export async function pautasRecentes(
     return new Set(((data ?? []) as Array<{ slug: string }>).map((r) => r.slug));
   }).catch(() => new Set<string>());
 
-  const { pautas, fontesDasPautas } = pautasDasEdicoes(edicoes, slugsPublicados);
+  const { pautas: todasDasEdicoes, fontesDasPautas } = pautasDasEdicoes(edicoes, slugsPublicados);
 
-  if (!opcoes.incluirArtigosDosRamos) return pautas.slice(0, limite);
+  /*
+   * O portal recomeça do zero em 06/10/2026, por decisão do dono: as matérias
+   * antigas saíram do ar e a unidade da home é a MATÉRIA publicada. Pauta de
+   * edição sem matéria publicada não vira cartão, porque o cartão apontaria
+   * para uma página que não existe mais. As matérias são lidas sempre, e não
+   * só com os ramos em `enforce`.
+   */
+  const pautas = soComMateriaPublicada(todasDasEdicoes, slugsPublicados);
+  void opcoes.incluirArtigosDosRamos;
 
   const artigos = await comRetentativa("matérias do portal", async () => {
     const { data, error } = await client
