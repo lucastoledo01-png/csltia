@@ -1505,6 +1505,62 @@ recorte de post continua usando o arquivo e precisa do avatar novo do dono.
 RESOLVIDO no mesmo dia: o avatar passou a ser o ícone do site, e o convite
 voltou a usar o arquivo.
 
+### O feed repetia a pauta de ontem, e a régua perguntava ao e-mail (06/10/2026)
+
+**Sintoma.** Uma leitura dos últimos 60 posts do Instagram (16/09 a 05/10)
+achou 21 deles contando 9 pautas em dias seguidos, três delas em três dias
+(o relatório de emprego do BLS, a reunião em Camp David, a amilina da Lilly).
+A mesma leitura no feed inteiro achou uma décima, de 15 e 16/09. Manchetes
+reescritas a cada dia, então ninguém as reconhecia lado a lado: "Emprego nos
+EUA cresce e desemprego fica em 4,2% em setembro" em 03/10, "Emprego em folha
+de pagamento aumenta e desemprego fica em 4,2% em setembro" em 04/10.
+
+**O que os pares tinham em comum.** Nos dez, a MESMA candidata: mesma URL,
+mesmo `story_id`, cosseno 1.0. A impressão do acontecimento, ao contrário,
+mudou de um dia para o outro em seis dos dez, porque a classificação é refeita
+e devolve outros atores e termos. Uma régua por impressão não teria pegado.
+
+**Causa.** A régua de repetição existia e rodava, mas sobre o canal errado. O
+pool do Instagram é o `approvedEditorialPool`, filtrado pela guarda com
+`canal: "newsletter"`, e `verificarRepeticao` compara só dentro do canal. O
+ciclo social nunca fazia a pergunta ao canal `instagram`, e se fizesse, a
+resposta seria a mesma: no `editorial_history` as únicas oito linhas
+`instagram` são do backfill de 05/09, e nenhum caminho de produção jamais
+gravou outra. `candidatos-store.ts` documentava `used_social` como "editorial_history
+com channel = 'instagram'", um canal que ninguém alimentava. A troca de pauta
+da fila (`motivoDeFora` com o canal `instagram`) consultava o mesmo vazio. E a
+candidata volta ao pool no dia seguinte porque a coleta lê de novo a mesma
+matéria, e nada a marca como usada no feed.
+
+**Corrigido.** `social/historico-do-feed.ts` lê o feed de `social_posts`, com a
+candidata de origem junto (URL, entidades, vetor), e o ciclo social tira do
+pool, antes do verificador, o que o feed já levou: mesmo `story_id`, e depois
+`verificarRepeticao` com o canal `instagram`, nos limiares da repetição
+histórica (0.85, e a faixa de 0.72 confirmada por entidade), não o 0.70 do
+agrupamento do dia. Os outros caminhos do feed perguntam ao mesmo lugar: a
+troca de pauta da fila (`mundo.historico`) e o agendador legado
+(`foraDoFeedDaEdicao`). O post agendado passou a gravar a linha `instagram` no
+histórico editorial, no store, e `backfill-instagram-no-historico.ts` preenche
+o que faltou desde 05/09 (ensaio por padrão).
+
+**Por que `social_posts`, e não o histórico editorial.** É onde o post nasce,
+sem um segundo passo que possa falhar calado, e tem duas colunas que o
+histórico não tem. `edition_date`: a reexecução do dia veria os posts que ela
+mesma agendou de manhã e trocaria a pauta, e o dia ganharia posts. `status`:
+o post que o editor cancelou na fila não foi ao feed. As linhas `instagram` do
+histórico editorial ficam como registro, e a régua do feed as ignora.
+
+**Feed ilegível tira a notícia do dia**, com o motivo
+`INSTAGRAM_HISTORY_UNREADABLE` no diagnóstico. É a regra da persistência
+degradada: sem antirrepetição o feed não publica.
+
+**Lição.** É "a régua lia uma chave e o banco gravava outra" com o sinal
+trocado: aqui a chave era a mesma, e era o CANAL que ninguém gravava. Quando
+uma guarda existe e o defeito acontece assim mesmo, a primeira conferência é
+contar as linhas que ela lê. Zero linhas do canal faz `verificarRepeticao`
+devolver "histórico vazio, nada a comparar", que é aprovação, e aprovação em
+silêncio é indistinguível de régua funcionando.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

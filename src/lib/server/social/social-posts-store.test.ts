@@ -375,3 +375,80 @@ describe("registro de direito de imagem", () => {
     expect(v.fontesConsultadas).toHaveLength(1);
   });
 });
+
+describe("o canal instagram do histórico editorial (06/10/2026)", () => {
+  /** Banco que separa as escritas por tabela e devolve a chave, como o PostgREST. */
+  function bancoPorTabela(falharHistorico = false) {
+    const escritas: Record<string, Record<string, unknown>[]> = {};
+    const client = {
+      from(tabela: string) {
+        const c: Record<string, unknown> = {
+          select() { return c; },
+          eq() { return c; },
+          then(resolve: (v: unknown) => void) {
+            return Promise.resolve({ data: [], error: null }).then(resolve);
+          },
+          upsert(linhas: Record<string, unknown>[]) {
+            (escritas[tabela] ??= []).push(...linhas);
+            return {
+              select: () =>
+                Promise.resolve(
+                  tabela === "editorial_history" && falharHistorico
+                    ? { data: null, error: { message: "Gateway Timeout" } }
+                    : {
+                        data: linhas.map((l, i) => ({ id: `${tabela}-${i}`, idempotency_key: l.idempotency_key })),
+                        error: null,
+                      },
+                ),
+            };
+          },
+        };
+        return c;
+      },
+    } as unknown as SupabaseClient;
+    return { client, escritas };
+  }
+
+  function comPauta(storyId: string, url: string) {
+    const p = paraGravar({ storyId, eventFingerprint: `fp-${storyId}` });
+    (p.post.pauta as unknown as Record<string, unknown>).grupo = {
+      primary: { title: "Claims for unemployment benefits drop to 197,000", url, description: "" },
+    };
+    (p.post.pauta as unknown as Record<string, unknown>).classificacao = {
+      eixo: "economia", pais: "EUA", atores: ["Labor Department"], lugares: [], acontecimento: ["queda"],
+    };
+    return p;
+  }
+
+  it("todo post agendado vira linha instagram no histórico, apontando para a linha do post", async () => {
+    const { client, escritas } = bancoPorTabela();
+    const store = criarSocialPostsStore(client);
+
+    const r = await store.gravar([
+      comPauta("u_0a3ec9b5e6e7681e7f3b", "https://www.pbs.org/newshour/economy/claims-197000"),
+    ]);
+
+    expect(r.gravados).toBe(1);
+    const [h] = escritas.editorial_history ?? [];
+    expect(h).toMatchObject({
+      channel: "instagram",
+      story_id: "u_0a3ec9b5e6e7681e7f3b",
+      instagram_post_id: "social_posts-0",
+      canonical_url: "pbs.org/newshour/economy/claims-197000",
+      published_at: "2026-09-06T11:00:00Z",
+      image_url: null,
+    });
+  });
+
+  it("falha ao gravar o histórico não desfaz o post", async () => {
+    const { client, escritas } = bancoPorTabela(true);
+    const store = criarSocialPostsStore(client);
+
+    const r = await store.gravar([comPauta("s9", "https://exemplo.com/s9")]);
+
+    expect(r.gravados).toBe(1);
+    expect(r.erros).toEqual([]);
+    expect(escritas.social_posts).toHaveLength(1);
+    expect(escritas.editorial_history).toHaveLength(1);
+  });
+});
