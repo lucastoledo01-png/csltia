@@ -1380,6 +1380,31 @@ recorte não recebe mais a segunda foto.
 **Lição.** É a "linha gravada mentindo" de 16/09 outra vez: campo que descreve
 uma decisão precisa ser escrito por quem a EXECUTA, não por quem a pediu.
 
+### A refação de imagem trocava a foto dos três canais (06/10/2026)
+
+**Sintoma.** Nenhum, achado antes de a fila valer, quando o dono disse que a
+refação é por peça e por canal.
+
+**Causa.** `imagemDaPauta` com `ignorarReuso` resolvia a foto nova e REGRAVAVA
+`imagem_da_pauta`, de propósito: "para os outros canais reusarem a foto
+aprovada". Reprovar a foto do post trocaria, em silêncio, a capa da matéria e
+a foto da newsletter da mesma pauta, peças que o editor já tinha olhado e,
+talvez, aprovado. O hash da matéria pegaria a troca e seguraria a matéria
+aprovada, sem ninguém entender por quê.
+
+**Corrigido.** `ignorarReuso` só resolve: não grava a tabela nem a memória. A
+foto nova é gravada na linha da peça reprovada, e só nela. Há teste de que o
+canal seguinte continua lendo a foto gravada, e de que reprovar o texto do post
+não muda a linha da matéria nem a da newsletter.
+
+**No mesmo trabalho.** A arte do post recongelada pela refação lia o crédito da
+foto em `visual.credito`, e o store grava `visual.attribution`: refazer só a
+arte apagaria o crédito exigido pela licença. Lê as duas chaves agora.
+
+**Lição.** Recurso compartilhado entre peças com aprovação própria não pode ser
+escrito por quem refaz uma delas. "Uma foto por pauta" é uma economia da
+produção, não uma regra de publicação.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

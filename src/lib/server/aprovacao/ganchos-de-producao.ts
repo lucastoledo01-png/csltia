@@ -5,9 +5,18 @@ import type { OrigemDoArtigo } from "../ramos/portal";
 import type { Artigo, MarcaDoArtigo, ResultadoDoArtigo } from "../ramos/artigo";
 import type { ResultadoVisual } from "../visual/tipos";
 import type { PautaParaImagem } from "../visual/resolver";
-import type { ResultadoDoCongelamento, EntradaDoCongelamento } from "../social/artefato";
+import type {
+  ResultadoDoCongelamento,
+  EntradaDoCongelamento,
+  EntradaDoCarrossel,
+  ResultadoDoCarrossel,
+} from "../social/artefato";
+import { criarGanchosPorEtapa, CARROSSEL_SEM_FORMA, type MundoDaRefacao } from "./ganchos-por-etapa";
+import { mundoDaRefacaoDeProducao } from "./mundo-da-refacao";
 import type { ContextoDaRefacao, GanchosDeRefazer, ResultadoDaEtapa } from "./refazer";
 import { getSupabaseAdminClient } from "../supabase-admin";
+import type { PapelDeSlide } from "../social/carrossel/estrutura";
+import type { CopyDoCarrossel } from "../social/carrossel/copy";
 
 /**
  * Os ganchos de refação ligados de verdade (RF-22, integração de 05/10/2026).
@@ -49,6 +58,14 @@ import { getSupabaseAdminClient } from "../supabase-admin";
  * Nos casos sem gancho a peça fica em `refazendo` com o motivo no painel, que é
  * o comportamento que a fila já tinha.
  *
+ * ATUALIZADO em 06/10/2026, véspera de a fila valer: a lista acima de "sem
+ * refação" foi toda ligada, em `ganchos-por-etapa.ts` (seleção dos três ramos,
+ * texto do post e do carrossel, a newsletter inteira) e aqui mesmo (imagem e
+ * arte do carrossel). O que tornou possível foi gravar o contexto de produção
+ * na linha da fila (`resumo.contexto`) e remontá-lo das tabelas para as peças
+ * antigas. A foto refeita passou a ser só da peça reprovada: `imagemDaPauta`
+ * com `ignorarReuso` não regrava mais a foto compartilhada da pauta.
+ *
  * Tudo aqui, menos o cliente do banco, é importado na hora (`import()` dentro do gancho): este arquivo é
  * lido por `integracao.ts`, que o worker e o ciclo social também importam, e
  * o renderizador e o redator não têm o que fazer no grafo deles.
@@ -72,8 +89,30 @@ export type MundoDosGanchos = {
     ctx: { client: SupabaseClient; projeto: Project; evitar: string[] },
   ) => Promise<ResultadoVisual>;
   congelar: (entrada: EntradaDoCongelamento) => Promise<ResultadoDoCongelamento>;
+  /** O congelamento das N telas do carrossel (06/10/2026). */
+  congelarCarrossel?: (entrada: EntradaDoCarrossel) => Promise<ResultadoDoCarrossel>;
   agora?: () => number;
-};
+} & Partial<Omit<MundoDaRefacao, "client" | "projeto" | "imagem" | "agora">>;
+
+/** O mundo tem tudo o que os ganchos de 06/10/2026 pedem? Só então eles entram. */
+function mundoCompleto(m: MundoDosGanchos): m is MundoDosGanchos & MundoDaRefacao {
+  const chaves: Array<keyof MundoDaRefacao> = [
+    "candidatasPorStory",
+    "candidatasPorUrl",
+    "poolDoDia",
+    "historico",
+    "config",
+    "montarPacote",
+    "fotoDaPauta",
+    "marcaDoPost",
+    "gerarPost",
+    "produzirPost",
+    "produzirArtigo",
+    "reescreverNewsletter",
+    "renderizarNewsletter",
+  ];
+  return chaves.every((k) => typeof (m as Record<string, unknown>)[k] === "function");
+}
 
 function falha(motivo: string): ResultadoDaEtapa {
   return { ok: false, motivo };
@@ -199,6 +238,8 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
   function ehCarrossel(l: Linha): boolean {
     const cj = (l.content_json ?? {}) as Linha;
     return (
+      cj.formato === "carousel" ||
+      (Array.isArray(((cj.copy ?? {}) as Linha).slides) && (((cj.copy ?? {}) as Linha).slides as unknown[]).length > 0) ||
       (Array.isArray(cj.slides) && cj.slides.length > 0) ||
       (Array.isArray(l.asset_paths) && l.asset_paths.length > 1) ||
       Boolean(cj.carrossel)
@@ -212,9 +253,15 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     const client = mundo.client();
     const l = await lerLinha(client, "social_posts", COLUNAS_DO_POST, ctx.aprovacao.pecaId, projeto.id);
     if (!l) return falha("o post não existe mais");
-    if (ehCarrossel(l)) return falha("carrossel: a refação de imagem de várias telas ainda não está ligada");
-
+    /*
+     * O carrossel tem uma foto só, a da capa; a refação troca a foto e a arte
+     * recongela as telas todas (06/10/2026). Antes daqui a peça ficava parada.
+     */
     const cj = (l.content_json ?? {}) as Linha;
+    if (ehCarrossel(l)) {
+      const forma = (cj.carrossel ?? {}) as Linha;
+      if (!Array.isArray(forma.papeis) || forma.papeis.length === 0) return falha(CARROSSEL_SEM_FORMA);
+    }
     const copy = (cj.copy ?? {}) as Linha;
     const arte = (cj.arte ?? {}) as Linha;
     const visual = (cj.visual ?? {}) as Linha;
@@ -263,7 +310,15 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
       .update({
         content_json: {
           ...cj,
-          visual: { ...visual, capa: "foto", imageUrl: nova, credito: r.asset?.attribution ?? "", motivo: r.motivo ?? "" },
+          visual: {
+            ...visual,
+            capa: "foto",
+            imageUrl: nova,
+            // As duas chaves: o store grava `attribution`, e a refação antiga gravava `credito`.
+            attribution: r.asset?.attribution ?? "",
+            credito: r.asset?.attribution ?? "",
+            motivo: r.motivo ?? "",
+          },
         },
         updated_at: new Date(mundo.agora ? mundo.agora() : Date.now()).toISOString(),
       })
@@ -279,8 +334,6 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     const client = mundo.client();
     const l = await lerLinha(client, "social_posts", COLUNAS_DO_POST, ctx.aprovacao.pecaId, projeto.id);
     if (!l) return falha("o post não existe mais");
-    if (ehCarrossel(l)) return falha("carrossel: a refação de arte de várias telas ainda não está ligada");
-
     const cj = (l.content_json ?? {}) as Linha;
     const copy = (cj.copy ?? {}) as Linha;
     const arte = (cj.arte ?? {}) as Linha;
@@ -288,7 +341,9 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     const headline = String(copy.headline ?? l.title ?? "").trim();
     if (!headline) return falha("o post não tem manchete gravada");
     const foto = typeof visual.imageUrl === "string" && visual.imageUrl ? visual.imageUrl : "";
-    const credito = typeof visual.credito === "string" ? visual.credito : "";
+    // O store grava `attribution`; `credito` era o nome da refação antiga. Ler só um apagava o crédito.
+    const credito =
+      typeof visual.attribution === "string" ? visual.attribution : typeof visual.credito === "string" ? visual.credito : "";
 
     const { gramaticaEfetiva, varianteDaCapa } = await import("../social/arte");
     const corpo = typeof copy.gancho === "string" ? copy.gancho : "";
@@ -302,6 +357,73 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     });
 
     const agora = mundo.agora ? mundo.agora() : Date.now();
+    const caminho = `${projeto.slug}/${String(l.edition_date ?? "")}/refeito-${String(l.id).slice(0, 8)}-${agora}`;
+
+    if (ehCarrossel(l)) {
+      /*
+       * O carrossel recongela TODAS as telas: a capa leva a manchete e a foto,
+       * e o miolo leva o texto de cada slide. Tudo ou nada, como no ciclo.
+       */
+      const forma = (cj.carrossel ?? {}) as Linha;
+      const papeis = Array.isArray(forma.papeis) ? (forma.papeis as PapelDeSlide[]) : [];
+      if (papeis.length === 0) return falha(CARROSSEL_SEM_FORMA);
+      if (!mundo.congelarCarrossel) return falha("o congelamento do carrossel não está ligado neste processo");
+      const { entradasDoCarrossel } = await import("../social/carrossel/arte");
+      const entradas = entradasDoCarrossel(copy as unknown as CopyDoCarrossel, papeis, {
+        eixo,
+        asset: foto ? { imageUrl: foto, attribution: credito } : null,
+        assetSecundario: null,
+        motivoSemFoto: foto ? "" : String(visual.motivo ?? ""),
+        gramatica,
+        ...(gramatica === "recorte" ? { corpo } : {}),
+      }).entradas;
+      const r = await mundo.congelarCarrossel({ slides: entradas, path: caminho });
+      if (!r.ok) return falha(`o carrossel não fechou: ${r.motivo}`);
+      const registro = (a: (typeof r.artefatos)[number]) => ({
+        index: a.index,
+        url: a.url,
+        path: a.path,
+        filename: a.filename,
+        mime: a.mime,
+        sha256: a.sha256,
+        bytes: a.bytes,
+        largura: a.largura,
+        altura: a.altura,
+        otimizado: a.otimizado,
+      });
+      const { error } = await client
+        .from("social_posts")
+        .update({
+          content_json: {
+            ...cj,
+            arte: {
+              ...arte,
+              artefato: registro(r.artefatos[0]),
+              artefatos: r.artefatos.map(registro),
+              gramatica,
+              variante: varianteDaCapa(Boolean(foto), gramatica),
+              bolha: false,
+            },
+          },
+          asset_paths: r.artefatos.map((a) => a.url),
+          slides_manifest: r.artefatos.map((a) => ({
+            index: a.index,
+            url: a.url,
+            filename: a.filename,
+            sha256: a.sha256,
+            bytes: a.bytes,
+            provider_child_id: null,
+          })),
+          updated_at: new Date(agora).toISOString(),
+        })
+        .eq("id", ctx.aprovacao.pecaId)
+        .eq("project_id", projeto.id)
+        .is("provider_creation_id", null)
+        .neq("status", "published");
+      if (error) return falha(`o carrossel novo não foi gravado: ${error.message}`);
+      return { ok: true, resumo: { imagens: r.artefatos.map((a) => a.url) } };
+    }
+
     const congelado = await mundo.congelar({
       capa: {
         headline,
@@ -313,7 +435,7 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
         motivoSemFoto: foto ? "" : String(visual.motivo ?? ""),
       },
       // Caminho NOVO a cada refação: sobrescrever quebraria o hash de quem aponta para o antigo.
-      path: `${projeto.slug}/${String(l.edition_date ?? "")}/refeito-${String(l.id).slice(0, 8)}-${agora}`,
+      path: caminho,
     });
     if (!congelado.ok) return falha(`a arte não fechou: ${congelado.motivo}`);
 
@@ -344,9 +466,16 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     return { ok: true, resumo: { imagens: [congelado.artefato.url] } };
   };
 
-  return {
+  const base: GanchosDeRefazer = {
     artigo: { texto: textoDoArtigo, imagem: imagemDoArtigo },
     post: { imagem: imagemDoPost, arte: arteDoPost },
+  };
+  if (!mundoCompleto(mundo)) return base;
+  const novos = criarGanchosPorEtapa(mundo);
+  return {
+    artigo: { ...base.artigo, ...novos.artigo },
+    post: { ...base.post, ...novos.post },
+    newsletter: novos.newsletter,
   };
 }
 
@@ -375,5 +504,8 @@ export function mundoDeProducao(env: Record<string, string | undefined> = proces
       });
     },
     congelar: async (entrada) => (await import("../social/artefato")).congelarArtefato(entrada),
+    congelarCarrossel: async (entrada) => (await import("../social/artefato")).congelarCarrossel(entrada),
+    // Os ganchos de 06/10/2026: seleção, texto do post, newsletter e carrossel.
+    ...mundoDaRefacaoDeProducao(env),
   };
 }

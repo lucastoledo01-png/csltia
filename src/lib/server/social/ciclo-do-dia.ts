@@ -446,6 +446,8 @@ export async function rodarSocialDoDia(
     moldes: moldesLigados(opcoes.projeto),
     slugDoProjeto: opcoes.projectSlug,
     editionDate: opcoes.editionDate,
+    // A referência ao pool do dia, para a troca de pauta na fila (06/10/2026).
+    poolDoDia: approvedEditorialPool.map((p) => p.storyId),
     marca: opcoes.marca,
     historico: opcoes.historico,
     pacotes,

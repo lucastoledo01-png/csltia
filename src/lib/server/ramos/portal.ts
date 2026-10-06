@@ -121,6 +121,11 @@ export type ConteudoDoArtigo = {
   slug: string;
   /** Assuntos e entidades, no formato de `indexacao-do-artigo.ts`. Ausente nas peças antigas. */
   tags?: string[];
+  /**
+   * O pool aprovado do dia, por `storyId`, para a troca de pauta na fila de
+   * aprovação (06/10/2026). Só referência: a troca relê as candidatas.
+   */
+  poolDoDia?: string[];
 };
 
 /**

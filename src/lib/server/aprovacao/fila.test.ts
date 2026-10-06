@@ -21,6 +21,7 @@ import {
 import { criarFilaEmMemoria } from "./fila-memoria";
 import { errosRecentesDaEtapa } from "./memoria-de-reprovacao";
 import type { GanchosDeRefazer } from "./refazer";
+import { processarRefacoes } from "./refacao-assincrona";
 
 /**
  * A fila contra uma memória e um adaptador de peças de mentira.
@@ -277,7 +278,13 @@ describe("reprovar e refazer (RF-22, RF-29)", () => {
     const a = await enfileirarTexto(p, m, "post", "p1", "Post");
 
     const r = await reprovar(p, a!.id, "imagem", "foto não tem relação com a pauta", "dono", m.deps);
-    expect(r.ok && r.desfecho).toBe("refeita");
+    // A reprovação só agenda (06/10/2026): nada roda no clique.
+    expect(r.ok && r.desfecho).toBe("refacao_agendada");
+    expect(imagem).not.toHaveBeenCalled();
+    expect(m.store.aprovacoes[0].resumo.refacao).toMatchObject({ estado: "na_fila", etapa: "imagem", tentativa: 1 });
+
+    const rodadas = await processarRefacoes(p, m.deps);
+    expect(rodadas.map((x) => x.desfecho)).toEqual(["refeita"]);
     expect(imagem).toHaveBeenCalledTimes(1);
     expect(arte).toHaveBeenCalledTimes(1);
     expect(texto).not.toHaveBeenCalled();
@@ -292,7 +299,10 @@ describe("reprovar e refazer (RF-22, RF-29)", () => {
     const a = await enfileirarTexto(p, m, "post", "p1", "Post");
 
     await reprovar(p, a!.id, "imagem", "foto genérica", "dono", m.deps);
+    await processarRefacoes(p, m.deps);
     await reprovar(p, a!.id, "imagem", "foto genérica de novo", "dono", m.deps);
+    await processarRefacoes(p, m.deps);
+    expect(m.store.aprovacoes[0].refazimentos).toBe(2);
     const terceira = await reprovar(p, a!.id, "texto", "manchete sem destinatário", "dono", m.deps);
 
     expect(terceira.ok && terceira.desfecho).toBe("descartada");
@@ -305,14 +315,19 @@ describe("reprovar e refazer (RF-22, RF-29)", () => {
     ]);
   });
 
-  it("etapa sem regeneração ligada deixa a peça em refazendo, com o motivo à vista", async () => {
+  it("etapa sem regeneração ligada devolve a peça intacta à fila, com o motivo à vista", async () => {
     const m = montar();
     const p = projeto();
     const a = await enfileirarTexto(p, m, "post", "p1", "Post");
     const r = await reprovar(p, a!.id, "texto", "tom de relatório", "dono", m.deps);
-    expect(r.ok && r.desfecho).toBe("refacao_pendente");
-    expect(m.store.aprovacoes[0].estado).toBe("refazendo");
+    expect(r.ok && r.desfecho).toBe("refacao_impossivel");
+    // A refação conta (é uma reprovação), mas a peça não fica presa: o editor decide de novo.
+    expect(m.store.aprovacoes[0].estado).toBe("aguardando");
+    expect(m.store.aprovacoes[0].refazimentos).toBe(1);
     expect(m.store.aprovacoes[0].resumo.refacaoPendente).toMatch(/ETAPA_SEM_REGENERACAO/);
+    expect(m.store.aprovacoes[0].resumo.refacao).toMatchObject({ estado: "impossivel" });
+    // O processador não pega o que já é "não dá".
+    expect(await processarRefacoes(p, m.deps)).toEqual([]);
   });
 
   it("reprovação sem motivo escrito é recusada", async () => {
@@ -343,6 +358,7 @@ describe("reprovar e refazer (RF-22, RF-29)", () => {
     const p = projeto();
     const a = await enfileirarTexto(p, m, "post", "p1", "Post original");
     await reprovar(p, a!.id, "texto", "sigla em inglês na manchete", "dono", m.deps);
+    await processarRefacoes(p, m.deps);
     expect(vistos[0]).toMatch(/NÃO REPETIR/);
     expect(vistos[0]).toMatch(/sigla em inglês na manchete/);
     expect(vistos[0]).toMatch(/Post original/);
@@ -506,6 +522,7 @@ describe("taxa de aprovação sem retrabalho (RF-25)", () => {
     const a2 = await enfileirarTexto(p, m, "post", "p2", "2");
     await aprovar(p, a1!.id, "dono", m.deps);
     await reprovar(p, a2!.id, "imagem", "foto ruim", "dono", m.deps);
+    await processarRefacoes(p, m.deps);
     await aprovar(p, a2!.id, "dono", m.deps);
 
     const taxa = (await taxaSemRetrabalho(p, m.deps)).find((t) => t.ramo === "post")!;

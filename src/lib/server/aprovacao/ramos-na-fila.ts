@@ -4,6 +4,7 @@ import type { ConteudoDoArtigo } from "../ramos/portal";
 import type { AvisoDaPeca, Ramo, ResumoDaPeca } from "./contrato";
 import { enfileirar, type DepsDaFila, type PecaParaFila, type ProjetoDaFila } from "./fila";
 import { modoDaFila } from "./modo";
+import { pautaDaOrigemDoArtigo } from "./contexto-de-producao";
 
 /**
  * As peças dos três ramos entrando na fila de aprovação (integração de 05/10/2026).
@@ -52,8 +53,15 @@ function avisosDoRamo(peca: PecaPronta): AvisoDaPeca[] {
   return peca.avisos.map((detalhe) => ({ codigo: "AVISO_DO_RAMO", detalhe }));
 }
 
-function resumoDoArtigo(peca: PecaPronta<ConteudoDoArtigo>): { resumo: ResumoDaPeca; publicarEm: string | null } {
+/**
+ * O resumo da matéria na fila, com o contexto da refação (06/10/2026): a pauta
+ * e o pacote em `origemDoArtigo`, e a referência ao pool do dia em
+ * `contexto.pool`, para a troca de pauta. Exportado porque a seleção refeita
+ * enfileira a matéria substituta com o MESMO resumo.
+ */
+export function resumoDoArtigo(peca: PecaPronta<ConteudoDoArtigo>): { resumo: ResumoDaPeca; publicarEm: string | null } {
   const c = peca.conteudo;
+  const data = /-(\d{4}-\d{2}-\d{2})$/.exec(c.slug)?.[1] ?? "";
   return {
     publicarEm: c.publicarEm ?? null,
     resumo: {
@@ -64,6 +72,17 @@ function resumoDoArtigo(peca: PecaPronta<ConteudoDoArtigo>): { resumo: ResumoDaP
       fonteUrl: c.fonte.url || null,
       pacoteFactual: (c.origem?.pacote.verified_facts ?? []).slice(0, 12),
       origemDoArtigo: c.origem ?? null,
+      ...(c.origem
+        ? {
+            contexto: {
+              versao: 1 as const,
+              data,
+              // O pacote já está em `origemDoArtigo`; a refação lê de lá.
+              pautas: [pautaDaOrigemDoArtigo(c.origem)],
+              ...(c.poolDoDia ? { pool: c.poolDoDia } : {}),
+            },
+          }
+        : {}),
     },
   };
 }
