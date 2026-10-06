@@ -27,6 +27,7 @@ import type { SinaisDeRepeticao, Veredito } from "./repeticao";
 import { dominioDe } from "./url-canonica";
 import type { ResultadoDoEnriquecimento } from "./enriquecimento";
 import { enriquecerPauta, temFatosSuficientes } from "./enriquecimento";
+import { textoDoErro } from "../texto-do-erro";
 
 /**
  * A guarda editorial: quem decide o que entra na edição.
@@ -110,10 +111,44 @@ export type ResultadoDaGuarda = {
     classificacoesReaproveitadas: number;
     classificadasAgora: number;
     persistidas: number;
+    /** Todas as falhas da camada, leitura e gravação juntas. */
     erros: string[];
+    /**
+     * As falhas separadas pelo que cada uma tira do dia (06/10/2026).
+     *
+     * Até aqui o social fechava em cima de `erros` inteiro, e em 06/10/2026 o
+     * Instagram ficou sem nenhum post de notícia por isso. As duas falhas não
+     * custam a mesma coisa. Sem a LEITURA, a classificação persistida não é
+     * reaproveitada e o pool é reclassificado do zero, que é a instabilidade
+     * que o bloqueio do social existe para não publicar. Sem a GRAVAÇÃO, a
+     * classificação de hoje já foi usada e a antirrepetição do feed lê
+     * `social_posts` (`historico-do-feed.ts`), e não esta tabela: o que se perde
+     * é o reuso amanhã, não a proteção de hoje.
+     */
+    errosDeLeitura: string[];
+    errosDeGravacao: string[];
   };
   linhasDeLog: string[];
 };
+
+/**
+ * O que o social recebe da camada de candidatas, num lugar só (06/10/2026).
+ *
+ * Só a leitura fecha o feed; a gravação que falha vai para o diagnóstico e
+ * para o aviso, e os posts seguem. Os quatro chamadores do ciclo social usam
+ * esta função para a regra não se espalhar de novo em `erros.length > 0`.
+ */
+export function persistenciaParaOSocial(reuso: ResultadoDaGuarda["reuso"]): {
+  persistenciaDegradada: boolean;
+  candidatasNaoGravadas: string[];
+  candidatasNaoLidas: string[];
+} {
+  return {
+    persistenciaDegradada: reuso.errosDeLeitura.length > 0,
+    candidatasNaoGravadas: reuso.errosDeGravacao,
+    candidatasNaoLidas: reuso.errosDeLeitura,
+  };
+}
 
 export type OpcoesDaGuarda = {
   canal: Canal;
@@ -155,7 +190,15 @@ export async function avaliarPautas(
       custoUsd: 0,
       tokens: { prompt: 0, completion: 0, total: 0 },
       vetoresGerados: 0,
-      reuso: { candidatasLidas: 0, classificacoesReaproveitadas: 0, classificadasAgora: 0, persistidas: 0, erros: [] },
+      reuso: {
+        candidatasLidas: 0,
+        classificacoesReaproveitadas: 0,
+        classificadasAgora: 0,
+        persistidas: 0,
+        erros: [],
+        errosDeLeitura: [],
+        errosDeGravacao: [],
+      },
       linhasDeLog: ["[GUARDA] nenhuma candidata coletada"],
     };
   }
@@ -183,6 +226,8 @@ export async function avaliarPautas(
     classificadasAgora: 0,
     persistidas: 0,
     erros: [] as string[],
+    errosDeLeitura: [] as string[],
+    errosDeGravacao: [] as string[],
   };
 
   const reaproveitadas = new Map<string, Classificacao>();
@@ -222,8 +267,10 @@ export async function avaliarPautas(
       );
     } catch (erro) {
       // Banco indisponível não pode impedir a edição de sair. Classifica tudo.
-      reuso.erros.push(`leitura de candidatas falhou: ${(erro as Error).message}`);
-      linhas.push(`[GUARDA] camada persistida indisponível, classificando tudo: ${(erro as Error).message}`);
+      const texto = `leitura de candidatas falhou: ${textoDoErro(erro)}`;
+      reuso.erros.push(texto);
+      reuso.errosDeLeitura.push(texto);
+      linhas.push(`[GUARDA] camada persistida indisponível, classificando tudo: ${textoDoErro(erro)}`);
       paraClassificar = grupos;
     }
   }
@@ -631,14 +678,24 @@ export async function avaliarPautas(
       const gravacao = await store.gravarNovas(projectId, paraGravar);
       reuso.persistidas = gravacao.gravadas;
       reuso.erros.push(...gravacao.erros);
+      reuso.errosDeGravacao.push(...gravacao.erros);
       linhas.push(
         `[GUARDA] ${gravacao.gravadas} candidata(s) gravada(s), ` +
           `${gravacao.reaproveitadas} já existiam e não foram tocadas`,
       );
+      for (const e of gravacao.erros) linhas.push(`[GUARDA] candidatas não gravadas: ${e}`);
     } catch (erro) {
-      // Falhar ao gravar não pode custar a edição do dia.
-      reuso.erros.push(`gravação de candidatas falhou: ${(erro as Error).message}`);
-      linhas.push(`[GUARDA] candidatas não gravadas: ${(erro as Error).message}`);
+      /*
+       * Falhar ao gravar não pode custar a edição do dia, nem os posts
+       * (06/10/2026): a falha de gravação vai em `errosDeGravacao`, que o
+       * social registra e avisa, sem fechar o feed. Uma leitura que falha
+       * DENTRO de `gravarNovas` (ela relê a janela para não sobrescrever)
+       * também cai aqui: a classificação de hoje já foi feita e usada.
+       */
+      const texto = `gravação de candidatas falhou: ${textoDoErro(erro)}`;
+      reuso.erros.push(texto);
+      reuso.errosDeGravacao.push(texto);
+      linhas.push(`[GUARDA] candidatas não gravadas: ${textoDoErro(erro)}`);
     }
   }
 

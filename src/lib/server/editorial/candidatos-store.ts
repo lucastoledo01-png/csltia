@@ -4,6 +4,9 @@ import type { Classificacao } from "./classificador";
 import type { PacoteFactual } from "./pacote-factual";
 import type { Verificacao } from "./verificador";
 import type { Motivo } from "./config";
+// O erro inteiro do banco (code, details, hint, causa), e não só o `message`:
+// em 06/10/2026 a falha da camada de candidatas não deixou texto nenhum.
+import { textoDoErro } from "../texto-do-erro";
 
 /**
  * A candidata editorial, persistida uma vez e lida por todos os canais.
@@ -434,7 +437,7 @@ export function criarCandidatosStore(client: SupabaseClient): CandidatosStore {
           .eq("project_id", projectId)
           .in("url", lote);
 
-        if (error) throw new Error(`Candidatas, leitura por URL falhou: ${error.message}`);
+        if (error) throw new Error(`Candidatas, leitura por URL falhou: ${textoDoErro(error)}`);
         for (const l of (data ?? []) as unknown as Linha[]) mapa.set(String(l.url), daLinha(l));
       }
 
@@ -469,7 +472,7 @@ export function criarCandidatosStore(client: SupabaseClient): CandidatosStore {
           .order("published_at", { ascending: false })
           .range(inicio, inicio + PAGINA - 1);
 
-        if (error) throw new Error(`Candidatas, leitura da janela falhou: ${error.message}`);
+        if (error) throw new Error(`Candidatas, leitura da janela falhou: ${textoDoErro(error)}`);
 
         const linhas = (data ?? []) as unknown as Linha[];
         for (const l of linhas) mapa.set(String(l.url), daLinha(l));
@@ -492,7 +495,7 @@ export function criarCandidatosStore(client: SupabaseClient): CandidatosStore {
           .eq("project_id", projectId)
           .in("story_id", lote);
 
-        if (error) throw new Error(`Candidatas, leitura por story_id falhou: ${error.message}`);
+        if (error) throw new Error(`Candidatas, leitura por story_id falhou: ${textoDoErro(error)}`);
         for (const l of (data ?? []) as unknown as Linha[]) mapa.set(String(l.story_id), daLinha(l));
       }
 
@@ -535,7 +538,7 @@ export function criarCandidatosStore(client: SupabaseClient): CandidatosStore {
             ignoreDuplicates: true,
           });
 
-        if (error) resultado.erros.push(`lote ${i / 100 + 1}: ${error.message}`);
+        if (error) resultado.erros.push(`gravação de candidatas, lote ${i / 100 + 1}: ${textoDoErro(error)}`);
         else resultado.gravadas += lote.length;
       }
 
@@ -550,7 +553,7 @@ export function criarCandidatosStore(client: SupabaseClient): CandidatosStore {
       if (motivo !== undefined) campos.decision_reason = motivo;
 
       const { error } = await client.from("news_candidates").update(campos).in("id", ids);
-      if (error) throw new Error(`Candidatas, atualização de status falhou: ${error.message}`);
+      if (error) throw new Error(`Candidatas, atualização de status falhou: ${textoDoErro(error)}`);
     },
 
     async gravarVerificacao(id, v) {
@@ -569,7 +572,7 @@ export function criarCandidatosStore(client: SupabaseClient): CandidatosStore {
         .update({ metadata_json: { ...meta, verificacao: v }, updated_at: new Date().toISOString() })
         .eq("id", id);
 
-      if (error) throw new Error(`Candidatas, gravação da verificação falhou: ${error.message}`);
+      if (error) throw new Error(`Candidatas, gravação da verificação falhou: ${textoDoErro(error)}`);
     },
   };
 }

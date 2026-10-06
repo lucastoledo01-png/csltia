@@ -48,6 +48,9 @@ import type { UsoAnterior } from "./evergreen/tipos";
 import type { DiagnosticoDoEvergreen, OpcoesDoEvergreen, ResultadoDoEvergreen } from "./evergreen/ciclo";
 import type { MarcaSocial } from "./copy";
 import type { OpcoesDoCiclo, ResultadoDoCicloSocial } from "./pipeline-v2";
+import type { CandidataPersistida } from "../editorial/candidatos-store";
+import type { CandidatasNaoGravadas } from "../avisos/avisos";
+import { avisarCandidatasNaoGravadasNoBanco } from "../avisos/candidatas";
 
 /**
  * O dia do Instagram, a partir do trabalho editorial que a newsletter também usa.
@@ -90,6 +93,11 @@ export type DiagnosticoSocialDoDia = {
   evergreen?: DiagnosticoDoEvergreen;
   /** O que o resolvedor de imagem fez hoje, com motivo. */
   visual?: ResumoVisualDoDia;
+  /**
+   * A gravação das candidatas falhou nesta execução, e os posts seguiram
+   * (06/10/2026). Os erros com o texto do banco; ausente quando gravou.
+   */
+  candidatasNaoGravadas?: string[];
 };
 
 export function diagnosticoSocialAusente(mode: ModoSocial = "off"): DiagnosticoSocialDoDia {
@@ -120,8 +128,29 @@ export type OpcoesDoSocialDoDia = {
   historicoDoFeed?: RegistroHistorico[];
   config: ConfigEditorial;
   client: SupabaseClient;
-  /** Se a persistência de candidatas veio degradada: o social fecha em cima disso. */
+  /**
+   * Se a LEITURA das candidatas falhou: o social fecha em cima disso.
+   *
+   * Até 06/10/2026 valia para qualquer erro da camada, gravação inclusive, e
+   * foi o que deixou o feed de 06/10 sem post de notícia. A gravação tem campo
+   * próprio, abaixo, e não fecha nada.
+   */
   persistenciaDegradada?: boolean;
+  /**
+   * Os erros da GRAVAÇÃO das candidatas nesta execução, com o texto do banco
+   * (`reuso.errosDeGravacao` da guarda). Com eles os posts seguem, o
+   * diagnóstico os grava e o Telegram recebe um aviso por dia. Ver
+   * `candidatasNaoGravadasNoDia`, no fim deste arquivo.
+   */
+  candidatasNaoGravadas?: string[];
+  /**
+   * Os erros da LEITURA das candidatas, com o texto do banco. Só vão para o
+   * diagnóstico, para o bloqueio `SOCIAL_PERSISTENCE_UNAVAILABLE` gravar o
+   * porquê junto: em 06/10/2026 ele foi gravado sem erro nenhum.
+   */
+  candidatasNaoLidas?: string[];
+  /** Quem manda o aviso. Injetável no teste; ausente, o de verdade (`avisos/candidatas.ts`). */
+  avisarCandidatasNaoGravadas?: (falha: CandidatasNaoGravadas) => Promise<unknown>;
   env?: Record<string, string | undefined>;
   fetcher?: typeof fetch;
   /** Relógio, só para simulação de dia passado. Ausente em produção. */
@@ -246,6 +275,47 @@ export function atoresParaAFoto(pauta: Pick<PautaAvaliada, "classificacao">): st
 }
 
 export async function rodarSocialDoDia(
+  approvedEditorialPool: PautaAvaliada[],
+  opcoes: OpcoesDoSocialDoDia,
+): Promise<ResultadoDoSocialDoDia> {
+  const resultado = await cicloSocialDoDia(approvedEditorialPool, opcoes);
+  await candidatasNaoGravadasNoDia(resultado, opcoes);
+  return resultado;
+}
+
+/**
+ * A gravação das candidatas falhou, e o dia seguiu (06/10/2026).
+ *
+ * Fica registrado no diagnóstico (que `diagnostico-gravado.ts` leva para
+ * `platform_events`) e, quando o ciclo é de verdade, vira UM aviso no Telegram
+ * por dia. Em ensaio não se avisa: o aviso diz que os posts seguiram, e em
+ * ensaio não há post. O aviso nunca derruba o ciclo.
+ */
+async function candidatasNaoGravadasNoDia(
+  resultado: ResultadoDoSocialDoDia,
+  opcoes: OpcoesDoSocialDoDia,
+): Promise<void> {
+  const d = resultado.diagnostico;
+  if (d.mode === "off") return;
+  for (const e of opcoes.candidatasNaoLidas ?? []) d.errors.push(`candidatas não lidas: ${e}`);
+
+  const erros = opcoes.candidatasNaoGravadas ?? [];
+  if (erros.length === 0) return;
+
+  d.candidatasNaoGravadas = erros;
+  d.errors.push(...erros.map((e) => `candidatas não gravadas, posts seguiram: ${e}`));
+
+  if (d.mode !== "enforce") return;
+  const falha: CandidatasNaoGravadas = { dia: opcoes.editionDate, erros, postsGravados: d.scheduled };
+  try {
+    await (opcoes.avisarCandidatasNaoGravadas ??
+      ((f: CandidatasNaoGravadas) => avisarCandidatasNaoGravadasNoBanco(opcoes.client, opcoes.projectId, f)))(falha);
+  } catch (erro) {
+    console.warn(`[SOCIAL V2] aviso de candidatas não gravadas falhou: ${(erro as Error)?.message ?? erro}`);
+  }
+}
+
+async function cicloSocialDoDia(
   approvedEditorialPool: PautaAvaliada[],
   opcoes: OpcoesDoSocialDoDia,
 ): Promise<ResultadoDoSocialDoDia> {
@@ -418,6 +488,40 @@ export async function rodarSocialDoDia(
     opcoes.projectId,
     conferencia.confirmadas.map((p) => p.storyId),
   );
+
+  /*
+   * A prova de verificação, quando a candidata não foi gravada (06/10/2026).
+   *
+   * O Social Guard só deixa sair notícia com veredito `confirm` (`podePublicar`),
+   * e lê esse veredito da linha de `news_candidates`. Quando a gravação das
+   * candidatas falha, a linha não existe, o verificador não tem onde gravar o
+   * veredito, e TODO post de notícia cairia como `SOCIAL_REJECT_UNVERIFIED`:
+   * tirar o bloqueio da composição sem isto trocaria um dia sem post por outro
+   * dia sem post, mais caro, com a copy paga e recusada.
+   *
+   * A regra da guarda não muda: só sai o que o verificador confirmou. O que
+   * muda é de onde vem a prova, e só para as pautas sem linha no banco: o
+   * veredito desta mesma execução, que é o que estaria gravado se a gravação
+   * tivesse dado certo. Pauta que o verificador recusou ou pôs em conflito não
+   * está em `confirmadas` e continua de fora. Sem `id`, o post é gravado com
+   * `candidate_id` nulo, como o evergreen.
+   */
+  if ((opcoes.candidatasNaoGravadas ?? []).length > 0) {
+    for (const p of conferencia.confirmadas) {
+      if (candidatas.has(p.storyId)) continue;
+      candidatas.set(p.storyId, {
+        status: "approved",
+        verificacao: {
+          status: "confirm",
+          motivo: "confirmada pelo verificador nesta execução; a candidata não foi gravada no banco",
+          divergencias: [],
+          verificadoEm: new Date().toISOString(),
+          canal: "instagram",
+          inputHash: "",
+        },
+      } as unknown as CandidataPersistida);
+    }
+  }
 
   /*
    * O evergreen entra aqui, e a posição não é arbitrária.

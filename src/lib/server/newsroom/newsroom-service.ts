@@ -44,7 +44,7 @@ import { carregarConfigEditorial } from "../editorial/config";
 import { criarProvedorOpenAI } from "../editorial/embeddings";
 import { criarHistoricoStore, gerarStoryId } from "../editorial/history";
 import type { RegistroHistorico } from "../editorial/history";
-import { avaliarPautas, registroDaPauta } from "../editorial/guarda";
+import { avaliarPautas, persistenciaParaOSocial, registroDaPauta } from "../editorial/guarda";
 import { formatarNumerosDaEdicao } from "./numeros-editoriais";
 import type { ContextoDeProducao, PautaDoContexto } from "../aprovacao/contrato";
 import { pautaDoContexto } from "../aprovacao/contexto-de-producao";
@@ -1573,6 +1573,7 @@ async function executarRedacaoDoDia(
     let resultadoSocial: Awaited<ReturnType<typeof rodarSocialDoDia>> | null = null;
 
     try {
+      // Só a LEITURA das candidatas fecha o feed; a gravação que falha avisa e segue (06/10/2026, `guarda.ts`).
       const social = await rodarSocialDoDia(resultado.approvedEditorialPool, {
         ...(modoSocialDoEnsaio ? { modoForcado: modoSocialDoEnsaio } : {}),
         // As capacidades declaradas no projeto vencem o ambiente, daqui para baixo.
@@ -1590,7 +1591,7 @@ async function executarRedacaoDoDia(
         historico,
         config: configEditorial,
         client: getSupabaseAdminClient(),
-        persistenciaDegradada: resultado.reuso.erros.length > 0,
+        ...persistenciaParaOSocial(resultado.reuso),
         env,
         fetcher,
         ...opcoesDoRamoNoSocial,

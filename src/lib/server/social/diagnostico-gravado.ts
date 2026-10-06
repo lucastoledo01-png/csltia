@@ -48,6 +48,12 @@ export function montarRegistroDoSocial(
     escolhidasNaComposicao: ciclo?.composicao ? ciclo.composicao.escolhidas.length : null,
     enforcePermitido: ciclo?.diagnostico?.enforcePermitido ?? null,
     motivoDoBloqueio: ciclo?.diagnostico?.motivoDoBloqueio ?? null,
+    /*
+     * A gravação das candidatas que falhou sem fechar o feed (06/10/2026), com
+     * o texto do banco. Em 06/10 o erro não ficou em lugar nenhum, e a causa
+     * do dia sem post só foi achada por eliminação.
+     */
+    candidatasNaoGravadas: diagnostico.candidatasNaoGravadas ?? null,
     recusadas: (conferencia?.recusadas ?? []).slice(0, MAX_ITENS).map((r) => ({
       storyId: r.pauta.storyId,
       titulo: cortar(r.pauta.grupo.primary.title ?? ""),

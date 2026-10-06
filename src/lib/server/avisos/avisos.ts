@@ -19,6 +19,8 @@ import type { EstadoDaAprovacao, Ramo } from "../aprovacao/contrato";
  *   producao_vazia       fim da produção, quando ela rodou e não produziu nada
  *   producao_nao_rodou   18:30, quando era dia de produção e não há linha do run
  *   newsletter_atrasada  06:15, newsletter aprovada que não saiu
+ *   candidatas_nao_gravadas  fim do ciclo do Instagram, quando a gravação das
+ *                        pautas candidatas falhou e os posts seguiram
  *
  * Três regras:
  *
@@ -47,7 +49,8 @@ export type TipoDeAviso =
   | "resumo_do_dia"
   | "producao_vazia"
   | "producao_nao_rodou"
-  | "newsletter_atrasada";
+  | "newsletter_atrasada"
+  | "candidatas_nao_gravadas";
 
 export type NivelDoAviso = "info" | "warning" | "critical";
 
@@ -131,7 +134,11 @@ export type ResultadoDosAvisos = {
  * atrasou ou pulou um minuto: ele sai no primeiro minuto dentro dela, e a
  * chave do dia impede o segundo.
  */
-export const JANELAS: Record<Exclude<TipoDeAviso, "producao_vazia">, { inicio: string; fim: string }> = {
+/* Os avisos de evento (produção vazia, candidatas não gravadas) não têm janela: saem quando o evento acontece. */
+export const JANELAS: Record<
+  Exclude<TipoDeAviso, "producao_vazia" | "candidatas_nao_gravadas">,
+  { inicio: string; fim: string }
+> = {
   fila_pronta: { inicio: "17:30", fim: "21:59" },
   producao_nao_rodou: { inicio: "18:30", fim: "21:59" },
   lembrete_22h: { inicio: "22:00", fim: "23:59" },
@@ -357,12 +364,12 @@ export function prefixosDaProducao(hoje: string, alvo: string): string[] {
  * virar um alerta de falha por minuto.
  */
 async function emitir(
-  projeto: ProjetoDosAvisos,
+  projeto: Pick<ProjetoDosAvisos, "id">,
   tipo: TipoDeAviso,
   dia: string,
   nivel: NivelDoAviso,
   texto: string,
-  deps: DepsDosAvisos,
+  deps: Pick<DepsDosAvisos, "registro" | "enviar">,
 ): Promise<boolean> {
   const chave = `${tipo}:${dia}`;
   if (await deps.registro.jaFeito(projeto.id, chave)) return false;
@@ -592,4 +599,59 @@ export async function avisarFimDaProducao(
     r.pulados.push({ tipo: "fila_pronta", motivo: `erro: ${e instanceof Error ? e.message : String(e)}` });
   }
   return r;
+}
+
+// ---------------------------------------------------------------------------
+// A gravação das candidatas falhou, e os posts seguiram
+// ---------------------------------------------------------------------------
+
+/** O que o ciclo do Instagram sabe quando a gravação das candidatas falhou. */
+export type CandidatasNaoGravadas = {
+  /** A data da edição do ciclo (AAAA-MM-DD): é a chave do aviso. */
+  dia: string;
+  /** Os erros como a guarda os registrou, com o texto do banco. */
+  erros: string[];
+  /** Quantos posts o ciclo gravou mesmo assim. */
+  postsGravados: number;
+};
+
+/**
+ * Curto e em português: o que falhou, que os posts seguiram, e o erro do banco.
+ *
+ * Até 06/10/2026 esta falha fechava o feed do dia inteiro, sem aviso. Agora
+ * ela não fecha (ver `errosDeGravacao` em `guarda.ts`), e o aviso existe para
+ * a falha não passar em silêncio: o que se perde é o reuso da classificação
+ * amanhã, e uma falha que se repete todo dia é defeito, não soluço.
+ */
+export function textoCandidatasNaoGravadas(f: CandidatasNaoGravadas): string {
+  const posts =
+    f.postsGravados === 1 ? "1 post gravado" : `${f.postsGravados} posts gravados`;
+  const erro = f.erros[0] ?? "sem texto do erro";
+  const mais = f.erros.length > 1 ? ` (e mais ${f.erros.length - 1})` : "";
+  return (
+    `Instagram de ${diaCurto(f.dia)}: a gravação das pautas candidatas no banco falhou, ` +
+    `e os posts seguiram normalmente (${posts}). Erro: ${erro}${mais}`
+  ).slice(0, 900);
+}
+
+/**
+ * Um aviso por dia, pelo mesmo `emitir` dos outros: a chave
+ * `candidatas_nao_gravadas:<dia>` em `platform_events`, o envio pelo
+ * `alerts.ts` e o desfecho gravado nos dois casos. O ciclo da manhã e o da
+ * tarde podem falhar no mesmo dia, e o dono recebe uma mensagem só.
+ */
+export async function avisarCandidatasNaoGravadas(
+  projeto: Pick<ProjetoDosAvisos, "id">,
+  falha: CandidatasNaoGravadas,
+  deps: Pick<DepsDosAvisos, "registro" | "enviar">,
+): Promise<boolean> {
+  if (falha.erros.length === 0) return false;
+  return emitir(
+    projeto,
+    "candidatas_nao_gravadas",
+    falha.dia,
+    "warning",
+    textoCandidatasNaoGravadas(falha),
+    deps,
+  );
 }
