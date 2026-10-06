@@ -500,6 +500,12 @@ export function criarSocialPostsStore(client: SupabaseClient, fila: OpcoesDaFila
                    * novo.
                    */
                   conferenciaVisual: asset.conferenciaVisual ?? null,
+                  /*
+                   * Por qual etapa a foto veio: a da entidade, a da cena, ou a
+                   * da cena depois de a entidade falhar (06/10/2026). É o
+                   * número que diz quanto a etapa da cena está salvando.
+                   */
+                  caminho: p.visual?.caminho ?? null,
                 }
               : {
                   // Sem foto não é falha registrada como falha: é a decisão de

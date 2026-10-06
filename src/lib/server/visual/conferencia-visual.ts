@@ -45,7 +45,26 @@ export type PautaParaConferencia = {
   titulo: string;
   resumo?: string;
   eixo?: string;
+  /**
+   * Onde a foto vai aparecer. A bolha da capa é um círculo pequeno que mostra
+   * só o quadrado central da foto (`object-fit: cover`), e um logotipo que
+   * está inteiro no arquivo pode sair cortado ali. Foi o caso da bolha do FDIC
+   * nas amostras de 06/10/2026. Ausente é o fundo da peça.
+   */
+  uso?: "fundo" | "bolha";
 };
+
+/**
+ * O que a conferência precisa saber a mais quando a foto vai para a bolha.
+ *
+ * O modelo não vê o recorte, então ele recebe a geometria em palavras: o
+ * quadrado central, e o círculo que come os cantos desse quadrado.
+ */
+const NA_BOLHA = `ONDE A FOTO VAI: num CÍRCULO pequeno no alto da peça. Só aparece o QUADRADO
+CENTRAL da foto (o lado do quadrado é o lado menor da imagem), e o círculo ainda
+come os quatro cantos desse quadrado. Julgue o que sobra nesse recorte: se o
+assunto, o logotipo ou o nome da instituição ficar cortado, pela metade ou
+ilegível dentro do círculo, RECUSE, mesmo que a foto inteira estivesse boa.`;
 
 export type OpcoesDeConferencia = {
   env?: Record<string, string | undefined>;
@@ -85,6 +104,14 @@ RECUSE quando:
   jornal, tela com texto, letreiro de loja. A peça já leva a manchete escrita
   por cima, e duas camadas de texto brigam. Letra pequena e incidental na
   paisagem, que ninguém lê, não é motivo de recusa.
+- A foto mostra em destaque o LOGOTIPO ou a marca registrada de uma empresa
+  (bandeira de cartão como Mastercard ou Visa, logo de banco, de loja, de
+  aplicativo, de fabricante, de produto) e essa empresa NÃO é o assunto da
+  manchete. Num post sobre credit score, um cartão com o logo da Mastercard em
+  primeiro plano vira propaganda de terceiro e sugere uma relação que a pauta
+  não afirma. Logo pequeno e incidental, que ninguém nota, não é motivo.
+- O logotipo ou o nome da instituição que É o assunto aparece CORTADO, pela
+  metade ou ilegível. Marca mutilada parece erro de quem montou a peça.
 - A foto é de um assunto homônimo: o nome bate, a coisa não. Uma cidade chamada
   como um programa de governo, uma empresa com a sigla de uma agência.
 - A imagem não tem relação reconhecível com o assunto, mesmo sendo bonita.
@@ -92,6 +119,9 @@ RECUSE quando:
 APROVE quando:
 - A foto mostra a pessoa, o órgão, o prédio, o lugar ou o objeto de que a pauta
   trata.
+- A marca, o selo ou a placa que aparece é da PRÓPRIA instituição ou empresa de
+  que a manchete trata (o selo do FDIC numa pauta sobre o FDIC), inteira e
+  legível. É identidade do assunto, e não texto competindo com a manchete.
 - A foto é uma cena de apoio honesta e do país certo: a fachada de um tribunal
   numa pauta de decisão judicial, uma rua americana numa pauta de custo de vida,
   documentos sobre uma mesa numa pauta de formulário. Apoio genérico não é
@@ -159,6 +189,7 @@ export async function conferirImagem(
     `MANCHETE: ${pauta.titulo}`,
     pauta.resumo ? `RESUMO: ${pauta.resumo}` : "",
     pauta.eixo ? `EDITORIA: ${pauta.eixo}` : "",
+    pauta.uso === "bolha" ? NA_BOLHA : "",
   ]
     .filter(Boolean)
     .join("\n");

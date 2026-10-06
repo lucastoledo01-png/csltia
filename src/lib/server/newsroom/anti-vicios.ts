@@ -1,3 +1,5 @@
+import { dolarEmPortugues } from "../editorial/dolar-em-portugues";
+
 /**
  * Remove os sinais que denunciam texto de IA, depois da geração.
  *
@@ -49,9 +51,17 @@ export function semTravessao(texto: string): string {
   );
 }
 
-/** Percorre um objeto aplicando a limpeza em toda string. */
+/**
+ * Percorre um objeto aplicando a limpeza em toda string.
+ *
+ * Desde 06/10/2026 também escreve o dólar como "US$ 250.000" (ver
+ * `dolarEmPortugues`). Não é vício de linguagem, é grafia, mas mora aqui
+ * porque este é o único ponto por onde passa toda copy em português depois da
+ * geração: newsletter, artigo, post, legenda e carrossel. Uma regra de forma
+ * aplicada em um caminho só é uma regra que vaza pelos outros.
+ */
 export function limparVicios<T>(valor: T): T {
-  if (typeof valor === "string") return semTravessao(valor) as unknown as T;
+  if (typeof valor === "string") return dolarEmPortugues(semTravessao(valor)) as unknown as T;
 
   if (Array.isArray(valor)) {
     return valor.map((v) => limparVicios(v)) as unknown as T;

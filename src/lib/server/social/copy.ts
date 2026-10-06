@@ -3,6 +3,7 @@ import { callOpenAIJSON, getAIProviderConfig } from "../newsroom/ai-provider";
 import type { PacoteFactual } from "../editorial/pacote-factual";
 import type { PautaAvaliada } from "../editorial/guarda";
 import { limparVicios } from "../newsroom/anti-vicios";
+import { REGRA_DO_DOLAR } from "../editorial/dolar-em-portugues";
 import { FORMA_DA_MANCHETE, regraDaMancheteVigente } from "./manchete";
 import { instrucaoVigente } from "../instrucoes";
 import { vozSocialVigente } from "./voz";
@@ -193,6 +194,8 @@ BRIEFING (vale sobre qualquer regra genérica abaixo):
 ${marca.extra}
 
 REGRA QUE VALE SOBRE TODAS: você só pode afirmar o que está no PACOTE FACTUAL. Ele é a lista do que a matéria diz. Número, prazo, taxa, nome e data que não estiverem lá não existem. Não deduza, não arredonde, não complete, não use o que você sabe do assunto.
+
+${REGRA_DO_DOLAR}
 
 CANAL: isto é Instagram, não newsletter. O perfil publica várias vezes por dia, então NÃO existe despedida. Proibido "Até amanhã", "Nos vemos amanhã", "Equipe ${marca.nome}", "Boa leitura" e qualquer assinatura de e-mail.
 

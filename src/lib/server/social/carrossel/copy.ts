@@ -16,6 +16,7 @@
 import { z } from "zod";
 import { callOpenAIJSON, getAIProviderConfig } from "../../newsroom/ai-provider";
 import { limparVicios } from "../../newsroom/anti-vicios";
+import { REGRA_DO_DOLAR } from "../../editorial/dolar-em-portugues";
 import type { PacoteFactual } from "../../editorial/pacote-factual";
 import type { PautaAvaliada } from "../../editorial/guarda";
 import { CopyDoPostSchema, ctaDaPosicao, levaCta, type MarcaSocial } from "../copy";
@@ -156,6 +157,8 @@ BRIEFING (vale sobre qualquer regra genérica abaixo):
 ${marca.extra}
 
 REGRA QUE VALE SOBRE TODAS: você só pode afirmar o que está no PACOTE FACTUAL. Ele é a lista do que a fonte oficial diz. Número, prazo, taxa, nome, formulário e data que não estiverem lá não existem. Não deduza, não arredonde, não complete, não use o que você sabe do assunto. Isso vale para CADA slide, um por um: um slide sem lastro no pacote derruba o carrossel inteiro.
+
+${REGRA_DO_DOLAR}
 
 CANAL: isto é Instagram, não newsletter. NÃO existe despedida. Proibido "Até amanhã", "Equipe ${marca.nome}", "Boa leitura" e qualquer assinatura de e-mail.
 

@@ -1,4 +1,5 @@
 import type { EditionContent } from "./schemas";
+import { dolarEmPortugues } from "../editorial/dolar-em-portugues";
 
 /**
  * Precisão de fonte não é precisão de leitura.
@@ -102,7 +103,14 @@ const PERCENTUAL = /(\d{1,3}(?:\.\d{3})*(?:,\d+)?|\d+(?:,\d+)?)(\s*)(%|por cento
 export function formatarNumerosDoTexto(texto: string): string {
   if (!texto) return texto;
 
-  return texto
+  /*
+   * O dólar em grafia americana vem antes, e precisa vir.
+   *
+   * MOEDA lê o número como brasileiro, então "$250,000" virava 250 com três
+   * casas e saía "$ 250": um valor mil vezes menor, impresso com cara de
+   * arredondamento. Escrito primeiro como "US$ 250.000", ele passa aqui intacto.
+   */
+  return dolarEmPortugues(texto)
     .replace(MOEDA, (_todo, moeda: string, espaco: string, numero: string) => {
       return `${moeda}${espaco || " "}${formatar(numero, CASAS_DE_MOEDA)}`;
     })

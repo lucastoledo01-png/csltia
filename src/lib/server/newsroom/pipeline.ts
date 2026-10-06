@@ -4,6 +4,7 @@ import { DeduplicatedGroup } from "./deduplicator";
 import { RankedCandidate } from "./ranker";
 import { EditionContent, EditionContentSchema, QAResult, QAResultSchema } from "./schemas";
 import { limparVicios } from "./anti-vicios";
+import { REGRA_DO_DOLAR } from "../editorial/dolar-em-portugues";
 import type { ClaimNaoSustentada, PacoteFactual } from "../editorial/pacote-factual";
 import { validarAncoragem } from "../editorial/pacote-factual";
 import type { ResultadoDeClaims } from "../editorial/claims-semanticas";
@@ -478,6 +479,7 @@ ${JSON.stringify(factualPackage, null, 2)}
 
 REGRA DE FATO, acima de qualquer outra:
 - Nome próprio, número, data, valor, prazo, cargo, programa, operação, lei e órgão só podem aparecer se estiverem no pacote factual acima. Nenhuma exceção.
+- ${REGRA_DO_DOLAR}
 - Você NÃO tem conhecimento próprio sobre estes assuntos. O que não está no pacote não aconteceu.
 - Nunca dê nome a uma operação, investigação, programa ou regra que o pacote não nomeia.
 - Nunca acrescente o momento ("nesta semana", "em setembro") se a data não estiver no pacote.

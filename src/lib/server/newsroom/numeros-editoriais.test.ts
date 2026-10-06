@@ -23,7 +23,8 @@ describe("moeda", () => {
   it("dólar e euro também", () => {
     expect(formatarNumerosDoTexto("US$ 1,2345")).toBe("US$ 1,23");
     expect(formatarNumerosDoTexto("€ 0,9876")).toBe("€ 0,99");
-    expect(formatarNumerosDoTexto("$ 3,14159")).toBe("$ 3,14");
+    // Desde 06/10/2026 o cifrão solto vira "US$": dólar em texto português se escreve assim.
+    expect(formatarNumerosDoTexto("$ 3,14159")).toBe("US$ 3,14");
   });
 
   it("centavo zerado sai, porque não acrescenta nada", () => {
@@ -48,7 +49,8 @@ describe("moeda", () => {
 
   it("preserva o espaçamento e o prefixo como estavam", () => {
     expect(formatarNumerosDoTexto("R$5,0857")).toBe("R$ 5,09");
-    expect(formatarNumerosDoTexto("USD 1,239")).toBe("USD 1,24");
+    expect(formatarNumerosDoTexto("US$1,2391")).toBe("US$ 1,24");
+    expect(formatarNumerosDoTexto("US$ 1,239")).toBe("US$ 1,24");
   });
 });
 

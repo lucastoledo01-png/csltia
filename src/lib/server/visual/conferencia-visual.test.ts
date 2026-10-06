@@ -263,3 +263,83 @@ describe("a conferência visual", () => {
     expect(JSON.stringify(partes)).toContain("PERM");
   });
 });
+
+/**
+ * Logotipo de terceiro (06/10/2026).
+ *
+ * Nas amostras do evergreen, a foto de credit score trazia um cartão com o
+ * logo da Mastercard em primeiro plano, e a bolha do FDIC mostrava o selo do
+ * órgão cortado pelo círculo. A régua passou a recusar marca de empresa que
+ * não é o assunto, e marca do assunto cortada ou ilegível.
+ */
+describe("logotipo na foto", () => {
+  type Corpo = { messages: Array<{ role: string; content: unknown }> };
+
+  function capturando(conteudo: unknown) {
+    const corpos: Corpo[] = [];
+    const fetcher = (async (_url: string, init?: RequestInit) => {
+      corpos.push(JSON.parse(String(init?.body ?? "{}")));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{ message: { content: JSON.stringify(conteudo) } }],
+          usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+        }),
+        text: async () => "",
+      };
+    }) as unknown as typeof fetch;
+    return { fetcher, corpos };
+  }
+
+  const textoDoUsuario = (corpo: Corpo) => JSON.stringify(corpo.messages.find((m) => m.role === "user")?.content ?? "");
+  const sistema = (corpo: Corpo) => String(corpo.messages.find((m) => m.role === "system")?.content ?? "");
+
+  const CARTAO = {
+    imageUrl: "https://images.pexels.com/photos/1/pexels-photo-1.jpeg",
+    sourceAssetId: "pexels-1",
+    imageContextType: "conceptual" as const,
+  };
+
+  it("a instrução recusa marca de empresa que não é o assunto, e marca do assunto cortada", async () => {
+    const { fetcher, corpos } = capturando({
+      descricao: "mão segurando um cartão com o logo da Mastercard em destaque",
+      paisAparente: null,
+      aprovada: false,
+      motivo: "logotipo de empresa que não é o assunto da pauta",
+      confianca: 93,
+    });
+    const v = await conferirImagem(
+      CARTAO,
+      { titulo: "Quem aluga, financia ou pede cartão nos EUA pode ter juros definidos pelo credit score" },
+      { env: ENV, fetcher },
+    );
+
+    expect(v.aprovada).toBe(false);
+    const regra = sistema(corpos[0]);
+    expect(regra).toContain("LOGOTIPO");
+    expect(regra).toContain("Mastercard");
+    expect(regra).toContain("CORTADO");
+    // A marca do próprio assunto, inteira, continua aceita.
+    expect(regra).toContain("PRÓPRIA instituição");
+  });
+
+  it("na bolha, a conferência recebe a geometria do recorte; no fundo, não", async () => {
+    const resposta = {
+      descricao: "selo do FDIC",
+      paisAparente: "Estados Unidos",
+      aprovada: true,
+      motivo: "é o órgão",
+      confianca: 90,
+    };
+
+    const bolha = capturando(resposta);
+    await conferirImagem(CARTAO, { titulo: "FDIC: o seguro dos depósitos", uso: "bolha" }, { env: ENV, fetcher: bolha.fetcher });
+    expect(textoDoUsuario(bolha.corpos[0])).toContain("QUADRADO");
+    expect(textoDoUsuario(bolha.corpos[0])).toContain("CÍRCULO");
+
+    const fundo = capturando(resposta);
+    await conferirImagem(CARTAO, { titulo: "FDIC: o seguro dos depósitos" }, { env: ENV, fetcher: fundo.fetcher });
+    expect(textoDoUsuario(fundo.corpos[0])).not.toContain("CÍRCULO");
+  });
+});
