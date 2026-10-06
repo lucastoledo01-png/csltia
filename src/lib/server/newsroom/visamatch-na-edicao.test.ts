@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import { renderEditionToHtml } from "./newsroom-service";
 import type { EditionContent } from "./schemas";
 import {
+  ROTULO_DO_BOTAO,
+  ROTULO_MAXIMO_DO_BOTAO,
   VARIANTES_DO_VISAMATCH,
   configDoVisaMatch,
+  type CoresDoBloco,
   vagaDaEdicao,
   varianteDaEdicao,
 } from "./visamatch-na-edicao";
@@ -77,6 +80,43 @@ describe("as variantes", () => {
       const texto = v.textos.join(" ");
       for (const p of PROIBIDAS) expect(texto, `${v.id} ${p}`).not.toMatch(p);
       expect(texto, v.id).not.toContain(TRAVESSAO);
+    }
+  });
+});
+
+const CORES_DE_TESTE: CoresDoBloco = {
+  fonte: "Arial",
+  tinta: "#111111",
+  tintaSuave: "#333333",
+  linha: "#DDDDDD",
+  cor: "#E91C32",
+  tintaEscura: "#0B2A5B",
+  semBorda: "border:0",
+};
+
+describe("a conversa, não a burocracia (06/10/2026)", () => {
+  /*
+   * O dono: o VisaMatch é conversacional, a pessoa não envia currículo nem
+   * documento. A variante "tenha isto em mãos" passava a impressão oposta.
+   */
+  const BUROCRACIA = [/curr[ií]culo/i, /em m[aã]os/i, /documento/i, /\bdiploma\b/i, /envie|enviar|anexe|anexar/i];
+
+  it("nenhuma variante pede currículo, documento ou que a pessoa junte papel", () => {
+    for (const v of VARIANTES_DO_VISAMATCH) {
+      const texto = v.textos.join(" ");
+      for (const p of BUROCRACIA) expect(texto, `${v.id} ${p}`).not.toMatch(p);
+    }
+  });
+
+  it("o botão tem rótulo curto e não quebra linha", () => {
+    expect(ROTULO_DO_BOTAO.length).toBeLessThanOrEqual(ROTULO_MAXIMO_DO_BOTAO);
+    for (const v of VARIANTES_DO_VISAMATCH) {
+      const html = v.renderizar("https://visamatch.example/x", CORES_DE_TESTE);
+      for (const pilula of html.match(/<a [^>]*border-radius:999px[^>]*>[^<]*<\/a>/g) ?? []) {
+        expect(pilula, v.id).toContain("white-space:nowrap");
+        const rotulo = pilula.replace(/<[^>]+>/g, "");
+        expect(rotulo.length, `${v.id}: ${rotulo}`).toBeLessThanOrEqual(ROTULO_MAXIMO_DO_BOTAO);
+      }
     }
   });
 });

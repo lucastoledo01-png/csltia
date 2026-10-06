@@ -366,7 +366,7 @@ async function main() {
       "Responda algumas perguntas sobre formação, profissão e situação atual e veja quais caminhos de visto existem para o seu caso. Leva poucos minutos."
     );
     escrever();
-    escrever(`Botão: Fazer a análise de perfil, para ${linkDaNewsletter(new Date().toISOString().slice(0, 10))}`);
+    escrever(`Botão: Fazer meu diagnóstico, para ${linkDaNewsletter(new Date().toISOString().slice(0, 10))}`);
     escrever();
     escrever("### Fechamento");
     escrever();

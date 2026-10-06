@@ -73,7 +73,7 @@ describe("HTML da edição", () => {
     // alterna de formato por edição; nesta data cai o cartão escuro, que
     // herdou o desenho do bloco do Instagram.
     const html2 = renderEditionToHtml(EDICAO, new Map(), false, new Map(), "2026-10-06", { variante: "convite-escuro" });
-    expect(html2).toContain("Fazer a análise de perfil");
+    expect(html2).toContain("Fazer meu diagnóstico");
     expect(html2).toContain(MARCA.tintaEscura);
     expect(html2.split("visamatch.imigrareua.com").length - 1).toBe(1);
   });

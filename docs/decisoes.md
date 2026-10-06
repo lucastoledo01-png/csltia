@@ -1168,6 +1168,17 @@ ordem em `settings.visamatch` (`{"variante": "quiz"}` ou `{"ordem": [...]}`).
 Continua valendo "o fim do e-mail tem UM convite": é um bloco por edição, só
 que não o mesmo.
 
+**O VisaMatch é uma conversa, e o bloco diz isso (06/10/2026).** O dono leu a
+variante "tenha isto em mãos" (diploma, anos de experiência) e apontou que ela
+dava a impressão de que a pessoa precisa juntar papel e mandar currículo. Não
+precisa: ela conversa com a ferramenta e recebe no fim um diagnóstico dos
+vistos que combinam com o perfil. A variante virou um passo a passo da
+conversa, os textos dos cartões falam em conversar e receber o diagnóstico, e
+o teste recusa currículo, documento, diploma e "em mãos". **O botão nunca
+quebra linha:** rótulo único e curto ("Fazer meu diagnóstico", teto de 22
+caracteres) e `white-space:nowrap`, porque a pílula vermelha em duas linhas no
+celular fica feia.
+
 ## Os exemplos dos prompts saíram da imigração (05/10/2026)
 
 A decisão do dono: "pode trocar agora os exemplos". A publicação deixou de

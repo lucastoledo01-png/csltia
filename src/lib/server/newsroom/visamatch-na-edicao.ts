@@ -66,8 +66,18 @@ export type VarianteDoVisaMatch = {
 const rotuloHtml = (texto: string, c: CoresDoBloco, cor = c.tintaSuave) =>
   `<div style="font-family:${c.fonte};font-size:11px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:${cor};margin:0 0 8px 0;">${escapeHtml(texto)}</div>`;
 
+/*
+ * O botão nunca quebra em duas linhas (dono, 06/10/2026: a pílula vermelha em
+ * duas linhas no celular "fica muito feia"). Por isso `white-space:nowrap` e
+ * um rótulo curto, que cabe numa linha na menor tela comum (320px de largura
+ * menos as margens do e-mail). Rótulo de botão novo passa pelo teto
+ * `ROTULO_MAXIMO_DO_BOTAO`, conferido no teste.
+ */
+export const ROTULO_DO_BOTAO = "Fazer meu diagnóstico";
+export const ROTULO_MAXIMO_DO_BOTAO = 22;
+
 const botao = (link: string, texto: string, c: CoresDoBloco) =>
-  `<a href="${escapeHtml(link)}" target="_blank" style="display:inline-block;background:${c.cor};color:#FFFFFF;font-family:${c.fonte};font-size:15px;font-weight:800;padding:12px 26px;border-radius:999px;text-decoration:none;">${escapeHtml(texto)}</a>`;
+  `<a href="${escapeHtml(link)}" target="_blank" style="display:inline-block;white-space:nowrap;background:${c.cor};color:#FFFFFF;font-family:${c.fonte};font-size:15px;font-weight:800;padding:12px 24px;border-radius:999px;text-decoration:none;">${escapeHtml(texto)}</a>`;
 
 const linkEmTexto = (link: string, texto: string, c: CoresDoBloco) =>
   `<a href="${escapeHtml(link)}" target="_blank" style="color:${c.tinta};font-weight:700;text-decoration:underline;">${escapeHtml(texto)}</a>`;
@@ -112,7 +122,7 @@ const VOCE_SABIA: VarianteDoVisaMatch = {
     "Você sabia? · Parceiro",
     "Não existe um visto de trabalho para os Estados Unidos, existem vários. Cada um olha para uma coisa: formação, experiência, oferta de emprego ou investimento.",
     "O VisaMatch, ferramenta de um parceiro nosso, cruza essas regras com o seu perfil e mostra por onde começar.",
-    "Ver os caminhos para o meu perfil",
+    ROTULO_DO_BOTAO,
   ],
   renderizar: (link, c) =>
     caixa(
@@ -127,7 +137,7 @@ const VOCE_SABIA: VarianteDoVisaMatch = {
           c,
           "0 0 16px 0",
         ) +
-        botao(link, "Ver os caminhos para o meu perfil", c),
+        botao(link, ROTULO_DO_BOTAO, c),
       c,
     ),
 };
@@ -168,40 +178,48 @@ const QUIZ: VarianteDoVisaMatch = {
     ),
 };
 
+/*
+ * O passo a passo da conversa (06/10/2026). A versão anterior era "tenha isto
+ * em mãos" (diploma, anos de experiência), e o dono apontou que ela dava a
+ * impressão de que a pessoa precisa juntar papel e mandar currículo. O
+ * VisaMatch é uma conversa: a pessoa responde no próprio chat e recebe, no
+ * fim, um diagnóstico dos vistos que combinam com o perfil dela. Nenhum
+ * documento, nenhum envio. `visamatch-na-edicao.test.ts` recusa as palavras
+ * do formato antigo.
+ */
 const ITENS_DO_CHECKLIST = [
-  "Seu diploma e a área em que você se formou",
-  "Quantos anos de experiência você tem, e onde",
-  "Se existe empresa, investimento ou oferta de emprego no meio",
-  "Seu nível de inglês, com sinceridade",
+  "Você conversa com a ferramenta, como num chat",
+  "Conta da sua formação, do seu trabalho e do que quer fazer nos EUA",
+  "No fim, recebe um diagnóstico dos vistos que combinam com o seu perfil",
 ];
 
 const CHECKLIST: VarianteDoVisaMatch = {
   id: "checklist",
-  formato: "mini checklist",
+  formato: "passo a passo em três itens",
   posicao: "antes-do-fechamento",
-  rotulo: "Checklist · Parceiro",
+  rotulo: "Como funciona · Parceiro",
   textos: [
-    "Checklist · Parceiro",
-    "Antes de pesquisar visto para os EUA, tenha isto em mãos",
+    "Como funciona · Parceiro",
+    "Qual visto combina com você? Descubra numa conversa",
     ...ITENS_DO_CHECKLIST,
-    "Com isso, o VisaMatch, ferramenta de um parceiro nosso, mostra em poucos minutos quais caminhos olhar primeiro.",
-    "Fazer a análise de perfil",
+    "O VisaMatch é uma ferramenta de um parceiro nosso, e a conversa leva poucos minutos.",
+    ROTULO_DO_BOTAO,
   ],
   renderizar: (link, c) =>
     caixa(
-      rotuloHtml("Checklist · Parceiro", c, c.cor) +
-        `<div style="font-family:${c.fonte};font-size:18px;line-height:1.3;font-weight:800;color:${c.tinta};margin:0 0 12px 0;">Antes de pesquisar visto para os EUA, tenha isto em mãos</div>` +
+      rotuloHtml("Como funciona · Parceiro", c, c.cor) +
+        `<div style="font-family:${c.fonte};font-size:18px;line-height:1.3;font-weight:800;color:${c.tinta};margin:0 0 12px 0;">Qual visto combina com você? Descubra numa conversa</div>` +
         ITENS_DO_CHECKLIST.map(
-          (i) =>
-            `<p style="font-family:${c.fonte};font-size:15px;line-height:1.5;color:${c.tintaSuave};margin:0 0 8px 0;"><span style="color:${c.cor};font-weight:800;">&#10003;</span>&nbsp; ${escapeHtml(i)}</p>`,
+          (i, n) =>
+            `<p style="font-family:${c.fonte};font-size:15px;line-height:1.5;color:${c.tintaSuave};margin:0 0 8px 0;"><span style="color:${c.cor};font-weight:800;">${n + 1}.</span>&nbsp; ${escapeHtml(i)}</p>`,
         ).join("") +
         paragrafo(
-          "Com isso, o VisaMatch, ferramenta de um parceiro nosso, mostra em poucos minutos quais caminhos olhar primeiro.",
+          "O VisaMatch é uma ferramenta de um parceiro nosso, e a conversa leva poucos minutos.",
           c,
           "12px 0 16px 0",
           15,
         ) +
-        botao(link, "Fazer a análise de perfil", c),
+        botao(link, ROTULO_DO_BOTAO, c),
       c,
     ),
 };
@@ -248,16 +266,16 @@ const CARTAO_DISCRETO: VarianteDoVisaMatch = {
   textos: [
     "Conteúdo de parceiro",
     "VisaMatch: quais caminhos de visto existem para você",
-    "Responda algumas perguntas sobre formação, profissão e situação atual. Leva poucos minutos.",
-    "Fazer a análise de perfil",
+    "Converse com a ferramenta sobre sua formação, seu trabalho e seus planos, e receba um diagnóstico dos vistos que combinam com você. Leva poucos minutos.",
+    ROTULO_DO_BOTAO,
   ],
   renderizar: (link, c) =>
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${c.semBorda};margin:0 0 32px 0;">
               <tr><td style="border:1px solid ${c.linha};border-radius:12px;padding:18px 20px;">
                 ${rotuloHtml("Conteúdo de parceiro", c, "#8A8A8F")}
                 <div style="font-family:${c.fonte};font-size:17px;line-height:1.35;font-weight:800;color:${c.tinta};margin:0 0 6px 0;">VisaMatch: quais caminhos de visto existem para você</div>
-                ${paragrafo("Responda algumas perguntas sobre formação, profissão e situação atual. Leva poucos minutos.", c, "0 0 10px 0", 15)}
-                ${paragrafo(linkEmTexto(link, "Fazer a análise de perfil", c), c, "0", 15)}
+                ${paragrafo("Converse com a ferramenta sobre sua formação, seu trabalho e seus planos, e receba um diagnóstico dos vistos que combinam com você. Leva poucos minutos.", c, "0 0 10px 0", 15)}
+                ${paragrafo(linkEmTexto(link, ROTULO_DO_BOTAO, c), c, "0", 15)}
               </td></tr>
             </table>`,
 };
@@ -275,8 +293,8 @@ const CARTAO_ESCURO: VarianteDoVisaMatch = {
   textos: [
     "Parceiro · Análise de perfil",
     "Você pode morar nos Estados Unidos legalmente?",
-    "Responda algumas perguntas sobre formação, profissão e situação atual e veja quais caminhos de visto existem para o seu caso. Leva poucos minutos.",
-    "Fazer a análise de perfil",
+    "Converse com a ferramenta sobre sua formação e seu trabalho e receba um diagnóstico dos vistos que combinam com o seu perfil. Leva poucos minutos.",
+    ROTULO_DO_BOTAO,
   ],
   renderizar: (link, c) =>
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${c.semBorda};margin:0 0 32px 0;">
@@ -286,10 +304,10 @@ const CARTAO_ESCURO: VarianteDoVisaMatch = {
                   Você pode morar nos Estados Unidos legalmente?
                 </div>
                 <p style="font-family:${c.fonte};font-size:15px;line-height:1.6;color:#C8D6EC;margin:0 0 20px 0;">
-                  Responda algumas perguntas sobre formação, profissão e situação atual
-                  e veja quais caminhos de visto existem para o seu caso. Leva poucos minutos.
+                  Converse com a ferramenta sobre sua formação e seu trabalho e receba
+                  um diagnóstico dos vistos que combinam com o seu perfil. Leva poucos minutos.
                 </p>
-                ${botao(link, "Fazer a análise de perfil", c)}
+                ${botao(link, ROTULO_DO_BOTAO, c)}
               </td></tr>
             </table>`,
 };
