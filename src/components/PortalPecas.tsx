@@ -1,5 +1,6 @@
+import { getImageProps } from "next/image";
 import type { EditoriaId } from "@/lib/editorias";
-import { enderecoLimpoDaImagem, miniaturaDoCommons } from "@/lib/imagem-da-capa";
+import { enderecoLimpoDaImagem, fotoNaLargura, hostOtimizavel, miniaturaDoCommons } from "@/lib/imagem-da-capa";
 
 /**
  * As peças pequenas que a home, a lista de edições e o artigo dividem.
@@ -49,6 +50,7 @@ export function FotoDaPauta({
   editoria,
   prioridade = false,
   arredondado = "rounded-xl",
+  tamanhos = "(min-width: 768px) 33vw, 100vw",
 }: {
   src: string | null;
   proporcao: string;
@@ -57,7 +59,32 @@ export function FotoDaPauta({
   editoria?: EditoriaId;
   prioridade?: boolean;
   arredondado?: string;
+  /** O `sizes` da foto: a largura que a caixa ocupa em cada tela. */
+  tamanhos?: string;
 }) {
+  const classe =
+    "absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100";
+  const fonte = src ? fotoNaLargura(enderecoDaFoto(src), prioridade ? 1280 : 960) : "";
+
+  /*
+   * Host conhecido passa pelo otimizador do Next (06/10/2026): WebP na largura
+   * da tela, pela lista de `sizes`, em vez do arquivo do banco de imagem
+   * inteiro. Antes a manchete da home baixava a foto do jeito que estava
+   * gravada, e cada card da grade baixava a miniatura de 960 do Commons para
+   * uma caixa de 96px no celular. Só a manchete carrega com prioridade, porque
+   * é ela o LCP da home.
+   */
+  const otimizada = fonte && hostOtimizavel(fonte)
+    ? getImageProps({
+        src: fonte,
+        alt: "",
+        fill: true,
+        sizes: tamanhos,
+        loading: prioridade ? "eager" : "lazy",
+        fetchPriority: prioridade ? "high" : undefined,
+      }).props
+    : null;
+
   return (
     <div className={`relative overflow-hidden ${arredondado} ${proporcao} ${className}`}>
       {/*
@@ -67,15 +94,18 @@ export function FotoDaPauta({
         não desenha ícone de imagem quebrada, e sobra a peça, não um buraco.
       */}
       <SemFoto rotulo={rotulo} editoria={editoria} />
-      {src ? (
+      {otimizada ? (
+        // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+        <img {...otimizada} className={classe} />
+      ) : fonte ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={miniaturaDoCommons(enderecoDaFoto(src), prioridade ? 1280 : 960)}
+          src={fonte}
           alt=""
           loading={prioridade ? "eager" : "lazy"}
           fetchPriority={prioridade ? "high" : undefined}
           decoding="async"
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+          className={classe}
         />
       ) : null}
     </div>

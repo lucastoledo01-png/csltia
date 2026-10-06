@@ -6,7 +6,8 @@ import type { ResultadoVisual } from "../visual/tipos";
 import type { Aprovacao } from "./contrato";
 import { criarGanchosDeProducao, instrucaoDaRefacao, type MundoDosGanchos } from "./ganchos-de-producao";
 import { GANCHOS_DE_PRODUCAO } from "./integracao";
-import { executarRefacao, MOTIVO_SEM_REGENERACAO } from "./refazer";
+import { executarRefacao } from "./refazer";
+import { ETAPAS_DO_RAMO, RAMOS } from "./contrato";
 import { supabaseFalso, type Operacao, type Resposta } from "./supabase-falso";
 
 /**
@@ -218,23 +219,26 @@ describe("refação da imagem e da arte do post", () => {
   });
 });
 
-describe("o que continua sem refação automática", () => {
-  it("texto do post, newsletter e seleção: a peça fica em refazendo, com o motivo", async () => {
-    for (const [ramo, etapa] of [
-      ["post", "texto"],
-      ["newsletter", "texto"],
-      ["newsletter", "imagem"],
-      ["artigo", "selecao"],
-    ] as const) {
-      const r = await executarRefacao({ aprovacao: aprovacao(ramo), etapa, motivo: "m", naoRepetir: "" }, GANCHOS_DE_PRODUCAO);
-      expect(r.ok).toBe(false);
-      if (!r.ok) expect(r.motivo).toContain(MOTIVO_SEM_REGENERACAO);
+describe("toda etapa de todo ramo tem refação (06/10/2026)", () => {
+  /*
+   * Até 05/10/2026 este bloco provava o contrário: texto do post, newsletter e
+   * seleção ficavam em `refazendo` para sempre. A fila vale a partir de
+   * 06/10/2026 com aprovação manual nos três ramos, e nenhuma reprovação pode
+   * deixar a peça sem desfecho.
+   */
+  it("GANCHOS_DE_PRODUCAO cobre cada etapa de ETAPAS_DO_RAMO", () => {
+    for (const ramo of RAMOS) {
+      for (const etapa of ETAPAS_DO_RAMO[ramo]) {
+        expect(typeof GANCHOS_DE_PRODUCAO[ramo]?.[etapa], `${ramo}.${etapa}`).toBe("function");
+      }
     }
   });
 
-  it("e as etapas ligadas estão registradas em GANCHOS_DE_PRODUCAO", () => {
-    expect(Object.keys(GANCHOS_DE_PRODUCAO.artigo ?? {}).sort()).toEqual(["imagem", "texto"]);
-    expect(Object.keys(GANCHOS_DE_PRODUCAO.post ?? {}).sort()).toEqual(["arte", "imagem"]);
+  it("e um mundo sem as funções novas continua só com os ganchos antigos, sem fingir que refaz", () => {
+    const { m } = mundo(() => ({ data: [] }));
+    const g = criarGanchosDeProducao(m);
+    expect(Object.keys(g.post ?? {}).sort()).toEqual(["arte", "imagem"]);
+    expect(g.newsletter).toBeUndefined();
   });
 
   it("o bloco da refação omite a memória vazia", () => {

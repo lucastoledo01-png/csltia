@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { notFound, permanentRedirect } from "next/navigation";
 import { PaginaDaMateria } from "@/components/PaginaDaMateria";
 import { destinoDoLinkDaEdicao, getArticleBySlug } from "@/lib/server/articles-service";
@@ -21,6 +22,12 @@ import { DEFAULT_PROJECT_ID } from "@/lib/server/projects";
  * página em cache na quase totalidade dos acessos.
  */
 export const revalidate = 300;
+
+/*
+ * A metadata e a página pedem a mesma matéria. Com `cache` a leitura é uma por
+ * renderização, e não duas (06/10/2026).
+ */
+const lerMateria = cache((slug: string) => getArticleBySlug(slug));
 
 /*
  * `getArticleBySlug` devolve dois formatos: o registro do banco, com
@@ -60,7 +67,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const article = await getArticleBySlug(slug).catch(() => null);
+  const article = await lerMateria(slug).catch(() => null);
 
   if (!article) return {};
 
@@ -118,7 +125,7 @@ async function relacionadasDaMateria(article: NonNullable<ArtigoDaPagina>) {
 
 export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const article = await getArticleBySlug(slug);
+  const article = await lerMateria(slug);
 
   if (!article) {
     /*

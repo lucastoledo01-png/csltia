@@ -60,7 +60,10 @@ describe("os ramos no ciclo do dia", () => {
     const redacao = servico.indexOf("const pipelineResult = await runNewsroomPipeline(");
     expect(redacao).toBeGreaterThan(0);
     const antes = servico.slice(0, redacao);
-    expect(antes).toContain("selecionarParaNewsletter(resultado.approvedEditorialPool, pacotesDoDia, configEditorial, excluir)");
+    // Desde 06/10/2026 a newsletter seleciona sobre o pool com o aprendizado DELA, e vê a foto pelo filtro dela.
+    expect(antes).toContain("selecionarParaNewsletter(doPoolDaNewsletter.pool, pacotesDoDia, configEditorial, excluir)");
+    expect(antes).toContain("fotos: fotosDaNewsletter,");
+    expect(antes).toContain("fotos: fotosDoPortal,");
     expect(antes).toContain("recomporNewsletterDaGuarda(resultado.approvedEditorialPool, resultado.selecionadas, configEditorial, excluir)");
     expect(antes).toContain("preSelecaoParaPacote(resultado.approvedEditorialPool, configEditorial, historico, 2, excluir)");
     expect(antes).toContain("fotos: fotosDoDia,");

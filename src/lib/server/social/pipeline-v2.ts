@@ -35,6 +35,7 @@ import type { EntradaDoCongelamento, ResultadoDoCongelamento } from "./artefato"
 import { impressaoDoAcontecimento } from "../editorial/fingerprint";
 import { entidadesDaClassificacao } from "../editorial/classificador";
 import { criarFotosDoDia, selecionarComFoto, temFotoDaPauta } from "../ramos/sem-foto";
+import { montarContexto } from "../aprovacao/contexto-de-producao";
 
 /**
  * O ciclo social, do pool verificado ao objeto do post.
@@ -182,6 +183,12 @@ export type OpcoesDoCiclo = {
    * que era.
    */
   extras?: PautaAvaliada[];
+  /**
+   * O pool aprovado do dia, por `storyId` e em ordem, só para referência da
+   * fila de aprovação (06/10/2026): a troca de pauta de um post reprovado na
+   * seleção relê estas candidatas. Ausente, vale o pool que o ciclo recebeu.
+   */
+  poolDoDia?: string[];
   env?: Record<string, string | undefined>;
   fetcher?: typeof fetch;
 };
@@ -859,6 +866,18 @@ export async function rodarCicloSocial(
         p.post.veredicto.legendaFinal,
         p.visual?.asset?.attribution,
       ),
+      /*
+       * O que a fila de aprovação precisa para refazer só a etapa culpada
+       * (06/10/2026): a pauta, o pacote factual, a posição na leva (que decide
+       * o CTA) e a referência ao pool do dia, para a troca de pauta.
+       */
+      contexto: montarContexto({
+        data: opcoes.editionDate,
+        pautas: [p.post.pauta],
+        pacotes: opcoes.pacotes ?? new Map(),
+        pool: opcoes.poolDoDia ?? poolVerificado,
+      }),
+      posicao: p.posicao,
     });
   }
 

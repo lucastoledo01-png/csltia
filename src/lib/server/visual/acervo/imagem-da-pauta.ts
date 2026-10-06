@@ -59,8 +59,9 @@ export type ContextoDaImagemDaPauta = {
    *
    * Entrou em 05/10/2026 com a refação da fila de aprovação: o editor reprovou
    * a IMAGEM desta pauta, e devolver a mesma foto do cache seria refazer nada.
-   * O resultado novo substitui o gravado, para os outros canais que ainda não
-   * publicaram passarem a reusar a foto aprovada, e não a reprovada.
+   * O resultado novo substituía o gravado, para os outros canais reusarem a
+   * foto refeita. Desde 06/10/2026 não substitui: a foto refeita é só da peça
+   * reprovada (decisão do dono, refação por peça e por canal).
    */
   ignorarReuso?: boolean;
   /** Injetáveis para o teste. */
@@ -132,13 +133,18 @@ export async function imagemDaPauta(
 
   const chave = `${ctx.projeto.id}:${pauta.storyId}`;
 
-  // Refação de imagem: ver `ignorarReuso`. Resolve, regrava e troca a memória.
+  /*
+   * Refação de imagem: ver `ignorarReuso`. Resolve de novo e NÃO toca a
+   * memória nem a tabela.
+   *
+   * Até 06/10/2026 o resultado novo substituía o gravado, para os outros
+   * canais reusarem a foto refeita. O dono decidiu o contrário: a aprovação e
+   * a refação são por PEÇA e por CANAL, e reprovar a foto do post não pode
+   * trocar a foto da matéria nem a da newsletter da mesma pauta. A foto nova é
+   * só da peça que pediu; quem grava é a refação, na linha dessa peça.
+   */
   if (ctx.ignorarReuso) {
     const resultado = await resolver(pauta, { ...opcoes, acervo });
-    if (ctx.client && !opcoes.somenteLeitura) {
-      await gravarImagemDaPauta(ctx.client, ctx.projeto.id, resultado, true);
-    }
-    guardarNaMemoria(chave, Promise.resolve(resultado));
     return reaproveitar(resultado, opcoes);
   }
 

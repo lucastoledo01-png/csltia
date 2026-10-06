@@ -55,6 +55,8 @@ export type CorpoDaAcao = {
   etapa?: unknown;
   motivo?: unknown;
   texto?: unknown;
+  /** Newsletter: a pauta (storyId) que a reprovação aponta. */
+  alvo?: unknown;
 };
 
 export type RespostaDaAcao = { ok: boolean; status: number; corpo: Record<string, unknown> };
@@ -93,7 +95,9 @@ export async function executarAcao(
     case "reprovar": {
       if (!id) return falha(400, "informe o id da aprovação");
       if (!ehEtapa(corpo.etapa)) return falha(400, "informe a etapa culpada: selecao, texto, imagem ou arte");
-      const r = await reprovar(projeto, id, corpo.etapa, texto(corpo.motivo), quem, deps);
+      const r = await reprovar(projeto, id, corpo.etapa, texto(corpo.motivo), quem, deps, {
+        alvo: texto(corpo.alvo) || null,
+      });
       return r.ok
         ? { ok: true, status: 200, corpo: { ok: true, aprovacao: r.aprovacao, desfecho: r.desfecho, detalhe: r.detalhe } }
         : falha(409, r.motivo);

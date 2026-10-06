@@ -773,6 +773,8 @@ imagem e arte, nunca o texto; a terceira reprovação descarta. As funções de
 cada etapa existem, mas pedem a pauta avaliada inteira, que não está gravada na
 linha do post. Até alguém registrar o gancho em `GANCHOS_DE_PRODUCAO`, a peça
 reprovada fica em `refazendo` com o motivo no painel.
+ATUALIZADO em 06/10/2026: toda etapa de todo ramo tem gancho, e a refação
+roda fora do clique. Ver "A refação completa, por peça e por canal".
 
 **Regra fixa só com o dono.** O mesmo erro três vezes, na mesma etapa, vira
 PROPOSTA em `regras_propostas`. Só a aprovada entra no bloco "não repetir"
@@ -825,6 +827,8 @@ Listmonk e o artigo recebem. Sem véspera, vale `settings.aprovacao`, como era.
 `errosRecentesDaEtapa(projeto, "texto")`, que já inclui as regras fixas
 aprovadas pelo dono, vai no fim da voz da newsletter, do artigo e do post, só
 com a fila fora de `off`.
+ATUALIZADO em 06/10/2026: o bloco é do CANAL, e não mais um só para os três.
+Ver "O aprendizado da fila, por etapa e por canal".
 
 **Refação ligada onde há o que refazer.** Texto e imagem do artigo (a pauta e
 o pacote factual passaram a ser gravados no `resumo` da fila, em
@@ -832,6 +836,8 @@ o pacote factual passaram a ser gravados no `resumo` da fila, em
 Seleção, texto do post, newsletter e carrossel continuam sem gancho, com o
 motivo em `ganchos-de-producao.ts`: cada um pediria um segundo gerador fora do
 gerador.
+ATUALIZADO em 06/10/2026: ligados todos, ver "A refação completa, por peça e
+por canal".
 
 **A home mostra a matéria do portal.** Com os ramos em `enforce`, a home junta
 as matérias publicadas às pautas das edições, mais recente primeiro, sem o
@@ -1254,6 +1260,249 @@ posição escolhida e as recusadas, a origem da segunda foto e o custo.
 render (regra de 05/10). Os três recortes de 05/10 nasceram às 09:21, antes do
 interruptor. O recorte também deixou de carregar a segunda foto: ele não
 desenha bolha, e o campo ia preenchido assim mesmo.
+
+## A refação completa, por peça e por canal (06/10/2026)
+
+Véspera de a fila valer com aprovação manual nos três ramos. Até aqui a
+seleção (todos os ramos), o texto do post, a newsletter inteira e o carrossel
+deixavam a peça reprovada em `refazendo` para sempre.
+
+**A aprovação e a refação são por PEÇA e por CANAL** (decisão do dono, com
+estas palavras: os três canais comunicam de jeitos diferentes). Reprovar a
+newsletter nunca toca a matéria nem o post da mesma pauta, e vice-versa; cada
+um é aprovado e reprovado sozinho. Os ganchos só escrevem na linha da peça
+reprovada (ou criam a substituta), e há teste que reprova o texto do post e
+confere que a matéria e a newsletter ficaram iguais, linha e conteúdo.
+
+**A foto refeita é da peça, não da pauta.** A foto de uma pauta é resolvida uma
+vez para os três canais (`imagem_da_pauta`). A refação de imagem resolve outra
+(`imagemDaPauta` com `ignorarReuso`) e grava só na peça; desde esta data
+`ignorarReuso` não regrava a tabela nem a memória, e os outros canais seguem
+com a foto que tinham. Até 05/10 a foto refeita substituía a compartilhada.
+
+**O contexto vai para a linha da fila.** `resumo.contexto` guarda a pauta (o
+que os redatores e o resolvedor leem dela), o pacote factual, a referência ao
+pool aprovado do dia (só os `storyId`, em ordem) e, na newsletter, as fotos e os
+créditos de cada história. O post leva o mesmo em `content_json.contexto_da_refacao`
+e a forma do carrossel em `content_json.carrossel`. Peça anterior a isto é
+remontada de `news_candidates`, `articles.source_urls`, `news_editions.stories`
+e do histórico editorial; sem como remontar, o painel diz o que faltou.
+
+**Cada etapa, por ramo:**
+
+| ramo | seleção | texto | imagem | arte |
+|---|---|---|---|---|
+| post | outra pauta, pelo ciclo social inteiro (`rodarSocialDoDia`, teto 1), na vaga da reprovada | `gerarPostDaPauta` com motivo e memória, depois a arte | foto nova só da peça, depois a arte | recongela |
+| carrossel | idem | o mesmo gerador, na mesma estrutura, e recongela todas as telas | foto da capa, e recongela as telas | recongela as telas |
+| artigo | outra pauta, pelo ramo do portal (`rodarRamoDoPortal`), no horário da reprovada | `escreverArtigoDaPauta` | capa nova | não existe |
+| newsletter | troca UMA história, apontada pelo editor, e reescreve a edição | `runNewsroomPipeline` com motivo e memória (a edição inteira; a pauta apontada vai como foco) | foto nova da história apontada, ou de todas; só o HTML é redesenhado | não existe |
+
+**A seleção refeita respeita a régua do ramo:** aprovada pela linha editorial,
+imigração fora, nada que o canal já tenha no dia (nem a pauta recusada), nenhum
+acontecimento repetido no canal (cosseno 0.70 contra as peças do dia, e a
+impressão do acontecimento no post), nada já publicado no canal
+(`verificarRepeticao`), foto real e pacote factual. No post e no artigo a peça
+nova entra na fila com hash próprio e herda a contagem de refações da vaga; a
+reprovada é descartada com o motivo e o id da substituta. A newsletter é uma
+peça por dia, então a troca é dentro dela, e o editor escolhe no painel qual
+pauta sai (sem escolher, a refação diz que precisa saber).
+
+**O Listmonk não é tocado.** A campanha só nasce na liberação, com o que está
+na linha naquela hora.
+
+**A refação roda fora do clique.** A reprovação grava `resumo.refacao` em
+`na_fila` e responde. Roda o `after` da própria reprovação e, a cada minuto, o
+relógio da fila (`processarRefacoes`); a reivindicação é condicional, então os
+dois nunca refazem a mesma peça. Falha técnica volta para a fila (na terceira
+vira "não dá"); processo que morreu no meio deixa `rodando`, e depois de 20
+minutos a linha é pega de novo. Com a fila fora de `enforce`, nada roda.
+
+**"Não dá" nunca é silêncio.** Se o gancho recusou sem escrever, a peça volta a
+`aguardando` intacta, com o motivo: o editor aprova como está, reprova outra
+etapa ou cancela. Se a peça mudou pela metade (texto novo, arte que não
+fechou), fica em `refazendo`, porque aprovar a meia-versão publicaria a
+manchete de uma peça na arte de outra; a saída é cancelar. O painel mostra
+"refazendo X, refação n de 2" com a previsão de volta (estimativa por etapa,
+`MINUTOS_DA_REFACAO`) e se atualiza sozinho enquanto houver refação andando.
+
+**O que continua manual:** a peça cujo contexto não dá para remontar (a matéria
+que é a edição da newsletter, `edicao-AAAA-MM-DD`; o carrossel gravado antes
+desta data, sem a forma; a edição antiga sem a foto no histórico, para refazer
+o texto), e a terceira reprovação, que descarta como sempre.
+
+## O aprendizado da fila, por etapa e por canal (06/10/2026)
+
+O dono: "de nada adianta esse esforço manual se não houver aprendizado". Até
+aqui a memória de reprovação só chegava ao texto, e misturada: o erro apontado
+na legenda do post entrava na voz da newsletter. O código está em
+`src/lib/server/aprendizado/`, as tabelas na migration
+`20261006120000_aprendizado_da_fila.sql`, e a tela em
+`/admin/<projeto>/aprendizado` (também na seção "Aprendizado" do projeto).
+
+**Canal é canal, sempre.** `errosRecentesDaEtapa(projeto, ramo, etapa)` lê só
+as reprovações daquele canal, as regras têm `ramo` NOT NULL, e cada voz recebe
+o bloco do próprio canal. Nada lê o aprendizado com a fila em `off`.
+
+**Cada etapa aprende com a reprovação dela.** A reprovação grava em
+`reprovacoes.detalhes` o que a peça tinha (a pauta, a foto de fundo, o molde):
+
+| etapa | o que aprende | onde |
+|---|---|---|
+| seleção | cada recusa parecida (fonte, ator, eixo) tira 8 pontos da nota, até 24; fonte ou ator recusado 3 vezes em 30 dias sai do canal; pauta recusada nunca volta ao canal. O eixo nunca bloqueia | `aprenderNaSelecao` na newsletter, no portal e no Instagram; a troca de pauta da refação também |
+| texto | erros recentes, regras aprovadas e exemplos aprovados de primeira, do canal | `vozesDosRamosComMemoria` |
+| imagem | a foto recusada no canal nunca mais é escolhida nele; o motivo vai para a pergunta da cena | `fotosDoCanal`, `comFotoDoCanal`, `recusasDoEditor` |
+| arte | molde recusado 3 vezes sai da escolha do feed (o jornal nunca sai); a refação da arte troca a decisão recusada e grava o porquê em `content_json.arte.aprendizado` | `moldesComAprendizado`, `arteNaRefacao` |
+
+A foto de uma pauta continua resolvida uma vez para os três canais. O bloqueio
+de um canal entra DEPOIS dessa resolução: só aquele canal resolve outra.
+
+**A aprovação de primeira vira exemplo.** Até 5 por tipo (assunto da
+newsletter; manchete e abertura da legenda do post; título e linha fina da
+matéria), num orçamento de 1.600 caracteres, só do canal, só aprovadas pelo
+editor sem refação nem edição à mão, dos últimos 30 dias, nada antes de
+05/10/2026 e nada com vocabulário de imigração.
+
+**A edição à mão vira proposta.** O antes e o depois vão para
+`edicoes_do_editor`. Toda segunda às 08:00 (`/api/cron/aprendizado`) e no botão
+do painel, UMA chamada de modelo lê as edições da semana por canal e devolve
+padrões; a proposta precisa de duas edições do mesmo canal, a citação de outro
+canal é descartada na validação, e tudo nasce `proposta`, com origem `edicoes`.
+Nada vira regra sem o dono aprovar.
+
+**A taxa do painel conta edição como retrabalho.** Aprovada de primeira é sem
+refação E sem edição à mão.
+
+## A cadência se edita no painel, e o relógio da produção é da rota (06/10/2026)
+
+**A tela é `/admin/<projeto>/cadencia`**, com link no menu do projeto, ao lado
+dos perfis de referência e do acervo. Ela edita `settings.cadencia` inteiro:
+dias, horários e volume de cada canal, mais produção e aprovação, e mostra a
+prévia da semana seguinte. Grava por `PUT /api/admin/projetos/<id>/cadencia`,
+com sessão do painel, tocando só a chave `cadencia` do jsonb.
+
+**Campo inválido é gravado como veio**, e na leitura cai no padrão daquele
+campo com aviso, que é a regra de 05/10. Normalizar antes de gravar apagaria o
+aviso: o painel diria "gravado" e o campo voltaria ao padrão em silêncio. O
+formulário calcula a prévia e os avisos a cada tecla com os MESMOS validadores
+da esteira (`cadencia-no-painel.ts` é puro e o cliente o importa).
+
+**O horário da produção é decidido pela rota, não pelo crontab.** Com
+`?relogio=1`, `/api/cron/producao` é chamada de 15 em 15 minutos e só produz no
+primeiro disparo entre o horário gravado e 15 minutos depois. Fora da janela
+não grava linha, não pinga o watchdog e não alerta. Sem o parâmetro a rota
+continua produzindo quando é chamada, então a linha antiga das 20:00 UTC segue
+funcionando até ser trocada; o painel avisa quando o horário gravado não bate
+com ela. O portal tem o mesmo aviso para `/api/cron/portal`, que já é segura de
+chamar a qualquer hora.
+
+## Os avisos de operação no Telegram (06/10/2026)
+
+Com a fila de aprovação, a rotina do dono passou a ter horário, e o Telegram
+deixou de falar só quando algo quebra. O código está em
+`src/lib/server/avisos/`, e passa pelo mesmo `alerts.ts` dos alertas de falha.
+
+| aviso | quando (hora do projeto) | condição |
+|---|---|---|
+| fila pronta | fim da produção das 17:00; rede no cron a partir das 17:30 | fila fora de `off`, produção com linha, fila do alvo não vazia |
+| lembrete | 22:00 a 23:59 | fila fora de `off`, peça de amanhã aguardando ou refazendo |
+| última chamada | 05:30 a 06:06 | fila fora de `off`, peça de hoje pendente |
+| resumo do dia | 22:30 a 23:59 | sempre |
+| produção vazia | fim da produção | rodou e a redação não produziu, ou produziu e nada entrou na fila (fora do ensaio) |
+| produção não rodou | 18:30 a 21:59 | dia de produção sem linha em `newsroom_runs` |
+| newsletter atrasada | 06:15 a 11:59 | fila em `enforce`, newsletter aprovada e não liberada |
+
+**Um aviso por chave `tipo:dia`, gravado em `platform_events`**
+(`aviso_operacional`). O cron de minuto em minuto pergunta antes de mandar. Envio
+que falha é gravado com o motivo do Telegram e tentado de novo no minuto
+seguinte, até três vezes; depois desiste, e as três linhas dizem por quê.
+
+**A janela, e não o minuto.** O aviso sai no primeiro minuto dentro da janela,
+então um cron atrasado não perde o dia. E o fuso é sempre o do projeto: o
+contêiner está em UTC, onde 22:00 de São Paulo já é o dia seguinte.
+
+**Nenhum aviso mente.** Com a fila em `dry_run` nada é segurado, então a última
+chamada diz "sai mesmo assim" em vez de "não sai". E ela dá o primeiro horário
+de cada canal, porque o post das 14:45 ainda tem a manhã para ser aprovado.
+
+**Rota própria, `/api/cron/avisos`.** O cron da fila pula projeto fora de
+`enforce` antes de ler qualquer coisa, e o resumo vale com a fila desligada; e
+uma falha aqui não pode atrasar a liberação das 06:07. A rota não alerta a
+própria falha, porque com o banco fora seria um alerta crítico por minuto.
+
+**A falha de QUALQUER alerta vai para o banco**, `platform_events` do tipo
+`alerta_falhou`, com o motivo e a descrição do Telegram e sem segredo. Antes
+ela só existia no log do contêiner.
+
+## O evergreen ganha catálogo novo, sem imigração (06/10/2026)
+
+O evergreen foi desligado em 05/10 porque os 66 tópicos do catálogo eram todos
+de visto. O catálogo novo é da linha atual: o brasileiro que SONHA em morar,
+trabalhar ou investir nos EUA, e o conteúdo explica como as coisas funcionam
+lá. O de imigração está arquivado em `evergreen/catalogo-imigracao-arquivado.ts`,
+que ninguém importa. **A capacidade continua desligada** até o dono aprovar.
+
+**O catálogo:** 60 tópicos e 154 ângulos (de 2 a 4 por tópico), em
+`evergreen/catalogo.ts`, agrupados pelas editorias do portal: economia 13,
+trabalho 13, tecnologia 8, custo de vida 14, política 8 e Brasil 4. Todo
+tópico declara de 1 a 3 temas da lista fechada de `src/lib/temas.ts`, e o
+teste recusa slug que não existe lá. Nenhum tópico nem ângulo pode ser de
+imigração (o teste procura visto, green card, USCIS, cidadania, deportação e
+afins).
+
+**Fontes só de órgão oficial**, e a lista de `grounding.ts` foi trocada
+inteira: saíram uscis.gov, travel.state.gov, state.gov, cbp.gov e
+federalregister.gov; entraram Fed, Tesouro, SEC, FDIC, CFPB, FTC, BLS, BEA,
+Census, EIA, USDA, DOL, IRS, SBA, HealthCare.gov, Medicare, NCES, NIST, USPTO,
+NASA, DOE, CISA, USA.gov, Arquivo Nacional, Câmara, Justiça federal, os .gov de
+Texas, Califórnia, Nova York, Washington e Tennessee, e gov.br só para o
+contraste com o Brasil. As 148 URLs foram conferidas em 06/10/2026 com o agente
+honesto do projeto (`eua.journal/1.0`, que substituiu o `imigra.us/1.0` da
+leitura): HTTP 200, texto suficiente e o assunto presente na página. Ficaram
+fora porque recusam agente declarado (403, desafio ou página vazia):
+investor.gov, ssa.gov, hud.gov, huduser.gov, studentaid.gov, ed.gov,
+ibge.gov.br, bcb.gov.br, congress.gov, senate.gov e transportation.gov. A
+conferência se repete com `npx tsx src/scripts/conferir-fontes-evergreen.ts`.
+
+**O Brasil só entra como contraste**, nos 4 tópicos da editoria Brasil, e cada
+lado do contraste tem a sua fonte primária (IRS e Receita, DOL e MTE, IRS e
+INSS, FGTS e FICA). Nenhum ângulo afirma equivalência que as duas fontes não
+dizem.
+
+**O adaptador deixou de marcar imigração.** `imigracao: false` e o eixo sai da
+EDITORIA do tópico (economia, trabalho, tecnologia, custo_de_vida, politica,
+brasil), e não mais da família, que diz a forma. Assim as réguas da linha nova
+(foto obrigatória, moldes, bolha, chapéu da editoria) tratam o evergreen como
+qualquer pauta. As famílias viraram cinco (`explainer`, `glossary`, `faq`,
+`comparison`, `process_explainer`).
+
+**Ator da foto é instituição, e só onde ela é o assunto.** O código do
+programa ("FOMC", "401(k)") não vai mais como ator, pela lição da sigla PERM.
+O campo `entidade` existe em 6 tópicos (Fed, SEC, FDIC, IRS na temporada,
+Congresso, Suprema Corte). Medido com o resolvedor: com o órgão declarado,
+credit score, 401(k), aluguel e Artemis terminavam sem foto; sem ele, os
+quatro saíram com a foto da cena.
+
+**O ritmo:** nenhum TÓPICO volta em 30 dias (a janela era 7) e o par
+tópico+ângulo continua com 30. O teto do dia caiu de 4 para 2, que é
+`60 tópicos / 30 dias`: com 4, o catálogo secaria na metade do mês de pouca
+notícia. Uma editoria por dia (`EVERGREEN_MAX_POR_EDITORIA`). O evergreen
+continua só nas vagas que a notícia deixou, e cede o assunto quando a notícia
+do dia traz o mesmo programa ou a mesma instituição. O desempate entre itens
+nunca usados passou a girar com o dia (continua determinístico): item que cai
+depois da seleção (sem foto, copy recusada) não entra no histórico e, com a
+ordem alfabética, voltava ao topo todo dia, travando o catálogo.
+
+**Amostras** em `docs/design/evergreen-novo-2026-10-06/`, pelo caminho de
+produção inteiro em ensaio (`src/scripts/amostras-evergreen.ts`: store de
+memória, arquivo local no lugar do Storage, banco só lido): credit score,
+mandato do Fed (com bolha), Colégio Eleitoral e FDIC (com bolha). PNGs
+reduzidos para 1080x1440 no repositório.
+
+**Como ligar:** no painel, a capacidade `evergreen` do projeto
+(`settings.capacidades.evergreen`): primeiro `dry_run` (calcula, grava o
+diagnóstico em `payload.diagnostico.evergreen` e não publica nada), depois
+`enforce`. Para `enforce` publicar, o Social V2 também precisa estar em
+`enforce`.
 
 ## Armadilhas que já custaram tempo
 

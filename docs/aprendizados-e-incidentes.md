@@ -1380,6 +1380,91 @@ recorte não recebe mais a segunda foto.
 **Lição.** É a "linha gravada mentindo" de 16/09 outra vez: campo que descreve
 uma decisão precisa ser escrito por quem a EXECUTA, não por quem a pediu.
 
+### A refação de imagem trocava a foto dos três canais (06/10/2026)
+
+**Sintoma.** Nenhum, achado antes de a fila valer, quando o dono disse que a
+refação é por peça e por canal.
+
+**Causa.** `imagemDaPauta` com `ignorarReuso` resolvia a foto nova e REGRAVAVA
+`imagem_da_pauta`, de propósito: "para os outros canais reusarem a foto
+aprovada". Reprovar a foto do post trocaria, em silêncio, a capa da matéria e
+a foto da newsletter da mesma pauta, peças que o editor já tinha olhado e,
+talvez, aprovado. O hash da matéria pegaria a troca e seguraria a matéria
+aprovada, sem ninguém entender por quê.
+
+**Corrigido.** `ignorarReuso` só resolve: não grava a tabela nem a memória. A
+foto nova é gravada na linha da peça reprovada, e só nela. Há teste de que o
+canal seguinte continua lendo a foto gravada, e de que reprovar o texto do post
+não muda a linha da matéria nem a da newsletter.
+
+**No mesmo trabalho.** A arte do post recongelada pela refação lia o crédito da
+foto em `visual.credito`, e o store grava `visual.attribution`: refazer só a
+arte apagaria o crédito exigido pela licença. Lê as duas chaves agora.
+
+**Lição.** Recurso compartilhado entre peças com aprovação própria não pode ser
+escrito por quem refaz uma delas. "Uma foto por pauta" é uma economia da
+produção, não uma regra de publicação.
+
+### Uma classe `font-mono` baixava a Inter inteira em toda matéria (06/10/2026)
+
+**Sintoma.** Medindo a matéria, 99 KB de fonte numa página que só desenha
+Sora. A Inter (48 KB) chegava mesmo com o portal inteiro trocado para Sora.
+
+**Causa.** O contador de comentários era `<span class="font-mono">(0)</span>`,
+e no tema `--font-mono` aponta para a Inter: um parêntese com um zero puxava o
+arquivo inteiro. E a Inter ainda era PRÉ-CARREGADA em toda página, junto com o
+segundo arquivo da Sora (`latin-ext`), disputando banda com a capa, que é o LCP.
+
+**Corrigido.** `tabular-nums` no lugar de `font-mono`; Inter sem `preload`;
+Sora pré-carregando só `latin` (o `latin-ext` continua declarado e só baixa se
+aparecer letra dele na página).
+
+**Lição.** Fonte se audita no navegador (`document.fonts`, as carregadas), não
+no CSS: classe utilitária que aponta para outra família não aparece numa busca
+pelo nome da fonte.
+
+### O React pré-carregava os dois logotipos, inclusive o escondido (06/10/2026)
+
+**Sintoma.** Dois `<link rel=preload as=image>` de 68 KB cada no topo de toda
+página do portal, um deles para um `<img>` com `display: none`.
+
+**Causa.** O React 19 emite pré-carga para `<img>` renderizado no servidor sem
+olhar o CSS. O cabeçalho tinha uma versão do logotipo para o celular e outra
+para o computador, alternadas por `hidden` e `md:block`.
+
+**Corrigido.** Um `<picture>` com `<source media>`: o navegador escolhe uma
+versão, e ela passa pelo otimizador (8 KB em WebP).
+
+**Lição.** Alternar imagem por breakpoint com classe baixa as duas. Para
+escolher imagem pela tela, `<picture>`.
+
+### "O Telegram está configurado e não chega nada" (06/10/2026)
+
+**Medido.** O `.env` local tinha `TELEGRAM_BOT_TOKEN` e `TELEGRAM_CHAT_ID`
+declarados duas vezes. Os dois pares eram idênticos byte a byte, o bot
+respondeu ao `getMe`, enxergou o chat privado do dono no `getChat`, e a
+mensagem de teste chegou. O defeito não está no repositório: o valor que vale
+é o do EasyPanel, que esta sessão não alcança.
+
+**O que impedia responder.** A falha do envio só ia para `console.error`
+dentro do contêiner. A rota `/api/admin/alerts/diagnostico` existe, mas pede o
+segredo do cron de produção, que é diferente do `.env` local.
+
+**Corrigido.** Toda falha de alerta grava `platform_events` do tipo
+`alerta_falhou`, com o motivo (`sem_token`, `sem_chat_id`, `telegram_recusou`,
+`erro_de_rede`) e a descrição do Telegram. A próxima pergunta "chegou?" é uma
+consulta.
+
+**O suspeito que continua aberto.** A produção das 17:00 e o ciclo das 06:03
+alertam de dentro de uma promise solta depois da resposta 202. A própria rota
+de diagnóstico tem o modo `?desanexado=1` porque essa forma nunca foi provada.
+Se `alerta_falhou` aparecer com `erro_de_rede` só nesses caminhos, a causa é
+essa, e o remédio é `after()`.
+
+**Lição.** Variável duplicada no `.env` vale a última, em silêncio. E
+"configurado" só quer dizer alguma coisa quando o teste roda no MESMO ambiente
+que o cron.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

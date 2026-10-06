@@ -30,6 +30,8 @@ export type ConfigDoEvergreen = {
   maximoPorProgramaNoDia: number;
   /** Quantos posts da mesma família o dia aceita. */
   maximoPorFamiliaNoDia: number;
+  /** Quantos posts permanentes da mesma editoria o dia aceita. */
+  maximoPorEditoriaNoDia: number;
   /**
    * Quantos posts permanentes o dia aceita, independentemente de vaga.
    *
@@ -61,12 +63,27 @@ export type ConfigDoEvergreen = {
   alternarFormato: boolean;
 };
 
+/*
+ * O ritmo do catálogo novo (06/10/2026).
+ *
+ * O pedido do dono: nenhum ASSUNTO volta em 30 dias, e não só nenhum par
+ * tópico+ângulo. A janela do tópico foi de 7 para 30, igual ao cooldown do
+ * par, e com isso a conta que fixa o teto do dia mudou: o regime permanente
+ * passa a ser `tópicos / 30`, e não `combinações / 30`. Com 60 tópicos, isso
+ * dá 2 por dia sem o catálogo secar. Quatro, o teto de antes, queimaria o
+ * catálogo em quinze dias de pouca notícia e derrubaria o feed para zero na
+ * metade do mês, que é o defeito que o comentário de `maximoNoDia` descreve.
+ *
+ * E uma editoria por dia: dois permanentes do mesmo assunto largo (dois de
+ * trabalho, dois de custo de vida) deixam o dia com cara de apostila.
+ */
 export const CONFIG_PADRAO: ConfigDoEvergreen = {
   cooldownDoParEmDias: 30,
-  janelaDoTopicoEmDias: 7,
+  janelaDoTopicoEmDias: 30,
   maximoPorProgramaNoDia: 2,
   maximoPorFamiliaNoDia: 2,
-  maximoNoDia: 4,
+  maximoPorEditoriaNoDia: 1,
+  maximoNoDia: 2,
   alternarFormato: true,
 };
 
@@ -82,6 +99,7 @@ export function carregarConfigDoEvergreen(
     janelaDoTopicoEmDias: n("EVERGREEN_JANELA_TOPICO_DIAS", CONFIG_PADRAO.janelaDoTopicoEmDias),
     maximoPorProgramaNoDia: n("EVERGREEN_MAX_POR_PROGRAMA", CONFIG_PADRAO.maximoPorProgramaNoDia),
     maximoPorFamiliaNoDia: n("EVERGREEN_MAX_POR_FAMILIA", CONFIG_PADRAO.maximoPorFamiliaNoDia),
+    maximoPorEditoriaNoDia: n("EVERGREEN_MAX_POR_EDITORIA", CONFIG_PADRAO.maximoPorEditoriaNoDia),
     maximoNoDia: n("EVERGREEN_MAX_POR_DIA", CONFIG_PADRAO.maximoNoDia),
     /* Só um "false" explícito desliga: valor ausente ou irreconhecível mantém. */
     alternarFormato: String(env.EVERGREEN_ALTERNAR_FORMATO ?? "").trim().toLowerCase() !== "false",
@@ -96,6 +114,7 @@ export type MotivoDoCorte =
   | "TOPICO_NA_JANELA"
   | "PROGRAMA_JA_NO_DIA"
   | "FAMILIA_JA_NO_DIA"
+  | "EDITORIA_JA_NO_DIA"
   | "SEM_VAGA";
 
 export type CortadoDoEvergreen = {
@@ -129,15 +148,38 @@ const DIA_EM_MS = 24 * 60 * 60 * 1000;
 function porDistanciaDoUltimoUso(
   itens: ItemEvergreen[],
   ultimoUso: Map<string, number>,
+  agoraMs: number,
 ): ItemEvergreen[] {
+  /*
+   * O desempate gira com o dia (06/10/2026), e continua determinístico.
+   *
+   * Era alfabético pela identidade. As amostras do catálogo novo mostraram o
+   * defeito: um item que cai DEPOIS da seleção (sem foto, copy recusada) não
+   * entra no histórico, que só conta o que foi ao ar, e por isso volta no topo
+   * da fila no dia seguinte, e no outro. Dois itens assim ocupam as duas vagas
+   * do dia para sempre e o resto do catálogo nunca é alcançado. Com o dia na
+   * conta, a ordem dos nunca usados muda de um dia para o outro: o item que
+   * falhou cede a vez, e quem roda a mesma data duas vezes vê a mesma ordem.
+   */
+  const dia = Math.floor(agoraMs / DIA_EM_MS);
+  const chaveDoDia = (item: ItemEvergreen) => embaralhar(`${dia}:${identidadeDoItem(item)}`);
+
   return [...itens].sort((a, b) => {
     const ua = ultimoUso.get(identidadeDoItem(a)) ?? 0;
     const ub = ultimoUso.get(identidadeDoItem(b)) ?? 0;
     if (ua !== ub) return ua - ub;
-    // Empate entre nunca usados: ordem estável pelo id, para a simulação ser
-    // reproduzível em vez de depender da ordem do catálogo.
-    return identidadeDoItem(a).localeCompare(identidadeDoItem(b));
+    return chaveDoDia(a) - chaveDoDia(b) || identidadeDoItem(a).localeCompare(identidadeDoItem(b));
   });
+}
+
+/** FNV-1a de 32 bits: espalha a ordem sem sorteio, mesma entrada, mesma saída. */
+function embaralhar(texto: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < texto.length; i += 1) {
+    h ^= texto.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h;
 }
 
 /**
@@ -316,14 +358,17 @@ export function selecionarEvergreen(
    * de perder a vaga.
    */
   const daNoticia = new Set<string>();
+  const entidadesDaNoticia = new Set<string>();
 
   for (const p of opcoes.ocupacaoDoDia?.programas ?? []) {
+    if (p.trim()) entidadesDaNoticia.add(p.trim().toUpperCase());
     for (const base of programasDoTopico(p)) {
       porPrograma[base] = (porPrograma[base] ?? 0) + 1;
       daNoticia.add(base);
     }
   }
   const porFamilia: Record<string, number> = {};
+  const porEditoria: Record<string, number> = {};
   /*
    * Um tópico por dia, e esta régua faltava.
    *
@@ -360,7 +405,7 @@ export function selecionarEvergreen(
    * quantos fatos o lastro trouxe e o lastro ainda não foi buscado. Previsão
    * errada custa uma sequência não quebrada, não um post pior.
    */
-  const naOrdem = porDistanciaDoUltimoUso(elegiveis, ultimoUsoDoPar);
+  const naOrdem = porDistanciaDoUltimoUso(elegiveis, ultimoUsoDoPar, opcoes.agoraMs);
   const fila = config.alternarFormato ? intercalarPorFormato(naOrdem, ultimoUsoDoPar) : naOrdem;
 
   for (const item of fila) {
@@ -387,7 +432,17 @@ export function selecionarEvergreen(
 
     const programas = programasDoTopico(item.topico.programa);
 
-    const jaNaNoticia = programas.find((p) => daNoticia.has(p));
+    /*
+     * A instituição também conta, pelo nome inteiro (06/10/2026).
+     *
+     * A notícia sobre o Fed chega com o ator "Federal Reserve", e o tópico do
+     * FOMC declara a mesma entidade. Pelo nome inteiro, e não pelo primeiro
+     * token: "United States Department of the Treasury" e "United Airlines"
+     * começam igual e não são o mesmo assunto.
+     */
+    const entidade = item.topico.entidade?.trim().toUpperCase();
+    const jaNaNoticia =
+      programas.find((p) => daNoticia.has(p)) ?? (entidade && entidadesDaNoticia.has(entidade) ? item.topico.entidade : undefined);
     if (jaNaNoticia) {
       cortados.push({
         item,
@@ -418,10 +473,25 @@ export function selecionarEvergreen(
       continue;
     }
 
+    /*
+     * Tópico sem editoria (fixture antiga de teste) não disputa esta régua:
+     * não há o que contar, e recusar por isso seria defeito da régua.
+     */
+    const editoria = item.topico.editoria;
+    if (editoria && (porEditoria[editoria] ?? 0) >= config.maximoPorEditoriaNoDia) {
+      cortados.push({
+        item,
+        motivo: "EDITORIA_JA_NO_DIA",
+        detalhe: `a editoria ${editoria} já tem ${porEditoria[editoria]} post(s) permanente(s) hoje`,
+      });
+      continue;
+    }
+
     escolhidos.push(item);
     topicosDoDia.add(item.topico.id);
     for (const p of programas) porPrograma[p] = (porPrograma[p] ?? 0) + 1;
     porFamilia[item.topico.familia] = (porFamilia[item.topico.familia] ?? 0) + 1;
+    if (editoria) porEditoria[editoria] = (porEditoria[editoria] ?? 0) + 1;
   }
 
   return { escolhidos, cortados, elegiveis: elegiveis.length };

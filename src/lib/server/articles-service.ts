@@ -47,6 +47,69 @@ function sectionsToHtml(title: string, sections: Array<{ heading: string; paragr
     .join("");
 }
 
+/** A linha do banco no formato que o painel e a página leem. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function registroDoBanco(row: any): AdminArticleRecord {
+  const sections = Array.isArray(row.content) && row.content.length > 0
+    ? row.content
+    : [{ heading: "Visão Geral", paragraphs: [row.description || row.excerpt || "Conteúdo em atualização."] }];
+  const html = row.content_html && row.content_html.trim().length > 0
+    ? row.content_html
+    : sectionsToHtml(row.title, sections);
+
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    excerpt: row.excerpt || row.description || "",
+    description: row.description || row.excerpt || "",
+    cover_image: row.cover_image,
+    status: row.status || "published",
+    category: row.category || "IA",
+    author: row.author || MARCA.nome,
+    reading_minutes: row.reading_minutes || 5,
+    view_count: Number(row.view_count || 0),
+    published_at: row.published_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? null,
+    content: sections,
+    content_html: html,
+    tags: row.tags || [],
+    source_urls: row.source_urls || [],
+    seo_title: row.seo_title || "",
+    seo_description: row.seo_description || "",
+    age_summary: row.age_summary || "",
+    editorial_score: row.editorial_score || 85,
+    manual_review_status: row.manual_review_status || "approved",
+    aeo_questions: row.aeo_questions ?? [],
+  };
+}
+
+/**
+ * As colunas da página da matéria (06/10/2026).
+ *
+ * Ficam de fora `canonical_url`, `listmonk_campaign_id`, `last_reviewed_at` e
+ * `project_id`, que ninguém da leitura pública usa. A lista foi conferida
+ * contra o banco de produção nesta data: coluna que não existe faz o PostgREST
+ * responder 400, e a página cairia no artigo estático.
+ */
+export const COLUNAS_DA_MATERIA =
+  "id, slug, title, excerpt, description, cover_image, status, category, author, reading_minutes, view_count, " +
+  "published_at, created_at, updated_at, content, content_html, tags, source_urls, seo_title, seo_description, " +
+  "age_summary, editorial_score, manual_review_status, aeo_questions";
+
+/** As colunas do cartão da lista `/artigos`: sem o corpo, que é o grosso da linha. */
+export const COLUNAS_DA_LISTA =
+  "slug, title, excerpt, description, cover_image, category, author, reading_minutes, published_at, created_at, age_summary";
+
+/**
+ * A tabela inteira, para o PAINEL: ele mostra rascunho, agendado e arquivado.
+ *
+ * A leitura pública não passa mais por aqui (auditoria de 05/10/2026, item
+ * 26). Até 06/10/2026 cada página de matéria lia todas as linhas de
+ * `articles`, com corpo, para achar uma; a lista `/artigos` também, para
+ * mostrar só as publicadas. Ver `getArticleBySlug` e `getPublishedArticles`.
+ */
 export async function getAllArticlesForAdmin(): Promise<AdminArticleRecord[]> {
   try {
     const supabase = getSupabaseAdminClient();
@@ -56,46 +119,17 @@ export async function getAllArticlesForAdmin(): Promise<AdminArticleRecord[]> {
       .order("created_at", { ascending: false });
 
     if (!error && data && data.length > 0) {
-      return data.map((row: any) => {
-        const sections = Array.isArray(row.content) && row.content.length > 0
-          ? row.content
-          : [{ heading: "Visão Geral", paragraphs: [row.description || row.excerpt || "Conteúdo em atualização."] }];
-        const html = row.content_html && row.content_html.trim().length > 0
-          ? row.content_html
-          : sectionsToHtml(row.title, sections);
-
-        return {
-          id: row.id,
-          slug: row.slug,
-          title: row.title,
-          excerpt: row.excerpt || row.description || "",
-          description: row.description || row.excerpt || "",
-          cover_image: row.cover_image,
-          status: row.status || "published",
-          category: row.category || "IA",
-          author: row.author || MARCA.nome,
-          reading_minutes: row.reading_minutes || 5,
-          view_count: Number(row.view_count || 0),
-          published_at: row.published_at,
-          created_at: row.created_at,
-          updated_at: row.updated_at ?? null,
-          content: sections,
-          content_html: html,
-          tags: row.tags || [],
-          source_urls: row.source_urls || [],
-          seo_title: row.seo_title || "",
-          seo_description: row.seo_description || "",
-          age_summary: row.age_summary || "",
-          editorial_score: row.editorial_score || 85,
-          manual_review_status: row.manual_review_status || "approved",
-          aeo_questions: row.aeo_questions ?? [],
-        };
-      });
+      return data.map(registroDoBanco);
     }
   } catch (err) {
     console.error("Erro ao buscar artigos do Supabase:", err);
   }
 
+  return registrosEstaticos();
+}
+
+/** Os artigos de `editorial.ts`, só para quando o banco não respondeu. */
+function registrosEstaticos(): AdminArticleRecord[] {
   // Fallback estático sem valores fictícios (view_count 0 por padrão se ainda não registrado)
   return staticArticles.map((art) => ({
     slug: art.slug,
@@ -121,9 +155,31 @@ export async function getAllArticlesForAdmin(): Promise<AdminArticleRecord[]> {
   }));
 }
 
+/**
+ * Só as publicadas, só as colunas do cartão (06/10/2026).
+ *
+ * A ordem é a mesma da leitura do painel (`created_at`, mais nova primeiro),
+ * para a lista não mudar de ordem com a troca. Banco que não responde cai nos
+ * artigos estáticos, como antes.
+ */
+async function publicadasParaALista(): Promise<AdminArticleRecord[]> {
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("articles")
+      .select(COLUNAS_DA_LISTA)
+      .eq("status", "published")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((row) => registroDoBanco({ ...(row as Record<string, unknown>), status: "published" }));
+  } catch (err) {
+    console.error("Erro ao buscar artigos publicados do Supabase:", err);
+    return registrosEstaticos();
+  }
+}
+
 export async function getPublishedArticles(): Promise<Article[]> {
-  const all = await getAllArticlesForAdmin();
-  const published = all.filter((a) => a.status === "published");
+  const published = await publicadasParaALista();
 
   return published.map((art) => ({
     slug: art.slug,
@@ -145,9 +201,39 @@ export async function getPublishedArticles(): Promise<Article[]> {
   }));
 }
 
+/**
+ * Uma linha publicada pelo slug: `undefined` quando o banco NÃO respondeu,
+ * `null` quando respondeu e não há matéria publicada com esse slug. Os dois
+ * pedem coisas opostas (artigo estático contra 404), por isso não se colapsam.
+ */
+async function publicadaPeloSlug(slug: string): Promise<AdminArticleRecord | null | undefined> {
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("articles")
+      .select(COLUNAS_DA_MATERIA)
+      .eq("slug", slug)
+      .eq("status", "published")
+      .order("published_at", { ascending: false })
+      .limit(1);
+    if (error) throw new Error(error.message);
+    const linha = (data ?? [])[0];
+    return linha ? registroDoBanco(linha) : null;
+  } catch (err) {
+    console.error("Erro ao buscar o artigo no Supabase:", err);
+    return undefined;
+  }
+}
+
 export async function getArticleBySlug(slug: string) {
-  const all = await getAllArticlesForAdmin();
-  const found = all.find((a) => a.slug === slug);
+  const found = await publicadaPeloSlug(slug);
+  /*
+   * Leitura por slug, só publicada e só as colunas da página (06/10/2026).
+   * Até aqui esta função chamava `getAllArticlesForAdmin` e procurava o slug
+   * na tabela inteira, com corpo, a cada página de matéria e a cada manchete
+   * fixada da home (auditoria de SEO, item 26). As duas regras abaixo
+   * continuam valendo, agora também no filtro da consulta.
+   */
   /*
    * Só o publicado tem página (05/10/2026).
    *
@@ -166,7 +252,7 @@ export async function getArticleBySlug(slug: string) {
    * agora: "o-que-pesa-na-decisao-de-sair-do-brasil" estava no ar assim. Com
    * o banco lendo, slug que ele não tem é 404.
    */
-  if (all.length > 0 && all.some((a) => a.id)) return null;
+  if (found === null) return null;
 
   const staticArt = staticArticles.find((a) => a.slug === slug);
   if (!staticArt) return null;

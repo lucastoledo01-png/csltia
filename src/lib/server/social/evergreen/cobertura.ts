@@ -93,6 +93,20 @@ const IRRELEVANTES = new Set([
   "funciona",
   "significa",
   "realmente",
+  /*
+   * O país não identifica assunto nenhum (06/10/2026). Com o catálogo sobre
+   * como as coisas funcionam nos EUA, "americano" está no nome de vários
+   * tópicos e em quase todo fato: contado como termo, qualquer pacote cobriria
+   * qualquer tópico, que é a régua desligada.
+   */
+  "americano",
+  "americana",
+  "americanos",
+  "americanas",
+  "estados",
+  "unidos",
+  "brasileiro",
+  "brasileira",
 ]);
 
 function normalizar(t: string): string {

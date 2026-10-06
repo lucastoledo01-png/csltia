@@ -22,16 +22,76 @@ import type { ItemEvergreen } from "./tipos";
  * publica "o teto é 65 mil" seis meses depois de o teto mudar.
  */
 
-/** Domínios que ancoram conteúdo permanente. Fora desta lista, não ancora. */
+/**
+ * Domínios que ancoram conteúdo permanente. Fora desta lista, não ancora.
+ *
+ * Trocada inteira em 06/10/2026, com o catálogo novo. Saíram os domínios de
+ * imigração (uscis.gov, travel.state.gov, state.gov, cbp.gov) e o
+ * federalregister.gov, que hoje responde ao agente declarado com uma página
+ * de desbloqueio. Entraram os órgãos que explicam como as coisas funcionam
+ * nos EUA, os sites .gov dos estados que o catálogo cita e, só para o
+ * contraste com o Brasil, gov.br (que cobre ibge.gov.br e bcb.gov.br).
+ *
+ * Domínio cobre os subdomínios: "treasury.gov" vale para home.treasury.gov e
+ * fiscaldata.treasury.gov, "ed.gov" para nces.ed.gov, "ca.gov" para
+ * cdtfa.ca.gov e boe.ca.gov.
+ *
+ * Alguns estão na lista e não no catálogo, porque hoje recusam o agente
+ * declarado com 403 (investor.gov, ssa.gov, hud.gov, huduser.gov,
+ * studentaid.gov). São fonte oficial do mesmo jeito, e a lista diz o que PODE
+ * ancorar, não o que respondeu ontem.
+ */
 export const DOMINIOS_CANONICOS = [
-  "uscis.gov",
-  "travel.state.gov",
-  "state.gov",
+  // Federal: dinheiro, juros e mercado
+  "federalreserve.gov",
+  "treasury.gov",
+  "treasurydirect.gov",
+  "sec.gov",
+  "investor.gov",
+  "fdic.gov",
+  "consumerfinance.gov",
+  "ftc.gov",
+  // Federal: estatística
+  "bls.gov",
+  "bea.gov",
+  "census.gov",
+  "eia.gov",
+  "usda.gov",
+  // Federal: trabalho, imposto, empresa e aposentadoria
   "dol.gov",
-  "federalregister.gov",
+  "doleta.gov",
+  "opm.gov",
   "irs.gov",
-  "cbp.gov",
   "ssa.gov",
+  "sba.gov",
+  "sbir.gov",
+  // Federal: saúde, moradia e educação
+  "healthcare.gov",
+  "medicare.gov",
+  "hud.gov",
+  "huduser.gov",
+  "ed.gov",
+  "studentaid.gov",
+  // Federal: tecnologia e energia
+  "nist.gov",
+  "uspto.gov",
+  "nasa.gov",
+  "energy.gov",
+  "fueleconomy.gov",
+  "cisa.gov",
+  // Federal: governo e instituições
+  "usa.gov",
+  "archives.gov",
+  "house.gov",
+  "uscourts.gov",
+  // Estados
+  "texas.gov",
+  "ca.gov",
+  "ny.gov",
+  "wa.gov",
+  "tn.gov",
+  // Brasil, só como contraste
+  "gov.br",
 ] as const;
 
 export function ehFonteCanonica(url: string): boolean {
@@ -44,7 +104,10 @@ export function ehFonteCanonica(url: string): boolean {
 }
 
 /** Texto mínimo para o extrator ter o que ler. Abaixo disto, a página não serve. */
-const MINIMO_DE_TEXTO = 400;
+export const MINIMO_DE_TEXTO = 400;
+
+/** O agente honesto com que as fontes são lidas e conferidas. */
+export const AGENTE_DO_EVERGREEN = "eua.journal/1.0 (+https://casaloti.ia.br)";
 
 export type FonteLida = {
   url: string;
@@ -77,7 +140,12 @@ async function lerPagina(
          * declarado; fingir Chrome é o tipo de coisa que funciona até o dia em
          * que para de funcionar por bloqueio, e aí o motivo fica ilegível.
          */
-        "User-Agent": "imigra.us/1.0 (contato@imigra.us)",
+        /*
+         * Era "imigra.us/1.0 (contato@imigra.us)" até 06/10/2026, de uma marca
+         * que não existe mais. O agente é o mesmo da triagem de assuntos em
+         * alta, e foi com ele que cada URL do catálogo foi conferida.
+         */
+        "User-Agent": AGENTE_DO_EVERGREEN,
         Accept: "text/html,application/xhtml+xml",
       },
       signal: AbortSignal.timeout(tetoMs),

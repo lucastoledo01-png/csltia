@@ -3,7 +3,10 @@ import type { NextRequest } from "next/server";
 import { requireCron } from "@/lib/server/api-auth";
 import { formatError, pingHealthcheck, sendAlert } from "@/lib/server/alerts";
 import { produzirNaVespera, type DesfechoDaProducao } from "@/lib/server/producao-vespera";
-import { DEFAULT_PROJECT_ID, getProjectBySlug } from "@/lib/server/projects";
+import { DEFAULT_PROJECT_ID, getProjectById, getProjectBySlug } from "@/lib/server/projects";
+import { cadenciaDoProjeto } from "@/lib/server/cadencia";
+import { chegouAHoraDaProducao } from "@/lib/server/cadencia-no-painel";
+import { avisarFimDaProducaoDoProjeto } from "@/lib/server/avisos/gancho";
 
 export const maxDuration = 300;
 
@@ -21,7 +24,11 @@ export const maxDuration = 300;
  * rota das 06:03 (multiprojeto no cron ainda é decisão em aberto).
  */
 
-async function relatar(desfecho: DesfechoDaProducao, healthcheck: string | undefined): Promise<void> {
+async function relatar(
+  desfecho: DesfechoDaProducao,
+  healthcheck: string | undefined,
+  projetoId: string,
+): Promise<void> {
   console.log(
     `[CRON PRODUCAO] ${desfecho.projeto}: ${desfecho.decisao.motivo} (${desfecho.modo}), alvo ${desfecho.decisao.alvo}` +
       (desfecho.erro ? `, erro: ${desfecho.erro}` : ""),
@@ -40,6 +47,10 @@ async function relatar(desfecho: DesfechoDaProducao, healthcheck: string | undef
   // Dia que não produz por decisão (capacidade desligada, fim de semana) é
   // sucesso para o watchdog: a chamada chegou e foi decidida, com linha no banco.
   await pingHealthcheck(healthcheck);
+
+  // A fila pronta (ou "não produziu nada") sai daqui, no fim da produção. Se
+  // este aviso se perder, o cron dos avisos o manda a partir das 17:30.
+  await avisarFimDaProducaoDoProjeto(projetoId, desfecho);
 }
 
 async function handle(req: NextRequest) {
@@ -57,13 +68,36 @@ async function handle(req: NextRequest) {
     projetoId = projeto.id;
   }
 
+  /*
+   * `?relogio=1` (06/10/2026): o crontab chama de 15 em 15 minutos e a rota
+   * decide pela hora gravada em `settings.cadencia.producao.horario`, que o
+   * dono edita no painel. Sem o parâmetro, a rota produz quando é chamada,
+   * como antes, e o horário de verdade é o da linha do crontab.
+   *
+   * Fora da janela não grava linha, não pinga o watchdog e não alerta: seriam
+   * 95 linhas por dia sem nada a dizer. A linha do dia continua existindo,
+   * gravada pela chamada que cai na janela, inclusive nos dias que não
+   * produzem. Projeto ilegível aqui responde 503 sem produzir: o watchdog da
+   * produção, que espera o ping do dia, é quem avisa se a janela passar assim.
+   */
+  if (req.nextUrl.searchParams.get("relogio") === "1") {
+    const projeto = await getProjectById(projetoId).catch(() => null);
+    if (!projeto) {
+      return NextResponse.json({ ok: false, error: "projeto ilegível; nada produzido neste disparo" }, { status: 503 });
+    }
+    const hora = chegouAHoraDaProducao(cadenciaDoProjeto(projeto), new Date(), projeto.timezone);
+    if (!hora.naJanela) {
+      return NextResponse.json({ ok: true, produzido: false, motivo: "FORA_DO_HORARIO", ...hora }, { status: 200 });
+    }
+  }
+
   void pingHealthcheck(healthcheck, "start");
   const execucao = produzirNaVespera(projetoId);
 
   if (aguardar) {
     try {
       const desfecho = await execucao;
-      await relatar(desfecho, healthcheck);
+      await relatar(desfecho, healthcheck, projetoId);
       return NextResponse.json(desfecho, { status: desfecho.ok ? 200 : 500 });
     } catch (err) {
       // `produzirNaVespera` não lança por contrato; isto é a rede de baixo.
@@ -73,7 +107,7 @@ async function handle(req: NextRequest) {
   }
 
   execucao
-    .then((desfecho) => relatar(desfecho, healthcheck))
+    .then((desfecho) => relatar(desfecho, healthcheck, projetoId))
     .catch(async (err) => {
       console.error("[CRON PRODUCAO ERROR]", err);
       await sendAlert("critical", "Produção da véspera quebrou", formatError(err));

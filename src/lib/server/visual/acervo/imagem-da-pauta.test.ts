@@ -203,7 +203,7 @@ describe("as prateleiras do painel", () => {
  * mesma foto do cache, e a refação seria um carimbo.
  */
 describe("a imagem da pauta na refação (ignorarReuso)", () => {
-  it("enforce: ignora memória e tabela, resolve de novo e SUBSTITUI o gravado", async () => {
+  it("enforce: ignora memória e tabela, resolve de novo e NÃO substitui o gravado (por peça, 06/10/2026)", async () => {
     const resolver = vi.fn(async () => resultado("https://x/nova.jpg"));
     const opcoesDoUpsert: unknown[] = [];
     const cliente = {
@@ -223,12 +223,12 @@ describe("a imagem da pauta na refação (ignorarReuso)", () => {
     const ctx = { projeto: projeto("enforce"), client: cliente, resolver, acervo: ACERVO };
     const r = await imagemDaPauta(PAUTA, { ...ctx, ignorarReuso: true });
     expect(r.asset?.imageUrl).toBe("https://x/nova.jpg");
-    expect(opcoesDoUpsert).toEqual([{ onConflict: "project_id,story_id", ignoreDuplicates: false }]);
+    // A foto compartilhada da pauta, que os outros canais usam, não foi tocada.
+    expect(opcoesDoUpsert).toEqual([]);
 
-    // A chamada seguinte, sem refação, reusa a foto NOVA, e não a que estava gravada.
+    // A chamada seguinte, de outro canal, continua lendo a foto GRAVADA.
     const depois = await imagemDaPauta(PAUTA, ctx);
-    expect(depois.asset?.imageUrl).toBe("https://x/nova.jpg");
-    expect(resolver).toHaveBeenCalledTimes(1);
+    expect(depois.asset?.imageUrl).toBe("https://x/gravada.jpg");
   });
 
   it("capacidade desligada: ignorarReuso não muda nada, é o repasse de sempre", async () => {

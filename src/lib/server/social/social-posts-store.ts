@@ -1,3 +1,4 @@
+import type { ContextoDeProducao } from "../aprovacao/contrato";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RegistroHistorico } from "../editorial/history";
 import type { PostGerado } from "./gerador";
@@ -152,6 +153,14 @@ export type PostParaGravar = {
    * antes de 18/09/2026.
    */
   legendaFinal?: string;
+  /**
+   * O contexto da refação na fila de aprovação (06/10/2026): pauta, pacote,
+   * pool do dia. Vai para `content_json.contexto_da_refacao` e de lá para a
+   * linha da fila. Ausente nos chamadores antigos.
+   */
+  contexto?: ContextoDeProducao;
+  /** A posição na leva do dia, que decide o CTA. Gravada junto do contexto. */
+  posicao?: number;
 };
 
 /** O artefato como a linha o registra. Um formato, usado pela capa e por slide. */
@@ -385,6 +394,21 @@ export function criarSocialPostsStore(client: SupabaseClient, fila: OpcoesDaFila
              */
             formato: p.formato,
             copy: p.post.copy,
+            /*
+             * A forma do carrossel, para a fila de aprovação refazer o texto
+             * slide a slide e recongelar as telas (06/10/2026). Sem a
+             * estrutura e os papéis, um carrossel não se redesenha igual.
+             */
+            ...(p.post.carrossel
+              ? {
+                  carrossel: {
+                    estrutura: p.post.carrossel.estrutura,
+                    slides: p.post.carrossel.slides.length,
+                    papeis: p.post.carrossel.papeis,
+                  },
+                }
+              : {}),
+            ...(p.contexto ? { contexto_da_refacao: { ...p.contexto, ...(p.posicao ? { posicao: p.posicao } : {}) } } : {}),
             hashtags: p.post.veredicto.hashtagsFinais,
             origem: p.origem.motivo,
             /*
