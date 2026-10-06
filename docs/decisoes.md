@@ -1443,8 +1443,17 @@ Falha de conferência continua sendo recusa.
 
 **Medição:** `npx tsx src/scripts/medir-fotos-evergreen.ts` passa o catálogo
 inteiro (60 tópicos, primeiro ângulo) pelo resolvedor de produção em leitura e
-conta quantos ficam sem foto. Números em
-`docs/design/evergreen-novo-2026-10-06/v2/`.
+conta quantos ficam sem foto; com `--noticias=60 --dias=14` faz o mesmo com
+pautas reais aprovadas, lidas do banco só com SELECT. Em 60 pautas reais de
+22/09 a 06/10, a queda por foto foi de 63,3% (código do PR #91) para 0%; no
+catálogo do evergreen, de 15% para 0%. Detalhe em
+`docs/design/evergreen-novo-2026-10-06/v2/medicao-de-fotos.md`.
+
+**A entidade não voltou aos tópicos do evergreen.** Com a cena depois da
+entidade, declarar o órgão já não mata o tópico por falta de foto (8 de 11
+candidatos morriam antes, 1 depois). Mas a bolha, que é a razão de declarar o
+órgão, não achou segunda foto em nenhum dos onze, e entidade que não rende
+bolha só acrescenta consulta.
 
 ## Armadilhas que já custaram tempo
 
