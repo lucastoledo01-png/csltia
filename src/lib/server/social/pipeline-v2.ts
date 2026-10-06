@@ -32,6 +32,7 @@ import type { DecisaoDeFormato } from "./carrossel/formato";
 import type { EntradaDoCongelamento, ResultadoDoCongelamento } from "./artefato";
 import { impressaoDoAcontecimento } from "../editorial/fingerprint";
 import { entidadesDaClassificacao } from "../editorial/classificador";
+import { criarFotosDoDia, selecionarComFoto, temFotoDaPauta } from "../ramos/sem-foto";
 
 /**
  * O ciclo social, do pool verificado ao objeto do post.
@@ -211,11 +212,24 @@ export async function rodarCicloSocial(
   const config = opcoes.config ?? carregarConfigSocial(env);
   const descartados: DescartePorEtapa[] = [];
 
+  /*
+   * A foto de cada pauta, com memória do ciclo. Ver o passo 1.5.
+   */
+  const fotos = opcoes.resolverVisual
+    ? criarFotosDoDia<PautaAvaliada>((p) => p.storyId, (p) => opcoes.resolverVisual!(p))
+    : null;
+
   // 1. Composição própria do feed.
-  const composicao = comporFeedSocial(poolVerificado, config, {
-    persistenciaDegradada: opcoes.persistenciaDegradada,
-    paraPublicar: modo === "enforce",
-  });
+  const compor = (excluir: ReadonlySet<string>) =>
+    comporFeedSocial(
+      excluir.size ? poolVerificado.filter((p) => !excluir.has(p.storyId)) : poolVerificado,
+      config,
+      {
+        persistenciaDegradada: opcoes.persistenciaDegradada,
+        paraPublicar: modo === "enforce",
+      },
+    );
+  let composicao = compor(new Set());
   linhas.push(...composicao.linhasDeLog);
   diagnostico.candidatasNaFila = poolVerificado.length;
   diagnostico.bloqueio = composicao.bloqueio;
@@ -227,6 +241,50 @@ export async function rodarCicloSocial(
   if (composicao.bloqueio) {
     linhas.push(`[SOCIAL V2] ciclo bloqueado: ${composicao.bloqueio}`);
     return { modo, previews: [], descartados, composicao, diagnostico, gravacao: null, linhasDeLog: linhas };
+  }
+
+  /*
+   * 1.5. Pauta sem foto não vira post (decisão do dono, 05/10/2026).
+   *
+   * A imagem sai do título da fonte e da classificação, que existem antes da
+   * copy. Então a pauta sem foto real cai AQUI, antes de alguém pagar para
+   * escrever o post, e a composição é refeita sem ela: a vaga vai para a
+   * próxima elegível, e o dia não encolhe. Até 05/10 a pauta sem foto saía
+   * com a bandeira (regra de 17/09/2026); a bandeira não é mais publicada.
+   * A queda vai para `descartados` com o código `REJECT_NO_PHOTO`, que é o que
+   * o diagnóstico do social grava e o painel de logs agrupa.
+   */
+  let extrasComFoto = opcoes.extras ?? [];
+  if (fotos) {
+    const r = await selecionarComFoto({
+      selecionar: compor,
+      escolhidas: (c) => c.escolhidas.map((e) => e.pauta),
+      chave: (p) => p.storyId,
+      titulo: (p) => p.grupo.primary.title,
+      fotos,
+    });
+    composicao = r.selecao;
+    for (const q of r.semFoto) {
+      descartados.push({ titulo: q.titulo, storyId: q.storyId, etapa: "visual", motivo: q.motivo });
+      linhas.push(`[SOCIAL V2] pauta sem foto não vira post :: ${q.motivo} :: ${q.titulo.slice(0, 60)}`);
+    }
+    if (extrasComFoto.length > 0) {
+      const candidatos = extrasComFoto;
+      extrasComFoto = [];
+      // Em sequência, pelo mesmo motivo de `selecionarComFoto`.
+      for (const p of candidatos) {
+        const resp = await fotos.resultado(p);
+        if (temFotoDaPauta(resp.visual)) extrasComFoto.push(p);
+        else {
+          const motivo = `REJECT_NO_PHOTO: ${resp.erro ?? resp.visual?.motivo ?? "sem resultado"}`;
+          descartados.push({ titulo: p.grupo.primary.title, storyId: p.storyId, etapa: "visual", motivo });
+        }
+      }
+    }
+    if (composicao.bloqueio) {
+      linhas.push(`[SOCIAL V2] ciclo bloqueado: ${composicao.bloqueio}`);
+      return { modo, previews: [], descartados, composicao, diagnostico, gravacao: null, linhasDeLog: linhas };
+    }
   }
 
   /*
@@ -284,18 +342,18 @@ export async function rodarCicloSocial(
    */
   const feed = comporFeedDoDia(
     composicao.escolhidas.map((e) => e.pauta),
-    opcoes.extras ?? [],
+    extrasComFoto,
     config.maximoPorDia,
   );
 
   const paraGerar = [...feed.noticias, ...feed.evergreen];
 
-  if (opcoes.extras?.length) {
+  if (extrasComFoto.length) {
     linhas.push(
       `[SOCIAL V2] compositor: ${feed.noticias.length} de notícia + ${feed.evergreen.length} de conteúdo ` +
         `permanente = ${feed.total} de ${feed.vagas.maximo} vaga(s)` +
-        (feed.evergreen.length < opcoes.extras.length
-          ? `; ${opcoes.extras.length - feed.evergreen.length} permanente(s) cortado(s) pelo teto global`
+        (feed.evergreen.length < extrasComFoto.length
+          ? `; ${extrasComFoto.length - feed.evergreen.length} permanente(s) cortado(s) pelo teto global`
           : ""),
     );
   }
@@ -347,18 +405,19 @@ export async function rodarCicloSocial(
 
   for (const post of geracao.posts) {
     let visual: ResultadoVisual | null = null;
-    if (opcoes.resolverVisual) {
-      try {
-        visual = await opcoes.resolverVisual(post.pauta);
-      } catch (erro) {
-        const motivo = (erro as Error).message;
+    if (fotos) {
+      // A mesma resposta que o passo 1.5 conferiu, da memória do ciclo.
+      const resp = await fotos.resultado(post.pauta);
+      visual = resp.visual;
+      if (resp.erro) {
+        const motivo = resp.erro;
         linhas.push(`[SOCIAL V2] imagem falhou em ${post.pauta.storyId}: ${motivo}`);
         resumoVisual.porMotivo.ERRO_NA_RESOLUCAO = (resumoVisual.porMotivo.ERRO_NA_RESOLUCAO ?? 0) + 1;
         if (!resumoVisual.notaDaPrimeiraSemFoto) resumoVisual.notaDaPrimeiraSemFoto = motivo.slice(0, 400);
       }
     }
 
-    if (visual?.asset) {
+    if (visual?.asset && (!fotos || temFotoDaPauta(visual))) {
       resumoVisual.comFoto += 1;
       const fonte = visual.asset.source || "desconhecida";
       resumoVisual.porFonte[fonte] = (resumoVisual.porFonte[fonte] ?? 0) + 1;
@@ -375,6 +434,22 @@ export async function rodarCicloSocial(
           .join(" | ")
           .slice(0, 600);
       }
+    }
+
+    /*
+     * A rede: com a régua do passo 1.5 ligada, post sem foto real não segue,
+     * nem com a bandeira. Não deveria acontecer, porque a composição já tirou
+     * a pauta sem foto; existe para o caso de uma porta nova chegar aqui sem
+     * ter passado por ela.
+     */
+    if (fotos && !temFotoDaPauta(visual)) {
+      descartados.push({
+        titulo: post.pauta.grupo.primary.title,
+        storyId: post.pauta.storyId,
+        etapa: "visual",
+        motivo: `REJECT_NO_PHOTO: ${visual?.motivo ?? "sem resultado"}`,
+      });
+      continue;
     }
 
     comVisual.push({ post, visual });

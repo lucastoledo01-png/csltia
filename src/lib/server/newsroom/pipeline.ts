@@ -165,21 +165,21 @@ ORDEM DE PRIORIDADE, quando duas coisas entrarem em conflito:
 3. RELEVÂNCIA para quem sonha em morar, trabalhar ou investir nos EUA.
 4. CLAREZA para quem não é da área.
 5. ATRATIVIDADE: dar vontade de ler. Aqui isso tem forma concreta, e não é adjetivo. É frase curta, verbo direto, parágrafo de duas a quatro linhas, e falar COM o leitor.
-   Pesado: "Uma corte federal em Massachusetts adiou a entrada em vigor da regra final do Department of Homeland Security que eliminaria o modelo de permanência chamado duration of status."
-   Leve, mesmo fato, mesmo lastro: "Um juiz federal em Boston segurou a regra que ia acabar com o prazo aberto de permanência. Ela valeria a partir de ontem. Não vale."
+   Pesado (construção ilustrativa): "O Bureau of Labor Statistics informou que o Consumer Price Index registrou variação positiva de 0,4% em setembro na comparação com agosto, com ajuste sazonal."
+   Leve, mesmo fato, mesmo lastro: "Os preços nos EUA subiram 0,4% em setembro. É a conta de agosto para setembro, já sem o efeito da época do ano."
 6. BREVIDADE.
 Nunca inverta. Título atraente que sacrifica precisão está errado. Mas "tecnicamente correto" não autoriza título que ninguém teria vontade de abrir: os dois primeiros são pisos, não desculpas.
 
 TÍTULO DE CADA MATÉRIA (campo "title"):
 Estrutura que funciona: O QUE MUDOU + PARA QUEM ISSO IMPORTA. Ou: OPORTUNIDADE/IMPACTO + CONTEXTO.
 - Específico, humano, compreensível sem conhecimento jurídico.
-- Positivo quando o fato permitir. Positividade não é promessa: nada de "agora ficou fácil", "qualquer pessoa pode", "garantido", "visto liberado".
+- Positivo quando o fato permitir. Positividade não é promessa: nada de "agora ficou fácil", "qualquer pessoa pode", "garantido", "lucro certo".
 - No máximo 95 caracteres. Título mais longo que isso ocupa quatro linhas num celular, e quase todo leitor abre no celular.
 
 Títulos REAIS que saíram e não deveriam ter saído:
-- "Na Califórnia, acordos nupciais geralmente não encerram o I-864" — começa por jurisdição, usa o número do formulário como se o leitor soubesse, e não diz a quem interessa.
-- "Regra permite registro de residência para determinadas crianças nascidas nos EUA" — "determinadas" esconde exatamente a informação que o leitor procura: quais crianças.
-Uma direção melhor para o segundo, SE o pacote sustentar: "Nova regra pode facilitar o caminho da residência para filhos de certos funcionários estrangeiros". Se o pacote não sustentar "facilitar", não escreva "facilitar".
+- "Agentes sem acordo de 2026 não concluem registro nos exchanges de 2027 nos EUA" (edição de 23/09/2026): usa "exchanges" como se o leitor soubesse o que é, e não diz a quem interessa.
+- "Próximo mandato começa com juros altos e economia em desaceleração" (edição de 04/10/2026): "próximo mandato" esconde exatamente a informação que o leitor procura: mandato de quem, e em que país.
+Uma direção melhor para o segundo, SE o pacote sustentar (construção ilustrativa): "Quem assumir o comando do Fed pega juros altos e economia mais lenta nos EUA". Se o pacote não sustentar "mais lenta", não escreva "mais lenta".
 
 DE QUEM É ESTA NOTÍCIA, e isto vem antes da forma:
 Quem, entre as pessoas que leem, sente a mudança? Esse grupo TEM QUE APARECER no título, com as palavras que a fonte usa: quem investe em dólar, quem trabalha com tecnologia, quem paga aluguel, empresa que contrata, profissional de saúde.
@@ -187,11 +187,11 @@ QUANDO A FONTE NÃO DIZ QUEM É AFETADO, o título diz o que MUDOU e para onde, 
 Nomear o afetado é obrigação de FORMA quando a fonte o nomeia, e nunca licença para deduzir consequência. Entre um título sem destinatário e um título com destinatário inventado, o certo é o primeiro.
 Medido nas nossas 79 primeiras manchetes: em 25 o sujeito era uma instituição ou um ato jurídico, e em 25 o leitor não aparecia de jeito nenhum. Nas 25 manchetes da referência, o sujeito é um ator reconhecível com verbo no presente, e quando a notícia é dos EUA o efeito aqui entra no próprio título ("Chuvas nos EUA e alta do petróleo elevam preço da soja").
 
-NACIONALIDADE DE TERCEIRO PAÍS NÃO ENTRA NO TÍTULO. Se a pessoa da história não é brasileira, a nacionalidade sai e entra a profissão, a área ou a etapa do processo. O leitor está no Brasil e vai para os Estados Unidos; a nacionalidade de um terceiro não diz nada a ele.
-  Errado: "O-1B para designer de cenários do México: USCIS aprova com processamento premium"
-  Errado: "Cirurgião mexicano tem aprovação em caso de EB-2 NIW"
-  Certo: "Cirurgião aprovado no EB-2 NIW, a via para quem tem qualificação reconhecida"
-Um país que não é o Brasil nem os Estados Unidos só fica quando é o OBJETO da regra, como no TPS de El Salvador, e mesmo aí a outra metade diz o que muda para quem lê.
+NACIONALIDADE DE TERCEIRO PAÍS NÃO ENTRA NO TÍTULO. Se a pessoa da história não é brasileira, a nacionalidade sai e entra a profissão, a área ou o cargo. O leitor está no Brasil e olha para os Estados Unidos; a nacionalidade de um terceiro não diz nada a ele.
+  Errado (construção ilustrativa): "Engenheira argentina assume a divisão de chips de uma big tech nos EUA"
+  Errado (construção ilustrativa): "Chef mexicano abre o restaurante mais caro de Nova York"
+  Certo (construção ilustrativa): "Engenheira de chips assume a divisão de processadores de uma big tech nos EUA"
+Um país que não é o Brasil nem os Estados Unidos só fica quando é o OBJETO da notícia, como em "Coreia do Sul planeja investir US$ 200 bilhões nos EUA, com GNL no Alasca" (edição de 01/10/2026), e mesmo aí a outra metade diz o que muda para quem lê.
 
 DE QUE PAÍS É ESTA NOTÍCIA, e isto tem que caber NO TÍTULO.
 O leitor está no Brasil e assume o Brasil por padrão, porque é onde ele está. Um título que serve para os dois países com as mesmas palavras é um título que ele vai ler errado.
@@ -207,21 +207,22 @@ Isto NÃO é licença para enfeitar. O porém continua no título, com as palavr
 Quando a notícia é ruim de ponta a ponta, ela é ruim no título também: não invente lado bom que o pacote não sustenta.
 
 JURISDIÇÃO NO FIM. Estado, cidade, corte ou distrito vão para a última posição, nunca antes do sujeito.
-  Errado: "Na Califórnia, acordos nupciais geralmente não encerram o I-864"
-  Certo: "Quem assinou o compromisso de sustentar um imigrante costuma seguir responsável depois do divórcio, na Califórnia"
+  Errado (construção ilustrativa): "Na Califórnia, lei estadual obriga empresas a informar a faixa salarial nas vagas"
+  Certo (construção ilustrativa): "Quem procura emprego passa a ver a faixa salarial no anúncio da vaga, na Califórnia"
+  Certo, e real (edição de 03/10/2026): "Administração Trump fica impedida de construir muro no Big Bend, no Texas"
 
-RETOMADA DE PAUTA: quando a mesma história volta, o título carrega o dado NOVO, a data, a etapa, quem fica de fora. Trocar "corte" por "tribunal" e "D/S" por "duration of status" não é título novo.
+RETOMADA DE PAUTA: quando a mesma história volta, o título carrega o dado NOVO, a data, a etapa, quem fica de fora. Trocar "Fed" por "banco central americano" e "juros" por "taxa básica" não é título novo.
 
 PROIBIDO no título da matéria:
-- abrir com o nome do órgão praticando ato burocrático: "DHS publica regra referente a...", "USCIS anuncia atualização relacionada a...", "Ordem judicial determina..."
+- abrir com o nome do órgão praticando ato burocrático: "Departamento do Trabalho publica regra referente a...", "Receita Federal anuncia atualização relacionada a...", "Ordem judicial determina..."
 - "determinadas pessoas", "certos casos", "alguns requerentes" sem dizer quais, quando o pacote diz quais
-- número de formulário ou sigla de visto SOZINHO, sem o que ele é ou para quem serve
+- sigla SOZINHA (Fed, CPI, FAA, Selic), sem o que ela é ou para quem serve
 - linguagem processual: "encerra a obrigação", "vedada a renúncia", "consta no rol taxativo"
 
 JARGÃO: explique na primeira vez, sempre.
-O leitor não sabe o que é adjustment of status, affidavit of support, priority date, petitioner, beneficiary, public charge, consular processing, injunction, waiver, parole, I-864, I-765, EB-2, NIW, DS-160, EAD.
-Quando o termo for necessário, explique ali mesmo, em uma oração curta: "o Form I-864, documento em que alguém se compromete a sustentar financeiramente o imigrante, ...". Não explique o que o pacote não diz: se o pacote não define o termo, use a descrição genérica do tipo de documento e siga.
-Quando o termo NÃO for necessário, não use. "A obrigação federal de suporte permanece no centro da análise" não informa nada a quem lê; "quem assinou o compromisso de sustento continua responsável" informa.
+O leitor não sabe o que é payroll, CPI, PCE, Treasury, yield, Fomc, IPO, buyback, layoff, 401(k), exchange de plano de saúde, injunction, Selic, IPCA, spread.
+Quando o termo for necessário, explique ali mesmo, em uma oração curta: "o CPI, o índice de preços ao consumidor dos EUA, ...". Não explique o que o pacote não diz: se o pacote não define o termo, use a descrição genérica do tipo de dado e siga.
+Quando o termo NÃO for necessário, não use. "O payroll segue resiliente no agregado das métricas" não informa nada a quem lê; "os EUA quase não criaram vagas em setembro" informa.
 
 FRASE E PARÁGRAFO:
 - Uma ideia por parágrafo.
@@ -243,8 +244,8 @@ E-MAIL AUTOSSUFICIENTE, MAS CURTO:
 CADA LINHA ACRESCENTA, NENHUMA REPETE A DE CIMA:
 - O "title" da pauta diz o que mudou. O "summary" NÃO reescreve o title com outras palavras: ele começa onde o title parou, com o que o title não coube.
 - O "headline" da edição e o "preheader" seguem a mesma regra, e é ali que o erro aparece mais. O preheader não é resumo do headline: ele é a segunda informação.
-  Errado, porque repete: headline "Corte adia regra para estudantes e intercambistas" e preheader "Corte adia regra para F-1, J-1 e I; a nova data ainda não foi informada".
-  Certo, porque acrescenta: headline "A regra do prazo fixo não vale mais a partir de hoje" e preheader "Quem tem visto de estudante continua com a permanência de sempre".
+  Errado, porque repete (edição real de 30/09/2026): headline "Agentes sempre ativos chegam a assinantes de alto nível" e preheader "Os dots chegam a assinantes de alto nível enquanto a segurança mira ações autônomas".
+  Certo, porque acrescenta (edição real de 04/10/2026): headline "Capital privado ganha espaço e muda a produção de filmes em Hollywood" e preheader "Filmes independentes podem sair em um ano, contra cinco a dez no modelo tradicional".
 - Teste antes de entregar: se você apagar a linha de baixo, alguma informação some? Se não some, ela está errada e precisa ser reescrita.
 - A edicao inteira deve ser lida em menos de tres minutos.
 
@@ -257,21 +258,21 @@ DIRETRIZES DE TOM & ESTILO:
    - Comece pelo que aconteceu. A primeira frase da pauta nunca começa pelo nome de um órgão praticando ato.
    - Zero emoji no corpo do texto. Zero gíria. Leve não é frouxo.
 2. LINGUAGEM ACESSÍVEL: o leitor é brasileiro comum que quer morar, trabalhar ou estudar nos EUA, e não advogado.
-   - Primeiro a palavra comum, a sigla depois e só se ela ajudar: "quem estuda com visto de estudante (F-1)".
-   - Nome completo de norma, de processo judicial e de órgão em inglês não entra no corpo. "Department of Homeland Security" é "o departamento de segurança interna", ou simplesmente "o governo americano" quando o pacote permitir. O nome oficial cabe no campo da fonte, não na frase que a pessoa lê.
+   - Primeiro a palavra comum, a sigla depois e só se ela ajudar: "a taxa básica de juros dos EUA, decidida pelo Fed".
+   - Nome completo de norma, de processo judicial e de órgão em inglês não entra no corpo. "Bureau of Labor Statistics" é "o escritório de estatísticas do trabalho", ou simplesmente "o governo americano" quando o pacote permitir. O nome oficial cabe no campo da fonte, não na frase que a pessoa lê.
    - Se o termo técnico pode sair sem perder informação, ele sai. Explicar é o segundo melhor caminho; o primeiro é não precisar explicar.
-   - Quando explicar, explique em fala e em frase própria: "o I-765 é o pedido de autorização de trabalho." Não em aposto no meio da frase, cercado de vírgulas, que é o que dá cara de manual.
+   - Quando explicar, explique em fala e em frase própria: "o payroll é o relatório mensal de vagas criadas fora da agricultura." Não em aposto no meio da frase, cercado de vírgulas, que é o que dá cara de manual.
 3. NEGRITO, e ele tem função: o leitor passa o olho antes de ler.
-   - Marque com dois asteriscos o número, o prazo, a data, o valor e o nome que decidem a notícia: "vale a partir de **15 de outubro**", "o prazo foi de 180 para **540 dias**".
+   - Marque com dois asteriscos o número, o prazo, a data, o valor e o nome que decidem a notícia: "vale a partir de **15 de outubro**", "o desemprego foi de 4,2% para **4,3%**".
    - No máximo duas marcações por parágrafo. Negrito em tudo é negrito em nada.
    - Só marque o que está no pacote factual. Negrito não cria lastro.
 4. Personalidade: leveza NÃO é piada, e as duas não caem juntas. Assunto sensível (dinheiro, saúde, situação legal de alguém) pede sobriedade no FATO, e continua pedindo ritmo leve na FRASE. Observação seca é bem-vinda quando o assunto comporta; piada sobre a vida de alguém, nunca.
 5. SEM VÍCIOS DE LINGUAGEM DE IA: PROIBIDO usar clichês como "Em um mundo onde...", "No cenário atual...", "Não é apenas X, é Y", "Desvendando...", "Vale ressaltar...", "Sem dúvida...", "Em suma...". Seja autêntico, humano e direto!
 6. FOCO PRÁTICO: cada pauta DEVE deixar claro o que muda, para quem muda e a partir de quando, para o público descrito no briefing.
 7. RELEVÂNCIA SEM INVENTAR COMPORTAMENTO: a fonte fala de regra, prazo e decisão. Ela NUNCA fala do que as pessoas fazem, acompanham, observam, esperam ou pretendem.
-   Escreva "o adiamento vale para estudantes com visto F-1 e adia a mudança de prazo" (efeito da regra, está na fonte).
-   NÃO escreva "estudantes acompanham o adiamento" nem "estudantes devem observar a nova data" (comportamento das pessoas, não está em fonte nenhuma e será reprovado por falta de lastro).
-   Quando quiser falar com o leitor, fale com ele: "se você está com F-1, o prazo antigo continua valendo". Isso é endereçamento, não afirmação sobre terceiros.
+   Escreva (construção ilustrativa) "o reajuste vale para quem paga aluguel em Nova York e começa em janeiro" (efeito da regra, está na fonte).
+   NÃO escreva "inquilinos acompanham o reajuste" nem "inquilinos devem observar a nova data" (comportamento das pessoas, não está em fonte nenhuma e será reprovado por falta de lastro).
+   Quando quiser falar com o leitor, fale com ele: "se você paga aluguel em Nova York, o valor antigo vale até dezembro". Isso é endereçamento, não afirmação sobre terceiros.
    E quando o pacote não sustentar NENHUMA relevância, deixe o campo vazio. Uma pauta sem "por que importa" é melhor que uma pauta com relevância inventada, e o silêncio aqui é decisão editorial, não falha. Antes de deixar vazio, releia o pacote procurando o efeito: quando ele está declarado, escrever é melhor que calar. Mas silêncio em várias pautas da mesma edição NÃO é erro, e não force nenhuma para cumprir cota: há dias em que as fontes só trazem a regra e o prazo, e inventar o efeito nessas é o que faz a edição inteira ser reprovada por alucinação.
 8. RIGOR ANTI-ALUCINAÇÃO EXTREMO: Não invente preços, nomes, números, prazos ou datas. Toda afirmação factual precisa estar estritamente contida no pacote de informações fornecido. Se um detalhe relevante não está no pacote, você tem UMA saída: escreva o que se sabe e pare. Não preencha a lacuna e não anuncie que ela existe.
 
@@ -302,8 +303,8 @@ Varie a estrutura entre as opções, não repita sempre o mesmo formato. Exemplo
 
 O ASSUNTO PODE SER CURTO E CURIOSO, MAS NÃO PODE INVERTER O FATO:
 - Curiosidade não autoriza ambiguidade sobre o que aconteceu. Se o leitor pode entender o contrário do fato lendo só o assunto, o assunto está errado.
-- O caso que motivou esta regra: uma liminar suspendeu uma ordem que RESTRINGIA a cidadania por nascimento, e o assunto saiu como "cidadania em pausa", que sugere que a cidadania foi suspensa. Aconteceu o oposto.
-- Quando o fato é a suspensão de uma restrição, o assunto não pode sugerir que o direito foi suspenso. Prefira a forma factual e curta: "Justiça suspende ordem que restringia cidadania por nascimento", ou uma redução equivalente que preserve quem suspendeu o quê.
+- Um caso do tipo (construção ilustrativa): um juiz suspende uma regra que LIMITAVA o reajuste de aluguel, e o assunto sai como "reajuste em pausa", que sugere que o reajuste foi suspenso. Aconteceu o oposto.
+- Quando o fato é a suspensão de uma restrição, o assunto não pode sugerir que o direito foi suspenso. Prefira a forma factual e curta: "Justiça suspende regra que limitava reajuste de aluguel", ou uma redução equivalente que preserve quem suspendeu o quê.
 - Vale para toda inversão do mesmo tipo: barrar uma taxa não é criar uma taxa, adiar um prazo não é encerrar um prazo, negar um recurso não é conceder.
 
 PROIBIDO em subject_options e subject:
@@ -484,7 +485,7 @@ REGRA DE FATO, acima de qualquer outra:
 
 CONCLUSÃO TAMBÉM É FATO:
 - Consequência, causa, impacto, comparação, tendência e previsão só entram se o pacote sustentar. Elas parecem opinião e funcionam como afirmação factual para quem lê.
-- Proibido, quando o pacote não disser: "isso encarece as compras", "isso facilita a imigração", "deve gerar empregos", "prejudica empresas", "muda o cenário para brasileiros", "a tendência é de aumento", "o impacto deve ser grande".
+- Proibido, quando o pacote não disser: "isso encarece as compras", "isso barateia o aluguel", "deve gerar empregos", "prejudica empresas", "muda o cenário para brasileiros", "a tendência é de aumento", "o impacto deve ser grande".
 - Se o pacote não diz o que a medida faz, você não sabe o que ela provoca. Escreva o que aconteceu e pare ali.
 - Certo: "A medida foi aprovada e segue para sanção."
 - Errado: "A medida deve baratear as compras internacionais." (afirma efeito que ninguém disse)
@@ -826,11 +827,11 @@ APONTAMENTOS:
 ${problemas.map((p) => `- ${p.indice >= 0 ? `pauta ${p.indice + 1}` : "edição"}: ${p.descricao}`).join("\n")}
 
 COMO CORRIGIR:
-- LEGAL_JARGON_OVERLOAD: o caminho preferido é TIRAR o termo, e não explicá-lo. "Quem assinou o compromisso de sustento continua responsável" resolve sem citar formulário nenhum. Quando o termo precisar ficar, explique em fala, numa frase à parte e curta: "o I-864 é a carta em que alguém se compromete a sustentar o imigrante." Não invente o que o termo significa: se o pacote não diz, descreva o tipo de documento e siga.
+- LEGAL_JARGON_OVERLOAD: o caminho preferido é TIRAR o termo, e não explicá-lo. "Os EUA quase não criaram vagas em setembro" resolve sem citar relatório nenhum. Quando o termo precisar ficar, explique em fala, numa frase à parte e curta: "o CPI é o índice de preços ao consumidor dos EUA." Não invente o que o termo significa: se o pacote não diz, descreva o tipo de dado ou de documento e siga.
 - LOW_READER_RELEVANCE: escreva quem é afetado e qual o efeito da regra sobre essa pessoa, com o que o pacote afirma. O público é pessoa comum que quer morar, trabalhar ou estudar nos EUA, não advogado. Se o pacote NÃO sustenta quem é afetado nem qual o efeito, esvazie o campo em vez de escrever ressalva: "a fonte não detalhou" não é relevância, é confissão dentro do texto, e será reprovada por falta de lastro.
 - HEADLINE_TOO_LONG: reescreva o título mais curto, mantendo o fato. Corte a qualificação jurídica e mantenha o que mudou e para quem.
 - COUNTRY_UNCLEAR: o título serve para o Brasil e para os EUA com as mesmas palavras. Ponha no título a marca que a fonte já traz: o país, a cidade, o estado, o órgão, a moeda ou a figura pública. "Quem ganha menos quase não participou do recorde de renda familiar em 2025" vira "Renda familiar nos EUA bate recorde, e o avanço se concentrou no topo". Repare que a correção resolve duas coisas de uma vez: situa o país e põe o fato antes da ressalva.
-- FOREIGN_SUBJECT: tire o gentílico do título e ponha no lugar a profissão, a área ou a etapa do processo. "Cirurgião mexicano tem aprovação em caso de EB-2 NIW" vira "Cirurgião aprovado no EB-2 NIW, a via para quem tem qualificação reconhecida". Se o país for o OBJETO da regra, e não a ficha do personagem, mantenha o país e use a outra metade do título para dizer o que aquilo muda para quem lê daqui.
+- FOREIGN_SUBJECT: tire o gentílico do título e ponha no lugar a profissão, a área ou o cargo. "Engenheira argentina assume a divisão de chips de uma big tech nos EUA" vira "Engenheira de chips assume a divisão de processadores de uma big tech nos EUA" (construção ilustrativa). Se o país for o OBJETO da regra, e não a ficha do personagem, mantenha o país e use a outra metade do título para dizer o que aquilo muda para quem lê daqui.
 - REDUNDANT_SUBHEAD: NÃO mexa na linha de cima. Reescreva a de baixo com a informação que ela não trouxe: quem é afetado, o prazo, o número, o que muda a partir de quando, sempre com o que o pacote afirma. Se depois de tirar a repetição não sobrar informação nova no pacote, a linha de baixo pode ficar mais curta.
 - Afirmação que o pacote não sustenta: remova a afirmação ou troque pelo que o pacote diz. Se depois disso faltar informação, o texto fica mais curto, e está certo. NÃO escreva que a fonte não informou: isso fala da reportagem, e o leitor quer o fato.
 - Nome, número ou data fora do pacote: tire. Não substitua por outro nome, número ou data.

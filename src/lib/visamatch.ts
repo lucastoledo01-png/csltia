@@ -17,6 +17,8 @@ export type OrigemDoLink = {
   meio: string;
   /** utm_content: qual peça, dentro do canal. */
   conteudo: string;
+  /** utm_term, opcional: um recorte a mais, como a edição do dia. */
+  termo?: string;
 };
 
 export const VISAMATCH_BASE = "https://visamatch.imigrareua.com/";
@@ -36,6 +38,7 @@ export function linkDoVisaMatch(
   url.searchParams.set("utm_medium", origem.meio);
   url.searchParams.set("utm_campaign", campanha);
   url.searchParams.set("utm_content", origem.conteudo);
+  if (origem.termo) url.searchParams.set("utm_term", origem.termo);
   return url.toString();
 }
 
@@ -46,6 +49,26 @@ export function linkDaNewsletter(
 ): string {
   return linkDoVisaMatch(
     { fonte: "newsletter", meio: "email", conteudo: `edicao-${edicao}` },
+    env
+  );
+}
+
+/**
+ * O link do bloco do VisaMatch na newsletter, com a VARIANTE no utm_content.
+ *
+ * Desde 05/10/2026 o bloco alterna de formato a cada edição
+ * (`newsroom/visamatch-na-edicao.ts`), e a pergunta que o número tem que
+ * responder passou a ser "qual formato converte". A variante vai no
+ * utm_content, que é o campo de peça; a edição desce para o utm_term, para o
+ * recorte por dia continuar existindo.
+ */
+export function linkDaVarianteNaNewsletter(
+  edicao: string,
+  variante: string,
+  env: Record<string, string | undefined> = process.env
+): string {
+  return linkDoVisaMatch(
+    { fonte: "newsletter", meio: "email", conteudo: variante, termo: `edicao-${edicao}` },
     env
   );
 }

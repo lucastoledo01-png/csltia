@@ -25,9 +25,11 @@ import { modoDaFila } from "../aprovacao/modo";
 import { redacaoDisparaNewsletter, statusDeEntradaDoArtigo } from "../aprovacao/portao";
 import { avisosDaEdicao, enfileirarDaRedacao } from "../aprovacao/integracao";
 import { horariosDaRedacaoNaFila } from "../aprovacao/fila";
+import { cadenciaDoProjeto } from "../cadencia";
 import { hashDaNewsletter, hashDoArtigo } from "../aprovacao/hash";
 import { MARCA } from "@/lib/marca";
-import { linkDaNewsletter } from "@/lib/visamatch";
+import { blocoDoVisaMatch, configDoVisaMatch } from "./visamatch-na-edicao";
+import type { ConfigDoVisaMatch } from "./visamatch-na-edicao";
 import {
   bancoConfigurado,
   buscarFotoDeBanco,
@@ -46,7 +48,7 @@ import { descreverModo, modoDaGuarda } from "../editorial/modo";
 import { paraRenderizacao, resolverImagens } from "../editorial/imagens";
 import { descreverModoVisual, diagnosticoVazio, modoDoResolvedorVisual } from "../visual/modo";
 import type { DiagnosticoVisual } from "../visual/modo";
-import { imagemDaPauta } from "../visual/acervo/imagem-da-pauta";
+import { confirmarImagemPublicada, imagemDaPauta } from "../visual/acervo/imagem-da-pauta";
 import { ehUltimoRecurso } from "../visual/bandeira";
 import { criarBiblioteca } from "../visual/biblioteca";
 import type { ResultadoVisual } from "../visual/tipos";
@@ -66,7 +68,22 @@ import { montarPeca } from "../ramos/peca";
 import type { PecaPronta } from "../ramos/peca";
 import { vozesDosRamosComMemoria } from "../ramos/vozes";
 import type { VozesDosRamos } from "../ramos/vozes";
-import { TETO_DO_INSTAGRAM, preSelecaoParaPacote, selecionarParaNewsletter } from "../ramos/selecao";
+import {
+  TETO_DO_INSTAGRAM,
+  preSelecaoParaPacote,
+  recomporNewsletterDaGuarda,
+  selecionarParaNewsletter,
+} from "../ramos/selecao";
+import {
+  MOTIVO_SEM_FOTO,
+  criarFotosDoDia,
+  gravarQuedasSemFoto,
+  linhasDasQuedas,
+  selecionarComFoto,
+  separarPautasSemFoto,
+  temFotoDaPauta,
+} from "../ramos/sem-foto";
+import type { QuedaSemFoto } from "../ramos/sem-foto";
 import { garantirPacotes, rodarRamoDoPortal } from "../ramos/ramo-do-portal";
 import type { ResultadoDoRamoDoPortal } from "../ramos/ramo-do-portal";
 import { gravarArtigosAgendados, horariosDoPortal } from "../ramos/portal";
@@ -248,6 +265,12 @@ export function renderEditionToHtml(
    * artigo de segunda.
    */
   dataDaEdicaoIso?: string,
+  /**
+   * Qual variante do bloco do VisaMatch (05/10/2026): os dias de publicação da
+   * newsletter e o que o projeto declarou em `settings.visamatch`. Ausente,
+   * rotação padrão sobre terça a sexta. Ver `visamatch-na-edicao.ts`.
+   */
+  visamatch: ConfigDoVisaMatch = {},
 ): string {
   const todayStr = dataDaEdicaoIso ?? new Date().toISOString().split("T")[0];
 
@@ -278,6 +301,12 @@ export function renderEditionToHtml(
    * template mudar.
    */
   const SEM_BORDA = "border:0;border-collapse:collapse";
+
+  const blocoDoParceiro = blocoDoVisaMatch(
+    todayStr,
+    { fonte, tinta: TINTA, tintaSuave: TINTA_SUAVE, linha: LINHA, cor: MARCA.cor, tintaEscura: MARCA.tintaEscura, semBorda: SEM_BORDA },
+    visamatch,
+  );
 
   /*
    * O corpo da pauta, com negrito e com parágrafos.
@@ -571,23 +600,17 @@ export function renderEditionToHtml(
               O link carrega a edição no utm_content, então dá para saber qual
               edição converte.
             */ ""}
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${SEM_BORDA};margin:0 0 32px 0;">
-              <tr><td align="center" style="background:${MARCA.tintaEscura};border-radius:14px;padding:30px 26px;">
-                <div style="font-family:${fonte};font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#9DB4D8;margin:0 0 10px 0;">
-                  Análise de perfil
-                </div>
-                <div style="font-family:${fonte};font-size:21px;line-height:1.3;font-weight:800;color:#FFFFFF;margin:0 0 10px 0;">
-                  Você pode morar nos Estados Unidos legalmente?
-                </div>
-                <p style="font-family:${fonte};font-size:15px;line-height:1.6;color:#C8D6EC;margin:0 0 20px 0;">
-                  Responda algumas perguntas sobre formação, profissão e situação atual
-                  e veja quais caminhos de visto existem para o seu caso. Leva poucos minutos.
-                </p>
-                <a href="${escapeHtml(linkDaNewsletter(todayStr))}" target="_blank" style="display:inline-block;background:${MARCA.cor};color:#FFFFFF;font-family:${fonte};font-size:15px;font-weight:800;padding:14px 30px;border-radius:999px;text-decoration:none;">
-                  Fazer a análise de perfil
-                </a>
-              </td></tr>
-            </table>
+            ${/*
+              Atualização de 05/10/2026, decisão do dono: o convite continua
+              sendo um só, mas deixou de ser o MESMO todo dia. O bloco do
+              VisaMatch alterna de formato a cada edição (menção de uma linha,
+              "Você sabia?", pergunta rápida, checklist, dúvida comum, cartão
+              discreto, P.S. e o cartão escuro que morava aqui), sempre
+              rotulado como de parceiro, com a variante no utm_content. Ver
+              `visamatch-na-edicao.ts`. O texto acima fica como registro de
+              por que o fim do e-mail tem um convite só.
+            */ ""}
+            ${blocoDoParceiro.antesDoFechamento}
 
             ${
               paraWeb
@@ -596,6 +619,8 @@ export function renderEditionToHtml(
               ${escapeHtml(edition.final_line)}
             </p>`
             }
+
+            ${blocoDoParceiro.depoisDoFechamento}
 
             ${/*
               Rodapé de caixa de entrada: quem somos, redes e descadastro. No
@@ -1230,6 +1255,70 @@ async function executarRedacaoDoDia(
   }
   const livro = criarLivroDeCustos();
   const pecasDoDia: PecaPronta[] = [];
+  /*
+   * Quem decide a imagem da newsletter. Lido aqui, e não só na hora da foto,
+   * porque a regra "pauta sem foto não vira conteúdo" (05/10/2026) precisa
+   * saber ANTES da redação se a foto que a seleção confere é a mesma que a
+   * edição vai usar. Só com o V2 em `enforce` ela é.
+   */
+  const modoVisual = modoDoResolvedorVisual(env, project);
+  /*
+   * A foto de cada pauta, com memória do dia (`ramos/sem-foto.ts`).
+   *
+   * Resolvida em LEITURA: nesta hora ninguém sabe qual pauta vai sair, e
+   * gravar marcaria como usada a foto de pauta que não saiu. Quem publica
+   * confirma depois o que foi ao ar (`confirmarImagemPublicada`). A seleção
+   * do portal, a da newsletter e a foto da edição leem a MESMA resposta, e a
+   * pauta ganha a mesma foto nos dois canais.
+   */
+  const usadosNoDia = new Set<string>();
+  let bibliotecaDoDia: ReturnType<typeof criarBiblioteca> | null = null;
+  const fotosDoDia = criarFotosDoDia<PautaAvaliada>(
+    (p) => p.storyId,
+    (p) => {
+      bibliotecaDoDia ??= criarBiblioteca(getSupabaseAdminClient());
+      return imagemDaPauta(
+        {
+          storyId: p.storyId,
+          titulo: p.grupo.primary.title,
+          resumo: p.enriquecimento?.texto ?? "",
+          categoria: p.classificacao.eixo,
+          classificacao: {
+            atores: p.classificacao.atores,
+            lugares: p.classificacao.lugares,
+            acontecimento: p.classificacao.acontecimento,
+            pais: p.classificacao.pais,
+          },
+        },
+        {
+          client: getSupabaseAdminClient(),
+          projeto: project,
+          opcoes: {
+            client: getSupabaseAdminClient(),
+            biblioteca: bibliotecaDoDia,
+            env,
+            fetcher,
+            jaUsadosNestaEdicao: usadosNoDia,
+            somenteLeitura: true,
+          },
+        },
+      );
+    },
+  );
+  /** As pautas que caíram por falta de foto, por canal, para o painel. */
+  const quedasSemFoto: Array<{ canal: string; quedas: QuedaSemFoto[] }> = [];
+  const registrarQuedasSemFoto = async () => {
+    for (const { canal, quedas } of quedasSemFoto) {
+      for (const l of linhasDasQuedas(canal, quedas)) console.log(l);
+      if (dryRun || quedas.length === 0) continue;
+      const erro = await gravarQuedasSemFoto(getSupabaseAdminClient(), project.id, canal, quedas, {
+        data: todayStr,
+        dryRun,
+      });
+      if (erro) console.warn(`[NEWSROOM] quedas sem foto (${canal}) não gravadas: ${erro}`);
+    }
+    quedasSemFoto.length = 0;
+  };
   /** O pacote factual é camada comum: um por pauta, para todos os ramos. */
   const pacotesDoDia = new Map<string, PacoteFactual>();
   /*
@@ -1458,7 +1547,26 @@ async function executarRedacaoDoDia(
     let motivoDaInviabilidade = resultado.motivoDaInviabilidade;
 
     if (modoRamos !== "off") {
-      const pre = preSelecaoParaPacote(resultado.approvedEditorialPool, configEditorial, historico);
+      /*
+       * A pré-seleção já sem as pautas sem foto (05/10/2026): o pacote factual
+       * custa uma chamada por pauta, e pauta sem foto não vira conteúdo em canal
+       * nenhum. Tirá-las aqui faz o pacote ir para a próxima elegível, que é a
+       * que vai ocupar a vaga.
+       */
+      const preComFoto = await selecionarComFoto({
+        selecionar: (excluir) =>
+          preSelecaoParaPacote(resultado.approvedEditorialPool, configEditorial, historico, 2, excluir),
+        escolhidas: (lista) => lista,
+        chave: (p) => p.storyId,
+        titulo: (p) => p.grupo.primary.title,
+        fotos: fotosDoDia,
+      });
+      const pre = preComFoto.selecao;
+      if (preComFoto.semFoto.length > 0) {
+        console.log(
+          `[NEWSROOM] Ramos: ${preComFoto.semFoto.length} pauta(s) sem foto fora da pré-seleção (${MOTIVO_SEM_FOTO}).`,
+        );
+      }
       const g = await garantirPacotes(pre, pacotesDoDia, { env, fetcher, livro });
       console.log(`[NEWSROOM] Ramos: pacote factual para ${pacotesDoDia.size} de ${pre.length} pauta(s) pré-selecionada(s).`);
       for (const falha of g.falhas) console.warn(`[NEWSROOM] Pacote factual falhou: ${falha}`);
@@ -1491,30 +1599,14 @@ async function executarRedacaoDoDia(
            * com o acervo em `enforce`, a mesma pauta ganha a MESMA foto no
            * portal, no post e na newsletter. Fora de `enforce` é repasse direto
            * ao resolvedor, como antes.
+           *
+           * Desde a regra "pauta sem foto não vira conteúdo" (05/10/2026), a
+           * mesma memória decide também quais pautas o portal pode escrever: a
+           * sem foto cai antes da redação e a vaga vai para a próxima.
            */
-          resolverCapa: async (pauta) => {
-            const r = await imagemDaPauta(
-              {
-                storyId: pauta.storyId,
-                titulo: pauta.grupo.primary.title,
-                resumo: pauta.enriquecimento?.texto ?? "",
-                categoria: pauta.classificacao.eixo,
-                classificacao: {
-                  atores: pauta.classificacao.atores,
-                  lugares: pauta.classificacao.lugares,
-                  acontecimento: pauta.classificacao.acontecimento,
-                  pais: pauta.classificacao.pais,
-                },
-              },
-              {
-                client: getSupabaseAdminClient(),
-                projeto: project,
-                opcoes: { env, fetcher, somenteLeitura: true },
-              },
-            );
-            return r.asset?.imageUrl ?? null;
-          },
+          fotos: fotosDoDia,
         });
+        if (resultadoDoPortal.semFoto.length > 0) quedasSemFoto.push({ canal: "artigo", quedas: resultadoDoPortal.semFoto });
         for (const l of resultadoDoPortal.linhasDeLog) console.log(l);
 
         if (ramosNoComando && !dryRun) {
@@ -1574,7 +1666,35 @@ async function executarRedacaoDoDia(
        * Em `dry_run` ela é calculada e registrada no log, e a edição sai pela
        * seleção de antes.
        */
-      const daNewsletter = selecionarParaNewsletter(resultado.approvedEditorialPool, pacotesDoDia, configEditorial);
+      /*
+       * Com os ramos no comando e o V2 decidindo a foto da edição, a pauta sem
+       * foto cai AQUI, antes da redação, e a vaga vai para a próxima
+       * (05/10/2026). Fora disso a foto da edição vem de outro caminho, e a
+       * régua fica para depois da resolução (`pautasSemFotoNaEdicao`).
+       */
+      let daNewsletter: ReturnType<typeof selecionarParaNewsletter>;
+      if (ramosNoComando && modoVisual === "enforce") {
+        const r = await selecionarComFoto({
+          selecionar: (excluir) =>
+            selecionarParaNewsletter(resultado.approvedEditorialPool, pacotesDoDia, configEditorial, excluir),
+          escolhidas: (sel) => sel.escolhidas,
+          chave: (p) => p.storyId,
+          titulo: (p) => p.grupo.primary.title,
+          fotos: fotosDoDia,
+        });
+        daNewsletter = r.selecao;
+        if (r.semFoto.length > 0) {
+          quedasSemFoto.push({ canal: "newsletter", quedas: r.semFoto });
+          if (!daNewsletter.viavel) {
+            daNewsletter = {
+              ...daNewsletter,
+              motivo: `${daNewsletter.motivo} (${r.semFoto.length} sem foto, ${MOTIVO_SEM_FOTO})`,
+            };
+          }
+        }
+      } else {
+        daNewsletter = selecionarParaNewsletter(resultado.approvedEditorialPool, pacotesDoDia, configEditorial);
+      }
       for (const l of daNewsletter.linhasDeLog) console.log(l);
       if (ramosNoComando) {
         selecionadasDaNewsletter = daNewsletter.escolhidas;
@@ -1582,6 +1702,31 @@ async function executarRedacaoDoDia(
         motivoDaInviabilidade = daNewsletter.viavel ? "" : daNewsletter.motivo;
       }
     }
+
+    /*
+     * A mesma régua quando quem compõe a edição é a guarda, e não o ramo: a
+     * composição é refeita sem as pautas sem foto, e a próxima entra no lugar.
+     * Só com a guarda e o V2 no comando, pelos mesmos motivos de cima.
+     */
+    if (!ramosNoComando && modo === "enforce" && modoVisual === "enforce") {
+      const r = await selecionarComFoto({
+        selecionar: (excluir) =>
+          recomporNewsletterDaGuarda(resultado.approvedEditorialPool, resultado.selecionadas, configEditorial, excluir),
+        escolhidas: (sel) => sel.escolhidas,
+        chave: (p) => p.storyId,
+        titulo: (p) => p.grupo.primary.title,
+        fotos: fotosDoDia,
+      });
+      if (r.semFoto.length > 0) {
+        quedasSemFoto.push({ canal: "newsletter", quedas: r.semFoto });
+        selecionadasDaNewsletter = r.selecao.escolhidas;
+        viavelDaNewsletter = r.selecao.viavel;
+        motivoDaInviabilidade = r.selecao.viavel
+          ? ""
+          : `${r.selecao.motivo} (${r.semFoto.length} sem foto, ${MOTIVO_SEM_FOTO})`;
+      }
+    }
+    await registrarQuedasSemFoto();
 
     const daGuarda: RankedCandidate[] = selecionadasDaNewsletter.map((p) => ({
       group: p.grupo,
@@ -1966,11 +2111,12 @@ async function executarRedacaoDoDia(
    * pauta, com licença verificada. Quem manda é `VISUAL_RESOLVER_V2`, e em
    * `enforce` a decisão final vem só de `resolveVisualAsset`.
    */
-  const modoVisual = modoDoResolvedorVisual(env, project);
   console.log(`[NEWSROOM] Resolvedor de imagem ${descreverModoVisual(modoVisual)} (VISUAL_RESOLVER_V2=${modoVisual}).`);
 
   const diagnosticoVisual: DiagnosticoVisual = diagnosticoVazio();
   const resultadosVisuais: ResultadoVisual[] = [];
+  /** Fotos resolvidas em leitura na seleção, a confirmar se forem ao ar. */
+  const paraConfirmar = new Map<string, ResultadoVisual>();
   const imagensV2: ImagensDaEdicao = new Map();
   const legendasV2: LegendasDaEdicao = new Map();
 
@@ -2008,8 +2154,13 @@ async function executarRedacaoDoDia(
       }
     }
 
-    const biblioteca = criarBiblioteca(getSupabaseAdminClient());
-    const usadosNestaEdicao = new Set<string>();
+    const biblioteca = bibliotecaDoDia ?? criarBiblioteca(getSupabaseAdminClient());
+    /*
+     * O conjunto do dia, o mesmo da seleção com foto: uma pauta da edição não
+     * pega a foto que outra pauta do dia já levou, nem a do portal.
+     */
+    const usadosNestaEdicao = usadosNoDia;
+    const pautaPorUrl = new Map(pautasDaGuarda.map((p) => [p.grupo.primary.url, p]));
 
     for (const [i, story] of pipelineResult.edition.stories.entries()) {
       const daGuarda = classificacaoPorUrl.get(story.source_url);
@@ -2021,6 +2172,38 @@ async function executarRedacaoDoDia(
             pais: daGuarda.pais,
           }
         : (extraidas.get(String(i)) ?? { atores: [], lugares: [], acontecimento: [] });
+
+      /*
+       * A foto que a seleção já conferiu, quando conferiu (05/10/2026): a
+       * mesma resposta, sem resolver de novo e sem a chance de a segunda
+       * resolução discordar da primeira. Ela foi resolvida em leitura, então
+       * o uso é confirmado depois, só para o que de fato for ao ar.
+       */
+      const daSelecao = pautaPorUrl.get(story.source_url);
+      const jaConferida = daSelecao ? fotosDoDia.jaResolvido(daSelecao.storyId) : undefined;
+      if (jaConferida) {
+        const resultado = { ...jaConferida, storyId: identidadeDaPauta(story) };
+        resultadosVisuais.push(resultado);
+        diagnosticoVisual.storiesProcessed += 1;
+        if (temFotoDaPauta(resultado) && resultado.asset) {
+          diagnosticoVisual.assetsSelected += 1;
+          const fonte = resultado.asset.source;
+          diagnosticoVisual.sourcesUsed[fonte] = (diagnosticoVisual.sourcesUsed[fonte] ?? 0) + 1;
+          imagensV2.set(identidadeDaPauta(story), resultado.asset.imageUrl);
+          if (resultado.asset.attribution) legendasV2.set(identidadeDaPauta(story), resultado.asset.attribution);
+          if (modoVisual === "enforce" && !dryRun) paraConfirmar.set(identidadeDaPauta(story), resultado);
+        } else {
+          diagnosticoVisual.noValidImage += 1;
+          if (resultado.asset && ehUltimoRecurso(resultado.asset)) {
+            diagnosticoVisual.ultimoRecurso = (diagnosticoVisual.ultimoRecurso ?? 0) + 1;
+          }
+        }
+        console.log(
+          `[NEWSROOM] imagem V2 ${resultado.status} (da seleção) :: ${story.title.slice(0, 55)} :: ` +
+            (resultado.asset ? `${resultado.asset.source}, ${resultado.asset.license}` : `${resultado.motivo}`),
+        );
+        continue;
+      }
 
       // Por `imagemDaPauta` (05/10/2026): ver a capa do portal, acima.
       const resultado = await imagemDaPauta(
@@ -2080,12 +2263,14 @@ async function executarRedacaoDoDia(
          * mostra quando a busca precisa melhorar; deixar o bloco vazio é entregar
          * menos do que existe na mão.
          */
+        /*
+         * SUPERADO em 05/10/2026, pela decisão "pauta sem foto não vira
+         * conteúdo": a bandeira continua sendo contada, e não vai mais para a
+         * edição. A pauta sem foto sai logo abaixo (`pautasSemFotoNaEdicao`).
+         * O texto acima fica como registro de por que ela entrou em 18/09.
+         */
         if (resultado.asset && ehUltimoRecurso(resultado.asset)) {
           diagnosticoVisual.ultimoRecurso = (diagnosticoVisual.ultimoRecurso ?? 0) + 1;
-          imagensV2.set(identidadeDaPauta(story), resultado.asset.imageUrl);
-          if (resultado.asset.attribution) {
-            legendasV2.set(identidadeDaPauta(story), resultado.asset.attribution);
-          }
         }
       }
 
@@ -2133,9 +2318,114 @@ async function executarRedacaoDoDia(
     imagensDaEdicao = paraRenderizacao(escolhasDeImagem);
   }
 
-  const htmlContent = renderEditionToHtml(pipelineResult.edition, imagensDaEdicao, false, legendasDaEdicao, todayStr);
+  /*
+   * Pauta sem foto não vira conteúdo (decisão do dono, 05/10/2026).
+   *
+   * Com a seleção conferida antes da redação, isto não acha nada: a foto da
+   * edição é a mesma que a seleção viu. É a rede para os caminhos em que a
+   * foto sai de outro lugar (o resolvedor da fase 1, o ranker antigo, a pauta
+   * que a guarda não classificou). A pauta sem foto sai da edição, como a
+   * pauta sem lastro sai em `runNewsroomPipeline`, e com menos que o mínimo a
+   * edição não sai: vale o caminho do dia sem edição, registrado, sem inventar.
+   */
+  {
+    const historias = pipelineResult.edition.stories;
+    const { ficam, saem } = separarPautasSemFoto(historias, (st) => imagensDaEdicao.get(identidadeDaPauta(st)));
+    if (saem.length > 0) {
+      const visualPorStory = new Map(resultadosVisuais.map((r) => [r.storyId, r]));
+      const quedas: QuedaSemFoto[] = saem.map((i) => {
+        const st = historias[i];
+        const v = visualPorStory.get(identidadeDaPauta(st));
+        return {
+          storyId: identidadeDaPauta(st),
+          titulo: st.title,
+          motivo: `${MOTIVO_SEM_FOTO}: sem foto da pauta depois da resolução (${v?.motivo ?? (modoVisual === "enforce" ? "sem resultado" : "fase 1 sem foto")})`,
+        };
+      });
+      quedasSemFoto.push({ canal: "newsletter", quedas });
+      await registrarQuedasSemFoto();
+
+      const piso = Math.max(configEditorial.minimoDePautas, 2);
+      if (ficam.length < piso) {
+        const detalhe =
+          `${MOTIVO_SEM_FOTO}: ${ficam.length} pauta(s) com foto depois da resolução, mínimo ${piso}. ` +
+          `Sem foto: ${quedas.map((q) => `"${q.titulo.slice(0, 60)}"`).join(", ")}.`;
+        console.log(`[NEWSROOM] Edição não fecha hoje: ${detalhe}`);
+        await registrarDiaSemEdicao({
+          projectId: project.id,
+          startTime,
+          idempotencyKey,
+          motivo: `EDITORIAL_MINIMUM_NOT_MET: ${detalhe}`,
+          sourcesCount: collectionResult.sourcesAttempted,
+          candidatesFound: collectionResult.candidates.length,
+          uniqueCount: uniqueGroups.length,
+          duplicatesCount,
+          storiesSelected: ficam.length,
+          dryRun,
+        });
+        await fecharCustosDosRamos();
+        return {
+          ok: false as const,
+          reason: "editorial_minimum_not_met" as const,
+          detail: detalhe,
+          approvedCount: ficam.length,
+          rejectedCount: saem.length,
+          minimumRequired: piso,
+          socialV2: rastro.social,
+          ramos: modoRamos !== "off" ? { modo: modoRamos, pecas: pecasDoDia, custos: livro.porRamo() } : undefined,
+          idempotencyKey,
+        };
+      }
+
+      const saiu = new Set(saem);
+      for (const q of quedas) {
+        pipelineResult.pautasRemovidas.push({ indice: -1, titulo: q.titulo, motivo: q.motivo });
+      }
+      pipelineResult.edition = { ...pipelineResult.edition, stories: historias.filter((_, i) => !saiu.has(i)) };
+      // As duas listas são cortadas juntas, pelo motivo de `runNewsroomPipeline`.
+      pipelineResult.selectedCandidates = pipelineResult.selectedCandidates.filter((_, i) => !saiu.has(i));
+      console.warn(`[NEWSROOM] ${saem.length} pauta(s) sem foto retirada(s) da edição; ${ficam.length} seguem.`);
+    }
+  }
+
+  /*
+   * O que foi resolvido em leitura na seleção e vai ao ar tem o uso
+   * confirmado agora (`confirmarImagemPublicada`), só para as pautas que
+   * ficaram na edição.
+   */
+  for (const st of pipelineResult.edition.stories) {
+    const r = paraConfirmar.get(identidadeDaPauta(st));
+    if (!r) continue;
+    const notas = await confirmarImagemPublicada(r, {
+      biblioteca: bibliotecaDoDia,
+      client: getSupabaseAdminClient(),
+      projeto: project,
+    });
+    for (const n of notas) console.warn(`[NEWSROOM] ${n}`);
+  }
+
+  // O bloco do VisaMatch da edição: a rotação pelos dias da newsletter do projeto.
+  const configDoParceiro: ConfigDoVisaMatch = {
+    ...configDoVisaMatch(project.settings),
+    dias: cadenciaDoProjeto(project).newsletter.dias,
+  };
+  const htmlContent = renderEditionToHtml(
+    pipelineResult.edition,
+    imagensDaEdicao,
+    false,
+    legendasDaEdicao,
+    todayStr,
+    configDoParceiro,
+  );
   // Versão sem o cromo de e-mail, para o corpo do artigo no portal.
-  const htmlParaPortal = renderEditionToHtml(pipelineResult.edition, imagensDaEdicao, true, legendasDaEdicao, todayStr);
+  const htmlParaPortal = renderEditionToHtml(
+    pipelineResult.edition,
+    imagensDaEdicao,
+    true,
+    legendasDaEdicao,
+    todayStr,
+    configDoParceiro,
+  );
   const wordCount = htmlContent.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
   const executionTimeMs = Date.now() - startTime;
 

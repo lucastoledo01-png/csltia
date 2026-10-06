@@ -69,10 +69,13 @@ describe("HTML da edição", () => {
 
     expect(html).not.toContain("Todo dia no Instagram");
     expect(html).not.toContain("Seguir ");
-    // O que fica é a análise de perfil, com o desenho escuro que era do
-    // bloco do Instagram.
-    expect(html).toContain("Fazer a análise de perfil");
-    expect(html).toContain(MARCA.tintaEscura);
+    // O que fica é o convite do parceiro, UM bloco. Desde 05/10/2026 ele
+    // alterna de formato por edição; nesta data cai o cartão escuro, que
+    // herdou o desenho do bloco do Instagram.
+    const html2 = renderEditionToHtml(EDICAO, new Map(), false, new Map(), "2026-10-06", { variante: "convite-escuro" });
+    expect(html2).toContain("Fazer a análise de perfil");
+    expect(html2).toContain(MARCA.tintaEscura);
+    expect(html2.split("visamatch.imigrareua.com").length - 1).toBe(1);
   });
 
   /*

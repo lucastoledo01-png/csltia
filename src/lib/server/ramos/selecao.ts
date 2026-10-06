@@ -85,6 +85,12 @@ type OpcoesDaComposicao = {
   /** Canal cujo histórico proíbe repetir. Ausente: não confere. */
   canalDoHistorico?: RegistroHistorico["canal"];
   historico?: RegistroHistorico[];
+  /**
+   * Pautas proibidas neste canal, por `storyId`. Hoje são as que ficaram sem
+   * foto (`sem-foto.ts`, 05/10/2026): elas saem ANTES da composição, para a
+   * vaga ir para a próxima elegível em vez de o canal encolher.
+   */
+  excluir?: ReadonlySet<string>;
 };
 
 function comporRamo(
@@ -98,6 +104,7 @@ function comporRamo(
   const linhas: string[] = [];
 
   const elegiveis = pool.filter((p) => {
+    if (opcoes.excluir?.has(p.storyId)) return false;
     if (opcoes.pacotes && !opcoes.pacotes.has(p.grupo.primary.url)) {
       semPacote.push(p.grupo.primary.title);
       return false;
@@ -170,12 +177,18 @@ export function preSelecaoParaPacote(
   config: ConfigEditorial,
   historico: RegistroHistorico[],
   folga = 2,
+  excluir?: ReadonlySet<string>,
 ): PautaAvaliada[] {
-  const daNewsletter = comporRamo(pool, config, { maximo: config.maximoDePautas + folga }, "newsletter").escolhidas;
+  const daNewsletter = comporRamo(
+    pool,
+    config,
+    { maximo: config.maximoDePautas + folga, excluir },
+    "newsletter",
+  ).escolhidas;
   const doPortal = comporRamo(
     pool,
     config,
-    { maximo: TETO_DO_PORTAL + folga, canalDoHistorico: "article", historico },
+    { maximo: TETO_DO_PORTAL + folga, canalDoHistorico: "article", historico, excluir },
     "artigo",
   ).escolhidas;
 
@@ -195,8 +208,9 @@ export function selecionarParaNewsletter(
   pool: PautaAvaliada[],
   pacotes: Map<string, PacoteFactual>,
   config: ConfigEditorial,
+  excluir?: ReadonlySet<string>,
 ): SelecaoDoRamo & { viavel: boolean; motivo: string } {
-  const r = comporRamo(pool, config, { maximo: config.maximoDePautas, pacotes }, "newsletter");
+  const r = comporRamo(pool, config, { maximo: config.maximoDePautas, pacotes, excluir }, "newsletter");
   const piso = Math.max(config.minimoDePautas, 2);
   const viavel = r.escolhidas.length >= piso;
   return {
@@ -220,13 +234,49 @@ export function selecionarParaPortal(
   historico: RegistroHistorico[],
   config: ConfigEditorial,
   teto: number = TETO_DO_PORTAL,
+  excluir?: ReadonlySet<string>,
 ): SelecaoDoRamo {
   return comporRamo(
     pool,
     config,
-    { maximo: Math.max(0, Math.min(teto, TETO_DO_PORTAL)), pacotes, canalDoHistorico: "article", historico },
+    {
+      maximo: Math.max(0, Math.min(teto, TETO_DO_PORTAL)),
+      pacotes,
+      canalDoHistorico: "article",
+      historico,
+      excluir,
+    },
     "artigo",
   );
+}
+
+/**
+ * A composição da newsletter pela guarda, sem algumas pautas.
+ *
+ * Quando os ramos não mandam, a edição é a `selecionadas` de `avaliarPautas`,
+ * que é `comporEdicao` sobre o pool aprovado. Para a pauta sem foto ceder a
+ * vaga à próxima (05/10/2026), a mesma composição é refeita sem as proibidas.
+ * Sem proibidas, devolve a seleção original intacta: nenhuma mudança de
+ * comportamento quando todas têm foto.
+ */
+export function recomporNewsletterDaGuarda(
+  pool: PautaAvaliada[],
+  selecionadasOriginais: PautaAvaliada[],
+  config: ConfigEditorial,
+  excluir: ReadonlySet<string>,
+): { escolhidas: PautaAvaliada[]; viavel: boolean; motivo: string } {
+  const escolhidas =
+    excluir.size === 0
+      ? selecionadasOriginais
+      : comporEdicao(pool.filter((p) => !excluir.has(p.storyId)).map(ordenavel), config).escolhidas.map((e) => e.item);
+  const viavel = escolhidas.length >= config.minimoDePautas;
+  return {
+    escolhidas,
+    viavel,
+    motivo: viavel
+      ? `${escolhidas.length} pauta(s) com foto`
+      : `${escolhidas.length} pauta(s) aprovada(s) com foto, mínimo ${config.minimoDePautas}`,
+  };
 }
 
 /**

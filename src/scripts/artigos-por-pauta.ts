@@ -121,8 +121,8 @@ async function main(): Promise<void> {
 
   console.log("\n== Resumo");
   console.log(`edições lidas                ${planos.length}`);
-  console.log(`matérias a gravar            ${totalArtigos} (${semFoto} sem foto, com peça tipográfica)`);
-  console.log(`pautas puladas (imigração)   ${totalPuladas}`);
+  console.log(`matérias a gravar            ${totalArtigos}`);
+  console.log(`pautas puladas               ${totalPuladas} (imigração, sem título e ${semFoto} sem foto, REJECT_NO_PHOTO)`);
   console.log(`edições a tirar da lista     ${aDeslistar} (de ${planos.length}; as demais já estão fora)`);
   console.log(`conflitos de slug            ${conflitos.length}${conflitos.length ? `: ${conflitos.join(", ")}` : ""}`);
 

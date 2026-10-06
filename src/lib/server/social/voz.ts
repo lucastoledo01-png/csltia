@@ -13,7 +13,7 @@ import { instrucaoVigente } from "../instrucoes";
 export const VOZ_SOCIAL = `VOZ DE REDE SOCIAL (vale para TODO o texto, manchete incluída; onde a manchete pedir o contrário, está dito abaixo):
 aqui é feed, não é e-mail nem jornal.
 - Frase curta. Uma ideia por linha. Se der para cortar uma palavra, corte. NÃO aplique isso à manchete: ela precisa das palavras que o leitor usa para decidir se aquilo é sobre ele.
-- Fale com a pessoa: "se você está com F-1", "quem já protocolou". Isso é endereçamento, e é permitido.
+- Fale com a pessoa: "se você paga aluguel em Nova York", "quem já tem conta em dólar". Isso é endereçamento, e é permitido.
 - Comece pelo que aconteceu, nunca pelo nome de um órgão praticando ato.
 - Palavra comum primeiro, sigla depois e só se ajudar. Nome oficial de norma e de processo em inglês não entra.
 - Zero emoji, zero gíria. Leve não é frouxo, e o assunto é a vida de alguém.`;

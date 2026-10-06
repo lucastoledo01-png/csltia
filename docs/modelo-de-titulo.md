@@ -1,5 +1,11 @@
 # O modelo de título do eua.journal
 
+> **Nota de 05/10/2026.** Os exemplos abaixo são o registro histórico do
+> levantamento de 16 e 17/09/2026 e ficam como estão. Os exemplos que vão nos
+> PROMPTS foram trocados nesta data por exemplos da linha atual (economia,
+> trabalho, tecnologia, custo de vida, Brasil), mantendo o que cada um ensina.
+> Ver "Os exemplos dos prompts saíram da imigração" em `decisoes.md`.
+
 Levantado em 16/09/2026, depois de o dono ler a manchete "O-1B para designer de
 cenários do México: USCIS aprova com processamento premium" e perguntar o que o
 México tem a ver com uma publicação sobre os EUA escrita para brasileiros.

@@ -125,7 +125,11 @@ export async function logsDoDia(cliente: Cliente, projeto: { id: string; timezon
   const listaDeCandidatas = (candidatas.data ?? []) as Array<{ status: string; decision_reason: string | null }>;
   const recusadas = listaDeCandidatas.filter((c) => c.status === "rejected" || c.status === "capped");
   const recusasDoSocial = ((eventos.data ?? []) as Array<{ event_type: string; payload: unknown }>)
-    .filter((e) => e.event_type === "social_cycle_diagnostic")
+    /*
+     * `pauta_sem_foto` (05/10/2026) grava as quedas da newsletter e do portal
+     * no mesmo formato de `descartados` do social, e entra na mesma lista.
+     */
+    .filter((e) => e.event_type === "social_cycle_diagnostic" || e.event_type === "pauta_sem_foto")
     .flatMap((e) => recusasDoDiagnostico(e.payload));
 
   const porStatus: Record<string, number> = {};

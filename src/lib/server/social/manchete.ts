@@ -68,37 +68,38 @@ export const FORMA_DA_MANCHETE = {
  */
 export const MODELO_DA_REGRA_DA_MANCHETE = `A MANCHETE DA CAPA
 
-Ela é o post inteiro para quem não deslizou. Manchete ampla não dá o que decidir: "Corte adia regra de prazo" serve para qualquer regra, qualquer prazo e qualquer pessoa, e quem lê passa reto.
+Ela é o post inteiro para quem não deslizou. Manchete ampla não dá o que decidir: "Fed mexe nos juros" (construção ilustrativa) serve para qualquer decisão, qualquer taxa e qualquer pessoa, e quem lê passa reto.
 
 DE QUEM É ESTA NOTÍCIA. Antes da forma, responda isto: quem, entre as pessoas que leem, sente a mudança? Esse grupo TEM QUE APARECER na manchete, com as palavras que a própria fonte usa: quem investe em dólar, quem trabalha com tecnologia, quem paga aluguel, empresa que contrata, profissional de saúde. Medido nas nossas primeiras 79 manchetes: em 25 o sujeito era uma instituição ou um ato jurídico, e em 25 o leitor não aparecia de jeito nenhum.
 
-NACIONALIDADE DE TERCEIRO PAÍS NUNCA ENTRA. Se a pessoa da história não é brasileira, a nacionalidade dela sai da manchete e é substituída pela profissão, pela área ou pela etapa do processo. O leitor está no Brasil e vai para os Estados Unidos; a nacionalidade de um terceiro não diz nada a ele.
-  Errado: "O-1B para designer de cenários do México: USCIS aprova com processamento premium"
-  Certo: "Designer de cenários aprovado no O-1B, o visto de quem trabalha com arte, pelo processamento premium"
+NACIONALIDADE DE TERCEIRO PAÍS NUNCA ENTRA. Se a pessoa da história não é brasileira, a nacionalidade dela sai da manchete e é substituída pela profissão, pela área ou pelo cargo. O leitor está no Brasil e olha para os Estados Unidos; a nacionalidade de um terceiro não diz nada a ele.
+  Errado (construção ilustrativa): "Engenheira argentina assume a divisão de chips de uma big tech nos EUA"
+  Certo (construção ilustrativa): "Engenheira de chips assume a divisão de processadores de uma big tech nos EUA"
 
-  Um país que não é o Brasil nem os Estados Unidos só fica na manchete quando ele é o OBJETO da regra, como no TPS de El Salvador, e mesmo aí a outra metade precisa dizer o que aquilo muda para quem lê.
+  Um país que não é o Brasil nem os Estados Unidos só fica na manchete quando ele é o OBJETO da notícia, como em "Coreia do Sul planeja investir US$ 200 bilhões nos EUA, com GNL no Alasca", e mesmo aí a outra metade precisa dizer o que aquilo muda para quem lê.
 
-ÓRGÃO E ATO JURÍDICO NÃO ABREM. Corte, tribunal, juiz, liminar, decisão, regra, USCIS e DHS entram depois, como fiança do fato. Abre a manchete o que passou a valer ou deixou de valer, e para quem.
+ÓRGÃO E ATO JURÍDICO NÃO ABREM. Corte, tribunal, juiz, liminar, decisão, regra, agência e departamento entram depois, como fiança do fato. Abre a manchete o que passou a valer ou deixou de valer, e para quem.
+  Certo, e real (post de 04/10/2026): "Motorista tem direitos violados em busca sem mandado no Flock, decide juiz federal em Oklahoma"
 
 JURISDIÇÃO NO FIM. Estado, cidade, corte ou distrito vão para a última posição. O leitor precisa saber se aquilo o alcança antes de saber onde foi decidido.
-  Errado: "Na Califórnia, acordos nupciais geralmente não encerram o I-864"
-  Certo: "Quem assinou o compromisso de sustentar um imigrante costuma seguir responsável depois do divórcio, na Califórnia"
+  Errado (construção ilustrativa): "Na Califórnia, lei estadual obriga empresas a informar a faixa salarial nas vagas"
+  Certo (construção ilustrativa): "Quem procura emprego passa a ver a faixa salarial no anúncio da vaga, na Califórnia"
 
-SIGLA NUNCA SOZINHA. Ou ela vem com três a cinco palavras que dizem o que é ("o I-864, o compromisso de sustentar o imigrante"), ou sai. D/S, duration of status, EAD, NIW e I-765 crus não são manchete, são anotação de escritório.
+SIGLA NUNCA SOZINHA. Ou ela vem com três a cinco palavras que dizem o que é ("o CPI, o índice de preços ao consumidor"; "a Selic, a taxa básica de juros do Brasil"), ou sai. Fed, CPI, PCE e Selic crus não são manchete, são anotação de mesa de operação. O mesmo vale para termo técnico em inglês: "Profissionais de tecnologia veem agent orchestration crescer 1.721% nas vagas de bancos" (post real de 03/10/2026) deixa o leitor sem saber o que cresceu.
 
 A FORMA. De duas partes, e os dois-pontos são UMA opção, não o padrão: nas 25 manchetes de referência medidas, só 2 usam dois-pontos. Vírgula, "e" e a frase corrida funcionam igual.
 
   [o que muda, e para quem] + [o detalhe que prova: número, prazo, data, quem decidiu]
 
-  "Quem tem visto de estudante segue no prazo até 27 de outubro: decisão em Boston adiou a regra"
-  "Regra de prazo fixo segue suspensa e o prazo aberto continua valendo para estudantes"
+  "Quem tem status de elite na Delta ou American recebe 90 dias na United" (post real de 05/10/2026)
+  "Emprego nos EUA muda pouco e taxa de desemprego fica em 4,2% em setembro" (post real de 05/10/2026)
   "Gilmar Mendes em sessão sobre Moraes: 'até a máfia tem ética'"
 
 TAMANHO: de {{minimo_de_palavras}} a {{maximo_de_palavras}} palavras, de {{minimo_de_caracteres}} a {{maximo_de_caracteres}} caracteres. São três linhas na arte, e três linhas é o alvo.
 
 O DETALHE VEM DO PACOTE FACTUAL. Se não houver número, prazo nem citação, a segunda parte é o efeito concreto que a fonte descreve, com as palavras dela. E nomear o leitor é obrigação de FORMA, nunca licença para inventar alcance: o grupo afetado sai da fonte. Continua proibido escrever que algo "muda o cenário para brasileiros" quando o pacote não diz isso.
 
-RETOMADA. Quando a mesma história volta, a manchete carrega o dado NOVO: a data, a etapa, quem fica de fora, o que passa a valer. Trocar "corte" por "tribunal" e "D/S" por "duration of status" não é manchete nova, é a mesma repetida.
+RETOMADA. Quando a mesma história volta, a manchete carrega o dado NOVO: a data, a etapa, quem fica de fora, o que passa a valer. Trocar "Fed" por "banco central americano" e "juros" por "taxa básica" não é manchete nova, é a mesma repetida.
 
 PROIBIDO na manchete: pergunta, "entenda", "veja o que muda", "tudo sobre", "saiba mais", promessa de resultado, e adjetivo no lugar do fato ("decisão histórica", "mudança enorme"). O que prende a atenção é o fato com o detalhe, não o adjetivo sobre ele.`;
 

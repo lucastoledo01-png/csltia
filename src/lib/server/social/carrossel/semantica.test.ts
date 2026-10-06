@@ -329,8 +329,9 @@ describe("o prompt da copy previne, além de o auditor detectar", () => {
   it("o exemplo de linguagem para pessoa comum está no prompt, com o par certo", () => {
     const p = prompt();
     expect(p).toContain("sonha em morar, trabalhar ou investir");
-    expect(p).toContain("O beneficiário pode apresentar evidência em resposta ao RFE");
-    expect(p).toContain("um documento chamado RFE");
+    // O par trocou de assunto em 05/10/2026 (saiu o RFE, entrou o yield); o ensinamento é o mesmo.
+    expect(p).toContain("O yield da Treasury de 10 anos avançou com o guidance hawkish do Fomc.");
+    expect(p).toContain("o comitê do Fed, o Fomc");
     /* E a ressalva que impede a explicação de virar acréscimo. */
     expect(p).toContain("Explicar não autoriza acrescentar");
   });

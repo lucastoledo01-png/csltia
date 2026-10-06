@@ -81,6 +81,8 @@ disputando a mesma atenção: o "Giro rápido" repetindo fatos das pautas, a
 análise de perfil e um convite para seguir o Instagram. O convite ao Instagram
 oferecia o mesmo conteúdo em outro formato para quem tinha acabado de ler a
 edição, e saiu. O Instagram vive no rodapé, como ícone mais o nome do perfil.
+Desde 05/10/2026 o convite continua sendo um só, mas muda de formato a cada
+edição: ver "O bloco do VisaMatch alterna de formato a cada edição".
 
 **O `quick_bits` continua sendo gerado e não é mais renderizado.** O campo
 alimenta o carrossel e o relatório. O que saiu foi a renderização, como já tinha
@@ -402,7 +404,8 @@ foto.
 **O que isso NÃO custa.** Não custa post. Nenhum guard do Instagram lê essas
 notas, e o número de posts do dia vem de `SOCIAL_POSTS_MAX_PER_DAY` com o
 evergreen preenchendo o que a notícia deixou. Recusar imagem errada troca a foto
-pela bandeira, que é peça publicável. O que cai é a fração de posts ilustrados
+pela bandeira, que é peça publicável (SUPERADO em 05/10/2026: a pauta sem foto
+não vira post; ver "Pauta sem foto não vira conteúdo"). O que cai é a fração de posts ilustrados
 pelo próprio assunto, e o bloco de foto da newsletter, que exige status
 aprovado.
 
@@ -621,6 +624,8 @@ entidade, com o nome no campo `assunto`.
 resolvedor continua devolvendo a bandeira com `NO_VALID_IMAGE` (regra de
 17/09/2026, "nenhuma peça sem imagem"), e trocar isso é decisão de arte e de
 newsletter, que lê o mesmo campo. Fica em aberto para o dono.
+FECHADO em 05/10/2026: pauta sem foto não vira conteúdo, e a bandeira deixa de
+ser publicada. Ver "Pauta sem foto não vira conteúdo".
 
 **Imagem resolvida uma vez por pauta**: `imagemDaPauta`, com memória no
 processo e a tabela `imagem_da_pauta` para o worker reusar o que o web
@@ -1046,6 +1051,121 @@ viraram Chicago, City Council, data centers, política municipal e conta de
 luz; e saíram de `mentions` Trump, Seattle, City of Chicago, a força-tarefa e
 a Data Center Coalition, que o texto não nomeia. Illinois caiu também: está no
 texto, mas não estava entre as entidades gravadas.
+
+## Pauta sem foto não vira conteúdo (05/10/2026)
+
+A decisão do dono, com estas palavras: "pauta sem foto não vira conteúdo". Uma
+pauta cuja resolução de imagem termina SEM foto real da pauta (resolvedor com
+`NO_VALID_IMAGE`, inclusive quando ele devolveu a bandeira de último recurso,
+ou imagem nula) não vira peça em canal nenhum: história da newsletter, matéria
+do portal (ramo e desmonte de edição) e post do Instagram.
+
+**Isto SUPERA, para publicação, a regra de 17/09/2026** ("nenhuma peça sem
+imagem", a bandeira como último recurso). A bandeira continua existindo no
+resolvedor, como marcador interno e para o contador `ultimoRecurso` do
+relatório, e nunca é publicada. Os textos datados de 17/09 e 18/09 neste
+arquivo e no `aprendizados-e-incidentes.md` ficam como registro.
+
+**A régua é uma só**, `temFotoDaPauta` em `src/lib/server/ramos/sem-foto.ts`:
+`status === "SELECTED"`, com URL, e o asset não é a bandeira (pelo campo
+declarado e pela URL, `ehImagemDaBandeira`, que reconhece também a miniatura
+do Commons). Conferir as duas coisas é a lição de 18/09: a newsletter lia
+`status` e o campo tinha mudado de sentido.
+
+**A pauta cai ANTES da redação, e a vaga vai para a próxima.** A imagem sai
+do título da fonte e da classificação, que existem antes do texto. Então cada
+canal pergunta a foto ao selecionar (`selecionarComFoto`), e a seleção é
+refeita sem a pauta sem foto até parar de mudar. O volume se mantém
+(newsletter de 2 a 4, portal até 3, Instagram até 5) em vez de encolher, e
+ninguém paga pacote factual nem redação de pauta que não vai sair. Onde a foto
+da edição vem de outro caminho (resolvedor da fase 1, ranker antigo), vale a
+rede de depois da resolução (`separarPautasSemFoto`): a pauta sai da edição já
+escrita, como a pauta sem lastro sai em `runNewsroomPipeline`.
+
+**Abaixo do mínimo, é dia sem edição.** Se a newsletter não chega ao mínimo com
+pautas que têm foto, vale o caminho de 08/09: `registrarDiaSemEdicao` com o
+motivo `EDITORIAL_MINIMUM_NOT_MET` e o detalhe `REJECT_NO_PHOTO`. Não se
+completa com pauta sem foto.
+
+**Resolver antes, gravar depois.** A foto antecipada é resolvida em LEITURA
+(`somenteLeitura`), porque nessa hora ninguém sabe qual pauta vai sair, e
+marcar uso da foto de uma pauta que não saiu a tiraria da próxima por trinta
+dias. A newsletter confirma o uso só do que foi ao ar
+(`confirmarImagemPublicada`). Uma memória do dia (`criarFotosDoDia`) garante
+que a seleção, a capa do portal e a foto da edição leiam a MESMA resposta, e
+em sequência, para o "já usada nesta edição" continuar valendo.
+
+**O motivo fica visível.** Código `REJECT_NO_PHOTO`. Newsletter e portal
+gravam `platform_events` do tipo `pauta_sem_foto`, no mesmo formato de
+`descartados` do social, e o painel de logs junta as duas listas. No
+Instagram a queda vai para `descartados` do ciclo, com etapa `visual`.
+
+**O que já estava no ar sem foto é decisão do dono.** O script
+`src/scripts/arquivar-sem-foto.ts` lista as matérias publicadas com capa vazia
+ou com a bandeira (ensaio por padrão) e só arquiva com `--aplicar`
+(`status = archived`, ou `draft` se o CHECK recusar, como em
+`artigos-por-pauta.ts`). Medido no ensaio de 05/10/2026: 36 das 62 matérias
+publicadas, 32 com a bandeira e 4 com capa vazia.
+
+## O bloco do VisaMatch alterna de formato a cada edição (05/10/2026)
+
+A decisão do dono: o bloco do VisaMatch fica, mas "diluído de forma criativa,
+alternando a cada edição, igual o The News". O mesmo cartão escuro todo dia
+virava paisagem.
+
+**Oito variantes, de FORMATOS diferentes**, em
+`src/lib/server/newsroom/visamatch-na-edicao.ts`: o cartão escuro de antes,
+menção de uma linha antes da despedida, pergunta rápida com respostas
+clicáveis, P.S. depois da despedida, checklist, caixa de "Você sabia?", cartão
+discreto de conteúdo de parceiro e "Dúvida comum". Esta última é a coluna do
+leitor sem o leitor: não há carta de leitor por trás, e chamá-la de "Pergunta
+do leitor" seria inventar um registro.
+
+**Ferramenta de parceiro, rotulada, curta, nunca o assunto.** Toda variante
+diz que é de parceiro. A newsletter não é sobre imigração (decisão do mesmo
+dia), e o bloco é um aviso no fim, não pauta. Sem "garantido", "aprovado",
+"100%" nem travessão, e há teste disso.
+
+**O mesmo link, com a variante no `utm_content`** e a edição no `utm_term`
+(`linkDaVarianteNaNewsletter`). A pergunta que o número responde passou a ser
+qual formato converte.
+
+**A rotação é determinística pela data e pela cadência da newsletter.** Cada
+dia de publicação do projeto é uma vaga (`vagaDaEdicao`), e a vaga N leva a
+variante N módulo oito. Duas edições seguidas nunca repetem, inclusive de
+sexta para terça, e as oito passam antes de alguma voltar. Sorteio foi
+recusado pelo motivo de sempre. O projeto pode fixar uma variante ou trocar a
+ordem em `settings.visamatch` (`{"variante": "quiz"}` ou `{"ordem": [...]}`).
+
+Continua valendo "o fim do e-mail tem UM convite": é um bloco por edição, só
+que não o mesmo.
+
+## Os exemplos dos prompts saíram da imigração (05/10/2026)
+
+A decisão do dono: "pode trocar agora os exemplos". A publicação deixou de
+falar de imigração, e os exemplos que ensinavam a forma do título ainda eram de
+visto (I-864, EB-2 NIW, O-1B, F-1, DS-160, RFE, cidadania por nascimento). O
+modelo imita exemplo mais do que obedece regra.
+
+**Cada exemplo manteve o que ensinava**: jurisdição no fim, sigla nunca
+sozinha, quem é afetado aparece, o fato antes da ressalva, nacionalidade de
+terceiro país fora, a linha de baixo acrescenta. Trocados na redação da
+newsletter e no prompt de reparo (`pipeline.ts`), na regra da manchete
+(`manchete.ts`), no carrossel (`carrossel/copy.ts`) e na voz social
+(`voz.ts`). Onde o exemplo era manchete REAL medida, entrou manchete real atual
+do banco, com a data (por exemplo "Agentes sem acordo de 2026 não concluem
+registro nos exchanges de 2027 nos EUA", de 23/09/2026, e o par headline e
+preheader repetido de 30/09/2026); onde não havia uma que servisse, o exemplo
+está marcado como "construção ilustrativa".
+
+**Os padrões editáveis do painel mudaram junto**, porque o padrão é o texto do
+código (RF-26): quem não tem versão ativa passa a ver e usar os exemplos novos.
+`prompts-sem-imigracao.test.ts` falha se um prompt de redação voltar a trazer
+I-864, NIW, EB-2, O-1, USCIS, DS-160, green card ou F-1. Ficam de fora o
+classificador e o verificador, que precisam reconhecer visto para recusar, a
+frase da linha editorial que diz o que está fora, e as listas de detecção do
+`leitor.ts`. O `modelo-de-titulo.md` continua com o texto de 16/09, que é
+registro histórico.
 
 ## Armadilhas que já custaram tempo
 

@@ -45,6 +45,7 @@ describe("a instrução de relevância não pede comportamento", () => {
     // Proibir sem mostrar o caminho deixa o modelo sem saída: ele precisa
     // dizer para quem a notícia importa, e agora tem como.
     expect(PROMPT).toMatch(/efeito da regra|EFEITO da regra/i);
-    expect(PROMPT).toContain("se você está com F-1");
+    // O exemplo trocou de assunto em 05/10/2026 (saiu o visto, entrou o aluguel); a forma é a mesma.
+    expect(PROMPT).toContain("se você paga aluguel em Nova York");
   });
 });
