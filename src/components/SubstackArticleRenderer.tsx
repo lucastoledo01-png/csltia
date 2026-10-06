@@ -37,6 +37,12 @@ type SubstackArticleRendererProps = {
   quote?: string;
   quoteBy?: string;
   author?: string;
+  /**
+   * O autor cadastrado (06/10/2026): a assinatura vira link para a página
+   * dele, com a foto pequena quando há. Ausente, vale `author`, que é a
+   * Redação para tudo o que a esteira publica.
+   */
+  autor?: { nome: string; href: string; foto?: string | null } | null;
 };
 
 export function SubstackArticleRenderer({
@@ -60,6 +66,7 @@ export function SubstackArticleRenderer({
   quote,
   quoteBy = MARCA.nome,
   author = MARCA.nome,
+  autor,
 }: SubstackArticleRendererProps) {
   const [pollVoted, setPollVoted] = useState<string | null>(null);
 
@@ -101,7 +108,30 @@ export function SubstackArticleRenderer({
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-y border-[#F4F4F5] py-4">
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[#71717A]">
-            <span>Por {assinatura}</span>
+            {autor ? (
+              <span className="inline-flex items-center gap-2">
+                {autor.foto ? (
+                  // Foto do autor por <img>: o endereço é colado no painel e pode vir de qualquer host.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={autor.foto}
+                    alt=""
+                    width={28}
+                    height={28}
+                    className="h-7 w-7 rounded-full object-cover"
+                    loading="lazy"
+                  />
+                ) : null}
+                <span>
+                  Por{" "}
+                  <a href={autor.href} rel="author" className="text-[#0A0A0A] underline-offset-4 hover:underline">
+                    {autor.nome}
+                  </a>
+                </span>
+              </span>
+            ) : (
+              <span>Por {assinatura}</span>
+            )}
             {date ? (
               <>
                 <span aria-hidden="true" className="hidden h-1 w-1 rounded-full bg-[#D4D4D8] sm:inline-block" />

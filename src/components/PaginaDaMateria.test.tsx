@@ -118,3 +118,42 @@ describe("PaginaDaMateria depois da auditoria de SEO (05/10/2026)", () => {
     expect(corpo.indexOf("leia-tambem")).toBeGreaterThan(corpo.indexOf('class="fonte"'));
   });
 });
+
+describe("assinatura da matéria (06/10/2026)", () => {
+  const autor = {
+    slug: "ana-silva",
+    nome: "Ana Silva",
+    cargo: "Editora de Economia",
+    foto_url: "https://azqpdesusdzqndvsqmko.supabase.co/storage/v1/object/public/public_assets/autores/p/ana.jpg",
+    redes: { instagram: "https://www.instagram.com/ana.silva/" },
+  };
+
+  it("com autor: o nome leva à página dele, com a foto pequena, e o JSON-LD traz a Person", () => {
+    const { container } = render(<PaginaDaMateria article={materia} comComentarios={false} autor={autor} />);
+    const link = screen.getByRole("link", { name: "Ana Silva" });
+    expect(link).toHaveAttribute("href", "/autor/ana-silva");
+    expect(link).toHaveAttribute("rel", "author");
+    const cabecalho = container.querySelector("article header")!;
+    expect(cabecalho.querySelector(`img[src="${autor.foto_url}"]`)).not.toBeNull();
+    expect(cabecalho.textContent).not.toContain("Redação");
+    const grafo = jsonLd(container)["@graph"] as Array<Record<string, unknown>>;
+    const noticia = grafo.find((n) => n["@type"] === "NewsArticle")!;
+    expect((noticia.author as Record<string, unknown>)["@type"]).toBe("Person");
+    expect((noticia.author as Record<string, unknown>).url).toBe("https://casaloti.ia.br/autor/ana-silva");
+  });
+
+  it("com autor sem foto: só o nome, sem imagem vazia", () => {
+    const { container } = render(<PaginaDaMateria article={materia} comComentarios={false} autor={{ ...autor, foto_url: null }} />);
+    expect(screen.getByRole("link", { name: "Ana Silva" })).toBeInTheDocument();
+    expect(container.querySelector("article header img")).toBeNull();
+  });
+
+  it("sem autor: 'Por Redação eua.journal', sem link, e o JSON-LD segue Organization", () => {
+    const { container } = render(<PaginaDaMateria article={materia} comComentarios={false} />);
+    expect(screen.getByText("Por Redação eua.journal")).toBeInTheDocument();
+    expect(container.querySelector('a[rel="author"]')).toBeNull();
+    const grafo = jsonLd(container)["@graph"] as Array<Record<string, unknown>>;
+    const noticia = grafo.find((n) => n["@type"] === "NewsArticle")!;
+    expect(noticia.author).toEqual({ "@type": "Organization", name: "Redação eua.journal", url: "https://casaloti.ia.br" });
+  });
+});

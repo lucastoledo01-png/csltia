@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 import { MARCA } from "@/lib/marca";
 import { EDITORIAS, hrefDaEditoria } from "@/lib/editorias";
-import { materiasDoSitemap } from "@/lib/server/arquivos-para-maquinas";
+import { autoresDoSitemap, materiasDoSitemap } from "@/lib/server/arquivos-para-maquinas";
+import { urlDoAutor } from "@/lib/autores";
 import { dataDeModificacao } from "@/lib/server/dados-estruturados-do-artigo";
 
 /**
@@ -39,6 +40,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
    * sitemap quebrado custa confiança.
    */
   const artigos = await materiasDoSitemap().catch(() => []);
+  // Páginas de autor (06/10/2026): só quem tem matéria publicada.
+  const autores = await autoresDoSitemap().catch(() => []);
 
   return [
     ...fixas,
@@ -47,6 +50,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...dataValida(dataDeModificacao(a.published_at, a.updated_at)),
       changeFrequency: "weekly" as const,
       priority: 0.7,
+    })),
+    ...autores.map((a) => ({
+      url: urlDoAutor(a.slug),
+      ...dataValida(a.ultima ?? undefined),
+      changeFrequency: "weekly" as const,
+      priority: 0.4,
     })),
   ];
 }
