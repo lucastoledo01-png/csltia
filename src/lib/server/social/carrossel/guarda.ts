@@ -14,6 +14,7 @@
 
 import { validarAncoragem, type PacoteFactual } from "../../editorial/pacote-factual";
 import { conferirLinguagemDeUmTexto } from "../../newsroom/leitor";
+import { FORMA_DA_MANCHETE } from "../manchete";
 import { MOTIVOS_DO_SOCIAL_GUARD, type ProblemaDoPost } from "../social-guard";
 import type { SlideDeTexto } from "./copy";
 import { papeisDoModelo, type PapelDeSlide } from "./estrutura";
@@ -355,10 +356,18 @@ export function conferirLinguagemDoCarrossel(
    * vazia já era resultado válido em `leitor.ts`. A régua de lastro não cede.
    */
   const daNoticia = slides.some((s) => ehPassoDaNoticia(s));
+  /*
+   * O teto do título é o da ARTE, 130, e não os 95 do e-mail (06/10/2026).
+   * A manchete do carrossel é a capa do Instagram, a mesma faixa medida da
+   * peça única, e as manchetes do método (10 a 18 palavras) passavam de 95 e
+   * iam para reparo pago sem defeito nenhum. A forma da manchete continua
+   * conferida pela guarda do post, com `FORMA_DA_MANCHETE`.
+   */
   const achados = conferirLinguagemDeUmTexto({
     campos,
     titulo: headline,
     relevancia: daNoticia ? "" : `${legenda} ${corpos}`,
+    tetoDoTitulo: FORMA_DA_MANCHETE.maximoDeCaracteres,
   });
 
   return achados.map((a) => ({

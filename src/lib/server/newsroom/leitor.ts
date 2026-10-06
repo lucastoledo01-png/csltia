@@ -337,6 +337,15 @@ export function conferirLinguagemDeUmTexto(entrada: {
    * tem esses campos, e por isso o texto genérico é o padrão.
    */
   ondeEscreverRelevancia?: string;
+  /**
+   * O teto de caracteres do título, quando quem chama tem outro (06/10/2026).
+   *
+   * Os 95 daqui são do título da newsletter e do portal, medidos num celular
+   * de 390px em corpo de 22px. A capa do Instagram é outra peça: a faixa da
+   * manchete tem topo e base fixos e o corpo do tipo é medido no navegador, e
+   * cabe 130 (`FORMA_DA_MANCHETE`). O carrossel passa o teto da arte dele.
+   */
+  tetoDoTitulo?: number;
 }): AchadoSemIndice[] {
   const achados: AchadoSemIndice[] = [];
   const campos = entrada.campos.filter(Boolean);
@@ -461,12 +470,13 @@ export function conferirLinguagemDeUmTexto(entrada: {
     });
   }
 
-  if (entrada.titulo.length > TETO_DO_TITULO) {
+  const teto = entrada.tetoDoTitulo ?? TETO_DO_TITULO;
+  if (entrada.titulo.length > teto) {
     achados.push({
       motivo: "HEADLINE_TOO_LONG",
       descricao:
         `o título tem ${entrada.titulo.length} caracteres e ocuparia ${Math.ceil(entrada.titulo.length / 30)} ` +
-        `linhas num celular de 390px. Reescreva em até ${TETO_DO_TITULO} caracteres, sem perder o fato.`,
+        `linhas num celular de 390px. Reescreva em até ${teto} caracteres, sem perder o fato.`,
     });
   }
 

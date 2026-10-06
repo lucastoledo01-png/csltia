@@ -72,6 +72,8 @@ export function slideDoPapel(
   texto: SlideDeTexto,
   index: number,
   eixo: string,
+  /** O chapéu já decidido para a peça (tema ou editoria). Ausente, a editoria. */
+  chapeu?: string,
 ): InstagramSlide {
   /*
    * O slide de NOTÍCIA (06/10/2026): só os blocos vão para a arte.
@@ -84,7 +86,8 @@ export function slideDoPapel(
    */
   if (ehPassoDaNoticia(papel)) {
     const slide = slideVazio(index, papel.tipo, VARIANTE_DO_PASSO_DA_NOTICIA);
-    slide.eyebrow = sobrancelha(eixo);
+    // O mesmo chapéu da capa, com o tema quando a pauta tem (06/10/2026).
+    slide.eyebrow = (chapeu ?? "").trim() || sobrancelha(eixo);
     slide.title = "";
     slide.body = blocosDoCorpo(texto.corpo).join("\n\n");
     return slide;
@@ -182,6 +185,11 @@ export function entradasDoCarrossel(
      * (06/10/2026). Só a notícia usa: no método do Not Journal todo slide é
      * foto. Posição sem foto sai no fundo azul-marinho da gramática, que é
      * melhor que repetir a foto de outro slide.
+     *
+     * ATUALIZADO no mesmo dia, por decisão do dono: slide de notícia sem foto
+     * não existe. Ele sai do carrossel antes daqui (`podarMioloSemFoto`), e o
+     * slide de notícia que chega sem foto falha no render (`exigeFoto`) em vez
+     * de virar texto sobre azul-marinho.
      */
     fotosDoMiolo?: Array<FotoDaCapa | null>;
     /**
@@ -189,6 +197,15 @@ export function entradasDoCarrossel(
      * personagem nomeado entra na história, e só com a foto dele.
      */
     bolhasDoMiolo?: Array<FotoDaCapa | null>;
+    /**
+     * Onde fica a bolha de cada slide de conteúdo e os rostos que ela evita,
+     * decididos pelo ciclo contra a foto do slide (06/10/2026). Bolha sem
+     * posição decidida não chega aqui: o ciclo a tira.
+     */
+    posicoesDasBolhasDoMiolo?: Array<string | null>;
+    rostosDasBolhasDoMiolo?: Array<EntradaDaCapa["rostosDaBolha"] | null>;
+    /** O chapéu da peça (tema ou editoria), igual na capa e no miolo. */
+    chapeu?: string;
   },
 ): EntradasDoCarrossel {
   const doModelo = papeisDoModelo(papeis);
@@ -216,6 +233,7 @@ export function entradasDoCarrossel(
       entradas.push({
         headline: copy.headline,
         eixo: opcoes.eixo,
+        ...(opcoes.chapeu ? { chapeu: opcoes.chapeu } : {}),
         asset: opcoes.asset,
         // A bolha vale para a CAPA. Os slides de miolo usam a mesma gramática
         // sem ela: um círculo repetido em cinco telas vira moldura, não ênfase.
@@ -298,11 +316,18 @@ export function entradasDoCarrossel(
     const texto = copy.slides[indiceNoModelo];
     if (!texto) return;
 
+    const passoDaNoticia = ehPassoDaNoticia(papel);
+    const posicaoDaBolhaDoMiolo = opcoes.posicoesDasBolhasDoMiolo?.[indiceNoModelo] ?? null;
+    const rostosDaBolhaDoMiolo = opcoes.rostosDasBolhasDoMiolo?.[indiceNoModelo] ?? null;
     entradas.push({
       headline: copy.headline,
       asset: opcoes.fotosDoMiolo?.[indiceNoModelo] ?? null,
       assetSecundario: opcoes.bolhasDoMiolo?.[indiceNoModelo] ?? null,
-      slidePronto: slideDoPapel(papel, texto, posicao, opcoes.eixo),
+      ...(posicaoDaBolhaDoMiolo ? { posicaoDaBolha: posicaoDaBolhaDoMiolo } : {}),
+      ...(rostosDaBolhaDoMiolo ? { rostosDaBolha: rostosDaBolhaDoMiolo } : {}),
+      slidePronto: slideDoPapel(papel, texto, posicao, opcoes.eixo, opcoes.chapeu),
+      // O slide de notícia não sai sem foto (06/10/2026).
+      ...(passoDaNoticia ? { exigeFoto: true } : {}),
       posicao,
       total,
       /*

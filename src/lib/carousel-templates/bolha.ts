@@ -81,8 +81,33 @@ export const POSICOES_DA_BOLHA: readonly PosicaoDaBolha[] = [
 
 export const POSICAO_PADRAO = POSICOES_DA_BOLHA[0];
 
+/**
+ * Onde a bolha pode ficar no MIOLO da notícia em carrossel (06/10/2026).
+ *
+ * O miolo tem outra divisão de peso: o texto ocupa a metade de baixo
+ * (`.jn-texto` começa em 50% da altura), e a bolha do segundo personagem é
+ * menor que a da capa. A regra é a mesma da capa: nunca em cima de rosto, e
+ * sem posição livre não há bolha. Toda posição termina acima de 49% da altura
+ * e nenhuma entra na zona da marca; há teste das duas contas.
+ */
+export const TOPO_DA_FAIXA_DO_TEXTO_DO_MIOLO = 0.5;
+
+export const POSICOES_DA_BOLHA_DO_MIOLO: readonly PosicaoDaBolha[] = [
+  { chave: "miolo_direita", esquerda: 0.63, topo: 0.15, diametro: 0.3 },
+  { chave: "miolo_esquerda", esquerda: 0.07, topo: 0.15, diametro: 0.3 },
+  { chave: "miolo_direita_baixa", esquerda: 0.63, topo: 0.26, diametro: 0.3 },
+  { chave: "miolo_esquerda_baixa", esquerda: 0.07, topo: 0.26, diametro: 0.3 },
+  { chave: "miolo_pequena_direita_alta", esquerda: 0.7, topo: 0.05, diametro: 0.24 },
+  { chave: "miolo_pequena_direita_baixa", esquerda: 0.7, topo: 0.3, diametro: 0.24 },
+  { chave: "miolo_pequena_esquerda_baixa", esquerda: 0.07, topo: 0.3, diametro: 0.24 },
+];
+
 export function posicaoPorChave(chave: string | null | undefined): PosicaoDaBolha | null {
-  return POSICOES_DA_BOLHA.find((p) => p.chave === chave) ?? null;
+  return (
+    POSICOES_DA_BOLHA.find((p) => p.chave === chave) ??
+    POSICOES_DA_BOLHA_DO_MIOLO.find((p) => p.chave === chave) ??
+    null
+  );
 }
 
 /** O círculo em pixels do canvas. */

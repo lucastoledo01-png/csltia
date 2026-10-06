@@ -11,6 +11,7 @@ import {
   requireActiveProject,
 } from "../projects";
 import { getSupabaseAdminClient } from "../supabase-admin";
+import { formasDasEdicoes, type EdicaoParaORodizio, type FormaDoAssunto } from "./assunto";
 import { buscarRelacionadas } from "../materias-relacionadas";
 import { collectAllNews } from "./collector";
 import { coletarTendencias, limparTendencias, triarTendencias } from "../editorial/tendencias";
@@ -1973,6 +1974,13 @@ async function executarRedacaoDoDia(
 
   console.log("[NEWSROOM] Executando pipeline editorial da OpenAI...");
 
+  /*
+   * O rodízio das formas do assunto lê as edições gravadas (06/10/2026).
+   * Leitura pura, também no ensaio; falha de leitura não derruba o dia, só
+   * deixa o rodízio começar do começo.
+   */
+  const formasRecentesDoAssunto = await formasRecentesDoAssuntoDoProjeto(project.id, todayStr);
+
   // A voz da edição vem do projeto, não de uma constante no código. Sem isto,
   // trocar a vertical no banco mudava as fontes e não mudava o texto: o
   // sistema coletava imigração e escrevia como se fosse notícia de IA.
@@ -2019,7 +2027,10 @@ async function executarRedacaoDoDia(
      * ancoragens continuam bloqueando, exatamente como antes.
      */
     ramosNoComando ? 0 : configEditorial.notaMinimaDeQA,
-    ramosNoComando ? { notaDeAviso: configEditorial.notaMinimaDeQA } : {},
+    {
+      ...(ramosNoComando ? { notaDeAviso: configEditorial.notaMinimaDeQA } : {}),
+      formasRecentesDoAssunto,
+    },
   );
   livro.lancar("redacao", "newsletter", pipelineResult.custosPorEtapa.redacao);
   livro.lancar("auditoria_qa", "newsletter", pipelineResult.custosPorEtapa.auditoria_qa);
@@ -2577,38 +2588,48 @@ async function executarRedacaoDoDia(
         .select("id", { count: "exact", head: true })
         .eq("project_id", project.id);
 
-      const { data: editionRow, error: editionErr } = await supabase
-        .from("news_editions")
-        .upsert(
-          {
-            project_id: project.id,
-            edition_date: todayStr,
-            edition_number: (count ?? 0) + 1,
-            slug: `edicao-${todayStr}`,
-            subject: pipelineResult.edition.subject,
-            subject_options: pipelineResult.edition.subject_options,
-            preheader: pipelineResult.edition.preheader,
-            headline: pipelineResult.edition.headline,
-            intro: pipelineResult.edition.intro,
-            stories: pipelineResult.edition.stories,
-            quick_bits: pipelineResult.edition.quick_bits ?? [],
-            closing: pipelineResult.edition.closing,
-            final_line: pipelineResult.edition.final_line,
-            content_html: htmlContent,
-            word_count: wordCount,
-            qa_passed: pipelineResult.qaResult.passed,
-            qa_score: pipelineResult.qaResult.score,
-            qa_hallucination_risk: pipelineResult.qaResult.hallucination_risk,
-            qa_issues: pipelineResult.qaResult.issues,
-            // Agendada, a edição espera a hora fora do portal: o portal lista
-            // só `published`. Ver `publicacao-agendada.ts`.
-            status: agendamento ? "approved" : "published",
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "project_id,edition_date" },
-        )
-        .select("id")
-        .single();
+      const linhaDaEdicao = {
+        project_id: project.id,
+        edition_date: todayStr,
+        edition_number: (count ?? 0) + 1,
+        slug: `edicao-${todayStr}`,
+        subject: pipelineResult.edition.subject,
+        subject_options: pipelineResult.edition.subject_options,
+        preheader: pipelineResult.edition.preheader,
+        headline: pipelineResult.edition.headline,
+        intro: pipelineResult.edition.intro,
+        stories: pipelineResult.edition.stories,
+        quick_bits: pipelineResult.edition.quick_bits ?? [],
+        closing: pipelineResult.edition.closing,
+        final_line: pipelineResult.edition.final_line,
+        content_html: htmlContent,
+        word_count: wordCount,
+        qa_passed: pipelineResult.qaResult.passed,
+        qa_score: pipelineResult.qaResult.score,
+        qa_hallucination_risk: pipelineResult.qaResult.hallucination_risk,
+        qa_issues: pipelineResult.qaResult.issues,
+        // Agendada, a edição espera a hora fora do portal: o portal lista
+        // só `published`. Ver `publicacao-agendada.ts`.
+        status: agendamento ? "approved" : "published",
+        updated_at: new Date().toISOString(),
+      };
+      const gravarEdicao = (linha: Record<string, unknown>) =>
+        supabase.from("news_editions").upsert(linha, { onConflict: "project_id,edition_date" }).select("id").single();
+
+      /*
+       * A forma do assunto vai junto (06/10/2026), na coluna `subject_form`.
+       * Antes da migration a coluna não existe e o PostgREST recusa o upsert
+       * inteiro: aí a edição é gravada sem ela, e o rodízio lê a forma pelo
+       * texto do assunto (`inferirFormaDoAssunto`).
+       */
+      const formaDoAssunto = pipelineResult.edition.subject_form ?? null;
+      let { data: editionRow, error: editionErr } = await gravarEdicao(
+        formaDoAssunto ? { ...linhaDaEdicao, subject_form: formaDoAssunto } : linhaDaEdicao,
+      );
+      if (editionErr && formaDoAssunto && /subject_form/.test(editionErr.message)) {
+        console.warn("[NEWSROOM] news_editions ainda sem a coluna subject_form: gravando a edição sem a forma do assunto.");
+        ({ data: editionRow, error: editionErr } = await gravarEdicao(linhaDaEdicao));
+      }
 
       if (editionErr) throw new Error(editionErr.message);
       editionId = editionRow?.id;
@@ -3071,4 +3092,39 @@ async function executarRedacaoDoDia(
      */
     ramos: modoRamos !== "off" ? { modo: modoRamos, pecas: pecasDoDia, custos: livro.porRamo() } : undefined,
   };
+}
+
+
+/**
+ * As formas do assunto das últimas edições do projeto, ANTES do dia da edição
+ * (06/10/2026). A edição do próprio dia fica de fora: rodar de novo no mesmo
+ * dia não pode empurrar o rodízio para a frente.
+ *
+ * Lê `subject_form` quando a coluna existe; sem ela (antes da migration), lê
+ * só o assunto e a forma sai da inferência pelo texto. Qualquer outra falha
+ * devolve lista vazia, e o rodízio começa por "pergunta".
+ */
+export async function formasRecentesDoAssuntoDoProjeto(
+  projectId: string,
+  antesDe: string,
+  cliente?: ReturnType<typeof getSupabaseAdminClient>,
+): Promise<Array<FormaDoAssunto | null>> {
+  try {
+    const supabase = cliente ?? getSupabaseAdminClient();
+    const ler = (colunas: string) =>
+      supabase
+        .from("news_editions")
+        .select(colunas)
+        .eq("project_id", projectId)
+        .lt("edition_date", antesDe)
+        .order("edition_date", { ascending: false })
+        .limit(5);
+    let { data, error } = await ler("subject, subject_form");
+    if (error && /subject_form/.test(error.message)) ({ data, error } = await ler("subject"));
+    if (error) throw new Error(error.message);
+    return formasDasEdicoes((data ?? []) as unknown as EdicaoParaORodizio[]);
+  } catch (erro) {
+    console.warn(`[NEWSROOM] não consegui ler as formas do assunto das edições anteriores: ${(erro as Error).message}`);
+    return [];
+  }
 }

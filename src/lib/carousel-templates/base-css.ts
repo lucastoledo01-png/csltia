@@ -555,8 +555,9 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 .jn-blocos p{margin:0 0 0.7em;}
 .jn-blocos p:last-child{margin-bottom:0;}
 /* A bolha do segundo personagem, menor que a da capa e acima do texto. A base
-   e a classe da capa; o tamanho e o lugar sao daqui. */
-.j-bolha.jn-bolha{left:auto;right:7%;top:15%;width:30%;}
+   e a classe da capa; o tamanho e o lugar sao daqui. Desde 06/10/2026 o lugar
+   vem inline, decidido pelos rostos da foto, e isto e so o padrao. */
+.j-bolha.jn-bolha{left:63%;top:15%;width:30%;}
 
 /* --- convite para assinar ---------------------------------------------------
    Fundo preto, marca de fundo escuro, e uma caixa de entrada desenhada em HTML

@@ -48,17 +48,22 @@ function slide(): InstagramSlide {
 }
 
 describe("a capa leva as duas versões da marca", () => {
+  // Desde 06/10/2026 as versões são as do Instagram, a marca compacta do feed.
   it("emite a escura como padrão e a clara como alternativa", () => {
     const html = SLIDE_VARIANTS.cover.capa_jornal.render(slide(), ctx()).body;
 
-    expect(html).toContain(`src="${MARCA.logoEscuro}"`);
-    expect(html).toContain(`data-claro="${MARCA.logoClaro}"`);
+    expect(html).toContain(`src="${MARCA.logoInstagramEscuro}"`);
+    expect(html).toContain(`data-claro="${MARCA.logoInstagramClaro}"`);
+    // A assinatura horizontal é do portal e do e-mail, e não sai no feed.
+    expect(html).not.toContain(MARCA.logoEscuro);
+    expect(html).not.toContain(MARCA.logoClaro);
   });
 
   it("as duas versões são arquivos diferentes", () => {
     // Apontar as duas para o mesmo arquivo faria a troca acontecer e não
     // mudar nada, que é o defeito mais difícil de enxergar numa imagem.
     expect(MARCA.logoClaro).not.toBe(MARCA.logoEscuro);
+    expect(MARCA.logoInstagramClaro).not.toBe(MARCA.logoInstagramEscuro);
   });
 });
 

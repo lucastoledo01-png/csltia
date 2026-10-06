@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { aplicarFormaDoAssunto, escolherAssunto, normalizarAssunto, problemasDoAssunto } from "./assunto";
-import { INSTRUCAO_PADRAO_ASSUNTO } from "./pipeline";
+import {
+  FORMAS_DO_ASSUNTO,
+  aplicarFormaDoAssunto,
+  escolherAssunto,
+  formaDaVez,
+  formasDasEdicoes,
+  inferirFormaDoAssunto,
+  normalizarAssunto,
+  ordemDasFormas,
+  problemasDoAssunto,
+  separarFormasDasOpcoes,
+  type FormaDoAssunto,
+} from "./assunto";
+import { INSTRUCAO_PADRAO_ASSUNTO, montarSystemEditorial, pedidoDoRodizio } from "./pipeline";
 import { EditionContentSchema } from "./schemas";
 
 describe("normalizarAssunto", () => {
@@ -103,5 +115,149 @@ describe("o contrato do assunto", () => {
     expect(INSTRUCAO_PADRAO_ASSUNTO).toContain("pergunta direta");
     expect(INSTRUCAO_PADRAO_ASSUNTO).toContain("Pergunta só quando a edição RESPONDE");
     expect(INSTRUCAO_PADRAO_ASSUNTO).not.toMatch(/\u2014/);
+  });
+});
+
+
+describe("o rodízio das cinco formas (06/10/2026)", () => {
+  it("sem histórico começa pela pergunta, na ordem do método", () => {
+    expect(ordemDasFormas([])).toEqual([...FORMAS_DO_ASSUNTO]);
+    expect(formaDaVez([null, null])).toBe("pergunta");
+  });
+
+  it("com tudo dando certo, as cinco passam antes de alguma voltar", () => {
+    const historico: FormaDoAssunto[] = [];
+    const sequencia: FormaDoAssunto[] = [];
+    for (let dia = 0; dia < 10; dia += 1) {
+      const vez = formaDaVez(historico);
+      sequencia.push(vez);
+      historico.unshift(vez);
+    }
+    expect(sequencia.slice(0, 5)).toEqual(["pergunta", "nomes", "personagem", "cena", "momento"]);
+    expect(sequencia.slice(5)).toEqual(sequencia.slice(0, 5));
+  });
+
+  it("nunca pede a forma da edição anterior, e a deixa por último", () => {
+    for (const ultima of FORMAS_DO_ASSUNTO) {
+      const ordem = ordemDasFormas([ultima]);
+      expect(ordem[0]).not.toBe(ultima);
+      expect(ordem[ordem.length - 1]).toBe(ultima);
+      expect(new Set(ordem).size).toBe(5);
+    }
+  });
+
+  it("a forma que ficou para trás volta a ser a vez quando sai da janela", () => {
+    // A vez era "nomes" e o dia caiu para "personagem": "nomes" não se perde.
+    const historico: FormaDoAssunto[] = ["personagem", "pergunta"];
+    expect(formaDaVez(historico)).toBe("cena");
+    historico.unshift("cena");
+    expect(formaDaVez(historico)).toBe("momento");
+    historico.unshift("momento");
+    expect(formaDaVez(historico)).toBe("nomes");
+  });
+
+  it("é determinístico: o mesmo histórico dá a mesma ordem", () => {
+    const h: FormaDoAssunto[] = ["cena", "nomes", "pergunta"];
+    expect(ordemDasFormas(h)).toEqual(ordemDasFormas([...h]));
+  });
+
+  it("edição sem forma conhecida não conta", () => {
+    expect(formaDaVez([null, "nomes", null])).toBe(formaDaVez(["nomes"]));
+  });
+});
+
+describe("a escolha pelo rodízio", () => {
+  const opcoes = [
+    "quem vai pagar a conta do diesel?",
+    "trump & o diesel vermelho",
+    "o galão que chegou a US$ 6,32",
+    "o fazendeiro que paga menos imposto",
+    "o dia que o diesel virou palanque",
+  ];
+  const formas = ["pergunta", "nomes", "cena", "personagem", "momento"];
+
+  it("escolhe a primeira opção válida da forma da vez, e grava a forma", () => {
+    const r = escolherAssunto(opcoes[0], opcoes, { formas, recentes: ["pergunta"] });
+    expect(r.formaDaVez).toBe("nomes");
+    expect(r.forma).toBe("nomes");
+    expect(r.subject).toBe("trump & o diesel vermelho");
+  });
+
+  it("sem opção válida da forma da vez, cai para a seguinte na ordem", () => {
+    const longa = "trump, vance, rubio, hegseth e bessent discutem o diesel vermelho";
+    const r = escolherAssunto(opcoes[0], [opcoes[0], longa, ...opcoes.slice(2)], { formas, recentes: ["pergunta"] });
+    expect(r.formaDaVez).toBe("nomes");
+    expect(r.forma).toBe("personagem");
+    expect(r.subject).toBe("o fazendeiro que paga menos imposto");
+  });
+
+  it("nunca repete a forma de ontem enquanto houver outra válida", () => {
+    const r = escolherAssunto(opcoes[0], [opcoes[0], opcoes[4]], {
+      formas: ["pergunta", "momento"],
+      recentes: ["pergunta"],
+    });
+    expect(r.forma).toBe("momento");
+  });
+
+  it("opções sem marca seguem a escolha de antes", () => {
+    const r = escolherAssunto(opcoes[0], opcoes, { recentes: ["pergunta"] });
+    expect(r.subject).toBe(opcoes[0]);
+  });
+
+  it("aplicarFormaDoAssunto grava a forma só quando o rodízio foi pedido", () => {
+    const edicao = { subject: opcoes[0], subject_options: opcoes, subject_option_forms: formas };
+    expect(aplicarFormaDoAssunto(edicao, ["nomes"]).edicao.subject_form).toBe("personagem");
+    expect("subject_form" in aplicarFormaDoAssunto(edicao).edicao).toBe(false);
+  });
+});
+
+describe("as opções marcadas da redação", () => {
+  it("viram textos, e as formas vão para a lista paralela", () => {
+    const r = separarFormasDasOpcoes({
+      subject: "x",
+      subject_options: [
+        { forma: "pergunta", texto: "quem paga?" },
+        { forma: "Nomes", texto: "lula & trump" },
+        "texto solto",
+        { forma: "inventada", texto: "outra" },
+        { forma: "cena", texto: "" },
+      ],
+    }) as Record<string, unknown>;
+    expect(r.subject_options).toEqual(["quem paga?", "lula & trump", "texto solto", "outra"]);
+    expect(r.subject_option_forms).toEqual(["pergunta", "nomes", null, null]);
+    const valida = EditionContentSchema.shape.subject_option_forms.safeParse(r.subject_option_forms);
+    expect(valida.success).toBe(true);
+  });
+});
+
+describe("a forma das edições gravadas", () => {
+  it("a gravada vale; sem ela, a inferência pelo formato, ou nada", () => {
+    expect(
+      formasDasEdicoes([
+        { subject: "qualquer coisa", subject_form: "momento" },
+        { subject: "diesel vermelho para todo mundo?" },
+        { subject: "nikolas & vorcaro", subject_form: null },
+        { subject: "o advogado que apostou R$ 5 bi no tigrinho" },
+        { subject: "o dia que o stf rachou" },
+        { subject: "a lista dos US$ 30 bilhões" },
+        { subject: "o alasca entrou na conta" },
+      ]),
+    ).toEqual(["momento", "pergunta", "nomes", "personagem", "momento", "cena", null]);
+    expect(inferirFormaDoAssunto("")).toBeNull();
+  });
+});
+
+describe("o pedido do rodízio no prompt", () => {
+  it("diz a forma da vez e pede duas opções nela; sem histórico pedido, nada", () => {
+    const pedido = pedidoDoRodizio(["pergunta"]);
+    expect(pedido).toContain('A forma da vez é "nomes"');
+    expect(pedido).toContain("DUAS opções");
+    expect(pedido).not.toMatch(/\u2014/);
+    expect(pedidoDoRodizio(undefined)).toBe("");
+  });
+
+  it("o contrato de saída pede as opções marcadas com a forma", () => {
+    const system = montarSystemEditorial({ nome: "x", nicho: "y", extra: "", assinatura: "z" });
+    expect(system).toContain('"forma": "pergunta | nomes | personagem | cena | momento"');
   });
 });

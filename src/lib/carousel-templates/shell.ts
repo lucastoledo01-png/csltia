@@ -93,5 +93,5 @@ ${tira}
  */
 /** Marca da conta sem contador — usada nas sobreposições das capas. */
 export function overlayBrand(): string {
-  return `<div class="s-header plain"><img class="s-logo" src="${esc(MARCA.logoEscuro)}" alt="${esc(MARCA.nome)}" /></div>`;
+  return `<div class="s-header plain"><img class="s-logo" src="${esc(MARCA.logoInstagramEscuro)}" alt="${esc(MARCA.nome)}" /></div>`;
 }

@@ -5,6 +5,8 @@ import type { AssetVisual } from "../visual/tipos";
 import { cabeNoRecorte } from "@/lib/carousel-templates/variants";
 import type { CaixaNormalizada } from "@/lib/carousel-templates/bolha";
 import { ANEL_DA_BOLHA_PX, cruzaAlgumRosto } from "./bolha-sem-rosto";
+import { temasNoTexto } from "@/lib/temas";
+import type { EditoriaId } from "@/lib/editorias";
 
 /**
  * A arte do post do feed, e a única regra que ela não negocia.
@@ -192,6 +194,22 @@ export type EntradaDaCapa = {
   /** Categoria editorial, usada como sobrancelha na capa sem foto. */
   eixo?: string;
   /**
+   * O chapéu já decidido, com o tema quando a pauta tem (06/10/2026).
+   *
+   * Vem de `chapeuDaPeca`, chamada por quem conhece o texto da pauta. Ausente,
+   * o chapéu é a editoria do eixo, como antes.
+   */
+  chapeu?: string;
+  /**
+   * Slide de conteúdo que SÓ existe com foto (06/10/2026).
+   *
+   * O miolo da notícia em carrossel nunca sai como texto sobre azul-marinho:
+   * sem foto, o slide sai do carrossel antes do render. Se a foto aprovada não
+   * baixar na hora do render, a peça falha em vez de virar slide de texto, e
+   * quem chamou decide o que fazer com o carrossel.
+   */
+  exigeFoto?: boolean;
+  /**
    * Qual das duas capas desenhar.
    *
    * `noticia` é a serifa preta sobre creme, e é o padrão. `carrossel` é a faixa
@@ -289,6 +307,47 @@ export function sobrancelha(eixo: string | undefined): string {
   return ROTULO_DO_EIXO[(eixo ?? "").trim()] ?? "";
 }
 
+/** O eixo do classificador na editoria do portal, que é como os temas estão organizados. */
+const EDITORIA_DO_EIXO: Record<string, EditoriaId> = {
+  economia: "economia",
+  trabalho: "trabalho",
+  tecnologia: "tecnologia",
+  custo_de_vida: "custo-de-vida",
+  politica: "governo",
+  brasil: "brasil",
+};
+
+/**
+ * O chapéu da peça do feed: o TEMA quando a pauta tem um, e a editoria quando
+ * não tem (06/10/2026).
+ *
+ * O Not Journal imprime o assunto, e não a seção: "DATA CENTERS", "JUSTIÇA",
+ * "ELEIÇÕES". O nosso chapéu dizia sempre a editoria ("POLÍTICA"), que é
+ * verdade e é larga demais para orientar quem rola o feed. O tema sai da lista
+ * FECHADA de `src/lib/temas.ts`, a mesma da fileira "Assuntos" do portal, e
+ * só quando o texto da pauta o trata de verdade: duas menções ou mais (nome ou
+ * sinônimo), a régua conservadora de `temasNoTexto`. Uma citação de passagem
+ * não faz de um tema o assunto, e chapéu errado é pior que chapéu largo.
+ *
+ * Sem tema, vale a editoria de sempre; eixo sem rótulo continua sem chapéu.
+ * Determinístico: a mesma pauta dá o mesmo chapéu na capa, no miolo e na
+ * refação.
+ */
+export function chapeuDaPeca(entrada: { eixo?: string; textos?: Array<string | null | undefined> }): string {
+  const texto = (entrada.textos ?? []).filter(Boolean).join("\n");
+  if (texto.trim()) {
+    const editoria = EDITORIA_DO_EIXO[(entrada.eixo ?? "").trim()] ?? null;
+    const [tema] = temasNoTexto(texto, { editoria, minimo: 2 });
+    if (tema) return tema.nome.toLocaleUpperCase("pt-BR");
+  }
+  return sobrancelha(entrada.eixo);
+}
+
+/** O chapéu que a entrada pede: o já decidido, ou a editoria. */
+function chapeuDaEntrada(entrada: { chapeu?: string; eixo?: string }): string {
+  return (entrada.chapeu ?? "").trim() || sobrancelha(entrada.eixo);
+}
+
 /**
  * A gramática que a peça VAI usar, que nem sempre é a pedida.
  *
@@ -312,6 +371,8 @@ export function sobrancelha(eixo: string | undefined): string {
 export function gramaticaEfetiva(entrada: {
   pedida?: GramaticaDaCapa;
   eixo?: string;
+  /** O chapéu decidido, quando há; o orçamento do recorte conta com ele. */
+  chapeu?: string;
   headline?: string;
   corpo?: string;
   comFoto: boolean;
@@ -320,7 +381,7 @@ export function gramaticaEfetiva(entrada: {
   if (pedida !== "recorte") return "jornal";
 
   return cabeNoRecorte({
-    chapeu: sobrancelha(entrada.eixo),
+    chapeu: chapeuDaEntrada(entrada),
     titulo: entrada.headline,
     corpo: entrada.corpo,
     temFoto: entrada.comFoto,
@@ -350,11 +411,14 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
      */
     const fotoDoSlide = (entrada.asset?.imageUrl ?? "").trim();
     const bolhaDoSlide = (entrada.assetSecundario?.imageUrl ?? "").trim();
+    const comBolha = Boolean(fotoDoSlide && bolhaDoSlide && bolhaDoSlide !== fotoDoSlide);
     return {
       slide: {
         ...entrada.slidePronto,
         bg_image_url: fotoDoSlide,
-        inset_image_url: fotoDoSlide && bolhaDoSlide && bolhaDoSlide !== fotoDoSlide ? bolhaDoSlide : "",
+        inset_image_url: comBolha ? bolhaDoSlide : "",
+        // Onde a bolha do miolo fica, decidido pelos rostos (06/10/2026).
+        ...(comBolha && entrada.posicaoDaBolha ? { inset_position: entrada.posicaoDaBolha } : {}),
       },
       variante: entrada.slidePronto.variant || entrada.slidePronto.type,
       comFoto: Boolean(fotoDoSlide),
@@ -409,6 +473,7 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
   const gramatica = gramaticaEfetiva({
     pedida: entrada.gramatica,
     eixo: entrada.eixo,
+    chapeu: entrada.chapeu,
     headline: entrada.headline,
     corpo: entrada.corpo,
     comFoto,
@@ -449,7 +514,7 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
      * Eixo sem rótulo continua sem chapéu. Nomear o que a classificação não
      * soube nomear seria inventar editoria, e isso não mudou.
      */
-    eyebrow: sobrancelha(entrada.eixo),
+    eyebrow: chapeuDaEntrada(entrada),
     title: entrada.headline,
     /*
      * O corpo só existe no recorte.
@@ -686,10 +751,17 @@ export async function renderizarCapas(
     for (const entrada of entradas) {
       let capa = montarCapaDoPost(entrada);
 
+      // O slide que só existe com foto não vira slide de texto (06/10/2026).
+      if (entrada.exigeFoto && !capa.comFoto) {
+        throw new Error(`o slide ${entrada.posicao ?? "?"} exige foto e chegou sem nenhuma`);
+      }
+
       if (capa.comFoto) {
         const dataUrl = await baixarComoDataUrl(capa.slide.bg_image_url, fetcher);
         if (dataUrl) {
           capa = { ...capa, slide: { ...capa.slide, bg_image_url: dataUrl } };
+        } else if (entrada.exigeFoto) {
+          throw new Error(`a foto do slide ${entrada.posicao ?? "?"} não baixou, e o slide não sai sem ela`);
         } else {
           // Download falho não vira outra imagem. Vira capa de texto, igual a
           // qualquer outra ausência de foto.

@@ -15,9 +15,21 @@
  *      cair no lugar, no órgão ou no conceito;
  *   3. sem nada, o slide fica sem foto, no fundo azul-marinho da gramática.
  *
+ * ATUALIZADO no mesmo dia, por decisão do dono: o passo 3 não publica mais
+ * slide de texto sobre azul-marinho. O slide sem foto SAI do carrossel
+ * (`podarMioloSemFoto`, abaixo), e o carrossel que fica menor que o mínimo
+ * vira peça única.
+ *
  * Rosto de outra pessoa nunca entra como "foto relacionada": a cena tira os
  * atores justamente para não haver rosto nenhum no lugar do protagonista, e o
  * banco conceitual já proíbe pessoa identificável.
+ *
+ * O que NÃO é recusado, também por decisão do dono (06/10/2026): outras
+ * pessoas aparecendo junto do protagonista na foto do slide, como o Not
+ * Journal faz (Sanders num palco com gente em volta, Trump numa mesa de
+ * reunião). O que continua valendo é que a foto do protagonista mostra o
+ * PROTAGONISTA (a entidade resolvida tem que ser ele, `entidadeEhAPessoa`) e
+ * que a bolha nunca cobre um rosto.
  *
  * E a bolha: só no slide em que um SEGUNDO personagem nomeado entra no texto, e
  * só com uma foto cuja entidade resolvida é ELE. Sem essa correspondência, sem
@@ -30,6 +42,8 @@ import type { ResultadoVisual } from "../../visual/tipos";
 import { TIPOS_DE_PESSOA } from "../../visual/tipos";
 import { temFotoDaPauta } from "../../ramos/sem-foto";
 import type { FotoDaCapa } from "../arte";
+import type { SlideDeTexto } from "./copy";
+import { ESTRUTURAS, papeisDoModelo, type PapelDeSlide } from "./estrutura";
 
 /** Quem resolve UMA foto, com a lista do que já saiu. É o resolvedor de sempre. */
 export type ResolvedorDeFoto = (
@@ -260,4 +274,92 @@ export async function fotosDoCarrossel(entrada: {
   ];
 
   return { fotos, bolhas, origem, creditos, segundoPersonagem };
+}
+
+
+/* ------------------------------------------------------------------ */
+/* O slide sem foto sai (06/10/2026)                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * O menor carrossel de notícia: capa, um passo e o convite. É a estrutura
+ * `noticia_curta`, e abaixo dela a notícia é peça única.
+ */
+export const MINIMO_DE_SLIDES_DA_NOTICIA = ESTRUTURAS.noticia_curta.length;
+
+export type MioloPodado =
+  | {
+      formato: "carousel";
+      papeis: PapelDeSlide[];
+      slides: SlideDeTexto[];
+      fotos: Array<FotoDaCapa | null>;
+      bolhas: Array<FotoDaCapa | null>;
+      /** Os créditos só das fotos que ficaram. */
+      creditos: string[];
+      /** Os papéis que saíram por falta de foto, para o log e o registro. */
+      tirados: string[];
+    }
+  | { formato: "static"; motivo: string; tirados: string[] };
+
+/**
+ * Tira do carrossel de notícia todo slide de conteúdo sem foto.
+ *
+ * A decisão do dono, com estas palavras: o carrossel usa menos slides, e
+ * nunca um slide de texto chapado sobre azul-marinho. No método do Not Journal
+ * todo slide é foto, e o slide sem foto era a única tela da peça que não
+ * seguia o método. Se o que sobra fica abaixo do mínimo
+ * (`MINIMO_DE_SLIDES_DA_NOTICIA`), a pauta sai como peça única, que tem a capa
+ * com foto e a legenda inteira.
+ *
+ * `fotos` nulo é "não houve resolução de foto nenhuma" (a busca falhou ou não
+ * foi ligada): todos os slides ficam sem foto, e a notícia vira peça única.
+ *
+ * Puro: a ordem dos slides que ficam é a do modelo, e o texto de cada um não
+ * muda.
+ */
+export function podarMioloSemFoto(entrada: {
+  papeis: PapelDeSlide[];
+  slides: SlideDeTexto[];
+  fotos: Array<FotoDaCapa | null> | null | undefined;
+  bolhas?: Array<FotoDaCapa | null> | null;
+}): MioloPodado {
+  const doModelo = papeisDoModelo(entrada.papeis);
+  const temFoto = (i: number) => Boolean((entrada.fotos?.[i]?.imageUrl ?? "").trim());
+
+  const tirados = doModelo.filter((_, i) => !temFoto(i)).map((p) => p.papel);
+  const papeis = entrada.papeis.filter((p) => {
+    const i = doModelo.indexOf(p);
+    return i < 0 || temFoto(i);
+  });
+
+  if (papeis.length < MINIMO_DE_SLIDES_DA_NOTICIA) {
+    return {
+      formato: "static",
+      tirados,
+      motivo:
+        `${tirados.length} de ${doModelo.length} slide(s) de conteúdo sem foto; ` +
+        `sobrariam ${papeis.length} slide(s), abaixo do mínimo de ${MINIMO_DE_SLIDES_DA_NOTICIA}: vira peça única`,
+    };
+  }
+
+  const ficam = doModelo.map((_, i) => i).filter(temFoto);
+  const fotos = ficam.map((i) => entrada.fotos![i]);
+  const bolhas = ficam.map((i) => entrada.bolhas?.[i] ?? null);
+  const creditos = [
+    ...new Set(
+      [...fotos, ...bolhas]
+        .map((f) => (f?.attribution ?? "").trim())
+        .filter(Boolean),
+    ),
+  ];
+
+  return {
+    formato: "carousel",
+    papeis,
+    slides: ficam.map((i) => entrada.slides[i]).filter(Boolean),
+    fotos,
+    bolhas,
+    creditos,
+    tirados,
+  };
 }

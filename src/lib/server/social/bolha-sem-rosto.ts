@@ -1,5 +1,6 @@
 import {
   POSICOES_DA_BOLHA,
+  POSICOES_DA_BOLHA_DO_MIOLO,
   caixaEmPixels,
   circuloCruzaCaixa,
   circuloDaPosicao,
@@ -291,4 +292,69 @@ export async function decidirBolha(pedido: PedidoDaBolha): Promise<BolhaDaPeca> 
     custoUsd,
     tokens,
   } };
+}
+
+// --------------------------------------------------------------------------
+// A bolha do miolo da notícia em carrossel (06/10/2026)
+// --------------------------------------------------------------------------
+
+export type BolhaDoMiolo =
+  | { posicao: string; rostos: CaixaNormalizada[]; motivo: string; custoUsd: number; tokens: number }
+  | { posicao: null; rostos: CaixaNormalizada[] | null; motivo: string; custoUsd: number; tokens: number };
+
+/**
+ * Onde a bolha do segundo personagem fica num slide do miolo, ou se ela sai.
+ *
+ * É a regra da capa, sem o ritmo: o miolo só tem bolha no slide em que um
+ * segundo personagem nomeado entra, e isso já foi decidido por quem escolheu
+ * as fotos. Aqui a pergunta é só a do rosto: a foto DO SLIDE tem rosto onde a
+ * bolha ficaria? As posições são as do miolo (`POSICOES_DA_BOLHA_DO_MIOLO`),
+ * que ficam acima do texto, que no miolo ocupa a metade de baixo.
+ *
+ * Sem detector, com detecção que falhou ou sem posição livre, a bolha sai e o
+ * slide fica só com a foto. Falha de conferência é recusa, como na capa.
+ */
+export async function decidirBolhaDoMiolo(pedido: {
+  fotoDoSlide: string;
+  canvas: Canvas;
+  detectar?: (urlDaFoto: string) => Promise<DeteccaoDeRostos>;
+}): Promise<BolhaDoMiolo> {
+  if (!pedido.detectar) {
+    return { posicao: null, rostos: null, motivo: "sem detector de rostos: sem bolha no slide", custoUsd: 0, tokens: 0 };
+  }
+  let deteccao: DeteccaoDeRostos;
+  try {
+    deteccao = await pedido.detectar(pedido.fotoDoSlide);
+  } catch (erro) {
+    deteccao = { ok: false, motivo: (erro as Error).message, custoUsd: 0, tokens: 0 };
+  }
+  if (!deteccao.ok) {
+    return {
+      posicao: null,
+      rostos: null,
+      motivo: `não deu para saber onde estão os rostos: ${deteccao.motivo}`,
+      custoUsd: deteccao.custoUsd,
+      tokens: deteccao.tokens,
+    };
+  }
+  const escolha = escolherPosicaoDaBolha(deteccao.rostos, pedido.canvas, POSICOES_DA_BOLHA_DO_MIOLO);
+  if (!escolha.posicao) {
+    return {
+      posicao: null,
+      rostos: deteccao.rostos,
+      motivo: escolha.motivo,
+      custoUsd: deteccao.custoUsd,
+      tokens: deteccao.tokens,
+    };
+  }
+  return {
+    posicao: escolha.posicao.chave,
+    rostos: deteccao.rostos,
+    motivo:
+      escolha.recusadas.length > 0
+        ? `posição ${escolha.posicao.chave}: ${escolha.recusadas.join(", ")} cruzavam rosto`
+        : `posição ${escolha.posicao.chave}, livre de rosto`,
+    custoUsd: deteccao.custoUsd,
+    tokens: deteccao.tokens,
+  };
 }

@@ -161,6 +161,17 @@ export type PostParaGravar = {
   contexto?: ContextoDeProducao;
   /** A posição na leva do dia, que decide o CTA. Gravada junto do contexto. */
   posicao?: number;
+  /**
+   * O chapéu impresso na peça, tema ou editoria (06/10/2026). Gravado para a
+   * refação da arte desenhar o MESMO chapéu sem recalcular sobre outro texto.
+   */
+  chapeu?: string;
+  /**
+   * A foto de cada slide de conteúdo do carrossel de notícia, na ordem dos
+   * slides que foram ao ar (06/10/2026). A refação recongela as telas com
+   * elas: sem isto, o miolo sairia sem foto, que é o slide que não existe.
+   */
+  fotosDoCarrossel?: Array<{ imageUrl: string; attribution?: string | null } | null>;
 };
 
 /** O artefato como a linha o registra. Um formato, usado pela capa e por slide. */
@@ -405,6 +416,7 @@ export function criarSocialPostsStore(client: SupabaseClient, fila: OpcoesDaFila
                     estrutura: p.post.carrossel.estrutura,
                     slides: p.post.carrossel.slides.length,
                     papeis: p.post.carrossel.papeis,
+                    ...(p.fotosDoCarrossel ? { fotos: p.fotosDoCarrossel } : {}),
                   },
                 }
               : {}),
@@ -442,6 +454,8 @@ export function criarSocialPostsStore(client: SupabaseClient, fila: OpcoesDaFila
                */
               gramatica: p.gramatica,
               eixo: p.post.pauta.classificacao.eixo ?? "",
+              // O chapéu impresso, com o tema quando houve (06/10/2026).
+              ...(p.chapeu ? { chapeu: p.chapeu } : {}),
               /*
                * O artefato congelado, que é o que vai ao ar.
                *

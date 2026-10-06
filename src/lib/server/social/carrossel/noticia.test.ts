@@ -9,7 +9,17 @@ import { determinarFormatoDaNoticia, passosDaNoticia } from "./formato";
 import { ESTRUTURAS, fechamentoObrigatorio, papeisPara } from "./estrutura";
 import { blocosDoCorpo, conferirBlocosDaNoticia, conferirFormaDosSlides, conferirLinguagemDoCarrossel } from "./guarda";
 import { entradasDoCarrossel, VARIANTE_DO_CONVITE, VARIANTE_DO_PASSO_DA_NOTICIA } from "./arte";
-import { arquivoDaFoto, citaPessoa, fotosDoCarrossel, type ResolvedorDeFoto } from "./fotos";
+import {
+  arquivoDaFoto,
+  citaPessoa,
+  fotosDoCarrossel,
+  MINIMO_DE_SLIDES_DA_NOTICIA,
+  podarMioloSemFoto,
+  type ResolvedorDeFoto,
+} from "./fotos";
+import { decidirBolhaDoMiolo } from "../bolha-sem-rosto";
+import { CANVAS_DO_FEED, POSICOES_DA_BOLHA_DO_MIOLO } from "@/lib/carousel-templates/bolha";
+import { congelarCarrossel } from "../artefato";
 import { decisorDoDia } from "./modo";
 import { montarSystemDoCarrossel, type CopyDoCarrossel } from "./copy";
 
@@ -207,6 +217,9 @@ describe("a arte do carrossel de notícia", () => {
     expect(montarCapaDoPost(entradas[2]).slide.inset_image_url).toBe(FOTO(9).imageUrl);
     // Slide sem foto sai sem foto, e não com a de outro slide.
     expect(montarCapaDoPost(entradas[3]).comFoto).toBe(false);
+    // E desde 06/10/2026 ele é marcado: o render falha em vez de desenhar texto sobre azul-marinho.
+    expect(entradas[3].exigeFoto).toBe(true);
+    expect(entradas[0].exigeFoto).toBeUndefined();
   });
 
   it("o último slide é o convite de assinatura, com a palavra só quando há keyword", () => {
@@ -461,5 +474,182 @@ describe("o prompt do carrossel de notícia", () => {
     const permanente = montarSystemDoCarrossel(marca, "explainer", ESTRUTURAS.explainer);
     expect(permanente).toContain("COMO ESCREVER CADA SLIDE:");
     expect(permanente).not.toContain("COMO ESCREVER CADA SLIDE DE NOTÍCIA");
+  });
+});
+
+
+describe("o slide sem foto sai do carrossel (06/10/2026)", () => {
+  const copy = copyDaNoticia("");
+
+  it("tira só os slides sem foto, na ordem, com as fotos e os créditos dos que ficaram", () => {
+    const papeis = papeisPara("noticia", 5, true);
+    const r = podarMioloSemFoto({
+      papeis,
+      slides: copy.slides,
+      fotos: [FOTO(1), null, FOTO(3)],
+      bolhas: [null, FOTO(8), FOTO(9)],
+    });
+    expect(r.formato).toBe("carousel");
+    if (r.formato !== "carousel") return;
+    expect(r.papeis.map((p) => p.papel)).toEqual(["capa", "passo 1", "passo 3", "fechamento"]);
+    expect(r.slides.map((sl) => sl.papel)).toEqual(["passo 1", "passo 3"]);
+    expect(r.fotos).toEqual([FOTO(1), FOTO(3)]);
+    // A bolha do slide que saiu sai junto, e o crédito dela também.
+    expect(r.bolhas).toEqual([null, FOTO(9)]);
+    expect(r.creditos).toEqual(["Autor 1, CC BY 4.0", "Autor 3, CC BY 4.0", "Autor 9, CC BY 4.0"]);
+    expect(r.tirados).toEqual(["passo 2"]);
+  });
+
+  it("com todas as fotos, nada muda", () => {
+    const papeis = papeisPara("noticia", 5, true);
+    const r = podarMioloSemFoto({ papeis, slides: copy.slides, fotos: [FOTO(1), FOTO(2), FOTO(3)] });
+    expect(r.formato === "carousel" && r.papeis).toEqual(papeis);
+    expect(r.tirados).toEqual([]);
+  });
+
+  it("abaixo do mínimo vira peça única: capa, um passo e o convite é o menor carrossel", () => {
+    expect(MINIMO_DE_SLIDES_DA_NOTICIA).toBe(3);
+    const papeis = papeisPara("noticia", 5, true);
+    const umSo = podarMioloSemFoto({ papeis, slides: copy.slides, fotos: [null, FOTO(2), null] });
+    expect(umSo.formato).toBe("carousel");
+
+    const nenhum = podarMioloSemFoto({ papeis, slides: copy.slides, fotos: [null, null, null] });
+    expect(nenhum.formato).toBe("static");
+    expect(nenhum.formato === "static" && nenhum.motivo).toContain("peça única");
+
+    const curta = papeisPara("noticia_curta", 3, true);
+    expect(podarMioloSemFoto({ papeis: curta, slides: copy.slides.slice(0, 1), fotos: [null] }).formato).toBe("static");
+  });
+
+  it("sem resolução de foto nenhuma, a notícia é peça única", () => {
+    const papeis = papeisPara("noticia", 5, true);
+    expect(podarMioloSemFoto({ papeis, slides: copy.slides, fotos: null }).formato).toBe("static");
+  });
+
+  it("o carrossel podado desenha só slides com foto", () => {
+    const papeis = papeisPara("noticia", 5, true);
+    const r = podarMioloSemFoto({ papeis, slides: copy.slides, fotos: [FOTO(1), null, FOTO(3)] });
+    if (r.formato !== "carousel") throw new Error("devia ser carrossel");
+    const { entradas } = entradasDoCarrossel({ ...copy, slides: r.slides }, r.papeis, {
+      eixo: "economia",
+      asset: FOTO(0),
+      motivoSemFoto: "",
+      fotosDoMiolo: r.fotos,
+    });
+    expect(entradas).toHaveLength(4);
+    for (const e of entradas.slice(1, -1)) expect(montarCapaDoPost(e).comFoto).toBe(true);
+  });
+});
+
+describe("a bolha do miolo não cobre rosto (06/10/2026)", () => {
+  const detectado = (rostos: Array<{ x: number; y: number; largura: number; altura: number }>) => async () => ({
+    ok: true as const,
+    rostos,
+    custoUsd: 0.004,
+    tokens: 1400,
+    emCache: false,
+    modelo: "m",
+  });
+
+  it("sem rosto no caminho, a primeira posição do miolo", async () => {
+    const r = await decidirBolhaDoMiolo({ fotoDoSlide: "f", canvas: CANVAS_DO_FEED, detectar: detectado([]) });
+    expect(r.posicao).toBe(POSICOES_DA_BOLHA_DO_MIOLO[0].chave);
+    expect(r.custoUsd).toBeCloseTo(0.004);
+  });
+
+  it("rosto à direita empurra a bolha para a esquerda", async () => {
+    const r = await decidirBolhaDoMiolo({
+      fotoDoSlide: "f",
+      canvas: CANVAS_DO_FEED,
+      detectar: detectado([{ x: 0.6, y: 0.1, largura: 0.3, altura: 0.25 }]),
+    });
+    expect(r.posicao).toBe("miolo_esquerda");
+  });
+
+  it("rosto em toda a metade de cima tira a bolha", async () => {
+    const r = await decidirBolhaDoMiolo({
+      fotoDoSlide: "f",
+      canvas: CANVAS_DO_FEED,
+      detectar: detectado([{ x: 0, y: 0, largura: 1, altura: 0.5 }]),
+    });
+    expect(r.posicao).toBeNull();
+  });
+
+  it("sem detector, ou com a detecção falhando, não há bolha", async () => {
+    expect((await decidirBolhaDoMiolo({ fotoDoSlide: "f", canvas: CANVAS_DO_FEED })).posicao).toBeNull();
+    const falhou = await decidirBolhaDoMiolo({
+      fotoDoSlide: "f",
+      canvas: CANVAS_DO_FEED,
+      detectar: async () => ({ ok: false as const, motivo: "sem chave", custoUsd: 0, tokens: 0 }),
+    });
+    expect(falhou.posicao).toBeNull();
+    expect(falhou.motivo).toContain("sem chave");
+  });
+
+  it("a posição decidida chega ao desenho do miolo, com os rostos para a conferência do render", () => {
+    const papeis = papeisPara("noticia_curta", 3, true);
+    const { entradas } = entradasDoCarrossel(copyDaNoticia(""), papeis, {
+      eixo: "economia",
+      asset: FOTO(0),
+      motivoSemFoto: "",
+      fotosDoMiolo: [FOTO(1)],
+      bolhasDoMiolo: [FOTO(9)],
+      posicoesDasBolhasDoMiolo: ["miolo_esquerda"],
+      rostosDasBolhasDoMiolo: [[{ x: 0.6, y: 0.1, largura: 0.3, altura: 0.25 }]],
+    });
+    const capa = montarCapaDoPost(entradas[1]);
+    expect(capa.slide.inset_position).toBe("miolo_esquerda");
+    expect(entradas[1].rostosDaBolha).toHaveLength(1);
+    const html = SLIDE_VARIANTS.content.miolo_noticia.render(capa.slide, ctx()).body;
+    expect(html).toContain('data-posicao="miolo_esquerda"');
+    expect(html).toContain("left:7%");
+  });
+});
+
+describe("o chapéu da notícia em carrossel (06/10/2026)", () => {
+  it("o mesmo chapéu decidido vai na capa e em todo slide do miolo", () => {
+    const papeis = papeisPara("noticia", 5, true);
+    const { entradas } = entradasDoCarrossel(copyDaNoticia(""), papeis, {
+      eixo: "politica",
+      chapeu: "DATA CENTERS",
+      asset: FOTO(0),
+      motivoSemFoto: "",
+      fotosDoMiolo: [FOTO(1), FOTO(2), FOTO(3)],
+    });
+    expect(montarCapaDoPost(entradas[0]).slide.eyebrow).toBe("DATA CENTERS");
+    for (const e of entradas.slice(1, -1)) expect(e.slidePronto?.eyebrow).toBe("DATA CENTERS");
+  });
+});
+
+describe("o carrossel que não renderiza vira motivo, e não exceção (06/10/2026)", () => {
+  it("o render que lança devolve ok false com o motivo", async () => {
+    const r = await congelarCarrossel({
+      slides: [{ headline: "x", asset: null }],
+      path: "p",
+      renderizar: (async () => {
+        throw new Error("a foto do slide 2 não baixou");
+      }) as never,
+      subir: (async () => "u") as never,
+    });
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.motivo).toContain("não baixou");
+  });
+});
+
+describe("o teto do título do carrossel é o da arte (06/10/2026)", () => {
+  it("manchete de 120 caracteres não vai a reparo no carrossel", () => {
+    const manchete =
+      "Bernie Sanders apresenta projeto que proíbe o governo federal dos EUA de usar leitores automáticos de placas";
+    expect(manchete.length).toBeGreaterThan(95);
+    expect(manchete.length).toBeLessThanOrEqual(130);
+    const problemas = conferirLinguagemDoCarrossel(manchete, copyDaNoticia("").slides, "Legenda curta.");
+    expect(problemas.map((p) => p.motivo)).not.toContain("HEADLINE_TOO_LONG");
+  });
+
+  it("acima de 130 continua indo", () => {
+    const manchete = "Bernie Sanders apresenta projeto que proíbe o governo federal dos EUA de usar leitores automáticos de placas em todas as rodovias do país";
+    expect(manchete.length).toBeGreaterThan(130);
+    const problemas = conferirLinguagemDoCarrossel(manchete, copyDaNoticia("").slides, "Legenda curta.");
+    expect(problemas.map((p) => p.motivo)).toContain("HEADLINE_TOO_LONG");
   });
 });

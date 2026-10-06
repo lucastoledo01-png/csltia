@@ -1,7 +1,7 @@
 import { esc, manterCodigosJuntos, pad2, protegerQuebras, safeImageUrl } from "./util";
 import { overlayBrand } from "./shell";
 import { MARCA } from "@/lib/marca";
-import { POSICAO_PADRAO, estiloDaPosicao, posicaoPorChave } from "./bolha";
+import { POSICAO_PADRAO, POSICOES_DA_BOLHA_DO_MIOLO, estiloDaPosicao, posicaoPorChave } from "./bolha";
 import type {
   InstagramSlide,
   InstagramSlideType,
@@ -182,7 +182,7 @@ const coverNoticiaSemFoto: SlideVariant = {
       onDark: true,
       body: `
 <div class="n-fundo"></div>
-<img class="j-marca" src="${esc(MARCA.logoEscuro)}" alt="" />
+<img class="j-marca" src="${esc(MARCA.logoInstagramEscuro)}" alt="" />
 <div class="n-texto">
   ${editoria ? `<span class="j-chapeu">${esc(editoria)}</span>` : ""}
   <div class="n-manchete lay-texto" data-ajuste="encolher" data-min="40" data-max="104"><span>${protegerQuebras(esc(titulo))}</span></div>
@@ -379,7 +379,7 @@ ${/*
    `data-claro` carrega a versão de tinta escura, e o script de ajuste mede o
    pedaço da foto que fica atrás do logotipo para decidir. Ver escolherMarca, no script de ajuste.
 */ ""}
-<img class="j-marca" src="${esc(MARCA.logoEscuro)}" data-claro="${esc(MARCA.logoClaro)}" alt="" />
+<img class="j-marca" src="${esc(MARCA.logoInstagramEscuro)}" data-claro="${esc(MARCA.logoInstagramClaro)}" alt="" />
 ${opcoes.comBolha && bolha ? bolhaNaPosicao(bolha, slide.inset_position) : ""}
 <div class="j-texto">
   ${chapeu ? `<span class="j-chapeu">${esc(chapeu)}</span>` : ""}
@@ -605,7 +605,7 @@ const ctaNewsletter: SlideVariant = {
       onDark: true,
       body: `
 <div class="j-cta">
-  <img class="j-marca" src="${esc(MARCA.logoEscuro)}" alt="" />
+  <img class="j-marca" src="${esc(MARCA.logoInstagramEscuro)}" alt="" />
   <div class="j-cta-titulo">Receba isso <em>antes</em> de todo mundo.</div>
   <div class="j-cta-linha">${esc(slide.body || ctx.ctaText || "A edição do dia no seu e-mail, todo dia às 6h. De graça.")}</div>
   <span class="j-cta-palavra">Comente ${esc(palavra)}</span>
@@ -629,11 +629,27 @@ const ctaNewsletter: SlideVariant = {
  * foto, e é a mesma pessoa em fotos diferentes quando a história tem um
  * protagonista.
  *
- * Não reusa a função `jornal` de propósito: a bolha da capa está sendo
+ * Não reusa a função `jornal` de propósito: a bolha da capa estava sendo
  * reposicionada em outra frente (feat/bolha-sem-rosto), e um desenho próprio
  * deixa as duas mudanças sem se encostar. A bolha daqui usa a mesma classe de
- * base, `j-bolha`, mais um modificador de tamanho e lugar.
+ * base, `j-bolha`, mais um modificador de tamanho e lugar. Depois da junção
+ * das duas frentes (06/10/2026) ela também desvia de rosto, com posições
+ * próprias do miolo (`POSICOES_DA_BOLHA_DO_MIOLO`).
  */
+/**
+ * A bolha do miolo, na posição decidida pelos rostos da foto do slide
+ * (06/10/2026). A mesma regra da capa: quem decide é o ciclo, contra a tabela
+ * de `bolha.ts`, e o render mede o círculo de novo e o tira se encostar num
+ * rosto. Sem posição decidida, a primeira do miolo.
+ */
+function bolhaDoMiolo(url: string, chave: string | undefined): string {
+  const posicao = posicaoPorChave(chave) ?? POSICOES_DA_BOLHA_DO_MIOLO[0];
+  return (
+    `<div class="j-bolha jn-bolha" data-posicao="${esc(posicao.chave)}" style="${estiloDaPosicao(posicao)}">` +
+    `<img src="${esc(url)}" alt="" /></div>`
+  );
+}
+
 const mioloNoticia: SlideVariant = {
   key: "miolo_noticia",
   label: "Notícia: miolo com foto e blocos de texto",
@@ -653,8 +669,8 @@ const mioloNoticia: SlideVariant = {
 <div class="j-fundo"></div>
 ${foto ? `<div class="j-foto">${photo(foto)}</div>` : ""}
 <div class="jn-grad"></div>
-<img class="j-marca" src="${esc(MARCA.logoEscuro)}" data-claro="${esc(MARCA.logoClaro)}" alt="" />
-${bolha ? `<div class="j-bolha jn-bolha"><img src="${esc(bolha)}" alt="" /></div>` : ""}
+<img class="j-marca" src="${esc(MARCA.logoInstagramEscuro)}" data-claro="${esc(MARCA.logoInstagramClaro)}" alt="" />
+${bolha ? bolhaDoMiolo(bolha, slide.inset_position) : ""}
 <div class="jn-texto">
   ${chapeu ? `<span class="j-chapeu">${esc(chapeu)}</span>` : ""}
   <div class="jn-blocos lay-texto" data-ajuste="encolher" data-max="42" data-min="26">
@@ -692,7 +708,7 @@ const ctaAssinatura: SlideVariant = {
       onDark: true,
       body: `
 <div class="ja-fundo"></div>
-<img class="j-marca" src="${esc(MARCA.logoEscuro)}" alt="" />
+<img class="j-marca" src="${esc(MARCA.logoInstagramEscuro)}" alt="" />
 <div class="ja-celular" aria-hidden="true">
   <div class="ja-tela">
     <div class="ja-topo"><span>Caixa de entrada</span></div>

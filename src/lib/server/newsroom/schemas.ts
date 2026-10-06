@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FORMAS_DO_ASSUNTO } from "./assunto";
 
 export const EditionStorySchema = z.object({
   rank: z.number(),
@@ -30,6 +31,14 @@ export const EditionContentSchema = z.object({
    * `assunto.ts`, depois da validação.
    */
   subject: z.string().min(5).max(70),
+  /*
+   * A forma de cada opção de assunto, na ordem de `subject_options`, e a forma
+   * do assunto escolhido (06/10/2026). Opcionais e sem `.default()`, de
+   * propósito: quem constrói uma edição sem passar pela redação (refação,
+   * scripts, testes) não precisa conhecê-las. Ver o rodízio em `assunto.ts`.
+   */
+  subject_option_forms: z.array(z.string().nullable()).optional(),
+  subject_form: z.enum(FORMAS_DO_ASSUNTO).nullable().optional(),
   preheader: z.string().min(30).max(120),
   headline: z.string().min(10),
   intro: z.string().min(40).max(800),

@@ -4,7 +4,13 @@ import { DeduplicatedGroup } from "./deduplicator";
 import { RankedCandidate } from "./ranker";
 import { EditionContent, EditionContentSchema, QAResult, QAResultSchema } from "./schemas";
 import { limparVicios } from "./anti-vicios";
-import { aplicarFormaDoAssunto } from "./assunto";
+import {
+  DESCRICAO_DA_FORMA,
+  aplicarFormaDoAssunto,
+  ordemDasFormas,
+  separarFormasDasOpcoes,
+  type FormaDoAssunto,
+} from "./assunto";
 import type { ClaimNaoSustentada, PacoteFactual } from "../editorial/pacote-factual";
 import { validarAncoragem } from "../editorial/pacote-factual";
 import type { ResultadoDeClaims } from "../editorial/claims-semanticas";
@@ -112,6 +118,13 @@ export type OpcoesDoPortao = {
    * passa isto passa também `notaMinimaDeQA = 0`.
    */
   notaDeAviso?: number;
+  /**
+   * As formas do assunto das edições anteriores, da mais nova para a mais
+   * antiga (06/10/2026). Com elas, o assunto passa pelo rodízio das cinco
+   * formas: o pedido diz a forma da vez e o código escolhe a opção dela.
+   * Ausente (refação, scripts), a escolha é a de antes.
+   */
+  formasRecentesDoAssunto?: ReadonlyArray<FormaDoAssunto | null>;
 };
 
 /**
@@ -322,6 +335,28 @@ Teste antes de escolher: a frase seria mandada assim, de verdade, num grupo de W
 
 O PREHEADER continua sendo nosso, e não o do The News: uma linha editorial que completa o assunto com o fato seguinte (quem, quanto, quando), sem propaganda e sem repetir o assunto.`;
 
+/**
+ * O pedido do rodízio das formas do assunto, no prompt da edição (06/10/2026).
+ *
+ * Fica no PEDIDO, e não na instrução editável do painel, porque é contrato de
+ * saída (RF-26): quantas opções e em que forma. A instrução aprovada continua
+ * dizendo o que cada forma é. Sem histórico pedido, não há rodízio e o pedido
+ * fica vazio.
+ */
+export function pedidoDoRodizio(recentes: ReadonlyArray<FormaDoAssunto | null> | undefined): string {
+  if (!recentes) return "";
+  const ordem = ordemDasFormas(recentes);
+  const vez = ordem[0];
+  return `ASSUNTO DESTA EDIÇÃO, no rodízio das cinco formas:
+- A forma da vez é "${vez}" (${DESCRICAO_DA_FORMA[vez]}). Escreva DUAS opções nessa forma.
+- As outras três opções vão em formas diferentes, nesta ordem de preferência: ${ordem
+    .slice(1, 4)
+    .map((f) => `"${f}"`)
+    .join(", ")}.
+- Marque cada opção com a forma dela em "forma". O código escolhe a primeira opção da forma da vez que cumpre a regra; a verdade continua vindo antes da forma: se a história não permite a forma da vez sem inventar, escreva as duas opções dela assim mesmo dentro da verdade, ou deixe que as outras formas resolvam.
+`;
+}
+
 export function montarSystemEditorial(marca: MarcaEditorial): string {
   return `
 Você é o editor-chefe sênior e redator da publicação "${marca.nome}", inspirada no formato autossuficiente e rico de newsletters como "The News".
@@ -341,7 +376,7 @@ ${instrucaoVigente("newsletter_assunto", INSTRUCAO_PADRAO_ASSUNTO)}
 ESTRUTURA DO JSON DE SAÍDA (retorne exclusivamente este JSON estrito):
 {
   "subject_options": [
-    "3 a 5 opções de assunto seguindo a regra ASSUNTO DO E-MAIL acima, cada uma numa das cinco formas, todas sobre a mesma história"
+    { "forma": "pergunta | nomes | personagem | cena | momento", "texto": "uma opção de assunto seguindo a regra ASSUNTO DO E-MAIL acima, na forma marcada. Escreva 5 opções, todas sobre a mesma história; quantas em cada forma está no pedido da edição" }
   ],
   "subject": "A opção mais forte entre as subject_options: caixa baixa, de 2 a 7 palavras, até 40 caracteres, sem ponto final",
   "preheader": "De 60 a 110 caracteres. NÃO é resumo do headline: é a informação seguinte, a que mais interessa a quem vai decidir se lê. Quem é afetado, o prazo, o número. Se ela repetir o headline com outras palavras, está errada.",
@@ -494,6 +529,7 @@ CONCLUSÃO TAMBÉM É FATO:
 - Errado também: "A medida foi aprovada e segue para sanção. A fonte não informa o que muda para o consumidor." (a segunda frase fala da reportagem, e não do fato)
 - Transição, ordem das ideias e tom são seus. Fato e consequência, não.
 
+${pedidoDoRodizio(opcoesDoPortao.formasRecentesDoAssunto)}
 Requisitos obrigatórios:
 - Gere exatamente ${topRanked.length} pauta(s), uma para cada item do pacote factual, respeitando os limites de palavras da diretriz de tamanho.
 - Traga 2 a 3 itens rápidos em "quick_bits", de uma linha cada.
@@ -523,9 +559,15 @@ Requisitos obrigatórios:
    * o JSON inteiro e pode devolver o assunto fora da forma.
    */
   const comFormaDoAssunto = (edicao: EditionContent): EditionContent => {
-    const r = aplicarFormaDoAssunto(edicao);
+    const r = aplicarFormaDoAssunto(edicao, opcoesDoPortao.formasRecentesDoAssunto);
     if (r.mudou) console.log(`[NEWSROOM] assunto ajustado à forma: "${r.antes}" -> "${r.edicao.subject}"`);
     if (r.problemas.length) console.warn(`[NEWSROOM] assunto fora da forma: ${r.problemas.join(", ")}`);
+    if (r.formaDaVez) {
+      console.log(
+        `[NEWSROOM] forma do assunto: ${r.forma ?? "sem forma"} (a vez era ${r.formaDaVez}` +
+          `${r.forma === r.formaDaVez ? "" : ", caiu para a seguinte"})`,
+      );
+    }
     return r.edicao;
   };
 
@@ -549,10 +591,10 @@ Requisitos obrigatórios:
       // Antes da validação: o travessão é removido em toda string da edição.
       // O prompt já pede; isto garante. Uma edição bem escrita perde
       // credibilidade numa única frase que abre com traço longo.
-      return comFormaDoAssunto(EditionContentSchema.parse(limparVicios(resposta.data)));
+      return comFormaDoAssunto(EditionContentSchema.parse(separarFormasDasOpcoes(limparVicios(resposta.data))));
     } catch {
       console.warn("[NEWSROOM QA] Ajustando formato do JSON...");
-      const bruto = limparVicios(resposta.data) as Record<string, unknown>;
+      const bruto = separarFormasDasOpcoes(limparVicios(resposta.data)) as Record<string, unknown>;
       bruto.final_line = marca.assinatura;
       return comFormaDoAssunto(EditionContentSchema.parse(bruto));
     }

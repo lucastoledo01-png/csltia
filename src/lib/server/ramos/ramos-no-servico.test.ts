@@ -18,7 +18,8 @@ const servico = fs.readFileSync(path.join(RAIZ, "src/lib/server/newsroom/newsroo
 describe("os ramos no ciclo do dia", () => {
   it("o piso de QA só sai do portão com os ramos no comando", () => {
     expect(servico).toContain("ramosNoComando ? 0 : configEditorial.notaMinimaDeQA,");
-    expect(servico).toContain("ramosNoComando ? { notaDeAviso: configEditorial.notaMinimaDeQA } : {},");
+    // Desde 06/10/2026 o objeto leva também as formas do assunto, para o rodízio.
+    expect(servico).toContain("...(ramosNoComando ? { notaDeAviso: configEditorial.notaMinimaDeQA } : {}),");
   });
 
   it("o portal só deixa de regravar o e-mail com os ramos no comando", () => {
