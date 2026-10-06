@@ -1438,6 +1438,33 @@ versão, e ela passa pelo otimizador (8 KB em WebP).
 **Lição.** Alternar imagem por breakpoint com classe baixa as duas. Para
 escolher imagem pela tela, `<picture>`.
 
+### "O Telegram está configurado e não chega nada" (06/10/2026)
+
+**Medido.** O `.env` local tinha `TELEGRAM_BOT_TOKEN` e `TELEGRAM_CHAT_ID`
+declarados duas vezes. Os dois pares eram idênticos byte a byte, o bot
+respondeu ao `getMe`, enxergou o chat privado do dono no `getChat`, e a
+mensagem de teste chegou. O defeito não está no repositório: o valor que vale
+é o do EasyPanel, que esta sessão não alcança.
+
+**O que impedia responder.** A falha do envio só ia para `console.error`
+dentro do contêiner. A rota `/api/admin/alerts/diagnostico` existe, mas pede o
+segredo do cron de produção, que é diferente do `.env` local.
+
+**Corrigido.** Toda falha de alerta grava `platform_events` do tipo
+`alerta_falhou`, com o motivo (`sem_token`, `sem_chat_id`, `telegram_recusou`,
+`erro_de_rede`) e a descrição do Telegram. A próxima pergunta "chegou?" é uma
+consulta.
+
+**O suspeito que continua aberto.** A produção das 17:00 e o ciclo das 06:03
+alertam de dentro de uma promise solta depois da resposta 202. A própria rota
+de diagnóstico tem o modo `?desanexado=1` porque essa forma nunca foi provada.
+Se `alerta_falhou` aparecer com `erro_de_rede` só nesses caminhos, a causa é
+essa, e o remédio é `after()`.
+
+**Lição.** Variável duplicada no `.env` vale a última, em silêncio. E
+"configurado" só quer dizer alguma coisa quando o teste roda no MESMO ambiente
+que o cron.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

@@ -76,6 +76,41 @@ export type ResultadoDoAlerta = {
   ms: number;
 };
 
+/** O `event_type` da falha de alerta em `platform_events`. */
+export const EVENTO_DE_ALERTA_FALHO = "alerta_falhou";
+
+/**
+ * A falha do alerta vai para o banco, não só para o log (06/10/2026).
+ *
+ * O dono dizia "o Telegram está configurado e não chega nada", e a única
+ * evidência possível era o `console.error` acima, dentro de um contêiner que o
+ * usuário `deploy` não lê. Com a linha em `platform_events`, a pergunta "o
+ * alerta das 17:22 saiu?" vira uma consulta: `event_type = alerta_falhou`.
+ *
+ * Só grava com o Supabase no MESMO ambiente que foi passado (o teste passa um
+ * ambiente sem ele, e não toca rede). Import dinâmico para este módulo seguir
+ * leve. Nunca lança: o alerta falhou, e a gravação da falha falhar também não
+ * pode derrubar o cron que chamou.
+ */
+async function gravarFalhaDoAlerta(
+  registro: Record<string, unknown>,
+  env: Record<string, string | undefined>,
+): Promise<void> {
+  if (!env.NEXT_PUBLIC_SUPABASE_URL?.trim() || !env.SUPABASE_SERVICE_ROLE_KEY?.trim()) return;
+  try {
+    const [{ getSupabaseAdminClient }, { DEFAULT_PROJECT_ID }] = await Promise.all([
+      import("./supabase-admin"),
+      import("./projects"),
+    ]);
+    const { error } = await getSupabaseAdminClient()
+      .from("platform_events")
+      .insert({ event_type: EVENTO_DE_ALERTA_FALHO, project_id: DEFAULT_PROJECT_ID, payload: registro });
+    if (error) console.error(`[ALERT FALHOU] a falha nem foi gravada: ${error.message}`);
+  } catch (err) {
+    console.error(`[ALERT FALHOU] a falha nem foi gravada: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 /**
  * Manda um alerta pro Telegram e devolve o desfecho detalhado.
  *
@@ -93,29 +128,29 @@ export async function enviarAlerta(
   const token = optionalEnv("TELEGRAM_BOT_TOKEN", env);
   const chatId = optionalEnv("TELEGRAM_CHAT_ID", env);
 
-  const registrar = (r: ResultadoDoAlerta): ResultadoDoAlerta => {
+  const registrar = async (r: ResultadoDoAlerta): Promise<ResultadoDoAlerta> => {
     if (!r.enviado) {
+      const registro = {
+        alertType: title,
+        level,
+        motivo: r.motivo,
+        status: r.status,
+        descricao: r.descricao,
+        tamanhoDoTexto: r.tamanhoDoTexto,
+        ms: r.ms,
+        temToken: Boolean(token),
+        temChatId: Boolean(chatId),
+      };
       // Linha única, estruturada, sem segredo: é o que permite descobrir um
       // canal quebrado sem entrar no contêiner.
-      console.error(
-        `[ALERT FALHOU] ${JSON.stringify({
-          alertType: title,
-          level,
-          motivo: r.motivo,
-          status: r.status,
-          descricao: r.descricao,
-          tamanhoDoTexto: r.tamanhoDoTexto,
-          ms: r.ms,
-          temToken: Boolean(token),
-          temChatId: Boolean(chatId),
-        })}`,
-      );
+      console.error(`[ALERT FALHOU] ${JSON.stringify(registro)}`);
+      await gravarFalhaDoAlerta(registro, env);
     }
     return r;
   };
 
   if (!token) {
-    return registrar({
+    return await registrar({
       enviado: false,
       motivo: "sem_token",
       status: null,
@@ -126,7 +161,7 @@ export async function enviarAlerta(
   }
 
   if (!chatId) {
-    return registrar({
+    return await registrar({
       enviado: false,
       motivo: "sem_chat_id",
       status: null,
@@ -157,7 +192,7 @@ export async function enviarAlerta(
       } catch {
         // Corpo não-JSON: fica o texto cru, já cortado.
       }
-      return registrar({
+      return await registrar({
         enviado: false,
         motivo: "telegram_recusou",
         status: res.status,
@@ -176,7 +211,7 @@ export async function enviarAlerta(
       ms: Date.now() - inicio,
     };
   } catch (err) {
-    return registrar({
+    return await registrar({
       enviado: false,
       motivo: "erro_de_rede",
       status: null,

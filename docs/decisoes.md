@@ -1395,6 +1395,44 @@ funcionando até ser trocada; o painel avisa quando o horário gravado não bate
 com ela. O portal tem o mesmo aviso para `/api/cron/portal`, que já é segura de
 chamar a qualquer hora.
 
+## Os avisos de operação no Telegram (06/10/2026)
+
+Com a fila de aprovação, a rotina do dono passou a ter horário, e o Telegram
+deixou de falar só quando algo quebra. O código está em
+`src/lib/server/avisos/`, e passa pelo mesmo `alerts.ts` dos alertas de falha.
+
+| aviso | quando (hora do projeto) | condição |
+|---|---|---|
+| fila pronta | fim da produção das 17:00; rede no cron a partir das 17:30 | fila fora de `off`, produção com linha, fila do alvo não vazia |
+| lembrete | 22:00 a 23:59 | fila fora de `off`, peça de amanhã aguardando ou refazendo |
+| última chamada | 05:30 a 06:06 | fila fora de `off`, peça de hoje pendente |
+| resumo do dia | 22:30 a 23:59 | sempre |
+| produção vazia | fim da produção | rodou e a redação não produziu, ou produziu e nada entrou na fila (fora do ensaio) |
+| produção não rodou | 18:30 a 21:59 | dia de produção sem linha em `newsroom_runs` |
+| newsletter atrasada | 06:15 a 11:59 | fila em `enforce`, newsletter aprovada e não liberada |
+
+**Um aviso por chave `tipo:dia`, gravado em `platform_events`**
+(`aviso_operacional`). O cron de minuto em minuto pergunta antes de mandar. Envio
+que falha é gravado com o motivo do Telegram e tentado de novo no minuto
+seguinte, até três vezes; depois desiste, e as três linhas dizem por quê.
+
+**A janela, e não o minuto.** O aviso sai no primeiro minuto dentro da janela,
+então um cron atrasado não perde o dia. E o fuso é sempre o do projeto: o
+contêiner está em UTC, onde 22:00 de São Paulo já é o dia seguinte.
+
+**Nenhum aviso mente.** Com a fila em `dry_run` nada é segurado, então a última
+chamada diz "sai mesmo assim" em vez de "não sai". E ela dá o primeiro horário
+de cada canal, porque o post das 14:45 ainda tem a manhã para ser aprovado.
+
+**Rota própria, `/api/cron/avisos`.** O cron da fila pula projeto fora de
+`enforce` antes de ler qualquer coisa, e o resumo vale com a fila desligada; e
+uma falha aqui não pode atrasar a liberação das 06:07. A rota não alerta a
+própria falha, porque com o banco fora seria um alerta crítico por minuto.
+
+**A falha de QUALQUER alerta vai para o banco**, `platform_events` do tipo
+`alerta_falhou`, com o motivo e a descrição do Telegram e sem segredo. Antes
+ela só existia no log do contêiner.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.
