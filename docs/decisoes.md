@@ -2082,7 +2082,7 @@ arrastar o contexto das instruções).
 | 5. Notícia ruim dos EUA e imigração continuam fora | Inalterado em `decidirPauta`, e as duas recusas vêm ANTES da abertura eleitoral e da citação: nenhum modo as abre |
 | 6. Limiar de 0.65 para contar veículos no calor | `LIMIAR_DE_VEICULOS_DO_CALOR` em `calor.ts` (ambiente `CALOR_LIMIAR_VEICULOS`). Só a contagem de veículos do calor; o agrupamento do dia (0.70) e a repetição histórica (0.85) não mudaram |
 | 7. Publicar a notícia quente no mesmo dia | Ciclo da tarde, só do Instagram (`social/quente-da-tarde.ts`, rota `/api/cron/quente-da-tarde`), atrás da capacidade própria `quente_da_tarde` |
-| 8. Desligar as buscas fixas do Google News | SQL, ver abaixo |
+| 8. Buscas do Google News | mantidas ligadas, por decisão do dono |
 | 9. Ligar as fontes quentes dos grupos 1 e 2 | SQL, ver abaixo |
 
 **A abertura eleitoral é TEMPORÁRIA.** Para fechar depois do segundo turno, o
@@ -2131,8 +2131,9 @@ entrar antes de a capacidade ser ligada.
 uma transação, idempotente: política brasileira em `eleicao`, `calor` e
 `quente_da_tarde` em `dry_run` (com a configuração da tarde explícita), as 27
 fontes quentes inseridas com os grupos 1 e 2 ligados (as 14 responderam HTTP
-200 com XML em 06/10/2026), e as 7 buscas fixas do Google News desligadas, com
-uma conferência no fim. Depois de uns dias lendo `calor_da_selecao` e
+200 com XML em 06/10/2026), com uma conferência no fim. As buscas do Google
+News, fixas e de tendência, continuam ligadas por decisão do dono (06/10/2026),
+apesar da medição abaixo. Depois de uns dias lendo `calor_da_selecao` e
 `quente_da_tarde`, `enforce`.
 
 **As buscas de tendência do Google News não dão para medir em separado.** A
@@ -2140,8 +2141,8 @@ candidata não grava de que busca veio (`source_key` nulo nas 3.857 da semana).
 O que se mede: 1.734 candidatas do Google News em 7 dias, fixas e de tendência
 juntas, nenhuma aprovada, e as 361 que passaram da linha morreram em poucos
 fatos ou fonte não resolvida, porque o link do agregador não chega à matéria.
-A recomendação é desligar as de tendência também (`EDITORIAL_BUSCA_DINAMICA=off`
-no serviço web, o que desliga junto as de calendário), e decisão do dono.
+A recomendação era desligar as fixas e as de tendência; o dono decidiu manter
+as duas (06/10/2026).
 
 **Ensaio sem gravar, 48 horas de candidatas** (`npx tsx
 src/scripts/ensaiar-linha-quente.ts`): 555 candidatas fora do Google News,

@@ -14,9 +14,7 @@
 --      entram desligadas, como estavam no arquivo de origem. Cada uma das 14
 --      respondeu HTTP 200 com XML em 06/10/2026 com o agente honesto
 --      (eua.journal/1.0); Business Insider é Atom, que o coletor lê.
---   3. Desliga as buscas FIXAS do Google News: 1.734 candidatas em 7 dias,
---      nenhuma aprovada. As buscas de tendência não estão nesta tabela (são
---      montadas na hora por editorial/busca-dinamica.ts); ver o fim do arquivo.
+--   3. Mantém ligadas as buscas do Google News (decisão do dono).
 --
 -- Ordem recomendada depois de rodar: ler por uns dias os eventos
 -- `calor_da_selecao` e `quente_da_tarde` em platform_events; só então trocar
@@ -117,14 +115,8 @@ where project_id = '00000000-0000-4000-8000-000000000001'
   )
   and not enabled;
 
--- 3. As buscas fixas do Google News ----------------------------------------------
-
--- Desligar, não apagar (regra da casa). Eram 7 ativas em 06/10/2026.
-update public.project_news_sources
-set enabled = false, updated_at = now()
-where project_id = '00000000-0000-4000-8000-000000000001'
-  and url like 'https://news.google.com/%'
-  and enabled;
+-- 3. As buscas do Google News continuam LIGADAS, por decisão do dono
+-- (06/10/2026): nem as fixas desta tabela nem as de tendência são desligadas.
 
 commit;
 
@@ -148,7 +140,7 @@ select
        )) as quentes_ligadas
 from public.projects p
 where p.id = '00000000-0000-4000-8000-000000000001';
--- Esperado: eleicao | dry_run | dry_run | {"horario": "15:30", ...} | 57 (50 - 7 + 14) | 0 | as 14 chaves.
+-- Esperado: eleicao | dry_run | dry_run | {"horario": "15:30", ...} | 64 (50 + 14) | 7 | as 14 chaves.
 
 -- As buscas de TENDÊNCIA do Google News (busca-dinamica.ts) não estão nesta
 -- tabela, e a candidata não grava de que busca veio (source_key é nulo nas
