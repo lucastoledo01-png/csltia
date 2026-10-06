@@ -447,6 +447,113 @@ describe("G. newsletter e social compartilham a classificação", () => {
   });
 });
 
+// ---------------------------------------------------------------- L
+describe("L. o feed não repete o que ele mesmo levou (06/10/2026)", () => {
+  /*
+   * O caso real: o pool chegava filtrado pelo histórico da NEWSLETTER, e a
+   * mesma candidata voltava ao feed no dia seguinte. Aqui a pauta "s-1" já
+   * saiu no feed ontem, e o pool de hoje a traz de novo junto de uma nova.
+   */
+  const ontem = {
+    id: "post-ontem",
+    platform: "instagram",
+    edition_date: "2026-09-05",
+    title: "Prazo de análise do I-765 cai pela metade",
+    status: "published",
+    published_at: "2026-09-05T14:00:00Z",
+    story_id: "s-1",
+    candidate_id: "cand-1",
+    news_candidates: { url: "https://uscis.gov/s-1", title: "USCIS muda prazo" },
+  };
+  const env = { SOCIAL_PIPELINE_V2: "dry_run" };
+
+  it("a pauta que o feed já levou não chega ao verificador, e o motivo vai ao diagnóstico", async () => {
+    confirmadasFalsas.push(pauta("s-2", "USCIS abre consulta"));
+    const { registrosDoFeed } = await import("./historico-do-feed");
+
+    const r = await rodarSocialDoDia(
+      [pauta("s-1", "USCIS muda prazo"), pauta("s-2", "USCIS abre consulta")] as never,
+      opcoes(env, { historicoDoFeed: registrosDoFeed([ontem], "proj-1") }),
+    );
+
+    const [poolVerificado] = chamouVerificador.mock.calls[0] as [Array<{ storyId: string }>];
+    expect(poolVerificado.map((p) => p.storyId)).toEqual(["s-2"]);
+    expect(r.diagnostico.candidates).toBe(2);
+    expect(r.diagnostico.skippedReasons.ALREADY_ON_INSTAGRAM).toBe(1);
+  });
+
+  it("sem histórico injetado, o ciclo lê o feed de social_posts e aplica a mesma régua", async () => {
+    confirmadasFalsas.push(pauta("s-2", "USCIS abre consulta"));
+    const tabelas: string[] = [];
+    const client = {
+      from: (tabela: string) => {
+        tabelas.push(tabela);
+        const linhas = tabela === "social_posts" ? [ontem] : [];
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({ gte: async () => ({ data: [], error: null }) }),
+              gte: async () => ({ data: linhas, error: null }),
+            }),
+          }),
+        };
+      },
+    };
+
+    await rodarSocialDoDia(
+      [pauta("s-1", "USCIS muda prazo"), pauta("s-2", "USCIS abre consulta")] as never,
+      opcoes(env, { client }),
+    );
+
+    expect(tabelas).toContain("social_posts");
+    const [poolVerificado] = chamouVerificador.mock.calls[0] as [Array<{ storyId: string }>];
+    expect(poolVerificado.map((p) => p.storyId)).toEqual(["s-2"]);
+  });
+
+  it("o post de hoje não conta: a reexecução do dia mantém as pautas que já agendou", async () => {
+    confirmadasFalsas.push(pauta("s-1", "USCIS muda prazo"));
+    const { registrosDoFeed } = await import("./historico-do-feed");
+    const deHoje = registrosDoFeed([{ ...ontem, edition_date: "2026-09-06" }], "proj-1", { excetoData: "2026-09-06" });
+
+    await rodarSocialDoDia([pauta("s-1", "USCIS muda prazo")] as never, opcoes(env, { historicoDoFeed: deHoje }));
+
+    const [poolVerificado] = chamouVerificador.mock.calls[0] as [Array<{ storyId: string }>];
+    expect(poolVerificado.map((p) => p.storyId)).toEqual(["s-1"]);
+  });
+
+  it("feed ilegível: nenhuma notícia sai, e o motivo fica no diagnóstico", async () => {
+    const client = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({ gte: async () => ({ data: [], error: null }) }),
+            gte: async () => ({ data: null, error: { message: "Gateway Timeout" } }),
+          }),
+        }),
+      }),
+    };
+
+    const r = await rodarSocialDoDia([pauta("s-1", "USCIS muda prazo")] as never, opcoes(env, { client }));
+
+    expect(chamouVerificador).not.toHaveBeenCalled();
+    expect(r.diagnostico.skippedReasons.INSTAGRAM_HISTORY_UNREADABLE).toBe(1);
+    expect(r.diagnostico.errors.join(" ")).toMatch(/feed do Instagram ilegível/);
+  }, 20_000);
+
+  it("os outros caminhos do Instagram perguntam ao feed: troca de pauta da fila e agendador legado", () => {
+    const mundo = fs.readFileSync(path.join(__dirname, "..", "aprovacao", "mundo-da-refacao.ts"), "utf-8");
+    const trechoDoHistorico = mundo.slice(mundo.indexOf("historico: async"), mundo.indexOf("config: () =>"));
+    expect(trechoDoHistorico).toContain("lerHistoricoDoFeed");
+    expect(trechoDoHistorico).toContain("comHistoricoDoFeed");
+
+    const redacao = fs.readFileSync(path.join(__dirname, "..", "newsroom", "newsroom-service.ts"), "utf-8");
+    const antesDoLegado = redacao.slice(redacao.indexOf("if (!dryRun && !legadoCede)"), redacao.indexOf("scheduleEditionPosts({"));
+    expect(antesDoLegado).toContain("foraDoFeedDaEdicao");
+    const chamada = redacao.slice(redacao.indexOf("scheduleEditionPosts({"), redacao.indexOf("scheduleEditionPosts({") + 300);
+    expect(chamada).toContain("stories: daEdicao.historias");
+  });
+});
+
 // ---------------------------------------------------------------- D, E, H, I
 describe("a integração no newsroom, lida do fonte", () => {
   /*

@@ -145,12 +145,19 @@ export function consultaDeBusca(aplicacao: string, conceito = ""): string {
   return [...new Set(palavras)].slice(0, 5).join(" ");
 }
 
-async function buscarNoPexels(
-  consulta: string,
-  { env = process.env, fetcher = fetch, evitar }: Opts,
-): Promise<FotoDeBanco | null> {
+/**
+ * Uma busca no Pexels, várias fotos da resposta (06/10/2026).
+ *
+ * A busca sempre pediu 15 resultados e devolvia UM. Quem queria três fazia três
+ * chamadas com a mesma consulta, e cada uma baixava os mesmos 15 para ficar com
+ * o seguinte da lista. Além de triplicar o custo, isso é rajada: o Pexels
+ * responde 429 a duas buscas no mesmo segundo, e uma rajada recusada vira, para
+ * o resolvedor, "não há foto". Agora uma chamada devolve quantas a resposta
+ * tiver, até `quantas`, puladas as que já saíram.
+ */
+async function listarNoPexels(consulta: string, quantas: number, { env = process.env, fetcher = fetch, evitar }: Opts): Promise<FotoDeBanco[]> {
   const chave = env.PEXELS_API_KEY?.trim();
-  if (!chave) return null;
+  if (!chave || quantas < 1) return [];
 
   const jaSaiu = new Set([...(evitar ?? [])].map((x) => identidadeDaFoto(x)).filter(Boolean));
 
@@ -165,48 +172,64 @@ async function buscarNoPexels(
     });
     if (!res.ok) {
       console.warn(`[BANCO] Pexels respondeu ${res.status}`);
-      return null;
+      return [];
     }
 
     const json = await res.json();
     /*
-     * A primeira que ainda não saiu, e não simplesmente a primeira.
+     * As primeiras que ainda não saíram, e não simplesmente as primeiras.
      *
      * A busca é determinística: mesma consulta devolve a mesma lista na mesma
      * ordem. Com `per_page=1` e sem memória, dois assuntos parecidos no mesmo
      * mês recebiam literalmente a mesma foto, e foi o que aconteceu entre 13 e
      * 15/09/2026, quatro posts com a mesma imagem.
      */
-    const candidatas: unknown[] = Array.isArray(json?.photos) ? json.photos : [];
-    const foto = candidatas.find((c) => {
-      const src = (c as { src?: { large2x?: unknown } })?.src?.large2x;
-      return typeof src === "string" && src && !jaSaiu.has(identidadeDaFoto(src));
-    }) as { src?: { large2x?: string }; photographer?: string; photographer_url?: string; url?: string } | undefined;
-    if (!foto?.src?.large2x) return null;
-
-    return {
-      imagemUrl: String(foto.src.large2x),
-      credito: {
-        provedor: "pexels",
-        fotografo: String(foto.photographer ?? "desconhecido"),
-        fotografoUrl: String(foto.photographer_url ?? ""),
-        fotoUrl: String(foto.url ?? ""),
-        // A licença do Pexels não pede crédito, e a decisão é não creditar.
-        atribuicao: null,
-      },
-    };
+    const candidatas = (Array.isArray(json?.photos) ? json.photos : []) as Array<{
+      src?: { large2x?: string };
+      photographer?: string;
+      photographer_url?: string;
+      url?: string;
+    }>;
+    const vistas = new Set<string>();
+    const fotos: FotoDeBanco[] = [];
+    for (const foto of candidatas) {
+      const src = foto?.src?.large2x;
+      if (typeof src !== "string" || !src) continue;
+      const id = identidadeDaFoto(src);
+      if (jaSaiu.has(id) || vistas.has(id)) continue;
+      vistas.add(id);
+      fotos.push({
+        imagemUrl: String(src),
+        credito: {
+          provedor: "pexels",
+          fotografo: String(foto.photographer ?? "desconhecido"),
+          fotografoUrl: String(foto.photographer_url ?? ""),
+          fotoUrl: String(foto.url ?? ""),
+          // A licença do Pexels não pede crédito, e a decisão é não creditar.
+          atribuicao: null,
+        },
+      });
+      if (fotos.length >= quantas) break;
+    }
+    return fotos;
   } catch (err) {
     console.warn("[BANCO] Exceção no Pexels:", err);
-    return null;
+    return [];
   }
 }
 
-async function buscarNoUnsplash(
+async function buscarNoPexels(consulta: string, opts: Opts): Promise<FotoDeBanco | null> {
+  return (await listarNoPexels(consulta, 1, opts))[0] ?? null;
+}
+
+/** Uma busca no Unsplash, várias fotos da resposta. Mesma regra do Pexels. */
+async function listarNoUnsplash(
   consulta: string,
+  quantas: number,
   { env = process.env, fetcher = fetch, evitar }: Opts,
-): Promise<FotoDeBanco | null> {
+): Promise<FotoDeBanco[]> {
   const chave = env.UNSPLASH_ACCESS_KEY?.trim();
-  if (!chave) return null;
+  if (!chave || quantas < 1) return [];
 
   const jaSaiu = new Set([...(evitar ?? [])].map((x) => identidadeDaFoto(x)).filter(Boolean));
 
@@ -221,54 +244,60 @@ async function buscarNoUnsplash(
     });
     if (!res.ok) {
       console.warn(`[BANCO] Unsplash respondeu ${res.status}`);
-      return null;
+      return [];
     }
 
     const json = await res.json();
-    /* Mesma regra do Pexels: a primeira que ainda não saiu. */
-    const candidatas: unknown[] = Array.isArray(json?.results) ? json.results : [];
-    const foto = candidatas.find((c) => {
-      const src = (c as { urls?: { regular?: unknown } })?.urls?.regular;
-      return typeof src === "string" && src && !jaSaiu.has(identidadeDaFoto(src));
-    }) as
-      | {
-          urls?: { regular?: string };
-          links?: { download_location?: string; html?: string };
-          user?: { name?: string; links?: { html?: string } };
-        }
-      | undefined;
-    if (!foto?.urls?.regular) return null;
-
-    // Exigido pelas API Guidelines: avisar que a foto foi usada. Não bloqueia
-    // o uso se falhar, mas fica registrado — é termo de uso, não telemetria.
-    const downloadLocation = foto?.links?.download_location;
-    if (downloadLocation) {
-      void Promise.resolve(
-        fetcher(String(downloadLocation), {
-          headers: { Authorization: `Client-ID ${chave}` },
-          signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
-        }),
-      ).catch(() => console.warn("[BANCO] Não consegui registrar o download no Unsplash."));
-    }
-
+    const candidatas = (Array.isArray(json?.results) ? json.results : []) as Array<{
+      urls?: { regular?: string };
+      links?: { download_location?: string; html?: string };
+      user?: { name?: string; links?: { html?: string } };
+    }>;
     const utm = utmDoUnsplash(env);
-    const fotografo = String(foto.user?.name ?? "desconhecido");
-    const perfil = String(foto.user?.links?.html ?? "");
+    const vistas = new Set<string>();
+    const fotos: FotoDeBanco[] = [];
+    for (const foto of candidatas) {
+      const src = foto?.urls?.regular;
+      if (typeof src !== "string" || !src) continue;
+      const id = identidadeDaFoto(src);
+      if (jaSaiu.has(id) || vistas.has(id)) continue;
+      vistas.add(id);
 
-    return {
-      imagemUrl: String(foto.urls.regular),
-      credito: {
-        provedor: "unsplash",
-        fotografo,
-        fotografoUrl: perfil ? `${perfil}${utm}` : "",
-        fotoUrl: String(foto.links?.html ?? ""),
-        atribuicao: `Foto de ${fotografo} no Unsplash`,
-      },
-    };
+      // Exigido pelas API Guidelines: avisar que a foto foi usada. Não bloqueia
+      // o uso se falhar, mas fica registrado: é termo de uso, não telemetria.
+      const downloadLocation = foto?.links?.download_location;
+      if (downloadLocation) {
+        void Promise.resolve(
+          fetcher(String(downloadLocation), {
+            headers: { Authorization: `Client-ID ${chave}` },
+            signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
+          }),
+        ).catch(() => console.warn("[BANCO] Não consegui registrar o download no Unsplash."));
+      }
+
+      const fotografo = String(foto.user?.name ?? "desconhecido");
+      const perfil = String(foto.user?.links?.html ?? "");
+      fotos.push({
+        imagemUrl: String(src),
+        credito: {
+          provedor: "unsplash",
+          fotografo,
+          fotografoUrl: perfil ? `${perfil}${utm}` : "",
+          fotoUrl: String(foto.links?.html ?? ""),
+          atribuicao: `Foto de ${fotografo} no Unsplash`,
+        },
+      });
+      if (fotos.length >= quantas) break;
+    }
+    return fotos;
   } catch (err) {
     console.warn("[BANCO] Exceção no Unsplash:", err);
-    return null;
+    return [];
   }
+}
+
+async function buscarNoUnsplash(consulta: string, opts: Opts): Promise<FotoDeBanco | null> {
+  return (await listarNoUnsplash(consulta, 1, opts))[0] ?? null;
 }
 
 /**
@@ -375,9 +404,9 @@ export async function buscarFotoDeBanco(
  * pela regra de não ter texto na imagem, e a peça saiu com bandeira. A foto
  * seguinte da mesma busca era uma rua residencial sem placa nenhuma.
  *
- * Reusa `buscarFotoDeBanco` acrescentando cada escolhida ao conjunto de
- * evitadas, em vez de duplicar o parse das duas APIs. Custa uma chamada por
- * candidata, e por isso o teto é baixo: três.
+ * Reusava `buscarFotoDeBanco` acrescentando cada escolhida ao conjunto de
+ * evitadas, ao custo de uma chamada por candidata. Desde 06/10/2026 é uma
+ * chamada por provedor, e a resposta inteira serve de lista.
  */
 export async function buscarFotosDeBanco(
   consulta: string,
@@ -386,15 +415,14 @@ export async function buscarFotosDeBanco(
 ): Promise<FotoDeBanco[]> {
   if (!consulta.trim() || quantas < 1) return [];
 
-  const achadas: FotoDeBanco[] = [];
-  const evitar = new Set<string>([...(opts.evitar ?? [])]);
-
-  for (let i = 0; i < quantas; i += 1) {
-    const foto = await buscarFotoDeBanco(consulta, { ...opts, evitar });
-    if (!foto) break;
-    achadas.push(foto);
-    evitar.add(foto.imagemUrl);
-  }
-
-  return achadas;
+  /*
+   * UMA chamada por provedor, e não uma por foto (06/10/2026). O Unsplash só
+   * entra para completar o que o Pexels não teve, pela mesma razão de sempre:
+   * foto do Pexels não gera obrigação de crédito.
+   */
+  const doPexels = await listarNoPexels(consulta, quantas, opts);
+  if (doPexels.length >= quantas) return doPexels;
+  const evitar = new Set<string>([...(opts.evitar ?? []), ...doPexels.map((f) => f.imagemUrl)]);
+  const doUnsplash = await listarNoUnsplash(consulta, quantas - doPexels.length, { ...opts, evitar });
+  return [...doPexels, ...doUnsplash];
 }

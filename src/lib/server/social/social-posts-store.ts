@@ -1,6 +1,8 @@
 import type { ContextoDeProducao } from "../aprovacao/contrato";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RegistroHistorico } from "../editorial/history";
+import { criarHistoricoStore } from "../editorial/history";
+import { registroDoPost } from "./historico-do-feed";
 import type { PostGerado } from "./gerador";
 import type { Vaga } from "./agenda";
 import type { ResultadoVisual } from "../visual/tipos";
@@ -538,6 +540,14 @@ export function criarSocialPostsStore(client: SupabaseClient, fila: OpcoesDaFila
                    * novo.
                    */
                   conferenciaVisual: asset.conferenciaVisual ?? null,
+                  /*
+                   * Por qual etapa a foto veio: a da entidade, a da cena, ou a
+                   * da cena depois de a entidade falhar (06/10/2026). É o
+                   * número que diz quanto a etapa da cena está salvando.
+                   */
+                  caminho: p.visual?.caminho ?? null,
+                  // E em qual degrau da escada da cena ela foi achada.
+                  degrau: p.visual?.degrau ?? null,
                 }
               : {
                   // Sem foto não é falha registrada como falha: é a decisão de
@@ -572,6 +582,32 @@ export function criarSocialPostsStore(client: SupabaseClient, fila: OpcoesDaFila
       const ids = devolvidas.map((r) => r.id);
       resultado.gravados = ids.length;
       resultado.ids = ids;
+
+      /*
+       * O canal `instagram` do histórico editorial nasce aqui, no agendamento
+       * (06/10/2026), como o do portal nasce no agendamento da matéria.
+       *
+       * Até esta data nenhum caminho de produção gravava esta linha: as oito
+       * que existiam eram do backfill de 05/09, e `used_social` (ver
+       * `candidatos-store.ts`) apontava para um canal vazio. A régua do feed
+       * não depende desta escrita, ela lê `social_posts` (ver
+       * `historico-do-feed.ts`); a linha é o registro para relatório e
+       * auditoria. Por isso a falha não derruba a gravação do post.
+       */
+      if (devolvidas.length > 0) {
+        try {
+          const porChave = new Map(posts.map((p) => [chaveDeIdempotencia(p.editionDate, p.post.pauta.storyId), p]));
+          const registros = devolvidas
+            .map((r) => {
+              const p = r.idempotency_key ? porChave.get(r.idempotency_key) : undefined;
+              return p ? registroDoPost(p.post.pauta, { projectId: p.projectId, socialPostId: r.id, publicadoEm: p.vaga.quandoIso }) : null;
+            })
+            .filter((r): r is NonNullable<typeof r> => r !== null);
+          if (registros.length > 0) await criarHistoricoStore(client).registrar(registros);
+        } catch (erro) {
+          console.warn(`[SOCIAL V2] histórico editorial do Instagram não gravado: ${(erro as Error).message}`);
+        }
+      }
 
       if (fila.aoGravar && devolvidas.length > 0) {
         const porChave = new Map(linhas.map((l) => [String(l.idempotency_key), l]));

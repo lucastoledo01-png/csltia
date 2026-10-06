@@ -3030,12 +3030,26 @@ async function executarRedacaoDoDia(
 
   if (!dryRun && !legadoCede) {
     try {
+      /*
+       * O legado também não repete o feed (06/10/2026). As pautas da edição
+       * passaram pela régua da NEWSLETTER, e a pauta que o feed levou ontem
+       * pelo Social V2 pode estar nelas. Feed ilegível derruba o agendamento
+       * do dia pelo `catch` abaixo: sem antirrepetição, o feed não publica.
+       */
+      const { foraDoFeedDaEdicao, lerHistoricoDoFeed } = await import("../social/historico-do-feed");
+      const doFeed = await lerHistoricoDoFeed(getSupabaseAdminClient(), project.id, configEditorial.janelaDeDias, {
+        excetoData: todayStr,
+      });
+      const daEdicao = foraDoFeedDaEdicao(pipelineResult.edition.stories, doFeed, configEditorial);
+      for (const r of daEdicao.repetidas) {
+        console.log(`[NEWSROOM INSTAGRAM] já no feed, o legado não agenda: ${r.titulo.slice(0, 70)} :: ${r.motivo}`);
+      }
       scheduledPosts = await scheduleEditionPosts({
         project,
         editionId,
         editionDate: todayStr,
         articleSlug: createdArticleSlug || `edicao-${todayStr}`,
-        stories: pipelineResult.edition.stories,
+        stories: daEdicao.historias,
       });
     } catch (agErr) {
       // Falhar no agendamento não pode desfazer a newsletter que já saiu.

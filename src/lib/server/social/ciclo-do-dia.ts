@@ -21,6 +21,7 @@ import type { ProjetoComCapacidades } from "../capacidades";
 import { rodarCicloSocial } from "./pipeline-v2";
 import { calorNoPoolDoInstagram } from "./calor-no-feed";
 import { fontesPadraoDoCalor, modoDoCalor, type FontesDoCalor } from "../editorial/calor-do-dia";
+import { comHistoricoDoFeed, foraDoFeed, lerHistoricoDoFeed } from "./historico-do-feed";
 import { moldesLigados } from "./moldes-do-feed";
 import { modoDaFila } from "../aprovacao/modo";
 import { criarFilaStore } from "../aprovacao/fila-store";
@@ -110,6 +111,12 @@ export type OpcoesDoSocialDoDia = {
   editionDate: string;
   marca: MarcaSocial;
   historico: RegistroHistorico[];
+  /**
+   * O que o feed já levou na janela de repetição, lido de `social_posts`
+   * (06/10/2026). Ausente, o ciclo lê do banco; presente, é usado como veio.
+   * Injetável para o teste e para quem já leu.
+   */
+  historicoDoFeed?: RegistroHistorico[];
   config: ConfigEditorial;
   client: SupabaseClient;
   /** Se a persistência de candidatas veio degradada: o social fecha em cima disso. */
@@ -240,6 +247,48 @@ export async function rodarSocialDoDia(
 
   if (modo === "off") return { diagnostico, ciclo: null, conferencia: null };
 
+  /*
+   * O feed não repete o que ele mesmo já levou (06/10/2026).
+   *
+   * O pool chega filtrado pela guarda com o histórico da NEWSLETTER, que é a
+   * pergunta certa para o e-mail e a errada para o feed: 21 dos últimos 60
+   * posts contavam 9 pautas em dias seguidos, a mesma candidata voltando ao
+   * pool e virando post de novo. A pergunta ao canal é feita aqui, antes do
+   * verificador, para ninguém pagar verificação de pauta que não pode sair. Ver
+   * `historico-do-feed.ts`, que explica por que a fonte é `social_posts`.
+   *
+   * Feed ilegível tira a notícia do dia, pela regra da persistência degradada:
+   * sem antirrepetição o feed não publica. O evergreen tem histórico próprio e
+   * segue a régua dele.
+   */
+  let historicoDoFeed = opcoes.historicoDoFeed ?? null;
+  let feedIlegivel = "";
+  if (historicoDoFeed === null) {
+    try {
+      historicoDoFeed = await lerHistoricoDoFeed(opcoes.client, opcoes.projectId, opcoes.config?.janelaDeDias || 30, {
+        excetoData: opcoes.editionDate,
+        agoraMs: opcoes.agoraMs,
+      });
+    } catch (erro) {
+      feedIlegivel = `feed do Instagram ilegível: ${(erro as Error).message}`;
+      console.warn(`[SOCIAL V2] notícia fora do dia: ${feedIlegivel}`);
+    }
+  }
+  const historicoDoCanal = comHistoricoDoFeed(opcoes.historico, historicoDoFeed ?? []);
+  const doFeed = feedIlegivel
+    ? {
+        pool: [] as PautaAvaliada[],
+        repetidas: approvedEditorialPool.map((p) => ({ storyId: p.storyId, titulo: p.grupo.primary.title, motivo: feedIlegivel })),
+      }
+    : foraDoFeed(approvedEditorialPool, historicoDoCanal, opcoes.config);
+  for (const r of doFeed.repetidas) {
+    console.log(`[SOCIAL V2] já no feed, fora: ${r.titulo.slice(0, 70)} :: ${r.motivo}`);
+  }
+  approvedEditorialPool = doFeed.pool;
+  const motivoDoFeed = feedIlegivel ? "INSTAGRAM_HISTORY_UNREADABLE" : "ALREADY_ON_INSTAGRAM";
+  const cortesDoFeed: Record<string, number> = doFeed.repetidas.length ? { [motivoDoFeed]: doFeed.repetidas.length } : {};
+  if (feedIlegivel) diagnostico.errors.push(feedIlegivel);
+
   const configSocial = limitarTetoDoDia(carregarConfigSocial(env), opcoes.tetoDoDia);
 
   /*
@@ -312,10 +361,11 @@ export async function rodarSocialDoDia(
 
   diagnostico.verified = conferencia.confirmadas.length;
   diagnostico.executed = true;
-  diagnostico.skipped = conferencia.recusadas.length + conferencia.emConflito.length;
+  diagnostico.skipped = conferencia.recusadas.length + conferencia.emConflito.length + doFeed.repetidas.length;
   diagnostico.skippedReasons = {
     VERIFIED_REJECT: conferencia.recusadas.length,
     EDITORIAL_CLASSIFICATION_CONFLICT: conferencia.emConflito.length,
+    ...cortesDoFeed,
   };
 
   /*
@@ -659,10 +709,11 @@ export async function rodarSocialDoDia(
   diagnostico.selected = ciclo.previews.length;
   diagnostico.scheduled = ciclo.gravacao?.gravados ?? 0;
   diagnostico.skipped =
-    conferencia.recusadas.length + conferencia.emConflito.length + ciclo.descartados.length;
+    conferencia.recusadas.length + conferencia.emConflito.length + ciclo.descartados.length + doFeed.repetidas.length;
   diagnostico.skippedReasons = {
     VERIFIED_REJECT: conferencia.recusadas.length,
     EDITORIAL_CLASSIFICATION_CONFLICT: conferencia.emConflito.length,
+    ...cortesDoFeed,
   };
   for (const d of ciclo.descartados) {
     const chave = d.motivo.split(":")[0].trim();
