@@ -4,6 +4,7 @@ import { requireCron } from "@/lib/server/api-auth";
 import { formatError, pingHealthcheck, sendAlert } from "@/lib/server/alerts";
 import { produzirNaVespera, type DesfechoDaProducao } from "@/lib/server/producao-vespera";
 import { DEFAULT_PROJECT_ID, getProjectBySlug } from "@/lib/server/projects";
+import { avisarFimDaProducaoDoProjeto } from "@/lib/server/avisos/gancho";
 
 export const maxDuration = 300;
 
@@ -21,7 +22,11 @@ export const maxDuration = 300;
  * rota das 06:03 (multiprojeto no cron ainda é decisão em aberto).
  */
 
-async function relatar(desfecho: DesfechoDaProducao, healthcheck: string | undefined): Promise<void> {
+async function relatar(
+  desfecho: DesfechoDaProducao,
+  healthcheck: string | undefined,
+  projetoId: string,
+): Promise<void> {
   console.log(
     `[CRON PRODUCAO] ${desfecho.projeto}: ${desfecho.decisao.motivo} (${desfecho.modo}), alvo ${desfecho.decisao.alvo}` +
       (desfecho.erro ? `, erro: ${desfecho.erro}` : ""),
@@ -40,6 +45,10 @@ async function relatar(desfecho: DesfechoDaProducao, healthcheck: string | undef
   // Dia que não produz por decisão (capacidade desligada, fim de semana) é
   // sucesso para o watchdog: a chamada chegou e foi decidida, com linha no banco.
   await pingHealthcheck(healthcheck);
+
+  // A fila pronta (ou "não produziu nada") sai daqui, no fim da produção. Se
+  // este aviso se perder, o cron dos avisos o manda a partir das 17:30.
+  await avisarFimDaProducaoDoProjeto(projetoId, desfecho);
 }
 
 async function handle(req: NextRequest) {
@@ -63,7 +72,7 @@ async function handle(req: NextRequest) {
   if (aguardar) {
     try {
       const desfecho = await execucao;
-      await relatar(desfecho, healthcheck);
+      await relatar(desfecho, healthcheck, projetoId);
       return NextResponse.json(desfecho, { status: desfecho.ok ? 200 : 500 });
     } catch (err) {
       // `produzirNaVespera` não lança por contrato; isto é a rede de baixo.
@@ -73,7 +82,7 @@ async function handle(req: NextRequest) {
   }
 
   execucao
-    .then((desfecho) => relatar(desfecho, healthcheck))
+    .then((desfecho) => relatar(desfecho, healthcheck, projetoId))
     .catch(async (err) => {
       console.error("[CRON PRODUCAO ERROR]", err);
       await sendAlert("critical", "Produção da véspera quebrou", formatError(err));
