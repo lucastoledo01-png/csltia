@@ -244,21 +244,79 @@ describe("origem no ciclo", () => {
   });
 });
 
-describe("sem imagem o post continua existindo", () => {
-  it("registra semImagem e não descarta", async () => {
+/*
+ * Pauta sem foto não vira post (decisão do dono, 05/10/2026).
+ *
+ * Até essa data valia o contrário: "sem imagem o post continua existindo",
+ * com a bandeira no lugar da foto (regra de 17/09/2026). Agora a pauta sem
+ * foto real cai ANTES da copy, sem pagar a chamada do modelo, e a vaga vai
+ * para a próxima pauta elegível.
+ */
+const FOTO = (url: string) => ({
+  status: "SELECTED" as const,
+  motivo: null,
+  asset: { imageUrl: url, source: "wikimedia_commons", license: "CC BY", attribution: "Fulano", metadata: {} },
+  assetSecundario: null,
+  fontesConsultadas: [],
+  recusados: [],
+});
+const BANDEIRA = {
+  status: "NO_VALID_IMAGE" as const,
+  motivo: "VISUAL_CHECK_FAILED",
+  asset: {
+    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/c/c8/New_York_Stock_Exchange_Building_2010.jpg",
+    source: "wikimedia_commons",
+    metadata: { ultimoRecurso: true },
+  },
+  assetSecundario: null,
+  fontesConsultadas: [],
+  recusados: [],
+};
+
+describe("pauta sem foto não vira post", () => {
+  it("sem foto: não vira post, cai com REJECT_NO_PHOTO e a copy dela não é paga", async () => {
+    const o = opcoes({ SOCIAL_PIPELINE_V2: "dry_run" }, {
+      resolverVisual: async () => ({ status: "NO_VALID_IMAGE", motivo: "AMBIGUOUS_ENTITY", asset: null }),
+    });
+    const r = await rodarCicloSocial([pauta("1", "USCIS amplia prazo")], o);
+
+    expect(r.previews).toHaveLength(0);
+    expect(r.descartados).toEqual([
+      expect.objectContaining({ storyId: "s-1", etapa: "visual", motivo: expect.stringMatching(/^REJECT_NO_PHOTO: AMBIGUOUS_ENTITY/) }),
+    ]);
+    // Nenhuma chamada ao modelo: a pauta caiu antes da redação.
+    expect(o.fetcher).not.toHaveBeenCalled();
+  });
+
+  it("só a bandeira de último recurso também é sem foto", async () => {
     const r = await rodarCicloSocial(
       [pauta("1", "USCIS amplia prazo")],
-      opcoes({ SOCIAL_PIPELINE_V2: "dry_run" }, {
-        resolverVisual: async () => ({ status: "NO_VALID_IMAGE", motivo: "AMBIGUOUS_ENTITY", asset: null }),
+      opcoes({ SOCIAL_PIPELINE_V2: "dry_run" }, { resolverVisual: async () => BANDEIRA }),
+    );
+    expect(r.previews).toHaveLength(0);
+    expect(r.descartados[0].motivo).toMatch(/^REJECT_NO_PHOTO: só a bandeira/);
+  });
+
+  it("a vaga vai para a próxima pauta elegível, e o dia não encolhe", async () => {
+    const pedidas: string[] = [];
+    const r = await rodarCicloSocial(
+      [pauta("1", "USCIS amplia prazo"), pauta("2", "Fed mantém juros e o crédito segue caro", "Fed")],
+      opcoes({ SOCIAL_PIPELINE_V2: "dry_run", SOCIAL_POSTS_MAX_PER_DAY: "1", SOCIAL_POSTS_TARGET_PER_DAY: "1" }, {
+        resolverVisual: async (p: PautaAvaliada) => {
+          pedidas.push(p.storyId);
+          return p.storyId === "s-1" ? BANDEIRA : FOTO("https://x/fed.jpg");
+        },
       }),
     );
 
-    expect(r.previews).toHaveLength(1);
-    expect(r.diagnostico.semImagem).toBe(1);
-    expect(r.previews[0].visual?.motivo).toBe("AMBIGUOUS_ENTITY");
+    expect(r.previews.map((p) => p.post.pauta.storyId)).toEqual(["s-2"]);
+    expect(r.previews[0].visual?.asset?.imageUrl).toBe("https://x/fed.jpg");
+    expect(r.descartados.map((d) => d.storyId)).toContain("s-1");
+    // A foto de cada pauta é resolvida uma vez, e a memória serve a arte depois.
+    expect(pedidas).toEqual(["s-1", "s-2"]);
   });
 
-  it("falha ao resolver imagem não derruba o post", async () => {
+  it("falha ao resolver a imagem é sem foto, nunca passe livre", async () => {
     const r = await rodarCicloSocial(
       [pauta("1", "USCIS amplia prazo")],
       opcoes({ SOCIAL_PIPELINE_V2: "dry_run" }, {
@@ -266,8 +324,8 @@ describe("sem imagem o post continua existindo", () => {
       }),
     );
 
-    expect(r.previews).toHaveLength(1);
-    expect(r.linhasDeLog.join(" ")).toMatch(/imagem falhou/);
+    expect(r.previews).toHaveLength(0);
+    expect(r.descartados[0].motivo).toMatch(/REJECT_NO_PHOTO: a resolução de imagem falhou \(Commons fora do ar\)/);
   });
 });
 

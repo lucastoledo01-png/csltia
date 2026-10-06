@@ -51,6 +51,29 @@ describe("os ramos no ciclo do dia", () => {
     expect(servico).toContain("if (ramosNoComando && !dryRun && options.aoProduzirPeca) {");
   });
 
+  /*
+   * Pauta sem foto não vira conteúdo (05/10/2026). O comportamento de cada
+   * canal tem teste em `sem-foto.test.ts`; aqui se confere que o ciclo de
+   * verdade liga a régua no lugar certo, ANTES da redação.
+   */
+  it("a seleção com foto da newsletter e do portal acontece antes de a edição ser escrita", () => {
+    const redacao = servico.indexOf("const pipelineResult = await runNewsroomPipeline(");
+    expect(redacao).toBeGreaterThan(0);
+    const antes = servico.slice(0, redacao);
+    expect(antes).toContain("selecionarParaNewsletter(resultado.approvedEditorialPool, pacotesDoDia, configEditorial, excluir)");
+    expect(antes).toContain("recomporNewsletterDaGuarda(resultado.approvedEditorialPool, resultado.selecionadas, configEditorial, excluir)");
+    expect(antes).toContain("preSelecaoParaPacote(resultado.approvedEditorialPool, configEditorial, historico, 2, excluir)");
+    expect(antes).toContain("fotos: fotosDoDia,");
+  });
+
+  it("a bandeira não entra mais na edição, e a pauta sem foto sai antes do HTML", () => {
+    expect(servico).not.toMatch(/ehUltimoRecurso\(resultado\.asset\)\) \{\s*diagnosticoVisual\.ultimoRecurso[^}]*imagensV2\.set/);
+    const rede = servico.indexOf("separarPautasSemFoto(historias");
+    const html = servico.indexOf("const htmlContent = renderEditionToHtml(");
+    expect(rede).toBeGreaterThan(0);
+    expect(rede).toBeLessThan(html);
+  });
+
   it("nenhum travessão entrou no código dos ramos", () => {
     const dir = path.join(RAIZ, "src/lib/server/ramos");
     for (const f of fs.readdirSync(dir)) {

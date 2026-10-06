@@ -23,6 +23,12 @@ import type { AssetVisual } from "./tipos";
  *    para a peça imprimir o crédito.
  * 3. **Sem pessoa reconhecível em primeiro plano.** Rosto numa imagem de
  *    último recurso vira personagem de uma pauta que não é dele.
+ *
+ * SUPERADA PARA PUBLICAÇÃO em 05/10/2026, por decisão do dono: "pauta sem foto
+ * não vira conteúdo". O resolvedor continua devolvendo a bandeira com
+ * `NO_VALID_IMAGE`, como marcador interno, e nenhum canal a publica: a pauta
+ * cai antes da redação (`ramos/sem-foto.ts`). O texto acima fica como registro
+ * de por que ela existiu.
  */
 
 type Bandeira = {
@@ -167,4 +173,38 @@ export function escolherBandeira(opcoes: { eixo?: string; evitar?: Set<string> }
 /** A imagem veio do último recurso? Usado pelo relatório e pelos testes. */
 export function ehUltimoRecurso(asset: AssetVisual | null | undefined): boolean {
   return Boolean(asset?.metadata?.ultimoRecurso);
+}
+
+/** O nome do arquivo do Commons numa URL, original ou miniatura, sem consulta. */
+function arquivoDoCommons(url: string): string {
+  const semConsulta = String(url ?? "").replace(/&amp;/g, "&").split(/[?#]/)[0];
+  const ultimo = semConsulta.split("/").filter(Boolean).pop() ?? "";
+  let nome = ultimo;
+  try {
+    nome = decodeURIComponent(ultimo);
+  } catch {
+    // Codificação quebrada: compara como veio.
+  }
+  // Miniatura do Commons: ".../thumb/a/ab/Arquivo.jpg/1280px-Arquivo.jpg".
+  return nome.replace(/^\d+px-/, "").replace(/ /g, "_").toLowerCase();
+}
+
+const ARQUIVOS_DAS_BANDEIRAS = new Set(BANDEIRAS.map((b) => arquivoDoCommons(b.asset.imageUrl)));
+
+/**
+ * A URL é uma das bandeiras de último recurso? Pela URL, sem o asset.
+ *
+ * Existe para quem só tem a URL gravada (a capa de uma matéria, a foto de uma
+ * edição antiga) e precisa saber se o que foi ao ar era a bandeira. Compara o
+ * ARQUIVO, e não a URL inteira: a mesma foto chega como original, como
+ * miniatura do Commons, com `&amp;` ou com `?w=600` (lição de "A capa e, logo
+ * abaixo, a mesma foto de novo").
+ *
+ * Desde 05/10/2026 a bandeira não é publicada (pauta sem foto não vira
+ * conteúdo, `ramos/sem-foto.ts`), e é esta função que acha o que já foi.
+ */
+export function ehImagemDaBandeira(url: string | null | undefined): boolean {
+  if (!url) return false;
+  const arquivo = arquivoDoCommons(url);
+  return Boolean(arquivo) && ARQUIVOS_DAS_BANDEIRAS.has(arquivo);
 }

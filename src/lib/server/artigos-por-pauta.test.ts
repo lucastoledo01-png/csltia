@@ -91,7 +91,10 @@ describe("o plano de uma edição", () => {
     historia("EUA admitem refugiados", { category: "Imigração" }),
     historia("Chip novo da AMD", { category: "Tecnologia", practical_impact: "Preço cai em **2027**.", secondary_urls: ["https://outra.com/a"] }),
   ];
-  const html = bloco("Fed corta juros", "https://x/fed.jpg") + bloco("EUA admitem refugiados", "https://x/ref.jpg") + bloco("Chip novo da AMD");
+  const html =
+    bloco("Fed corta juros", "https://x/fed.jpg") +
+    bloco("EUA admitem refugiados", "https://x/ref.jpg") +
+    bloco("Chip novo da AMD", "https://x/amd.jpg");
   const plano = planejarEdicao(edicao(historias, html))!;
 
   it("uma matéria por pauta, e a de imigração vai para a lista de puladas", () => {
@@ -132,15 +135,40 @@ describe("o plano de uma edição", () => {
     expect(Date.parse(chip.published_at)).toBeGreaterThan(Date.parse("2026-10-04T09:25:00.000Z"));
   });
 
-  it("a capa é a foto da pauta; pauta sem foto fica sem capa, e não com a capa da edição", () => {
-    expect(plano.artigos[0].cover_image).toBe("https://x/fed.jpg");
-    expect(plano.artigos[1].cover_image).toBeNull();
-    expect(plano.semFoto).toEqual(["chip-novo-da-amd-2026-10-04"]);
+  it("a capa é a foto da pauta, pareada pela posição", () => {
+    expect(plano.artigos.map((a) => a.cover_image)).toEqual(["https://x/fed.jpg", "https://x/amd.jpg"]);
+    expect(plano.semFoto).toEqual([]);
   });
 
-  it("edição sem nenhuma foto recuperável: a capa dela vai só para a primeira pauta", () => {
+  /*
+   * Pauta sem foto não vira conteúdo (decisão do dono, 05/10/2026). Até essa
+   * data ela virava matéria com a peça tipográfica; agora é pulada com motivo,
+   * e a seguinte, que tem foto, segue normalmente.
+   */
+  it("pauta sem foto NÃO vira matéria: vai para as puladas com REJECT_NO_PHOTO, e a seguinte entra", () => {
+    const tres = [historia("Fed corta juros"), historia("Chip novo da AMD"), historia("Aluguel sobe em Miami")];
+    const p = planejarEdicao(
+      edicao(tres, bloco("Fed corta juros", "https://x/fed.jpg") + bloco("Chip novo da AMD") + bloco("Aluguel sobe em Miami", "https://x/miami.jpg")),
+    )!;
+    expect(p.artigos.map((a) => a.slug)).toEqual(["fed-corta-juros-2026-10-04", "aluguel-sobe-em-miami-2026-10-04"]);
+    expect(p.semFoto).toEqual(["chip-novo-da-amd-2026-10-04"]);
+    expect(p.puladas).toEqual([
+      { posicao: 1, titulo: "Chip novo da AMD", categoria: "Economia", motivo: "REJECT_NO_PHOTO: sem foto da pauta na edição" },
+    ]);
+  });
+
+  it("a bandeira de último recurso não conta como foto, nem em miniatura do Commons", () => {
+    const bandeira =
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/New_York_Stock_Exchange_Building_2010.jpg/1280px-New_York_Stock_Exchange_Building_2010.jpg";
+    const p = planejarEdicao(edicao([historia("Fed corta juros"), historia("Chip novo da AMD")], bloco("Fed corta juros", bandeira) + bloco("Chip novo da AMD", "https://x/amd.jpg")))!;
+    expect(p.artigos.map((a) => a.slug)).toEqual(["chip-novo-da-amd-2026-10-04"]);
+    expect(p.puladas[0].motivo).toBe("REJECT_NO_PHOTO: só a bandeira de último recurso");
+  });
+
+  it("edição sem nenhuma foto recuperável: a capa dela vai só para a primeira pauta, e as outras não viram matéria", () => {
     const sem = planejarEdicao(edicao([historia("Um"), historia("Dois")], "<p>sem cabeçalho</p>"))!;
-    expect(sem.artigos.map((a) => a.cover_image)).toEqual(["https://x/capa-da-edicao.jpg", null]);
+    expect(sem.artigos.map((a) => a.cover_image)).toEqual(["https://x/capa-da-edicao.jpg"]);
+    expect(sem.semFoto).toEqual(["dois-2026-10-04"]);
   });
 
   it("a capa nunca entra no corpo, e o crédito dela vai marcado para a página imprimir embaixo da capa", () => {
@@ -170,7 +198,10 @@ describe("slugs e destino do link antigo", () => {
   });
 
   it("o link da edição vai para a primeira matéria, pulando a de imigração", () => {
-    const e = edicao([historia("EUA admitem refugiados", { category: "Imigração" }), historia("Fed corta juros")], "");
+    const e = edicao(
+      [historia("EUA admitem refugiados", { category: "Imigração" }), historia("Fed corta juros")],
+      bloco("EUA admitem refugiados", "https://x/ref.jpg") + bloco("Fed corta juros", "https://x/fed.jpg"),
+    );
     expect(destinoDaEdicao(e)).toBe("fed-corta-juros-2026-10-04");
   });
 

@@ -4,6 +4,7 @@ import { semImagemDaCapaNoCorpo } from "@/lib/imagem-da-capa";
 import { escapeHtml, safeHttpUrl } from "./html";
 import { renderizarArtigoHtml, type Artigo } from "./ramos/artigo";
 import { slugDoArtigo } from "./ramos/portal";
+import { ehImagemDaBandeira } from "./visual/bandeira";
 
 /**
  * As edições antigas desmontadas em uma matéria por pauta (05/10/2026).
@@ -84,7 +85,11 @@ export type PlanoDaEdicao = {
   data: string;
   artigos: ArtigoDaPauta[];
   puladas: PautaPulada[];
-  /** Pautas sem foto própria recuperável no HTML da edição. */
+  /**
+   * Pautas sem foto própria recuperável no HTML da edição (ou só com a
+   * bandeira). Desde 05/10/2026 elas NÃO viram matéria: estão também em
+   * `puladas`, com o motivo `REJECT_NO_PHOTO`.
+   */
   semFoto: string[];
 };
 
@@ -348,7 +353,22 @@ export function planejarEdicao(edicao: EdicaoComoArtigo): PlanoDaEdicao | null {
      * tipográfica, e não com uma foto de outro assunto.
      */
     const capa = fotos[i] ?? (!algumaFoto && i === 0 ? edicao.cover_image : null);
-    if (!capa) plano.semFoto.push(slugs[i]);
+    /*
+     * Pauta sem foto não vira conteúdo (decisão do dono, 05/10/2026). Até
+     * aqui ela virava matéria com a peça tipográfica; agora é pulada, como a
+     * de imigração. A bandeira de último recurso conta como sem foto: ela não
+     * é foto da pauta, e não é mais publicada.
+     */
+    if (!capa || ehImagemDaBandeira(capa)) {
+      plano.semFoto.push(slugs[i]);
+      plano.puladas.push({
+        posicao: i,
+        titulo,
+        categoria: categoriaDaEdicao,
+        motivo: capa ? "REJECT_NO_PHOTO: só a bandeira de último recurso" : "REJECT_NO_PHOTO: sem foto da pauta na edição",
+      });
+      return;
+    }
     /*
      * A capa NUNCA entra no corpo (05/10/2026): o dono viu a capa e a mesma
      * foto logo abaixo dela. O corpo daqui não tem foto, e a guarda existe

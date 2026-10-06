@@ -14,6 +14,8 @@ import type { AlvoDaRelacao } from "../materias-relacionadas";
 import { editoriaPeloNome, hrefDaEditoria } from "@/lib/editorias";
 import { tagsDeIndexacao } from "@/lib/indexacao-do-artigo";
 import { horariosDosArtigos, slugDoArtigo } from "./portal";
+import { linhasDasQuedas, selecionarComFoto, temFotoDaPauta } from "./sem-foto";
+import type { FotosDoDia, QuedaSemFoto } from "./sem-foto";
 import type { ConteudoDoArtigo } from "./portal";
 
 /**
@@ -59,8 +61,15 @@ export type EntradaDoRamoDoPortal = {
   livro?: LivroDeCustos;
   env?: Record<string, string | undefined>;
   fetcher?: typeof fetch;
-  /** A capa vem da resolução de imagem, que é camada comum. Ausente: sem capa. */
-  resolverCapa?: (pauta: PautaAvaliada) => Promise<string | null>;
+  /**
+   * A foto de cada pauta, da camada comum de imagem, com memória do dia.
+   *
+   * Presente, ela decide duas coisas (05/10/2026): a capa da matéria e se a
+   * pauta pode virar matéria. Pauta sem foto real cai ANTES da redação, e a
+   * vaga vai para a próxima elegível (`sem-foto.ts`). Ausente, o ramo roda sem
+   * capa e sem a régua, que é o caminho dos testes que não falam de imagem.
+   */
+  fotos?: FotosDoDia<PautaAvaliada>;
   /** Trocado em teste, para não chamar o modelo. */
   escrever?: typeof escreverArtigoDaPauta;
   /**
@@ -72,6 +81,8 @@ export type EntradaDoRamoDoPortal = {
 
 export type ResultadoDoRamoDoPortal = {
   selecao: SelecaoDoRamo;
+  /** As pautas que a seleção quis e caíram por falta de foto, com o motivo. */
+  semFoto: QuedaSemFoto[];
   pecas: Array<PecaPronta<ConteudoDoArtigo>>;
   linhasDeLog: string[];
 };
@@ -85,8 +96,22 @@ export type ResultadoDoRamoDoPortal = {
  */
 export async function rodarRamoDoPortal(e: EntradaDoRamoDoPortal): Promise<ResultadoDoRamoDoPortal> {
   const escrever = e.escrever ?? escreverArtigoDaPauta;
-  const selecao = selecionarParaPortal(e.pool, e.pacotes, e.historico, e.config);
-  const linhas = [...selecao.linhasDeLog];
+  let selecao: SelecaoDoRamo;
+  let semFoto: QuedaSemFoto[] = [];
+  if (e.fotos) {
+    const r = await selecionarComFoto({
+      selecionar: (excluir) => selecionarParaPortal(e.pool, e.pacotes, e.historico, e.config, undefined, excluir),
+      escolhidas: (s) => s.escolhidas,
+      chave: (p) => p.storyId,
+      titulo: (p) => p.grupo.primary.title,
+      fotos: e.fotos,
+    });
+    selecao = r.selecao;
+    semFoto = r.semFoto;
+  } else {
+    selecao = selecionarParaPortal(e.pool, e.pacotes, e.historico, e.config);
+  }
+  const linhas = [...linhasDasQuedas("artigo", semFoto), ...selecao.linhasDeLog];
   const horarios = horariosDosArtigos(selecao.escolhidas.length, e.data, e.timezone, e.horarios);
 
   const pecas: Array<PecaPronta<ConteudoDoArtigo>> = [];
@@ -108,13 +133,15 @@ export async function rodarRamoDoPortal(e: EntradaDoRamoDoPortal): Promise<Resul
       continue;
     }
 
+    /*
+     * A capa é a foto que a seleção já conferiu, lida da memória do dia: a
+     * mesma resposta, sem resolver de novo. Só a foto real vira capa; a
+     * bandeira nunca (a seleção acima já tirou a pauta que só tinha ela).
+     */
     let capa: string | null = null;
-    if (e.resolverCapa) {
-      try {
-        capa = await e.resolverCapa(pauta);
-      } catch (erro) {
-        linhas.push(`[RAMO artigo] capa não resolvida: ${(erro as Error).message}`);
-      }
+    if (e.fotos) {
+      const { visual } = await e.fotos.resultado(pauta);
+      capa = temFotoDaPauta(visual) ? (visual?.asset?.imageUrl ?? null) : null;
     }
 
     const fonte = { nome: pauta.grupo.primary.source_name, url: pauta.grupo.primary.url };
@@ -184,5 +211,5 @@ export async function rodarRamoDoPortal(e: EntradaDoRamoDoPortal): Promise<Resul
     );
   }
 
-  return { selecao, pecas, linhasDeLog: linhas };
+  return { selecao, semFoto, pecas, linhasDeLog: linhas };
 }

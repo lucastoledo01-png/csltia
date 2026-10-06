@@ -50,11 +50,25 @@ vi.mock("../editorial/pacote-factual", async (original) => ({
 
 vi.mock("../visual/resolver", () => ({
   resolveVisualAsset: async () => ({
-    asset: null,
-    motivo: "NO_VALID_IMAGE",
-    fontesConsultadas: [],
-    entidade: null,
-  }),
+      /*
+       * Foto real, e não "sem imagem": desde 05/10/2026 pauta sem foto não vira
+       * post (`ramos/sem-foto.ts`), e este teste é sobre o ciclo, não sobre a
+       * imagem. A queda por falta de foto tem teste próprio em pipeline-v2.
+       */
+      status: "SELECTED",
+      motivo: null,
+      asset: {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/a/ab/Foto_da_pauta.jpg",
+        source: "wikimedia_commons",
+        license: "CC BY 4.0",
+        attribution: "Fulano, CC BY 4.0",
+        metadata: {},
+      },
+      assetSecundario: null,
+      recusados: [],
+      fontesConsultadas: [],
+      entidade: null,
+    }),
 }));
 
 /*

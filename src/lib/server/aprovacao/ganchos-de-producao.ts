@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { temFotoDaPauta } from "../ramos/sem-foto";
 import type { Project } from "../projects";
 import type { OrigemDoArtigo } from "../ramos/portal";
 import type { Artigo, MarcaDoArtigo, ResultadoDoArtigo } from "../ramos/artigo";
@@ -181,7 +182,8 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
       },
       { client, projeto, evitar: atual ? [atual] : [] },
     );
-    const nova = r.asset?.imageUrl ?? "";
+    // Só foto real da pauta; a bandeira não é publicada desde 05/10/2026 (`sem-foto.ts`).
+    const nova = temFotoDaPauta(r) ? (r.asset?.imageUrl ?? "") : "";
     if (!nova || nova === atual) return falha("o resolvedor não achou outra foto para esta pauta");
 
     const { error } = await client
@@ -252,7 +254,8 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
       },
       { client, projeto, evitar: atual ? [atual] : [] },
     );
-    const nova = r.asset?.imageUrl ?? "";
+    // Só foto real da pauta; a bandeira não é publicada desde 05/10/2026 (`sem-foto.ts`).
+    const nova = temFotoDaPauta(r) ? (r.asset?.imageUrl ?? "") : "";
     if (!nova || nova === atual) return falha("o resolvedor não achou outra foto para esta pauta");
 
     const { error } = await client

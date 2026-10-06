@@ -95,13 +95,17 @@ describe("imagem da pauta", () => {
   });
 });
 
-describe("chamada da análise de perfil", () => {
-  it("leva ao VisaMatch com a edição no utm_content", () => {
-    const html = renderEditionToHtml(edicaoCom(), new Map());
-    const hoje = new Date().toISOString().split("T")[0];
+describe("chamada do VisaMatch", () => {
+  /*
+   * Desde 05/10/2026 o bloco alterna de formato por edição, e a VARIANTE vai
+   * no utm_content (qual formato converte). A edição desceu para o utm_term.
+   */
+  it("leva ao VisaMatch com a variante no utm_content e a edição no utm_term", () => {
+    const html = renderEditionToHtml(edicaoCom(), new Map(), false, new Map(), "2026-10-06", { variante: "quiz" });
     expect(html).toContain("visamatch.imigrareua.com");
-    expect(html).toContain(`utm_content=edicao-${hoje}`);
-    expect(html).toContain("Fazer a análise de perfil");
+    expect(html).toContain("utm_content=quiz");
+    expect(html).toContain("utm_term=edicao-2026-10-06");
+    expect(html).toContain("Qual destes caminhos combina mais com você?");
   });
 });
 

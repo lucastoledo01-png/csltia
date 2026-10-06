@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveVisualAsset, type OpcoesDeResolucao, type PautaParaImagem } from "../resolver";
 import type { ResultadoVisual } from "../tipos";
+import type { Biblioteca } from "../biblioteca";
 import { acervoDoProjeto, type Acervo } from "./acervo";
 import { capacidadeDoAcervo } from "./modo";
 import type { ProjetoComCapacidades } from "../../capacidades";
@@ -185,6 +186,57 @@ export async function imagemDaPauta(
     memoria.delete(chave);
     throw erro;
   }
+}
+
+/**
+ * Grava, DEPOIS, o que uma resolução em modo leitura escolheu e foi publicado.
+ *
+ * Entrou em 05/10/2026 com a regra "pauta sem foto não vira conteúdo": a foto
+ * de cada pauta passou a ser resolvida ANTES da redação, para a pauta sem foto
+ * cair sem custar texto. Nessa hora ninguém sabe ainda qual pauta vai sair, e
+ * resolver gravando marcaria como usada a foto de pauta que não saiu, o que
+ * tiraria essa foto da próxima pauta que precisasse dela, por trinta dias.
+ *
+ * Então a resolução antecipada é sempre em leitura, e quem publica chama esta
+ * função com o que de fato foi ao ar. Ela faz o que o resolvedor faria com
+ * `somenteLeitura` desligado: guarda a foto externa na biblioteca e marca o
+ * uso, e grava `imagem_da_pauta` com o acervo em `enforce`. O acervo próprio
+ * já marca o uso dentro do resolvedor, nos dois modos, e não passa por aqui.
+ */
+export async function confirmarImagemPublicada(
+  resultado: ResultadoVisual,
+  ctx: {
+    biblioteca?: Pick<Biblioteca, "guardar" | "registrarUso"> | null;
+    client?: SupabaseClient | null;
+    projeto?: (ProjetoComCapacidades & { id: string }) | null;
+  },
+): Promise<string[]> {
+  const notas: string[] = [];
+  const asset = resultado.asset;
+  if (!asset || resultado.status !== "SELECTED") return notas;
+
+  const fonte = asset.source;
+  if (ctx.biblioteca && fonte !== "banco_conceitual" && fonte !== "acervo_proprio" && fonte !== "ultimo_recurso") {
+    try {
+      if (asset.id) {
+        await ctx.biblioteca.registrarUso(asset.id);
+      } else {
+        const guardado = await ctx.biblioteca.guardar(asset);
+        if (guardado?.id) await ctx.biblioteca.registrarUso(guardado.id);
+      }
+    } catch (erro) {
+      notas.push(`biblioteca não confirmou o uso: ${(erro as Error).message}`);
+    }
+  }
+
+  if (ctx.client && ctx.projeto?.id && resultado.storyId && capacidadeDoAcervo(ctx.projeto) === "enforce") {
+    try {
+      await gravarImagemDaPauta(ctx.client, ctx.projeto.id, resultado);
+    } catch (erro) {
+      notas.push(`imagem da pauta não gravada: ${(erro as Error).message}`);
+    }
+  }
+  return notas;
 }
 
 /**

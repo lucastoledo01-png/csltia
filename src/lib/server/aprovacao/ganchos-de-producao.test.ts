@@ -70,7 +70,20 @@ const ARTIGO_BOM: ResultadoDoArtigo = {
 };
 
 function visual(url: string): ResultadoVisual {
-  return { storyId: "s1", asset: { imageUrl: url } } as unknown as ResultadoVisual;
+  return { storyId: "s1", status: "SELECTED", asset: { imageUrl: url, metadata: {} } } as unknown as ResultadoVisual;
+}
+
+/** O que o resolvedor devolve quando só sobrou a bandeira (status recusado). */
+function soBandeira(): ResultadoVisual {
+  return {
+    storyId: "s1",
+    status: "NO_VALID_IMAGE",
+    motivo: "VISUAL_CHECK_FAILED",
+    asset: {
+      imageUrl: "https://upload.wikimedia.org/wikipedia/commons/c/c8/New_York_Stock_Exchange_Building_2010.jpg",
+      metadata: { ultimoRecurso: true },
+    },
+  } as unknown as ResultadoVisual;
 }
 
 function mundo(responder: (op: Operacao) => Resposta, extra: Partial<MundoDosGanchos> = {}) {
@@ -135,6 +148,19 @@ describe("refação da imagem do artigo", () => {
   it("o resolvedor devolveu a MESMA foto: não é refação, a peça fica esperando", async () => {
     const { m, ops } = mundo((op) => (op.tipo === "select" ? { data: { id: "art-1", cover_image: "https://x/velha.jpg" } } : {}), {
       imagem: vi.fn(async () => visual("https://x/velha.jpg")),
+    });
+    const r = await criarGanchosDeProducao(m).artigo!.imagem!(ctx(aprovacao("artigo"), "imagem"));
+    expect(r.ok).toBe(false);
+    expect(escritas(ops)).toHaveLength(0);
+  });
+
+  /*
+   * Pauta sem foto não vira conteúdo (05/10/2026): a bandeira não é foto da
+   * pauta, e a refação que só achou a bandeira não troca a capa por ela.
+   */
+  it("o resolvedor só achou a bandeira: não troca a capa, a peça fica esperando", async () => {
+    const { m, ops } = mundo((op) => (op.tipo === "select" ? { data: { id: "art-1", cover_image: "https://x/velha.jpg" } } : {}), {
+      imagem: vi.fn(async () => soBandeira()),
     });
     const r = await criarGanchosDeProducao(m).artigo!.imagem!(ctx(aprovacao("artigo"), "imagem"));
     expect(r.ok).toBe(false);
