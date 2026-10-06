@@ -1681,6 +1681,11 @@ salvado o dia: a leitura que falha continua fechando a notícia. A pergunta é
 se o reuso da classificação vale um dia sem post, agora que nada de segurança
 depende dele. O próximo caso vai dizer qual das duas foi, com o texto.
 
+DECIDIDO no mesmo dia: a leitura que falha continua fechando a notícia, e
+agora avisa no Telegram uma vez por dia (`leitura_de_candidatas_falhou`). Ver
+"A leitura das candidatas que falha segura a notícia, e avisa" em
+`decisoes.md`.
+
 **Lição.** Quando a guarda que motivou um bloqueio muda de lugar, o bloqueio
 precisa ser relido: ele continua acendendo pelo motivo velho. E desligar um
 bloqueio pede a mesma pergunta de "a régua lia uma chave": quem mais lê o que

@@ -281,6 +281,14 @@ export type DesfechoDaTarde = {
   vagas?: VagasDaTarde;
   quentes?: Array<{ titulo: string; calor: number; horas: number | null }>;
   posts?: { selecionados: number; gravados: number; titulos: string[] };
+  /**
+   * O bloqueio da composição do feed, quando houve (06/10/2026). Com a leitura
+   * das candidatas falhando, a tarde fecha a notícia como a manhã, e o
+   * desfecho precisa dizer isso: "0 post(s)" sozinho parece "nada quente".
+   */
+  bloqueio?: string | null;
+  /** Os erros da leitura das candidatas, com o texto do banco. */
+  candidatasNaoLidas?: string[];
   erro?: string;
 };
 

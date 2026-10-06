@@ -54,6 +54,12 @@ export function montarRegistroDoSocial(
      * do dia sem post só foi achada por eliminação.
      */
     candidatasNaoGravadas: diagnostico.candidatasNaoGravadas ?? null,
+    /*
+     * A leitura das candidatas que falhou e fechou a notícia (06/10/2026),
+     * com o texto do banco, ao lado do `bloqueio`. O dono decidiu manter o
+     * bloqueio; o que não pode é ele voltar a ser gravado sem o porquê.
+     */
+    candidatasNaoLidas: diagnostico.candidatasNaoLidas ?? null,
     recusadas: (conferencia?.recusadas ?? []).slice(0, MAX_ITENS).map((r) => ({
       storyId: r.pauta.storyId,
       titulo: cortar(r.pauta.grupo.primary.title ?? ""),

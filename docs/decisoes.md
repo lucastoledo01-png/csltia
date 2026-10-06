@@ -2517,6 +2517,44 @@ legislativa:** "Deliberação dos dispositivos do Veto nº 51" tem "veto", que o
 detector lê como rejeição, e derrubou as fotos de 2026 do Flávio na Câmara
 numa pauta de tom positivo. Nenhuma das duas foi mexida aqui.
 
+## A leitura das candidatas que falha segura a notícia, e avisa (06/10/2026)
+
+A pergunta que ficou em aberto no incidente "zero post de notícia porque a
+camada de candidatas falhou" (`aprendizados-e-incidentes.md`): a leitura das
+candidatas que falha deve continuar fechando a notícia do Instagram? **O dono
+decidiu que sim, e que o bloqueio tem de avisar.** Sem a leitura, o pool é
+reclassificado do zero e o sorteio do classificador (24% de decisões trocadas,
+medido) volta a decidir o que vai ao ar; um dia sem post de notícia é o preço
+aceito. O que não se aceita é o silêncio: em 06/10 o mesmo bloqueio custou o
+dia e só foi achado por eliminação.
+
+- **A gravação que falha continua como estava:** os posts seguem, o diagnóstico
+  grava `candidatasNaoGravadas` e o Telegram recebe `candidatas_nao_gravadas`.
+- **A leitura que falha segura e avisa.** Quando a composição acende
+  `SOCIAL_PERSISTENCE_UNAVAILABLE`, `rodarSocialDoDia` manda o aviso
+  `leitura_de_candidatas_falhou` (`avisos/avisos.ts`), pelo mesmo `emitir` dos
+  avisos de operação: chave `tipo:dia` em `platform_events`, envio pelo
+  `alerts.ts` e o desfecho gravado nos dois casos. A manhã e o ciclo da tarde
+  (`quente-da-tarde-ciclo.ts`, que passa pelo mesmo `rodarSocialDoDia`) dão uma
+  mensagem só por dia. O texto diz quantos posts calculados ficaram de fora, o
+  erro inteiro do banco (já com `texto-do-erro.ts`), que newsletter e portal
+  não são afetados (a guarda classifica tudo de novo e segue; o bloqueio mora
+  só na composição do feed) e como refazer só o Instagram, sem tocar e-mail nem
+  portal e sem duplicar post: `npx tsx src/scripts/leva-social-extra.ts
+  --quantos=5`, depois com `--valendo`.
+- **Só em `enforce`.** Em ensaio a composição não bloqueia (`paraPublicar`),
+  nada seria publicado, e dizer "segurados" seria mentir, que é a regra dos
+  avisos. É a mesma escolha do aviso da gravação. Também não avisa a leitura
+  que falhou num ciclo que nem chegou à composição (pool vazio, feed
+  ilegível): não havia post para segurar.
+- **No diagnóstico sempre, fora de `off`.** `candidatasNaoLidas` vai para o
+  registro `social_cycle_diagnostic`, ao lado do `bloqueio`, e o desfecho da
+  tarde (`quente_da_tarde`) grava `bloqueio` e `candidatasNaoLidas`, para o
+  "0 post" da tarde não parecer "nada quente".
+- **Limite conhecido.** Se o banco inteiro estiver fora, o registro dos avisos
+  também não lê, e `emitir` não manda (não conseguir olhar não é "não foi
+  feito"). Nesse caso o diagnóstico e o log continuam com o erro.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

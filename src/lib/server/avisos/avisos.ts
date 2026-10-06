@@ -21,6 +21,9 @@ import type { EstadoDaAprovacao, Ramo } from "../aprovacao/contrato";
  *   newsletter_atrasada  06:15, newsletter aprovada que não saiu
  *   candidatas_nao_gravadas  fim do ciclo do Instagram, quando a gravação das
  *                        pautas candidatas falhou e os posts seguiram
+ *   leitura_de_candidatas_falhou  fim do ciclo do Instagram, quando a leitura
+ *                        das pautas candidatas falhou e os posts de notícia
+ *                        foram segurados (06/10/2026)
  *
  * Três regras:
  *
@@ -50,7 +53,8 @@ export type TipoDeAviso =
   | "producao_vazia"
   | "producao_nao_rodou"
   | "newsletter_atrasada"
-  | "candidatas_nao_gravadas";
+  | "candidatas_nao_gravadas"
+  | "leitura_de_candidatas_falhou";
 
 export type NivelDoAviso = "info" | "warning" | "critical";
 
@@ -134,9 +138,9 @@ export type ResultadoDosAvisos = {
  * atrasou ou pulou um minuto: ele sai no primeiro minuto dentro dela, e a
  * chave do dia impede o segundo.
  */
-/* Os avisos de evento (produção vazia, candidatas não gravadas) não têm janela: saem quando o evento acontece. */
+/* Os avisos de evento (produção vazia, candidatas não gravadas ou não lidas) não têm janela: saem quando o evento acontece. */
 export const JANELAS: Record<
-  Exclude<TipoDeAviso, "producao_vazia" | "candidatas_nao_gravadas">,
+  Exclude<TipoDeAviso, "producao_vazia" | "candidatas_nao_gravadas" | "leitura_de_candidatas_falhou">,
   { inicio: string; fim: string }
 > = {
   fila_pronta: { inicio: "17:30", fim: "21:59" },
@@ -652,6 +656,77 @@ export async function avisarCandidatasNaoGravadas(
     falha.dia,
     "warning",
     textoCandidatasNaoGravadas(falha),
+    deps,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// A leitura das candidatas falhou, e os posts de notícia foram segurados
+// ---------------------------------------------------------------------------
+
+/** O que o ciclo do Instagram sabe quando a leitura das candidatas fechou a notícia. */
+export type LeituraDeCandidatasFalhou = {
+  /** A data da edição do ciclo (AAAA-MM-DD): é a chave do aviso. */
+  dia: string;
+  /** Os erros como a guarda os registrou, já com o texto inteiro do banco (`texto-do-erro.ts`). */
+  erros: string[];
+  /** Quantos posts a composição tinha calculado antes do bloqueio. */
+  postsSegurados: number;
+};
+
+/**
+ * Curto e em português: o que ficou de fora, por quê, o erro do banco e o que
+ * o dono pode fazer.
+ *
+ * Decisão do dono (06/10/2026): a leitura que falha CONTINUA fechando a
+ * notícia do Instagram, porque sem ela o pool é reclassificado do zero e o
+ * sorteio do classificador (24% de decisões trocadas, medido) volta a decidir
+ * o que vai ao ar. O que mudou é que o bloqueio deixou de ser silencioso: em
+ * 06/10 ele custou o dia inteiro e só foi achado por eliminação.
+ *
+ * O texto diz que newsletter e portal seguem porque é verdade no código: a
+ * guarda classifica tudo de novo quando a leitura falha ("banco indisponível
+ * não pode impedir a edição de sair"), e o bloqueio mora só na composição do
+ * feed. E dá o caminho de refazer só o Instagram, que não toca e-mail nem
+ * portal e não duplica post (idempotência por pauta e por acontecimento).
+ *
+ * O erro vai inteiro, sem corte próprio: `textoDoErro` já o limita, e o corte
+ * de 900 do aviso irmão comeria justamente o `details` que diz o que houve.
+ * O teto total só protege o limite de mensagem do Telegram.
+ */
+export function textoLeituraDeCandidatasFalhou(f: LeituraDeCandidatasFalhou): string {
+  const posts =
+    f.postsSegurados === 1 ? "1 post calculado ficou" : `${f.postsSegurados} posts calculados ficaram`;
+  const erro = f.erros.join(" | ") || "sem texto do erro";
+  return (
+    `Instagram de ${diaCurto(f.dia)}: os posts de notícia foram segurados (${posts} de fora), ` +
+    `porque a leitura do histórico de pautas candidatas no banco falhou. Sem ela a classificação ` +
+    `seria refeita do zero, e o feed não publica assim. Newsletter e portal não são afetados. ` +
+    `Para publicar, quando o banco responder, rode de novo só o Instagram: ` +
+    `npx tsx src/scripts/leva-social-extra.ts --quantos=5 (ensaio) e depois com --valendo. ` +
+    `Erro: ${erro}`
+  ).slice(0, 3500);
+}
+
+/**
+ * Um aviso por dia, pelo mesmo `emitir` dos outros: a chave
+ * `leitura_de_candidatas_falhou:<dia>` em `platform_events`, o envio pelo
+ * `alerts.ts` e o desfecho gravado nos dois casos. A manhã e a tarde podem
+ * falhar no mesmo dia, e o dono recebe uma mensagem só. Nível `warning`, como
+ * o aviso irmão: o dia continua com newsletter e portal.
+ */
+export async function avisarLeituraDeCandidatasFalhou(
+  projeto: Pick<ProjetoDosAvisos, "id">,
+  falha: LeituraDeCandidatasFalhou,
+  deps: Pick<DepsDosAvisos, "registro" | "enviar">,
+): Promise<boolean> {
+  if (falha.erros.length === 0) return false;
+  return emitir(
+    projeto,
+    "leitura_de_candidatas_falhou",
+    falha.dia,
+    "warning",
+    textoLeituraDeCandidatasFalhou(falha),
     deps,
   );
 }
