@@ -1,6 +1,7 @@
 import { esc, manterCodigosJuntos, pad2, protegerQuebras, safeImageUrl } from "./util";
 import { overlayBrand } from "./shell";
 import { MARCA } from "@/lib/marca";
+import { POSICAO_PADRAO, estiloDaPosicao, posicaoPorChave } from "./bolha";
 import type {
   InstagramSlide,
   InstagramSlideType,
@@ -311,6 +312,23 @@ ${comFoto ? `<div class="k-foto">${photo(slide.bg_image_url)}</div>` : ""}
  * `SCRIPT_DE_AJUSTE`, porque manchete de 60 e de 120 caracteres não cabem no
  * mesmo tamanho. Sem isso, ou a curta fica pequena ou a longa transborda.
  */
+/**
+ * O círculo da bolha, na posição decidida pelos rostos da foto de fundo.
+ *
+ * Quem decide é `social/bolha-sem-rosto.ts` (06/10/2026); aqui só se desenha.
+ * A posição padrão não ganha estilo inline, porque o CSS já a desenha: a capa
+ * sem rosto no caminho sai com o mesmo HTML de antes, mais o atributo que diz
+ * onde a bolha está, para o render poder medir.
+ */
+function bolhaNaPosicao(url: string, chave: string | undefined): string {
+  const posicao = posicaoPorChave(chave) ?? POSICAO_PADRAO;
+  const estilo = estiloDaPosicao(posicao);
+  return (
+    `<div class="j-bolha" data-posicao="${esc(posicao.chave)}"${estilo ? ` style="${estilo}"` : ""}>` +
+    `<img src="${esc(url)}" alt="" /></div>`
+  );
+}
+
 function jornal(
   slide: InstagramSlide,
   ctx: VariantContext,
@@ -362,7 +380,7 @@ ${/*
    pedaço da foto que fica atrás do logotipo para decidir. Ver escolherMarca, no script de ajuste.
 */ ""}
 <img class="j-marca" src="${esc(MARCA.logoEscuro)}" data-claro="${esc(MARCA.logoClaro)}" alt="" />
-${opcoes.comBolha && bolha ? `<div class="j-bolha"><img src="${esc(bolha)}" alt="" /></div>` : ""}
+${opcoes.comBolha && bolha ? bolhaNaPosicao(bolha, slide.inset_position) : ""}
 <div class="j-texto">
   ${chapeu ? `<span class="j-chapeu">${esc(chapeu)}</span>` : ""}
   <div class="j-manchete lay-texto" data-ajuste="encolher" data-max="${temTexto ? 44 : 54}" data-min="${temTexto ? 26 : 36}">

@@ -8,6 +8,9 @@ import { conferirFinalistas } from "../editorial/finalistas";
 import type { ResultadoDosFinalistas } from "../editorial/finalistas";
 import { criarCandidatosStore } from "../editorial/candidatos-store";
 import { imagemDaPauta } from "../visual/acervo/imagem-da-pauta";
+import { acervoDoProjeto } from "../visual/acervo/acervo";
+import { buscarSegundaFoto } from "../visual/resolver";
+import { detectarRostos } from "../visual/rostos-na-foto";
 import { carregarConfigSocial } from "./selecao";
 import { limitarTetoDoDia, poolDoInstagram } from "../ramos/selecao";
 import { criarSocialPostsStore } from "./social-posts-store";
@@ -408,6 +411,31 @@ export async function rodarSocialDoDia(
     console.warn("[SOCIAL] Não consegui ler a memória de fotos:", erro);
   }
 
+  /*
+   * A pauta como o resolvedor de imagem a recebe, e as opções que a foto de
+   * fundo e a busca extra da bolha compartilham.
+   */
+  const paraImagem = (pauta: PautaAvaliada) => ({
+    storyId: pauta.storyId,
+    titulo: pauta.grupo.primary.title,
+    resumo: pauta.enriquecimento?.texto ?? "",
+    categoria: pauta.classificacao.eixo,
+    classificacao: {
+      atores: pauta.classificacao.atores,
+      lugares: pauta.classificacao.lugares,
+      acontecimento: pauta.classificacao.acontecimento,
+      pais: pauta.classificacao.pais,
+    },
+  });
+  const projetoDaImagem = opcoes.projeto ? { ...opcoes.projeto, id: opcoes.projectId } : null;
+  const opcoesDaImagem = {
+    env,
+    fetcher,
+    somenteLeitura: true,
+    jaUsadosNestaEdicao: fotosDaEdicao,
+    jaUsadasRecentemente: fotosAntigas,
+  };
+
   const ciclo = await rodarCicloSocial(conferencia.confirmadas, {
     projectId: opcoes.projectId,
     /*
@@ -470,31 +498,28 @@ export async function rodarSocialDoDia(
      * pauta. Fora de `enforce` é repasse direto ao resolvedor, como antes.
      */
     resolverVisual: async (pauta) =>
-      imagemDaPauta(
-        {
-          storyId: pauta.storyId,
-          titulo: pauta.grupo.primary.title,
-          resumo: pauta.enriquecimento?.texto ?? "",
-          categoria: pauta.classificacao.eixo,
-          classificacao: {
-            atores: pauta.classificacao.atores,
-            lugares: pauta.classificacao.lugares,
-            acontecimento: pauta.classificacao.acontecimento,
-            pais: pauta.classificacao.pais,
-          },
-        },
-        {
-          client: opcoes.client,
-          projeto: opcoes.projeto ? { ...opcoes.projeto, id: opcoes.projectId } : null,
-          opcoes: {
-            env,
-            fetcher,
-            somenteLeitura: true,
-            jaUsadosNestaEdicao: fotosDaEdicao,
-            jaUsadasRecentemente: fotosAntigas,
-          },
-        },
-      ),
+      imagemDaPauta(paraImagem(pauta), {
+        client: opcoes.client,
+        projeto: projetoDaImagem,
+        opcoes: opcoesDaImagem,
+      }),
+    /*
+     * A bolha sem rosto (06/10/2026). Os rostos da foto de fundo são
+     * perguntados a um modelo de visão, com memória por URL, e só na vez da
+     * bolha. Sem chave, a detecção falha e a capa sai sem bolha.
+     */
+    detectarRostos: (url) => detectarRostos(url, { env, fetcher }),
+    /*
+     * A busca extra da segunda foto, também só na vez da bolha e só quando o
+     * resolvedor não trouxe vice. Mesmas memórias de foto do ciclo, e o acervo
+     * pela mesma capacidade que a foto de fundo usa.
+     */
+    buscarSegundaFoto: (pauta, visual) =>
+      buscarSegundaFoto(paraImagem(pauta), visual.asset ?? { imageUrl: "" }, visual.entidade ?? null, {
+        ...opcoesDaImagem,
+        client: opcoes.client,
+        acervo: acervoDoProjeto(opcoes.client, projetoDaImagem),
+      }),
   });
 
   diagnostico.selected = ciclo.previews.length;

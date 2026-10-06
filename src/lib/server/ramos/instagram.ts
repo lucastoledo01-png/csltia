@@ -46,4 +46,8 @@ export function lancarCustosDoInstagram(
   for (const preview of social.ciclo?.previews ?? []) {
     livro.lancar("redacao", "post", preview.post.custoUsd, preview.post.tokens);
   }
+  // Os rostos da foto de fundo, perguntados só na vez da bolha (06/10/2026).
+  if (social.ciclo?.custoDaBolha) {
+    livro.lancar("bolha", "post", social.ciclo.custoDaBolha.usd, social.ciclo.custoDaBolha.tokens);
+  }
 }

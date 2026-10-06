@@ -91,7 +91,16 @@ export type OpcoesDeAmostragem = {
  */
 export type ParteDaMensagem =
   | { type: "text"; text: string }
-  | { type: "image_url"; image_url: { url: string } };
+  | { type: "image_url"; image_url: { url: string; detail?: "low" | "high" | "auto" } };
+
+/**
+ * Um esquema JSON estrito para a resposta.
+ *
+ * Sem ele a API garante só que a resposta é JSON, não que tem os campos
+ * certos. Quem pede caixa de rosto precisa de número onde se espera número:
+ * resposta torta ali vira bolha em cima de alguém, e não erro.
+ */
+export type EsquemaDaResposta = { nome: string; esquema: Record<string, unknown> };
 
 export type MensagemComImagem = {
   role: "system" | "user";
@@ -112,7 +121,8 @@ export async function callOpenAIVisionJSON<T>(
   env: Record<string, string | undefined> = process.env,
   fetcher: typeof fetch = fetch,
   amostragem: OpcoesDeAmostragem = {},
-  tempoLimiteMs: number = REQUEST_TIMEOUT_MS
+  tempoLimiteMs: number = REQUEST_TIMEOUT_MS,
+  esquema?: EsquemaDaResposta,
 ): Promise<{ data: T; usage: AITokenUsage }> {
   const apiKey = getOpenAIKey(env);
 
@@ -125,7 +135,9 @@ export async function callOpenAIVisionJSON<T>(
     body: JSON.stringify({
       model,
       messages,
-      response_format: { type: "json_object" },
+      response_format: esquema
+        ? { type: "json_schema", json_schema: { name: esquema.nome, strict: true, schema: esquema.esquema } }
+        : { type: "json_object" },
       ...(amostragem.temperature !== undefined ? { temperature: amostragem.temperature } : {}),
       ...(amostragem.seed !== undefined ? { seed: amostragem.seed } : {}),
     }),

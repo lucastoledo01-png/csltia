@@ -1,0 +1,237 @@
+{
+  "custoUsd": 0.02136,
+  "pecas": [
+    {
+      "peca": "01-rosto-no-centro",
+      "vez": true,
+      "resultado": "com_bolha",
+      "motivo": "posição media_esquerda_baixa: padrao, direita, direita_alta, esquerda_baixa, direita_baixa, media_direita_alta cruzavam rosto",
+      "rostos": [
+        {
+          "x": 0.367,
+          "y": 0.008,
+          "largura": 0.32800000000000007,
+          "altura": 0.34
+        }
+      ],
+      "posicao": "media_esquerda_baixa",
+      "posicoesRecusadas": [
+        "padrao",
+        "direita",
+        "direita_alta",
+        "esquerda_baixa",
+        "direita_baixa",
+        "media_direita_alta"
+      ],
+      "bolhaNoRender": {
+        "pedida": true,
+        "desenhada": true,
+        "motivo": "",
+        "medida": {
+          "cx": 237.5859375,
+          "cy": 712.7890625,
+          "raio": 194.3984375,
+          "posicao": "media_esquerda_baixa"
+        }
+      },
+      "custoUsd": 0.00473
+    },
+    {
+      "peca": "02-paisagem-sem-rosto",
+      "vez": true,
+      "resultado": "com_bolha",
+      "motivo": "posição padrao, livre de rosto",
+      "rostos": [],
+      "posicao": "padrao",
+      "posicoesRecusadas": [],
+      "bolhaNoRender": {
+        "pedida": true,
+        "desenhada": true,
+        "motivo": "",
+        "medida": {
+          "cx": 280.78125,
+          "cy": 511.1875,
+          "raio": 237.59375,
+          "posicao": "padrao"
+        }
+      },
+      "custoUsd": 0.00417
+    },
+    {
+      "peca": "03-sem-posicao-livre",
+      "vez": true,
+      "resultado": "sem_posicao_livre",
+      "motivo": "1 rosto(s) na foto de fundo e nenhuma das 12 posições fica livre deles; a vez passa",
+      "rostos": [
+        {
+          "x": 0.296,
+          "y": 0.094,
+          "largura": 0.411,
+          "altura": 0.484
+        }
+      ],
+      "posicao": null,
+      "posicoesRecusadas": [
+        "padrao",
+        "direita",
+        "direita_alta",
+        "esquerda_baixa",
+        "direita_baixa",
+        "media_direita_alta",
+        "media_esquerda_baixa",
+        "media_direita_baixa",
+        "pequena_direita_alta",
+        "pequena_esquerda_alta",
+        "pequena_esquerda_baixa",
+        "pequena_direita_baixa"
+      ],
+      "bolhaNoRender": {
+        "pedida": false,
+        "desenhada": false,
+        "motivo": "",
+        "medida": null
+      },
+      "custoUsd": 0.00438
+    },
+    {
+      "peca": "04a-alternancia-vez-sem-lugar",
+      "vez": true,
+      "resultado": "sem_posicao_livre",
+      "motivo": "1 rosto(s) na foto de fundo e nenhuma das 12 posições fica livre deles; a vez passa",
+      "rostos": [
+        {
+          "x": 0.18,
+          "y": 0.05,
+          "largura": 0.6200000000000001,
+          "altura": 0.61
+        }
+      ],
+      "posicao": null,
+      "posicoesRecusadas": [
+        "padrao",
+        "direita",
+        "direita_alta",
+        "esquerda_baixa",
+        "direita_baixa",
+        "media_direita_alta",
+        "media_esquerda_baixa",
+        "media_direita_baixa",
+        "pequena_direita_alta",
+        "pequena_esquerda_alta",
+        "pequena_esquerda_baixa",
+        "pequena_direita_baixa"
+      ],
+      "bolhaNoRender": {
+        "pedida": false,
+        "desenhada": false,
+        "motivo": "",
+        "medida": null
+      },
+      "custoUsd": 0.00455
+    },
+    {
+      "peca": "04b-alternancia-vez-herdada",
+      "vez": true,
+      "resultado": "com_bolha",
+      "motivo": "posição padrao, livre de rosto",
+      "rostos": [],
+      "posicao": "padrao",
+      "posicoesRecusadas": [],
+      "bolhaNoRender": {
+        "pedida": true,
+        "desenhada": true,
+        "motivo": "",
+        "medida": {
+          "cx": 280.78125,
+          "cy": 511.1875,
+          "raio": 237.59375,
+          "posicao": "padrao"
+        }
+      },
+      "custoUsd": 0.00354
+    },
+    {
+      "peca": "04c-alternancia-depois-da-bolha",
+      "vez": false,
+      "resultado": "nao_era_a_vez",
+      "motivo": "a peça anterior do feed saiu com bolha",
+      "rostos": [
+        {
+          "x": 0.414,
+          "y": 0,
+          "largura": 0.06,
+          "altura": 0.045
+        },
+        {
+          "x": 0.469,
+          "y": 0.006,
+          "largura": 0.04700000000000004,
+          "altura": 0.045
+        },
+        {
+          "x": 0.385,
+          "y": 0.018,
+          "largura": 0.046999999999999986,
+          "altura": 0.05199999999999999
+        },
+        {
+          "x": 0.35,
+          "y": 0.045,
+          "largura": 0.046999999999999986,
+          "altura": 0.05500000000000001
+        },
+        {
+          "x": 0.318,
+          "y": 0.077,
+          "largura": 0.046999999999999986,
+          "altura": 0.05700000000000001
+        },
+        {
+          "x": 0.281,
+          "y": 0.106,
+          "largura": 0.04999999999999999,
+          "altura": 0.059999999999999984
+        },
+        {
+          "x": 0.245,
+          "y": 0.145,
+          "largura": 0.05199999999999999,
+          "altura": 0.06
+        },
+        {
+          "x": 0.208,
+          "y": 0.184,
+          "largura": 0.05200000000000002,
+          "altura": 0.063
+        },
+        {
+          "x": 0.171,
+          "y": 0.23,
+          "largura": 0.05499999999999999,
+          "altura": 0.06300000000000003
+        },
+        {
+          "x": 0.133,
+          "y": 0.278,
+          "largura": 0.05499999999999999,
+          "altura": 0.063
+        },
+        {
+          "x": 0.098,
+          "y": 0.326,
+          "largura": 0.05499999999999999,
+          "altura": 0.063
+        }
+      ],
+      "posicao": null,
+      "posicoesRecusadas": [],
+      "bolhaNoRender": {
+        "pedida": false,
+        "desenhada": false,
+        "motivo": "",
+        "medida": null
+      },
+      "custoUsd": 0
+    }
+  ]
+}

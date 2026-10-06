@@ -3,6 +3,8 @@ import type { Layout } from "@/lib/carousel-templates/layout";
 import type { Affordance } from "@/lib/carousel-templates/chrome";
 import type { AssetVisual } from "../visual/tipos";
 import { cabeNoRecorte } from "@/lib/carousel-templates/variants";
+import type { CaixaNormalizada } from "@/lib/carousel-templates/bolha";
+import { ANEL_DA_BOLHA_PX, cruzaAlgumRosto } from "./bolha-sem-rosto";
 
 /**
  * A arte do post do feed, e a única regra que ela não negocia.
@@ -172,6 +174,21 @@ export type EntradaDaCapa = {
    * é reforço, não requisito.
    */
   assetSecundario?: FotoDaCapa | null;
+  /**
+   * Onde a bolha fica, decidido pelos rostos da foto de fundo (06/10/2026).
+   *
+   * Chave de `POSICOES_DA_BOLHA`. Ausente é a posição de sempre, que é o que
+   * a capa fazia antes de alguém perguntar onde estão os rostos.
+   */
+  posicaoDaBolha?: string;
+  /**
+   * Os rostos da foto de fundo, em fração do canvas, como a decisão os viu.
+   *
+   * O render confere de novo com a bolha JÁ desenhada, medindo o círculo na
+   * página. Se o círculo medido encostar num rosto, a bolha é tirada antes do
+   * screenshot. Ver `renderizarCapas`.
+   */
+  rostosDaBolha?: CaixaNormalizada[];
   /** Categoria editorial, usada como sobrancelha na capa sem foto. */
   eixo?: string;
   /**
@@ -393,8 +410,13 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
    * sem bolha, e a mesma foto chega por dois caminhos com frequência, já que
    * fontes diferentes servem o mesmo arquivo do Commons.
    */
+  /*
+   * E a gramática tem que ser a de jornal: o recorte não desenha bolha, e até
+   * 06/10/2026 o campo ia preenchido assim mesmo, o que podia gravar
+   * `bolha: true` numa peça sem círculo e tirar a vez da peça seguinte.
+   */
   const segunda = (entrada.assetSecundario?.imageUrl ?? "").trim();
-  const bolha = comFoto && segunda && segunda !== asset!.imageUrl ? segunda : "";
+  const bolha = comFoto && gramatica === "jornal" && segunda && segunda !== asset!.imageUrl ? segunda : "";
 
   const slide: InstagramSlide = {
     index: 1,
@@ -440,6 +462,7 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
      * campo que ela ignora, e alguém depois acharia que ela deveria usá-lo.
      */
     inset_image_url: bolha,
+    ...(bolha && entrada.posicaoDaBolha ? { inset_position: entrada.posicaoDaBolha } : {}),
     cta_text: "",
   };
 
@@ -519,6 +542,23 @@ export type ArteRenderizada = {
   usouLayoutDesenhado: boolean;
   /** Por que foi ou não foi usado. Ver `diagnosticarLayout`. */
   diagnosticoDoLayout: DiagnosticoDeLayout;
+  /**
+   * A bolha como ela saiu no ARQUIVO, e não como foi pedida.
+   *
+   * Pedida e desenhada são coisas diferentes, e já foram tratadas como uma:
+   * a foto do círculo que não baixa vira capa sem bolha, e a linha do banco
+   * continuava dizendo `bolha: true`. Quem grava o ritmo lê `desenhada`.
+   */
+  bolha: BolhaNoRender;
+};
+
+export type BolhaNoRender = {
+  pedida: boolean;
+  desenhada: boolean;
+  /** Vazio quando saiu como pedida. */
+  motivo: string;
+  /** O círculo medido na página, em pixels do canvas, sem o anel. */
+  medida: { cx: number; cy: number; raio: number; posicao: string } | null;
 };
 
 /**
@@ -654,9 +694,16 @@ export async function renderizarCapas(
        * foto de fundo recebe, e pelo mesmo motivo: ausência é melhor que
        * buraco.
        */
+      const bolhaNoRender: BolhaNoRender = {
+        pedida: Boolean(capa.slide.inset_image_url),
+        desenhada: false,
+        motivo: "",
+        medida: null,
+      };
       if (capa.slide.inset_image_url) {
         const bolha = await baixarComoDataUrl(capa.slide.inset_image_url, fetcher);
         capa = { ...capa, slide: { ...capa.slide, inset_image_url: bolha ?? "" } };
+        if (!bolha) bolhaNoRender.motivo = "a foto da bolha não baixou: capa sem bolha";
       }
 
       // Ver `layoutCarregaAFoto`: sem bloco de imagem, o desenho engole a foto
@@ -717,6 +764,41 @@ export async function renderizarCapas(
       await page.waitForTimeout(120);
 
       /*
+       * A bolha conferida DEPOIS de desenhada, medindo o círculo na página.
+       *
+       * A decisão da posição foi tomada em fração do canvas, contra a tabela de
+       * `carousel-templates/bolha.ts`. O que vai para o arquivo é o que o CSS
+       * desenhou, e as duas coisas só coincidem enquanto ninguém mexer numa
+       * delas: uma regra de CSS nova, um layout desenhado no painel ou um
+       * canvas de outro tamanho deslocam o círculo sem erro nenhum. É a lição
+       * das medidas relativas: medir na peça montada, não confiar na conta.
+       *
+       * Se o círculo medido encosta num rosto, a bolha sai da página antes do
+       * screenshot, e o motivo vai junto da arte.
+       */
+      if (capa.slide.inset_image_url) {
+        const caixa = await page.evaluate(() => {
+          const el = document.querySelector(".j-bolha");
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          return { x: r.left, y: r.top, w: r.width, h: r.height, posicao: el.getAttribute("data-posicao") ?? "" };
+        });
+        if (!caixa || caixa.w <= 0) {
+          bolhaNoRender.motivo = "a variante não desenhou o círculo";
+        } else {
+          const medida = { cx: caixa.x + caixa.w / 2, cy: caixa.y + caixa.h / 2, raio: caixa.w / 2, posicao: caixa.posicao };
+          bolhaNoRender.medida = medida;
+          const comAnel = { cx: medida.cx, cy: medida.cy, raio: medida.raio + ANEL_DA_BOLHA_PX };
+          if (cruzaAlgumRosto(comAnel, entrada.rostosDaBolha ?? [], tokens.canvas)) {
+            await page.evaluate(() => document.querySelector(".j-bolha")?.remove());
+            bolhaNoRender.motivo = "o círculo medido no render encosta num rosto: bolha tirada da peça";
+          } else {
+            bolhaNoRender.desenhada = true;
+          }
+        }
+      }
+
+      /*
        * Quais famílias o navegador realmente tem, depois de `fonts.ready`.
        *
        * `document.fonts.check("16px 'Playfair Display'")` NÃO serve, e a
@@ -772,6 +854,7 @@ export async function renderizarCapas(
         temaDegradado: tema.degradado ? tema.motivo : "",
         usouLayoutDesenhado: usaDesenho,
         diagnosticoDoLayout,
+        bolha: bolhaNoRender,
       });
     }
   } finally {

@@ -382,6 +382,9 @@ A bolha é o círculo com a segunda foto. Duas regras novas, pedidas pelo dono:
   segunda foto exista. O estado vem do feed, não da leva, senão duas capas com
   bolha se encostam na virada do dia.
 
+ATUALIZADO em 06/10/2026: a bolha nunca cobre rosto, e a alternância virou
+alvo. Ver "A bolha não cobre rosto, e a vez dela passa adiante".
+
 ## Nenhuma imagem vai ao ar sem alguém ter olhado para ela (17/09/2026)
 
 Decidido pelo dono depois de dois posts agendados com imagem incoerente: "é uma
@@ -1177,6 +1180,80 @@ não trata nem com palavra genérica; abaixo de dois mesmo assim, a matéria sai
 com o que tem e o ramo registra `ASSUNTOS ABAIXO DO MÍNIMO`. Não bloqueia,
 porque bloquear empurraria o redator a inventar. A página não completa nada
 na leitura.
+
+## A bolha não cobre rosto, e a vez dela passa adiante (06/10/2026)
+
+Dois pedidos do dono, sobre o mesmo círculo. O caso que motivou o primeiro: o
+retrato oficial de Biden de fundo (29/09/2026), com a bolha desenhada em cima
+da metade do rosto. A posição era fixa no CSS, e nada na esteira sabia onde
+ficava o rosto. Exemplos renderizados com fotos de produção em
+`docs/design/bolha-sem-rosto-2026-10-06/`, com a conferência desenhada por cima.
+
+**A bolha nunca cobre um rosto.** Na vez da bolha, uma chamada de visão recebe
+a foto de fundo JÁ RECORTADA como a peça a mostra (`object-fit: cover`, a
+mesma conta do script da marca, em `recorteDoCover`) e devolve as caixas das
+cabeças em fração do canvas, com esquema JSON estrito. São 12 posições em
+`carousel-templates/bolha.ts`, na ordem de preferência: a de sempre primeiro,
+depois o espelho e as variações no mesmo tamanho, depois 36% e 30% da largura.
+Todas ficam fora da marca do topo e acima da faixa do texto, e há teste disso
+para cada uma. Vale a primeira que não encosta em rosto nenhum, com folga de
+3% da largura mais o anel branco. Nenhuma serve: capa sem bolha.
+
+**Falha de detecção é recusa.** Sem chave, com a rede fora, com resposta fora
+do esquema ou com coordenada fora da escala de 0 a 1, não há bolha. É a regra
+de 17/09/2026 aplicada ao círculo: capa sem bolha é peça publicável, bolha em
+cima de rosto não é. A memória é por URL da foto, e a falha não fica guardada.
+
+**O render confere de novo.** Depois de montar a peça, `renderizarCapas` mede o
+círculo na página e o compara com as caixas; se encostar, a bolha sai antes do
+screenshot. A posição é decidida contra uma tabela, e o arquivo é o que o CSS
+desenhou: as duas coisas só coincidem enquanto ninguém mexer numa delas.
+
+**Custo:** uma chamada por post na vez da bolha. Medida em 06/10/2026 com o
+modelo de produção: cerca de 1.400 tokens e 0,0045 USD na foto comum, até
+0,012 USD numa foto com muitos rostos pequenos (estimativa da tabela de
+`calculateCost`, que cobra preço de gpt-4o para modelo desconhecido). Vai para
+o livro do dia como etapa `bolha` do ramo do post. Fora da vez não se pergunta
+nada. Multidão é cara para o modelo e quase nunca tem lugar livre: acima de
+40 rostos é recusa direta.
+
+**Estátua conta como rosto**, e a instrução diz isso. A fachada da NYSE com o
+frontão esculpido devolve uma dúzia de rostos pequenos. É conservador de
+propósito: o pedido é "nunca", e o preço do falso positivo é uma capa sem
+bolha.
+
+**A alternância virou alvo.** O ritmo de 16/09 continua: depois de uma capa com
+bolha vem uma sem, com o estado lido do feed. O que muda é o lado da vez:
+quando é a vez e ela não se cumpre (sem segunda foto, sem posição livre, render
+que tirou a bolha), ela PASSA para o post seguinte, e não se perde. A decisão
+virou `decidirBolha`, peça a peça dentro do laço do ciclo, porque a vez de
+uma depende de a anterior ter saído com bolha de verdade, e isso só se sabe
+depois do render. `alternarBolha`, a passada pura sobre a leva, saiu.
+
+**Na vez, a segunda foto é procurada com mais força, com a mesma régua.** Em
+06/10/2026 só 1 das 12 últimas capas tinha bolha, e parte da causa estava no
+resolvedor: a vice só existia no caminho das fontes externas, e a foto que
+vinha do acervo ou da biblioteca terminava sem vice nenhuma.
+`buscarSegundaFoto` entra só na vez e só quando a vice não veio: acervo pelo
+assunto da entidade primeiro, depois biblioteca, Commons (30 arquivos em vez de
+12) e Openverse, pelas MESMAS barreiras da vice e com o piso de identidade, e
+a conferência visual abrindo até quatro. Pauta sem entidade nomeada não tem
+bolha: o círculo mostra quem a pauta cita. A ordem é a do custo: os rostos são
+perguntados antes, porque procurar segunda foto para uma peça sem lugar livre
+seria dinheiro jogado.
+
+**Tudo fica gravado** em `content_json.arte.bolha_decisao`: se era a vez, o
+resultado (`com_bolha`, `nao_era_a_vez`, `sem_posicao_livre`,
+`sem_segunda_foto`, `deteccao_falhou`, `tirada_no_render`...), os rostos, a
+posição escolhida e as recusadas, a origem da segunda foto e o custo.
+`arte.bolha` passou a dizer o que foi ao ARQUIVO, e não o que foi pedido.
+
+**Os moldes do painel já alcançam a esteira.** Com `{"recorte": false,
+"sem_foto": false}` em `settings.moldes` (gravado em 05/10/2026 às 17:57),
+`alternarGramatica` não devolve recorte, e a pauta sem foto já não chegava ao
+render (regra de 05/10). Os três recortes de 05/10 nasceram às 09:21, antes do
+interruptor. O recorte também deixou de carregar a segunda foto: ele não
+desenha bolha, e o campo ia preenchido assim mesmo.
 
 ## Armadilhas que já custaram tempo
 

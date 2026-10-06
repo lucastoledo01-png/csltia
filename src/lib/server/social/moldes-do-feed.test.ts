@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MOLDES_DO_FEED, TODOS_OS_MOLDES, moldesDeclarados, moldesLigados } from "./moldes-do-feed";
 import { alternarGramatica } from "./ritmo-do-recorte";
-import { alternarBolha } from "./ritmo-da-bolha";
+import { decidirBolha } from "./bolha-sem-rosto";
 
 /**
  * "Esses templates são os que a IA vai trabalhar e gerar as notícias, então
@@ -125,19 +125,34 @@ describe("desligar alcança a escolha da peça", () => {
 });
 
 describe("a bolha obedece ao interruptor", () => {
-  it("desligada, nenhuma peça leva bolha", () => {
-    const decisoes = alternarBolha(
-      [{ temSegundaFoto: true }, { temSegundaFoto: true }],
-      false,
-      false,
-    );
-    expect(decisoes).toEqual([false, false]);
+  const pedido = {
+    anteriorTeveBolha: false,
+    gramatica: "jornal" as const,
+    fotoDeFundo: "https://exemplo.org/fundo.jpg",
+    segundaFoto: { imageUrl: "https://exemplo.org/bolha.jpg", attribution: "" },
+    canvas: { width: 1080, height: 1440 },
+  };
+
+  it("desligada, nenhuma peça leva bolha, e ninguém pergunta pelos rostos", async () => {
+    let perguntou = false;
+    const { decisao } = await decidirBolha({
+      ...pedido,
+      moldeLigado: false,
+      detectar: async () => {
+        perguntou = true;
+        return { ok: true, rostos: [], custoUsd: 0, tokens: 0, emCache: false, modelo: "m" };
+      },
+    });
+    expect(decisao.resultado).toBe("molde_desligado");
+    expect(perguntou).toBe(false);
   });
 
-  it("ligada, o ritmo continua alternando como antes", () => {
-    expect(alternarBolha([{ temSegundaFoto: true }, { temSegundaFoto: true }], false)).toEqual([
-      true,
-      false,
-    ]);
+  it("ligada, a vez sem rosto no caminho sai com bolha", async () => {
+    const { decisao } = await decidirBolha({
+      ...pedido,
+      moldeLigado: true,
+      detectar: async () => ({ ok: true, rostos: [], custoUsd: 0, tokens: 0, emCache: false, modelo: "m" }),
+    });
+    expect(decisao.resultado).toBe("com_bolha");
   });
 });

@@ -7,6 +7,7 @@ import type { ArtefatoDeSlide } from "./artefato";
 import type { FormatoDoPost } from "./carrossel/formato";
 import { varianteDaCapa } from "./arte";
 import type { GramaticaDaCapa } from "./arte";
+import type { DecisaoDaBolha } from "./bolha-sem-rosto";
 import { statusDeEntradaDoPost } from "../aprovacao/portao";
 import type { OpcoesDaFilaNoStore } from "../aprovacao/integracao";
 
@@ -122,6 +123,14 @@ export type PostParaGravar = {
    * outro faria a alternância enxergar bolha onde a peça não tem nenhuma.
    */
   bolha: boolean;
+  /**
+   * Por que a capa tem ou não tem bolha, e onde ela ficou (06/10/2026).
+   *
+   * Os rostos achados na foto de fundo, a posição escolhida ou o motivo de não
+   * haver nenhuma, a origem da segunda foto e o custo. Opcional para quem
+   * grava sem passar pela decisão (scripts antigos, testes).
+   */
+  decisaoDaBolha?: DecisaoDaBolha | null;
   /**
    * Qual gramática esta capa usou, jornal ou recorte.
    *
@@ -443,6 +452,12 @@ export function criarSocialPostsStore(client: SupabaseClient, fila: OpcoesDaFila
                * 16/09/2026.
                */
               bolha: p.bolha,
+              /*
+               * A decisão que produziu o campo acima, para auditoria: quem
+               * pergunta "a bolha deste post cobria alguém?" encontra aqui os
+               * rostos e a posição, sem renderizar de novo.
+               */
+              ...(p.decisaoDaBolha ? { bolha_decisao: p.decisaoDaBolha } : {}),
             },
             /*
              * O registro do direito é completo mesmo quando a arte não imprime

@@ -43,6 +43,11 @@ export const InstagramSlideSchema = z.object({
    * e o contêiner antigo continuou no ar.
    */
   inset_image_url: z.string().optional(),
+  /**
+   * Onde a bolha fica, pela chave de `POSICOES_DA_BOLHA`. Ausente é a posição
+   * de sempre. Sem `.default()` pelo mesmo motivo do campo acima.
+   */
+  inset_position: z.string().optional(),
   cta_text: z.string().optional().default(""),
 });
 
