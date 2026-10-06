@@ -15,7 +15,7 @@ import {
   type Artigo,
   type ResultadoDoArtigo,
 } from "./artigo";
-import { alvosDasFontes, fundirPacotes, reunirFontesDaMateria } from "./fontes-da-materia";
+import { alvosDasFontes, fundirPacotes, reunirFontesDaMateria, tituloEmPortugues } from "./fontes-da-materia";
 import { rodarRamoDoPortal } from "./ramo-do-portal";
 import { criarFotosDoDia } from "./sem-foto";
 
@@ -81,6 +81,24 @@ describe("de onde vêm as outras fontes", () => {
       "https://apnews.com/diesel",
       "https://www.whitehouse.gov/presidential-actions/diesel/",
     ]);
+  });
+
+  it("entre línguas ou de órgão oficial o limiar é 0.60; na mesma língua continua 0.70 (06/10/2026)", () => {
+    // Cossenos com [1, 0, 0]: 0.66 e 0.62, os dois abaixo de 0.70 e acima de 0.60.
+    const v066 = [0.66, Math.sqrt(1 - 0.66 ** 2), 0];
+    const v062 = [0.62, Math.sqrt(1 - 0.62 ** 2), 0];
+    const alvos = alvosDasFontes({
+      principal: PRINCIPAL,
+      candidatas: [
+        { url: "https://oglobo.globo.com/diesel", titulo: "Trump assina ordem para reduzir o preço do diesel nos EUA", vetor: v066 },
+        { url: "https://www.irs.gov/diesel-relief", titulo: "Emergency Tax Relief on Diesel Fuel", vetor: v062 },
+        { url: "https://apnews.com/diesel-semelhante", titulo: "Diesel prices and the new order", vetor: v066 },
+        { url: "https://g1.globo.com/longe", titulo: "Outro assunto qualquer da economia do Brasil", vetor: [0.5, 0.86, 0] },
+      ],
+    }, []);
+    expect(alvos.map((a) => a.url)).toEqual(["https://oglobo.globo.com/diesel", "https://www.irs.gov/diesel-relief"]);
+    expect(tituloEmPortugues("Trump order on diesel")).toBe(false);
+    expect(tituloEmPortugues("Trump assina ordem para reduzir o preço do diesel")).toBe(true);
   });
 
   it("os links oficiais saem do CORPO, sem a home do órgão, sem PDF e sem o rodapé", () => {

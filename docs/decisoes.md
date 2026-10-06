@@ -1529,6 +1529,13 @@ pela cópia do Internet Archive (`buscarTextoDaFonte`), e vira o SEU pacote
 a mesma URL ou o mesmo domínio de uma fonte já escolhida, e fonte sem fato.
 Teto de quatro fontes contando a principal e de seis leituras.
 
+**O limiar desce para 0.60 em dois casos, por decisão do dono (06/10/2026):**
+irmã em outra língua e irmã de domínio oficial. Medido no ensaio: a mesma
+notícia do diesel em The Hill e em O Globo deu 0.659, e o comunicado oficial,
+0.618; o 0.70 foi medido entre veículos da mesma língua. Na mesma língua e
+fora de órgão oficial continua 0.70. O que segura fato vizinho é a ancoragem
+por fonte, que não mudou.
+
 - **O pacote da camada comum não muda.** A cópia ampliada é só do portal; a
   newsletter e o post seguem com o pacote de sempre (a regra de "um pacote por
   pauta" é sobre os canais não lerem duas extrações diferentes da MESMA

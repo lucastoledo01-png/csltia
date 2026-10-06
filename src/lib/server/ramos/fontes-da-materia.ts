@@ -20,7 +20,8 @@ import type { LivroDeCustos } from "./custos";
  *      parecido);
  *   2. as candidatas de `news_candidates` dos últimos dias cujo vetor dá
  *      cosseno de 0.70 ou mais com o da pauta, que é o limiar medido de
- *      "mesmo acontecimento" (`limiarDeAgrupamento`);
+ *      "mesmo acontecimento" (`limiarDeAgrupamento`), ou de 0.60 quando a
+ *      irmã é de outra língua ou de domínio oficial;
  *   3. a fonte primária que a matéria principal cita com link no corpo
  *      (órgão de governo, tribunal, parlamento).
  *
@@ -39,6 +40,33 @@ import type { LivroDeCustos } from "./custos";
  */
 
 export const MAXIMO_DE_FONTES = 4;
+
+/**
+ * O limiar da irmã em outra língua ou de órgão oficial (06/10/2026, decisão do
+ * dono). Medido no ensaio: a mesma notícia do diesel em The Hill (inglês) e O
+ * Globo (português) deu 0.659, e o comunicado oficial do mesmo alívio, 0.618.
+ * O vetor perde parte da semelhança quando a língua ou o registro mudam, e o
+ * 0.70 de "mesmo acontecimento" foi medido entre veículos da MESMA língua. O
+ * risco de puxar fato vizinho é coberto pela ancoragem por fonte: cada número
+ * só passa atribuído a quem o deu.
+ */
+export const LIMIAR_ENTRE_LINGUAS_OU_OFICIAL = 0.6;
+
+const DOMINIO_OFICIAL = /(^|\.)(gov|mil|gov\.br|jus\.br|leg\.br)$/i;
+
+const MARCAS_DE_PORTUGUES = /\b(de|do|da|dos|das|que|para|com|n[ao]s?|em|uma?|é|não|são)\b|ção|ções|ã|õ/i;
+
+/** Língua aproximada do título, só para escolher o limiar. Português ou não. */
+export function tituloEmPortugues(titulo: string): boolean {
+  const t = ` ${titulo.toLowerCase()} `;
+  const marcas = t.match(new RegExp(MARCAS_DE_PORTUGUES.source, "gi")) ?? [];
+  return marcas.length >= 2;
+}
+
+export function ehDominioOficial(url: string): boolean {
+  const d = dominioDe(url);
+  return Boolean(d && DOMINIO_OFICIAL.test(d));
+}
 export const MAXIMO_DE_LEITURAS = 6;
 /** O tamanho de texto de cada fonte que vai ao extrator e à ancoragem, o mesmo corte do extrator. */
 const TEXTO_POR_FONTE = 8000;
@@ -67,6 +95,8 @@ export type EntradaDasFontes = {
   /** Os links de fonte primária da matéria principal; ausente, a principal é lida de novo para achá-los. */
   linksOficiais?: string[];
   limiar?: number;
+  /** O limiar da irmã em outra língua ou de domínio oficial; padrão `LIMIAR_ENTRE_LINGUAS_OU_OFICIAL`. */
+  limiarAmplo?: number;
   maximoDeFontes?: number;
   maximoDeLeituras?: number;
   env?: Record<string, string | undefined>;
@@ -136,6 +166,8 @@ type Alvo = { url: string; nome?: string; origem: "grupo" | "mesmo fato" | "font
 /** A ordem das tentativas: o grupo, as irmãs pelo cosseno, e a fonte primária citada. */
 export function alvosDasFontes(e: EntradaDasFontes, linksOficiais: string[]): Alvo[] {
   const limiar = e.limiar ?? 0.7;
+  const limiarAmplo = Math.min(limiar, e.limiarAmplo ?? LIMIAR_ENTRE_LINGUAS_OU_OFICIAL);
+  const principalEmPortugues = tituloEmPortugues(e.principal.titulo);
   const principal = enderecoLimpoDaImagem(e.principal.url);
   const alvos: Alvo[] = [];
   for (const u of e.urlsDoGrupo ?? []) alvos.push({ url: enderecoLimpoDaImagem(u), origem: "grupo" });
@@ -144,7 +176,12 @@ export function alvosDasFontes(e: EntradaDasFontes, linksOficiais: string[]): Al
     const irmas = (e.candidatas ?? [])
       .filter((c) => !c.imigracao && c.vetor?.length)
       .map((c) => ({ c, s: cosseno(vetor, c.vetor as number[]) }))
-      .filter((x) => x.s >= limiar)
+      .filter(
+        (x) =>
+          x.s >= limiar ||
+          (x.s >= limiarAmplo &&
+            (ehDominioOficial(x.c.url) || tituloEmPortugues(x.c.titulo) !== principalEmPortugues)),
+      )
       .sort((a, b) => b.s - a.s);
     for (const { c, s } of irmas) alvos.push({ url: enderecoLimpoDaImagem(c.url), nome: c.nome, origem: "mesmo fato", cosseno: s });
   }
