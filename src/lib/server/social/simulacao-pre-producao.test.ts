@@ -179,7 +179,7 @@ const CATALOGO = [
   {
     id: "cartas-de-recomendacao",
     nome: "Cartas de recomendacao",
-    familia: "evidence_education" as never,
+    familia: "faq" as never,
     programa: undefined,
     resumo: "Cartas de recomendacao numa peticao de green card, na imigracao americana, nos Estados Unidos.",
     fontesCanonicas: ["https://www.uscis.gov/policy-manual/volume-6"],
@@ -188,7 +188,7 @@ const CATALOGO = [
   {
     id: "b1-b2",
     nome: "B-1 e B-2 (negocios e turismo)",
-    familia: "visa_explainer" as never,
+    familia: "explainer" as never,
     programa: "B-1/B-2",
     resumo: "O visto de visitante para negocios e turismo nos Estados Unidos.",
     fontesCanonicas: ["https://www.cbp.gov/travel/international-visitors"],
@@ -361,6 +361,12 @@ const ENFORCE = {
   VISUAL_RESOLVER_V2: "enforce",
   SOCIAL_V2_ENFORCE_LIBERADO: "true",
   SOCIAL_EVERGREEN_V2: "enforce",
+  /*
+   * O teto padrão caiu de 4 para 2 em 06/10/2026. Esta simulação foi escrita
+   * com 4, e o caso B-1/B-2 só é selecionado com ele: fixar o teto de antes
+   * mantém o que ela mede, que é a cobertura descartando, e não o teto.
+   */
+  EVERGREEN_MAX_POR_DIA: "4",
 };
 
 beforeEach(() => {

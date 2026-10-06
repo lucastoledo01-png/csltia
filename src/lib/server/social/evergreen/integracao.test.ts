@@ -5,6 +5,7 @@ import { prepararEvergreen } from "./ciclo";
 import { CATALOGO_EVERGREEN } from "./catalogo";
 import { identidadeDoItem } from "./tipos";
 import { pautaDoEvergreen } from "./adaptador";
+import { ehFonteCanonica } from "./grounding";
 import { hashtagsDaPauta } from "../legenda";
 import type { TopicoEvergreen, UsoAnterior } from "./tipos";
 import type { PacoteFactual } from "../../editorial/pacote-factual";
@@ -174,7 +175,7 @@ describe("anti-repetição", () => {
     expect(r.diagnostico.cortadosPorMotivo.COOLDOWN_DO_PAR ?? 0).toBeGreaterThan(0);
   });
 
-  it("o mesmo tópico por outro ângulo também espera a janela da semana", async () => {
+  it("o mesmo tópico por outro ângulo também espera a janela", async () => {
     // É o caso do "EB-2 NIW três vezes" com títulos diferentes.
     const catalogo = [CATALOGO_EVERGREEN[0]];
     const primeiro = identidadeDoItem({ topico: catalogo[0], angulo: catalogo[0].angulos[0] });
@@ -189,6 +190,32 @@ describe("anti-repetição", () => {
 
     expect(r.extras).toHaveLength(0);
     expect(r.diagnostico.cortadosPorMotivo.TOPICO_NA_JANELA ?? 0).toBeGreaterThan(0);
+  });
+
+  it("nenhum tópico volta em 30 dias, nem por outro ângulo (06/10/2026)", async () => {
+    const catalogo = [CATALOGO_EVERGREEN[0]];
+    const primeiro = identidadeDoItem({ topico: catalogo[0], angulo: catalogo[0].angulos[0] });
+    const historico = (dias: number) => [
+      { storyId: primeiro, topicId: `evg:${catalogo[0].id}`, quandoIso: diasAtras(dias) },
+    ];
+
+    const aos29 = await prepararEvergreen({
+      ...base, noticiasNoDia: 0, modoForcado: "dry_run", catalogo, historico: historico(29),
+    });
+    expect(aos29.extras).toHaveLength(0);
+
+    const aos31 = await prepararEvergreen({
+      ...base, noticiasNoDia: 0, modoForcado: "dry_run", catalogo, historico: historico(31),
+    });
+    expect(aos31.extras).toHaveLength(1);
+    expect(aos31.extras[0].storyId).not.toBe(primeiro);
+  });
+
+  it("o dia leva no máximo dois permanentes, de editorias diferentes", async () => {
+    const r = await prepararEvergreen({ ...base, noticiasNoDia: 0, modoForcado: "dry_run" });
+    expect(r.extras.length).toBe(2);
+    const eixos = r.extras.map((p) => p.classificacao.eixo);
+    expect(new Set(eixos).size).toBe(eixos.length);
   });
 });
 
@@ -211,17 +238,42 @@ describe("diversidade", () => {
      * Pelo entrypoint do ciclo, e não pelo seletor: o que se confere é que a
      * notícia do dia realmente chega até a régua. Uma notícia só basta.
      */
-    const comEb2 = CATALOGO_EVERGREEN.filter((t) => t.programa?.includes("EB-2"));
+    const doFomc = CATALOGO_EVERGREEN.filter((t) => t.programa === "FOMC");
+    expect(doFomc.length).toBeGreaterThan(0);
     const r = await prepararEvergreen({
       ...base,
       noticiasNoDia: 1,
       modoForcado: "dry_run",
-      catalogo: comEb2,
-      programasDaNoticia: comEb2[0]?.programa ? [comEb2[0].programa] : [],
+      catalogo: doFomc,
+      programasDaNoticia: ["FOMC"],
     });
 
     expect(r.extras).toHaveLength(0);
     expect(r.diagnostico.cortadosPorMotivo.ASSUNTO_DA_NOTICIA_HOJE ?? 0).toBeGreaterThan(0);
+  });
+
+  it("a instituição da notícia também cede o assunto, pelo nome inteiro", async () => {
+    // A notícia do Fed chega com o ator "Federal Reserve", e não com "FOMC".
+    const doFed = CATALOGO_EVERGREEN.filter((t) => t.entidade === "Federal Reserve");
+    expect(doFed.length).toBeGreaterThanOrEqual(1);
+    const r = await prepararEvergreen({
+      ...base,
+      noticiasNoDia: 1,
+      modoForcado: "dry_run",
+      catalogo: doFed,
+      programasDaNoticia: ["Federal Reserve"],
+    });
+    expect(r.extras).toHaveLength(0);
+
+    // Outro nome que começa igual não é a mesma instituição.
+    const outro = await prepararEvergreen({
+      ...base,
+      noticiasNoDia: 1,
+      modoForcado: "dry_run",
+      catalogo: doFed,
+      programasDaNoticia: ["Federal Reserve Bank of Minneapolis"],
+    });
+    expect(outro.extras.length).toBeGreaterThan(0);
   });
 
   it("uma família não domina o feed do dia", async () => {
@@ -262,7 +314,31 @@ describe("grounding", () => {
 
     for (const p of r.extras) {
       expect(p.enriquecimento.texto.length).toBeGreaterThan(0);
-      expect(p.grupo.primary.url).toMatch(/^https:\/\/(www\.)?(uscis|travel\.state|state|dol|federalregister|irs|cbp|ssa)\.gov/);
+      expect(ehFonteCanonica(p.grupo.primary.url), p.grupo.primary.url).toBe(true);
+    }
+  });
+
+  it("a pauta adaptada nunca é de imigração, e o eixo é o da editoria do tópico", () => {
+    /*
+     * `imigracao: true` era o valor de todo evergreen até 05/10/2026. Com ele,
+     * a linha nova recusaria o post inteiro, e com razão. O eixo vem da
+     * editoria e fala o vocabulário do classificador.
+     */
+    const ESPERADO: Record<string, string> = {
+      economia: "economia",
+      trabalho: "trabalho",
+      tecnologia: "tecnologia",
+      "custo-de-vida": "custo_de_vida",
+      governo: "politica",
+      brasil: "brasil",
+    };
+    for (const topico of CATALOGO_EVERGREEN) {
+      const pauta = pautaDoEvergreen({ topico, angulo: topico.angulos[0] }, pacote(topico));
+      expect(pauta.classificacao.imigracao, topico.id).toBe(false);
+      expect(pauta.classificacao.eixo, topico.id).toBe(ESPERADO[topico.editoria]);
+      expect(pauta.classificacao.eixo, topico.id).not.toBe("imigracao");
+      // O ator é a instituição, nunca o código do programa.
+      expect(pauta.classificacao.atores, topico.id).toEqual(topico.entidade ? [topico.entidade] : []);
     }
   });
 

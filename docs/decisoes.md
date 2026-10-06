@@ -1255,6 +1255,77 @@ render (regra de 05/10). Os três recortes de 05/10 nasceram às 09:21, antes do
 interruptor. O recorte também deixou de carregar a segunda foto: ele não
 desenha bolha, e o campo ia preenchido assim mesmo.
 
+## O evergreen ganha catálogo novo, sem imigração (06/10/2026)
+
+O evergreen foi desligado em 05/10 porque os 66 tópicos do catálogo eram todos
+de visto. O catálogo novo é da linha atual: o brasileiro que SONHA em morar,
+trabalhar ou investir nos EUA, e o conteúdo explica como as coisas funcionam
+lá. O de imigração está arquivado em `evergreen/catalogo-imigracao-arquivado.ts`,
+que ninguém importa. **A capacidade continua desligada** até o dono aprovar.
+
+**O catálogo:** 60 tópicos e 154 ângulos (de 2 a 4 por tópico), em
+`evergreen/catalogo.ts`, agrupados pelas editorias do portal: economia 13,
+trabalho 13, tecnologia 8, custo de vida 14, política 8 e Brasil 4. Todo
+tópico declara de 1 a 3 temas da lista fechada de `src/lib/temas.ts`, e o
+teste recusa slug que não existe lá. Nenhum tópico nem ângulo pode ser de
+imigração (o teste procura visto, green card, USCIS, cidadania, deportação e
+afins).
+
+**Fontes só de órgão oficial**, e a lista de `grounding.ts` foi trocada
+inteira: saíram uscis.gov, travel.state.gov, state.gov, cbp.gov e
+federalregister.gov; entraram Fed, Tesouro, SEC, FDIC, CFPB, FTC, BLS, BEA,
+Census, EIA, USDA, DOL, IRS, SBA, HealthCare.gov, Medicare, NCES, NIST, USPTO,
+NASA, DOE, CISA, USA.gov, Arquivo Nacional, Câmara, Justiça federal, os .gov de
+Texas, Califórnia, Nova York, Washington e Tennessee, e gov.br só para o
+contraste com o Brasil. As 148 URLs foram conferidas em 06/10/2026 com o agente
+honesto do projeto (`eua.journal/1.0`, que substituiu o `imigra.us/1.0` da
+leitura): HTTP 200, texto suficiente e o assunto presente na página. Ficaram
+fora porque recusam agente declarado (403, desafio ou página vazia):
+investor.gov, ssa.gov, hud.gov, huduser.gov, studentaid.gov, ed.gov,
+ibge.gov.br, bcb.gov.br, congress.gov, senate.gov e transportation.gov. A
+conferência se repete com `npx tsx src/scripts/conferir-fontes-evergreen.ts`.
+
+**O Brasil só entra como contraste**, nos 4 tópicos da editoria Brasil, e cada
+lado do contraste tem a sua fonte primária (IRS e Receita, DOL e MTE, IRS e
+INSS, FGTS e FICA). Nenhum ângulo afirma equivalência que as duas fontes não
+dizem.
+
+**O adaptador deixou de marcar imigração.** `imigracao: false` e o eixo sai da
+EDITORIA do tópico (economia, trabalho, tecnologia, custo_de_vida, politica,
+brasil), e não mais da família, que diz a forma. Assim as réguas da linha nova
+(foto obrigatória, moldes, bolha, chapéu da editoria) tratam o evergreen como
+qualquer pauta. As famílias viraram cinco (`explainer`, `glossary`, `faq`,
+`comparison`, `process_explainer`).
+
+**Ator da foto é instituição, e só onde ela é o assunto.** O código do
+programa ("FOMC", "401(k)") não vai mais como ator, pela lição da sigla PERM.
+O campo `entidade` existe em 6 tópicos (Fed, SEC, FDIC, IRS na temporada,
+Congresso, Suprema Corte). Medido com o resolvedor: com o órgão declarado,
+credit score, 401(k), aluguel e Artemis terminavam sem foto; sem ele, os
+quatro saíram com a foto da cena.
+
+**O ritmo:** nenhum TÓPICO volta em 30 dias (a janela era 7) e o par
+tópico+ângulo continua com 30. O teto do dia caiu de 4 para 2, que é
+`60 tópicos / 30 dias`: com 4, o catálogo secaria na metade do mês de pouca
+notícia. Uma editoria por dia (`EVERGREEN_MAX_POR_EDITORIA`). O evergreen
+continua só nas vagas que a notícia deixou, e cede o assunto quando a notícia
+do dia traz o mesmo programa ou a mesma instituição. O desempate entre itens
+nunca usados passou a girar com o dia (continua determinístico): item que cai
+depois da seleção (sem foto, copy recusada) não entra no histórico e, com a
+ordem alfabética, voltava ao topo todo dia, travando o catálogo.
+
+**Amostras** em `docs/design/evergreen-novo-2026-10-06/`, pelo caminho de
+produção inteiro em ensaio (`src/scripts/amostras-evergreen.ts`: store de
+memória, arquivo local no lugar do Storage, banco só lido): credit score,
+mandato do Fed (com bolha), Colégio Eleitoral e FDIC (com bolha). PNGs
+reduzidos para 1080x1440 no repositório.
+
+**Como ligar:** no painel, a capacidade `evergreen` do projeto
+(`settings.capacidades.evergreen`): primeiro `dry_run` (calcula, grava o
+diagnóstico em `payload.diagnostico.evergreen` e não publica nada), depois
+`enforce`. Para `enforce` publicar, o Social V2 também precisa estar em
+`enforce`.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

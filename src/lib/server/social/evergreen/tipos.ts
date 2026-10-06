@@ -1,3 +1,5 @@
+import type { EditoriaId } from "../../../editorias";
+
 /**
  * Conteúdo que não vence, como estoque editorial.
  *
@@ -12,15 +14,20 @@
  * aparece" são ângulos de verdade: mudam o conteúdo, não a embalagem.
  */
 
-/** As seis famílias editoriais. O tipo de conteúdo sai da família. */
+/**
+ * As famílias editoriais. O tipo de conteúdo sai da família.
+ *
+ * Até 05/10/2026 eram sete, e três só existiam para visto (`visa_explainer`,
+ * `evidence_education`, `professional_education`). O catálogo novo explica
+ * como as coisas funcionam nos EUA, e cinco formas bastam: explicar, definir,
+ * responder, comparar e mostrar as etapas.
+ */
 export type FamiliaEvergreen =
-  | "visa_explainer"
+  | "explainer"
   | "glossary"
   | "faq"
   | "comparison"
-  | "process_explainer"
-  | "evidence_education"
-  | "professional_education";
+  | "process_explainer";
 
 /** A quem o assunto interessa mais. Vazio quando é geral. */
 export type Persona =
@@ -45,16 +52,45 @@ export type TopicoEvergreen = {
   id: string;
   nome: string;
   familia: FamiliaEvergreen;
-  /** Sigla do visto ou programa, quando houver. Serve à diversidade do dia. */
+  /**
+   * A editoria do portal a que o assunto pertence (06/10/2026).
+   *
+   * É dela que sai o eixo da pauta, e portanto o chapéu da arte, a gramática
+   * e a diversidade do feed. Antes o eixo saía da família, e toda família era
+   * de imigração.
+   */
+  editoria: EditoriaId;
+  /**
+   * De um a três temas da lista fechada de `src/lib/temas.ts`, pelo slug.
+   *
+   * Tema novo não nasce aqui: entra na lista por decisão editorial, e o teste
+   * do catálogo recusa slug que não existe lá.
+   */
+  temas: string[];
+  /**
+   * O termo que identifica o assunto, escrito como nos EUA ("401(k)", "FOMC",
+   * "sales tax"). Serve à diversidade do dia e à conferência de cobertura, e
+   * NÃO vai para a busca de foto.
+   */
   programa?: string;
+  /**
+   * A instituição nomeada que o assunto cita, quando há uma ("Federal
+   * Reserve", "Internal Revenue Service"). É o que vai como ator da
+   * classificação, e por isso o que a busca de foto procura.
+   *
+   * Separado de `programa` pela lição da sigla PERM (17/09/2026): o código do
+   * programa ia como ator, virou busca de entidade e achou uma cidade russa.
+   * Órgão tem fachada e acervo; termo técnico não tem.
+   */
+  entidade?: string;
   resumo: string;
   /**
    * Fontes oficiais que sustentam o assunto.
    *
-   * Só uscis.gov, travel.state.gov, dol.gov, federalregister.gov, irs.gov,
-   * state.gov, cbp.gov e ssa.gov. Notícia não ancora regra permanente: uma
-   * matéria de hoje descreve o estado de hoje, e o evergreen afirma o que vale
-   * em geral.
+   * Só os domínios de `DOMINIOS_CANONICOS`, em `grounding.ts`: órgãos federais
+   * americanos, sites .gov de estado e, para o contraste com o Brasil, gov.br.
+   * Notícia não ancora regra permanente: uma matéria de hoje descreve o estado
+   * de hoje, e o evergreen afirma o que vale em geral.
    */
   fontesCanonicas: string[];
   angulos: AnguloEvergreen[];
