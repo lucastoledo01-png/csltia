@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { alternarFormatos, determinarFormatoEvergreen, fatosQueViramSlide, preferenciaDaFamilia } from "./formato";
-import { ESTRUTURAS, MAXIMO_DE_SLIDES, MINIMO_DE_SLIDES, papeisPara, minimoDaEstrutura } from "./estrutura";
+import {
+  ESTRUTURAS,
+  MAXIMO_DE_SLIDES,
+  MINIMO_DE_SLIDES,
+  fechamentoObrigatorio,
+  papeisPara,
+  minimoDaEstrutura,
+} from "./estrutura";
 import { CATALOGO_EVERGREEN } from "../evergreen/catalogo";
 import type { FamiliaEvergreen, ItemEvergreen, TopicoEvergreen } from "../evergreen/tipos";
 import type { PacoteFactual } from "../../editorial/pacote-factual";
@@ -267,7 +274,9 @@ describe("limites", () => {
 describe("papéis da estrutura", () => {
   it("papeisPara devolve exatamente a quantidade pedida", () => {
     for (const estrutura of Object.keys(ESTRUTURAS) as Array<keyof typeof ESTRUTURAS>) {
-      for (const comCta of [true, false]) {
+      for (const comCtaPedido of [true, false]) {
+        // Na notícia o fechamento é o convite de assinatura e existe sempre.
+        const comCta = comCtaPedido || fechamentoObrigatorio(estrutura);
         const piso = minimoDaEstrutura(estrutura) + (comCta ? 1 : 0);
         /*
          * O teto depende do CTA, e é isso que o laço errado media.
@@ -279,8 +288,8 @@ describe("papéis da estrutura", () => {
         const semFechamento = ESTRUTURAS[estrutura].filter((p) => !p.escritoEmCodigo).length;
         const teto = comCta ? semFechamento + 1 : semFechamento;
         for (let n = piso; n <= teto; n += 1) {
-          const papeis = papeisPara(estrutura, n, comCta);
-          expect(papeis, `${estrutura} com ${n} slides e cta=${comCta}`).toHaveLength(n);
+          const papeis = papeisPara(estrutura, n, comCtaPedido);
+          expect(papeis, `${estrutura} com ${n} slides e cta=${comCtaPedido}`).toHaveLength(n);
         }
       }
     }

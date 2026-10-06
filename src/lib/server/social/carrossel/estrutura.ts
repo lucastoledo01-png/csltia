@@ -17,7 +17,27 @@ import type { z } from "zod";
 
 export type TipoDeSlide = z.infer<typeof InstagramSlideTypeSchema>;
 
-export type EstruturaDoCarrossel = "explainer" | "comparison" | "process" | "faq";
+export type EstruturaDoCarrossel = "explainer" | "comparison" | "process" | "faq" | "noticia" | "noticia_curta";
+
+/** As estruturas da NOTÍCIA, no método do Not Journal (06/10/2026). */
+export const ESTRUTURAS_DA_NOTICIA: readonly EstruturaDoCarrossel[] = ["noticia", "noticia_curta"];
+
+export function ehEstruturaDaNoticia(estrutura: EstruturaDoCarrossel | string | undefined): boolean {
+  return ESTRUTURAS_DA_NOTICIA.includes(estrutura as EstruturaDoCarrossel);
+}
+
+/**
+ * O que cada passo da notícia faz, na ordem em que o leitor anda.
+ *
+ * É a ordem lida nos carrosséis do Not Journal: primeiro o tamanho do fato,
+ * depois o caso concreto, depois a explicação com dono, por fim o que vem a
+ * seguir. Cada slide dá UM passo; nenhum repete o anterior com outras palavras.
+ */
+export const PASSOS_DA_NOTICIA =
+  "a ordem é escala, detalhe, explicação e consequência: a ESCALA é o número que dá o tamanho do fato; " +
+  "o DETALHE é o caso concreto, o exemplo, o nome; a EXPLICAÇÃO é o porquê ou o risco, sempre com dono " +
+  '("segundo ..."); a CONSEQUÊNCIA é o próximo passo ou o que muda, com data quando houver. ' +
+  "Se o pacote não sustenta um passo, pule-o: o slide seguinte dá o próximo passo que o pacote sustenta";
 
 /**
  * O papel de um slide dentro da estrutura.
@@ -123,6 +143,38 @@ export const ESTRUTURAS: Record<EstruturaDoCarrossel, PapelDeSlide[]> = {
     { papel: "atenção", tipo: "quote_highlight", pede: "o ponto de atenção do processo", obrigatorio: false },
     { papel: "fechamento", tipo: "cta", pede: "o fechamento", obrigatorio: false, escritoEmCodigo: true },
   ],
+  /*
+   * A NOTÍCIA, no método do Not Journal (06/10/2026).
+   *
+   * Os papéis são passos, e não "o que é" e "como funciona", porque notícia não
+   * é verbete: ela anda. O que cada passo afirma depende do pacote, e por isso
+   * o pedido descreve a ORDEM e deixa o modelo pular o que o pacote não
+   * sustenta. O fechamento é o convite para assinar a newsletter, escrito em
+   * código, e existe SEMPRE na notícia (ver `papeisPara`).
+   */
+  noticia: [
+    { papel: "capa", tipo: "cover", pede: "a manchete", obrigatorio: true, escritoEmCodigo: true },
+    { papel: "passo 1", tipo: "content", pede: `o primeiro passo depois da capa; ${PASSOS_DA_NOTICIA}`, obrigatorio: true },
+    { papel: "passo 2", tipo: "content", pede: "o passo seguinte, na mesma ordem, sem repetir o slide anterior", obrigatorio: true },
+    { papel: "passo 3", tipo: "content", pede: "o passo seguinte, na mesma ordem, sem repetir os anteriores", obrigatorio: true },
+    { papel: "passo 4", tipo: "content", pede: "o último passo: a consequência ou o próximo passo, se o pacote tiver", obrigatorio: false },
+    { papel: "fechamento", tipo: "cta", pede: "o fechamento", obrigatorio: true, escritoEmCodigo: true },
+  ],
+  /*
+   * A notícia simples: capa, UM slide e o convite. O slide único carrega dois
+   * blocos, a escala e o detalhe, porque é exatamente o que uma notícia com
+   * dois passos de material tem para dar.
+   */
+  noticia_curta: [
+    { papel: "capa", tipo: "cover", pede: "a manchete", obrigatorio: true, escritoEmCodigo: true },
+    {
+      papel: "passo único",
+      tipo: "content",
+      pede: `os dois primeiros passos, um em cada bloco; ${PASSOS_DA_NOTICIA}`,
+      obrigatorio: true,
+    },
+    { papel: "fechamento", tipo: "cta", pede: "o fechamento", obrigatorio: true, escritoEmCodigo: true },
+  ],
   faq: [
     { papel: "pergunta", tipo: "cover", pede: "a manchete", obrigatorio: true, escritoEmCodigo: true },
     { papel: "resposta", tipo: "content", pede: "a resposta direta, sem rodeio, na primeira linha", obrigatorio: true },
@@ -150,7 +202,20 @@ export const MAXIMO_DE_SLIDES = 7;
  * carrossel curto, vira um estático: a forma não se sustenta.
  */
 export function minimoDaEstrutura(estrutura: EstruturaDoCarrossel): number {
-  return ESTRUTURAS[estrutura].filter((p) => p.obrigatorio).length;
+  return ESTRUTURAS[estrutura].filter((p) => p.obrigatorio && p.tipo !== "cta").length;
+}
+
+/**
+ * O fechamento é obrigatório na notícia, e opcional no resto.
+ *
+ * No conteúdo permanente o fechamento é o CTA da keyword, e sem automação
+ * escutando ele não existe. Na notícia o fechamento é o convite para assinar a
+ * newsletter (decisão do dono, 06/10/2026: "o último slide convida a assinar"),
+ * que não depende de keyword para ser verdade: a newsletter existe com ou sem
+ * listener. A keyword, quando há, só acrescenta a linha de como pedir o link.
+ */
+export function fechamentoObrigatorio(estrutura: EstruturaDoCarrossel): boolean {
+  return ehEstruturaDaNoticia(estrutura);
 }
 
 /**
@@ -163,7 +228,8 @@ export function minimoDaEstrutura(estrutura: EstruturaDoCarrossel): number {
  */
 export function maximoDaEstrutura(estrutura: EstruturaDoCarrossel, comCta = true): number {
   const papeis = ESTRUTURAS[estrutura];
-  const alcancaveis = comCta ? papeis.length : papeis.filter((p) => p.tipo !== "cta").length;
+  const alcancaveis =
+    comCta || fechamentoObrigatorio(estrutura) ? papeis.length : papeis.filter((p) => p.tipo !== "cta").length;
   return Math.min(alcancaveis, MAXIMO_DE_SLIDES);
 }
 
@@ -177,7 +243,7 @@ export function maximoDaEstrutura(estrutura: EstruturaDoCarrossel, comCta = true
 export function papeisPara(estrutura: EstruturaDoCarrossel, slides: number, comCta: boolean): PapelDeSlide[] {
   const todos = ESTRUTURAS[estrutura];
   const fechamento = todos.find((p) => p.tipo === "cta");
-  const comFechamento = comCta && Boolean(fechamento);
+  const comFechamento = (comCta || fechamentoObrigatorio(estrutura)) && Boolean(fechamento);
 
   /*
    * O piso inclui o que o código escreve, e é por isso que ele existe.

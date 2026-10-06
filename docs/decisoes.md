@@ -64,6 +64,17 @@ fica, e o endereço sai de `MARCA.logoClaro` ou `MARCA.logoEscuro`. Os
 arquivos `-alta` são o original sem margem, em resolução cheia, para quem
 precisar refazer um tamanho.
 
+**O Instagram tem marca própria desde 06/10/2026**: o "eua" com o ponto
+vermelho, sem o ".journal", entregue pelo dono nas duas tintas
+(`public/marca/eua-instagram-fundo-claro.png`, azul-marinho, e
+`eua-instagram-fundo-escuro.png`, branco; a margem transparente foi cortada
+rente). Vale SÓ nas peças do feed: capa, miolo do carrossel, convite final e
+o cabeçalho dos slides (`MARCA.logoInstagramClaro` e `logoInstagramEscuro`).
+Portal, newsletter e site continuam com a assinatura horizontal. Na foto, quem
+escolhe a tinta é a mesma medida de brilho atrás da marca (limiar 0.62); no
+fundo preto do convite, a branca. O avatar (`eua-journal-avatar.png`) deixou de
+desenhar ".usa": é o ícone do site, achatado sobre o azul-marinho, em 320x320.
+
 **O domínio continua `casaloti.ia.br`**, por decisão do dono. É ele que serve o
 site, as imagens do e-mail e o alvo do cron.
 
@@ -217,6 +228,14 @@ e não diz qual regra, de quem, nem a partir de quando.
 carrossel. Ele ficava de fora na peça única com foto, herança do desenho
 anterior, e é a linha que diz de que editoria é aquilo antes de o leitor ler a
 manchete.
+
+ESTENDIDO em 06/10/2026: **o chapéu é o TEMA quando a pauta tem um**, como o
+Not Journal imprime "DATA CENTERS" e não a seção. O tema sai da lista fechada
+de `src/lib/temas.ts` e só vale quando o texto da pauta o trata (duas menções
+ou mais) E a manchete o nomeia; sem isso, a editoria de sempre. O mesmo chapéu
+vai na capa e em todo slide do miolo, pequeno, espaçado, em caixa alta, logo
+acima da manchete ou do texto, e fica gravado em `arte.chapeu` para a refação
+da arte desenhar o mesmo. Ver "As decisões do dono sobre o método".
 
 **A gramática dos posts é uma só:** foto sangrando colorida, marca no alto à
 esquerda, chapéu de editoria e manchete em caixa alta no rodapé. A capa é a
@@ -1626,6 +1645,141 @@ no JSON-LD, como antes. O dono cadastra e atribui em `/admin/<projeto>/autores`.
 
 Capturas em `docs/design/autores-2026-10-06/` (autora de exemplo, fictícia).
 
+## O método do Not Journal e do The News (06/10/2026)
+
+O dono leu 7 carrosséis do Not Journal (31 slides) e 40 assuntos do The News e
+aprovou o método. O teste com dados reais, as peças e o custo estão em
+`docs/design/metodo-carrossel-2026-10-06/comparacao.md`.
+
+**O assunto do e-mail é sobre UMA história**, a mais forte do dia, em caixa
+baixa inteira (nome e sigla inclusive; só "R$" e "US$" ficam), de 2 a 7
+palavras, uns 40 caracteres, sem ponto final, numa de cinco formas: pergunta que
+a edição responde, dois ou três nomes, personagem com detalhe curioso, cena ou
+número, o momento. A forma é conferida e consertada em código
+(`newsroom/assunto.ts`): caixa, ponto e travessão sem pedir nada a ninguém;
+tamanho escolhendo a primeira opção da própria redação que cabe, nunca
+cortando. O teto do código é 9 palavras e 45 caracteres, e não 7 e 40, porque
+os exemplos que ensinam o método passam disso ("o advogado que apostou R$ 5 bi
+no tigrinho" tem 9 e 42). O piso do schema caiu de 15 para 5 caracteres: "lula &
+trump" derrubaria a edição inteira depois de paga. **O preheader continua
+nosso**, editorial, e não a propaganda do The News.
+
+**A pergunta é permitida no ASSUNTO e continua proibida na MANCHETE.** O assunto
+abre o e-mail e a edição responde logo abaixo; a capa do Instagram é o post
+inteiro para quem não desliza, e pergunta ali é teaser.
+
+**A manchete da capa é uma frase: ator, verbo no presente, fato, escala.**
+Número exato, atribuição, zero adjetivo de opinião. O prompt pede de 10 a 18
+palavras; a guarda continua recusando abaixo de 6 (`FORMA_DA_MANCHETE`), de
+propósito: subir o piso transformaria toda manchete boa de 8 ou 9 palavras em
+reescrita paga ou post descartado, e a recusa é do que é rótulo. A legenda abre
+com o lide inteiro em uma frase (`gancho`, teto do aparador subiu de 160 para
+240 para não cortar a frase no meio).
+
+**A notícia vira carrossel só com material para dois passos além da capa**
+(`determinarFormatoDaNoticia`): escala, detalhe, explicação com dono,
+consequência. Dois passos dão 3 slides (capa, um slide com dois blocos,
+convite); três dão 5; quatro, ou dois com seis fatos ou mais além do lide, dão
+5 ou 6. Cada slide de conteúdo tem um ou dois blocos de 15 a 30 palavras,
+conferidos (`conferirBlocosDaNoticia`, faixa de 12 a 36 na guarda). Na notícia
+a relevância para o leitor é silêncio permitido: o método conta o fato, e o
+ensaio mostrou a régua de leitor exigindo "quem" enquanto o auditor recusava
+justamente o "para quem pensa em morar em Los Angeles" que o pacote não
+sustenta.
+
+**Todo slide é foto, e o protagonista aparece em fotos diferentes**
+(`carrossel/fotos.ts`): o resolvedor de sempre, perguntado de novo com a lista
+do que já saiu, primeiro pelo RETRATO do protagonista (a conferência visual
+pergunta "é esta pessoa?", e não se a foto sustenta a manchete), depois pela
+cena sem atores; sem foto nova, o slide sai no azul-marinho, nunca com a foto
+de outro slide nem com rosto de outra pessoa. A bolha só entra no slide em que
+um SEGUNDO personagem nomeado aparece no texto, com foto cuja entidade é ele. O
+LUGAR da bolha é da frente `feat/bolha-sem-rosto`; o miolo usa a classe
+`j-bolha` mais o modificador `jn-bolha`.
+ATUALIZADO no mesmo dia: o slide sem foto SAI do carrossel, outras pessoas na
+foto do slide são aceitas, e a bolha do miolo desvia de rosto. Ver "As
+decisões do dono sobre o método".
+
+**O último slide da notícia convida a assinar a newsletter**, sempre, com ou
+sem keyword: fundo preto, logotipo de fundo escuro, "Assine a newsletter do
+eua.journal." e uma caixa de entrada desenhada em HTML com a NOSSA edição no
+topo (`cta_assinatura`). A linha "Comente NEWS e receba o link" só aparece com
+keyword escutada. É a regra "o CTA do Instagram oferece a NEWSLETTER" levada à
+arte.
+
+**Tudo do carrossel atrás de `settings.capacidades.carrossel_noticia`.** Não
+declarado é `off`, a peça única de sempre; `dry_run` só anota no log o que
+viraria carrossel; `enforce` faz o carrossel com a verificação semântica ligada.
+
+**Os textos editoriais novos são os padrões do código** (RF-26): valem sem
+painel. `src/scripts/salvar-instrucoes.ts` grava as cinco etapas como versões
+ativas quando o dono aprovar (ensaio por padrão, `--aplicar`, `--reverter`).
+
+## As decisões do dono sobre o método (06/10/2026)
+
+Lidas as amostras e o `comparacao.md`, o dono fechou os pontos abertos. Novas
+amostras, com dados de produção e o código desta data, em
+`docs/design/metodo-carrossel-2026-10-06/v2/` (`src/scripts/amostras-metodo-v2.ts`,
+banco só lido, nenhuma chamada de modelo).
+
+**Os cinco textos editoriais estão aprovados** (`newsletter_assunto`,
+`manchete`, `social_copy`, `carrossel_copy`, `voz_social`). Quem grava as
+versões ativas é o dono, depois do deploy:
+`npx tsx src/scripts/salvar-instrucoes.ts --aplicar` (volta com `--reverter`).
+
+**Slide de notícia sem foto não existe.** O carrossel usa MENOS slides, nunca
+um slide de texto chapado sobre azul-marinho (`podarMioloSemFoto`, em
+`carrossel/fotos.ts`). O menor carrossel de notícia é capa, um passo e o
+convite (`MINIMO_DE_SLIDES_DA_NOTICIA`, 3); abaixo disso, a pauta sai como peça
+única. Falha ao resolver as fotos é o caso extremo: peça única. E o slide de
+notícia nunca vira texto no render: se a foto aprovada não baixar, o render
+falha (`exigeFoto`) e o ciclo congela a peça única no lugar do carrossel. A
+legenda leva só os créditos das fotos que ficaram. A linha guarda a foto de
+cada slide (`content_json.carrossel.fotos`), e a refação da arte recongela com
+elas; sem elas, a refação diz que não dá, em vez de desenhar o miolo sem foto.
+O resolvedor não mudou: outra frente está tornando a falha de foto rara.
+
+**Outras pessoas na foto do slide são aceitas**, como o Not Journal faz
+(Sanders no palco de um ginásio cheio). Duas regras continuam: a foto do
+protagonista mostra o PROTAGONISTA (a entidade resolvida tem que ser ele) e a
+bolha nunca cobre rosto. No miolo a bolha tem posições próprias, acima do
+texto, que ocupa a metade de baixo (`POSICOES_DA_BOLHA_DO_MIOLO`); a foto do
+slide passa pelo mesmo detector de rostos da capa (`decidirBolhaDoMiolo`), sem
+posição livre ou sem conseguir conferir a bolha sai, e o render mede o círculo
+de novo, como na capa.
+
+**As cinco formas do assunto giram em CÓDIGO, não só no prompt.** A redação
+escreve cinco opções marcadas com a forma (`{ forma, texto }`), duas na forma
+da vez; o código escolhe a primeira opção válida da forma da vez e, sem
+nenhuma, a primeira válida da forma seguinte (`escolherAssunto`, em
+`newsroom/assunto.ts`). A vez sai das edições gravadas: andando no círculo
+pergunta, nomes, personagem, cena, momento a partir da forma de ontem, a
+primeira que não apareceu nas últimas quatro edições (`ordemDasFormas`). Com
+tudo dando certo, as cinco passam antes de alguma voltar; a forma que um dia
+não conseguiu volta a ser a vez quando sai da janela; a forma de ontem só
+como último recurso. Sem sorteio, pelo motivo de sempre. A forma escolhida é
+gravada em `news_editions.subject_form` (migration
+`20261006140000_forma_do_assunto.sql`, para o dono rodar). Antes dela a edição
+é gravada sem a coluna e o rodízio lê a forma das edições pelo formato do
+assunto (`inferirFormaDoAssunto`, que devolve nada quando não reconhece). A
+edição do próprio dia não entra no histórico, e a refação da newsletter não
+passa pelo rodízio.
+
+**O teto do título do carrossel subiu de 95 para 130**, o da capa
+(`FORMA_DA_MANCHETE`). Os 95 são do título do e-mail, medido num celular de
+390px; a manchete do carrossel é a capa do Instagram, na mesma faixa medida da
+peça única, e as manchetes do método passavam de 95 e iam para reparo pago sem
+defeito nenhum.
+
+**O chapéu mostra o tema, como no Not Journal.** Ver o chapéu em "Visual". A
+condição de a MANCHETE nomear o tema veio da amostra: a pauta das ações
+climáticas contra petroleiras citava "petróleo" duas vezes na legenda e saía
+com "PREÇO DO PETRÓLEO", que não é o assunto dela.
+
+**A marca do feed é a do Instagram**, e o avatar é o ícone do site. Ver "O
+logotipo" em "Produto e marca". O convite final desenha o remetente da caixa de
+entrada com o avatar novo, e não mais em CSS.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.
@@ -1661,3 +1815,5 @@ Ficam aqui para não serem redescobertas como novidade.
   logotipo é uma assinatura horizontal que não cabe em 16 por 16. Precisa de
   uma marca quadrada desenhada (o "e" ou o ponto vermelho, por exemplo); o
   avatar do Instagram é candidato, mas tem detalhe demais para o tamanho.
+  FECHADO: o site ganhou `src/app/icon.png` (o "eua" com o ponto sobre
+  azul-marinho), e desde 06/10/2026 o avatar é esse mesmo ícone.

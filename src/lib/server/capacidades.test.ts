@@ -130,6 +130,7 @@ describe("o cardápio de capacidades", () => {
       "producao_vespera",
       "instrucoes",
       "aprovacao",
+      "carrossel_noticia",
     ]);
   });
 });

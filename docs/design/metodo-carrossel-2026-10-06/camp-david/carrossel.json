@@ -1,0 +1,122 @@
+{
+  "storyId": "u_5547492555690873b55d",
+  "titulo": "Scoop: Trump's top national security aides meet secretly at Camp David on Iran, Yemen",
+  "url": "https://www.axios.com/2026/10/03/trumps-cabinet-camp-david-iran-war-yemen-houthis",
+  "decisao": {
+    "formato": "carousel",
+    "estrutura": "noticia",
+    "slides": 5,
+    "fatosUteis": 15,
+    "motivo": "o pacote sustenta 3 passos além da capa (detalhe, explicacao, consequencia): 5 slides"
+  },
+  "passos": {
+    "passos": [
+      "detalhe",
+      "explicacao",
+      "consequencia"
+    ],
+    "fatosAlemDoLide": 15
+  },
+  "pacote": {
+    "fatos": [
+      "Os principais membros do gabinete do presidente Trump se reuniram por horas em Camp David na sexta-feira.",
+      "A reunião discutiu os próximos passos na guerra do Irã.",
+      "A reunião discutiu o conflito entre a Arábia Saudita e os Houthis no Iêmen.",
+      "Três autoridades dos Estados Unidos disseram à Axios que a reunião ocorreu.",
+      "A reunião não foi anunciada pelo governo Trump.",
+      "Uma reunião semelhante ocorreu em junho de 2025.",
+      "Israel entrou em guerra contra o Irã dias depois da reunião semelhante.",
+      "Vance presidiu a reunião.",
+      "Marco Rubio participou da reunião.",
+      "Pete Hegseth participou da reunião.",
+      "Steve Witkoff participou da reunião.",
+      "John Ratcliffe participou da reunião.",
+      "Gen. Dan Caine participou da reunião.",
+      "Scott Bessent participou da reunião.",
+      "Uma das autoridades disse que decisões foram tomadas ou profundamente discutidas.",
+      "As negociações estão paralisadas.",
+      "O presidente Trump está considerando retomar grandes operações de combate no Irã.",
+      "Trump disse na quinta-feira que o Irã precisa assinar o acordo ou deixará de existir.",
+      "Trump está sendo solicitado a aderir à ofensiva planejada pela Arábia Saudita contra os Houthis no Iêmen.",
+      "Os sauditas estão pressionando o presidente a realizar ataques aéreos contra os Houthis.",
+      "Trump tem se inclinado contra a realização dos ataques aéreos.",
+      "Autoridades dos Estados Unidos disseram que Trump poderia mudar de ideia.",
+      "Trump foi questionado por repórteres na tarde de sexta-feira sobre seu próximo passo em relação ao Irã.",
+      "Trump disse que o Irã não está indo bem."
+    ],
+    "pessoas": [
+      "Barak Ravid",
+      "Trump",
+      "Vance",
+      "Marco Rubio",
+      "Pete Hegseth",
+      "Steve Witkoff",
+      "John Ratcliffe",
+      "Gen. Dan Caine",
+      "Scott Bessent"
+    ],
+    "numeros": [
+      "three U.S. officials",
+      "hours"
+    ]
+  },
+  "headline": "Membros do gabinete de Trump discutem Irã e Iêmen por horas em Camp David",
+  "legenda": "Três autoridades dos Estados Unidos disseram à Axios que membros do gabinete de Trump se reuniram por horas para discutir Irã e Iêmen.\n\nVance presidiu a reunião, que não foi anunciada pelo governo Trump. O encontro tratou dos próximos passos na guerra do Irã e do conflito com os Houthis no Iêmen.",
+  "slides": [
+    {
+      "papel": "passo 1",
+      "titulo": "escala",
+      "corpo": "Os principais membros do gabinete de Trump se reuniram por horas em Camp David na sexta-feira, segundo três autoridades dos Estados Unidos; o governo não anunciou o encontro.",
+      "bullets": [],
+      "lado_a": "",
+      "lado_b": ""
+    },
+    {
+      "papel": "passo 2",
+      "titulo": "detalhe",
+      "corpo": "Vance presidiu a reunião, com participação de Marco Rubio, Pete Hegseth, Steve Witkoff, John Ratcliffe, Gen. Dan Caine e Scott Bessent.\n\nOs debates trataram dos próximos passos na guerra do Irã e do conflito entre a Arábia Saudita e os Houthis no Iêmen.",
+      "bullets": [],
+      "lado_a": "",
+      "lado_b": ""
+    },
+    {
+      "papel": "passo 3",
+      "titulo": "consequência",
+      "corpo": "Uma autoridade disse que decisões foram tomadas ou profundamente discutidas, enquanto as negociações permanecem paralisadas.\n\nTrump considera retomar grandes operações de combate no Irã e tem se inclinado contra ataques sauditas aos Houthis; autoridades dos Estados Unidos dizem que ele pode mudar de ideia.",
+      "bullets": [],
+      "lado_a": "",
+      "lado_b": ""
+    }
+  ],
+  "papeis": [
+    "capa",
+    "passo 1",
+    "passo 2",
+    "passo 3",
+    "fechamento"
+  ],
+  "removidos": [],
+  "tentativas": 0,
+  "reparos": [],
+  "capa": "https://upload.wikimedia.org/wikipedia/commons/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+  "fotos": [
+    "https://upload.wikimedia.org/wikipedia/commons/4/40/President_Trump_meets_with_officials_while_visiting_border_wall_prototypes_and_mockups_in_Otay_Mesa%2C_California_%28March_13%2C_2018%29.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    null,
+    null
+  ],
+  "origemDasFotos": [
+    "protagonista",
+    "nenhuma",
+    "nenhuma"
+  ],
+  "conferenciaVisualDasFotosDosSlides": "ligada (ensaio com custo)",
+  "bolha": null,
+  "creditos": [],
+  "arquivos": [
+    "docs/design/metodo-carrossel-2026-10-06/camp-david/slide-01.png",
+    "docs/design/metodo-carrossel-2026-10-06/camp-david/slide-02.png",
+    "docs/design/metodo-carrossel-2026-10-06/camp-david/slide-03.png",
+    "docs/design/metodo-carrossel-2026-10-06/camp-david/slide-04.png",
+    "docs/design/metodo-carrossel-2026-10-06/camp-david/slide-05.png"
+  ]
+}

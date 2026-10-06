@@ -42,14 +42,18 @@ export function logoParaOFundo(fundoHex: string): string {
   const hex = fundoHex.trim().replace(/^#/, "");
   const cheio = hex.length === 3 ? hex.split("").map((c) => c + c).join("") : hex;
   const n = Number.parseInt(cheio, 16);
-  if (cheio.length !== 6 || Number.isNaN(n)) return MARCA.logoClaro;
+  /*
+   * As versões do INSTAGRAM desde 06/10/2026: este cabeçalho só existe nas
+   * peças do feed, e o feed tem marca própria, compacta. Ver `marca.ts`.
+   */
+  if (cheio.length !== 6 || Number.isNaN(n)) return MARCA.logoInstagramClaro;
   const canal = (v: number) => {
     const c = v / 255;
     return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   };
   const luminancia = 0.2126 * canal((n >> 16) & 255) + 0.7152 * canal((n >> 8) & 255) + 0.0722 * canal(n & 255);
   // 0.18 é onde o contraste com branco e com preto se igualam.
-  return luminancia > 0.18 ? MARCA.logoClaro : MARCA.logoEscuro;
+  return luminancia > 0.18 ? MARCA.logoInstagramClaro : MARCA.logoInstagramEscuro;
 }
 
 /**

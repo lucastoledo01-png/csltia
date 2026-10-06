@@ -15,11 +15,17 @@ import type { ResumoVisualDoDia } from "./modo";
 import type { DiagnosticoSocial, ModoSocial } from "./modo";
 import { chaveDeIdempotencia, resolverOrigem } from "./social-posts-store";
 import { ultimaTeveBolha } from "./ritmo-da-bolha";
-import { decidirBolha, type BuscaDaSegundaFoto, type DecisaoDaBolha, type DeteccaoDeRostos } from "./bolha-sem-rosto";
+import {
+  decidirBolha,
+  decidirBolhaDoMiolo,
+  type BuscaDaSegundaFoto,
+  type DecisaoDaBolha,
+  type DeteccaoDeRostos,
+} from "./bolha-sem-rosto";
 import { CANVAS_DO_FEED } from "@/lib/carousel-templates/bolha";
 import { TODOS_OS_MOLDES, type MoldesLigados } from "./moldes-do-feed";
 import { alternarGramatica, recortesSeguidosNoFim, TETO_DE_RECORTES_SEGUIDOS } from "./ritmo-do-recorte";
-import { gramaticaEfetiva } from "./arte";
+import { chapeuDaPeca, gramaticaEfetiva } from "./arte";
 import type { GramaticaDaCapa } from "./arte";
 import type { PostParaGravar, SocialPostsStore } from "./social-posts-store";
 import { mesmaKeyword, resolverKeywordCanonica } from "./keyword-canonica";
@@ -27,6 +33,8 @@ import type { ResolucaoDaKeyword } from "./keyword-canonica";
 import { congelarArtefato, congelarCarrossel } from "./artefato";
 import type { EntradaDoCarrossel, ResultadoDoCarrossel } from "./artefato";
 import { entradasDoCarrossel } from "./carrossel/arte";
+import { ehEstruturaDaNoticia } from "./carrossel/estrutura";
+import { podarMioloSemFoto, type FotosDoCarrossel, type MioloPodado } from "./carrossel/fotos";
 import { alternarFormatos } from "./carrossel/formato";
 import { legendaComCredito } from "./legenda";
 import { comporFeedDoDia } from "./evergreen/compositor";
@@ -92,6 +100,24 @@ export type ResultadoDoCicloSocial = {
    */
   custoDaBolha?: { usd: number; tokens: number };
 };
+
+/**
+ * O chapéu da peça (06/10/2026): o tema da lista fechada quando a pauta o
+ * trata, senão a editoria. O texto é o que diz DE QUE o post trata: a
+ * manchete, o título da fonte e o assunto declarado (no evergreen, o resumo
+ * curado do catálogo, e não a página inteira do órgão).
+ */
+function chapeuDoPost(post: PostGerado): string {
+  const enriquecimento = post.pauta.enriquecimento;
+  return chapeuDaPeca({
+    eixo: post.pauta.classificacao.eixo ?? "",
+    textos: [
+      post.copy.headline,
+      post.pauta.grupo.primary.title,
+      enriquecimento?.assuntoParaHashtags ?? enriquecimento?.texto ?? "",
+    ],
+  });
+}
 
 export type OpcoesDoCiclo = {
   projectId: string;
@@ -161,6 +187,14 @@ export type OpcoesDoCiclo = {
   congelarCarrossel?: (entrada: EntradaDoCarrossel) => Promise<ResultadoDoCarrossel>;
   /** Verificação semântica das claims. Ausente significa não rodar. */
   verificarClaims?: OpcoesDoGerador["verificarClaims"];
+  /**
+   * As fotos dos slides de conteúdo do carrossel de NOTÍCIA (06/10/2026).
+   *
+   * Ausente, o carrossel sai como antes: foto só na capa. Quem liga é a
+   * capacidade `carrossel_noticia`, em `ciclo-do-dia.ts`, que monta isto com
+   * o resolvedor de sempre (`carrossel/fotos.ts`).
+   */
+  fotosDoCarrossel?: (entrada: { post: PostGerado; visual: ResultadoVisual | null }) => Promise<FotosDoCarrossel>;
   /** Decide static ou carousel por pauta. Ausente significa tudo static. */
   decidirCarrossel?: (
     pauta: PautaAvaliada,
@@ -667,14 +701,16 @@ export async function rodarCicloSocial(
    * cabem no orçamento com foto e 25 sem, então o recorte de fato acontece em
    * vez de cair sempre para jornal.
    */
+  const chapeus = previews.map((p) => chapeuDoPost(p.post));
   const gramaticas = alternarGramatica(
-    previews.map((p) => ({
+    previews.map((p, i) => ({
       eixo: p.post.pauta.classificacao.eixo,
       temFoto: Boolean(p.visual?.asset),
       cabeNoRecorte:
         gramaticaEfetiva({
           pedida: "recorte",
           eixo: p.post.pauta.classificacao.eixo ?? "",
+          chapeu: chapeus[i],
           headline: p.post.copy.headline,
           corpo: p.post.copy.gancho,
           comFoto: Boolean(p.visual?.asset),
@@ -749,7 +785,8 @@ export async function rodarCicloSocial(
     custoDaBolha.tokens += decisaoDaBolha.tokens;
 
     const path = `${opcoes.slugDoProjeto ?? opcoes.projectId}/${opcoes.editionDate}/${p.chaveDeIdempotencia}`;
-    const carrossel = p.post.carrossel;
+    const chapeu = chapeus[indice];
+    let carrossel = p.post.carrossel;
     const posicaoDaBolha = secundarioDaCapa ? (decisaoDaBolha.posicao ?? undefined) : undefined;
     const rostosDaBolha = decisaoDaBolha.rostos ?? undefined;
 
@@ -760,13 +797,117 @@ export async function rodarCicloSocial(
      * artefato que não fecha vira descarte, não vira linha `scheduled` com
      * defeito, porque linha `scheduled` é compromisso de publicar.
      */
-    const resultado = carrossel
+    /*
+     * Na notícia, cada slide de conteúdo tem a sua foto (06/10/2026). Falha ao
+     * resolver não derruba o post: o slide sai no fundo azul-marinho, que é o
+     * mesmo desenho sem a foto, e o motivo vai para o log.
+     *
+     * ATUALIZADO no mesmo dia, por decisão do dono: o slide sem foto SAI, e o
+     * carrossel que fica abaixo do mínimo vira peça única
+     * (`podarMioloSemFoto`). Falha ao resolver as fotos é o caso extremo
+     * disso: nenhum slide tem foto, e a pauta sai como peça única.
+     */
+    let fotosDoMiolo: FotosDoCarrossel | null = null;
+    let podado: Extract<MioloPodado, { formato: "carousel" }> | null = null;
+    const posicoesDasBolhasDoMiolo: Array<string | null> = [];
+    const rostosDasBolhasDoMiolo: Array<DecisaoDaBolha["rostos"]> = [];
+    const daNoticia = Boolean(carrossel && ehEstruturaDaNoticia(carrossel.estrutura));
+    if (carrossel && daNoticia) {
+      if (opcoes.fotosDoCarrossel) {
+        try {
+          fotosDoMiolo = await opcoes.fotosDoCarrossel({ post: p.post, visual: p.visual ?? null });
+          linhas.push(
+            `[SOCIAL V2] ${p.post.pauta.storyId} fotos do carrossel: ${fotosDoMiolo.origem.join(", ")}` +
+              (fotosDoMiolo.segundoPersonagem ? ` | bolha: ${fotosDoMiolo.segundoPersonagem}` : ""),
+          );
+        } catch (erro) {
+          linhas.push(`[SOCIAL V2] ${p.post.pauta.storyId} fotos do carrossel falharam: ${(erro as Error).message}`);
+        }
+      }
+
+      const poda = podarMioloSemFoto({
+        papeis: carrossel.papeis,
+        slides: carrossel.slides,
+        fotos: fotosDoMiolo?.fotos ?? null,
+        bolhas: fotosDoMiolo?.bolhas ?? null,
+      });
+      if (poda.formato === "static") {
+        linhas.push(`[SOCIAL V2] ${p.post.pauta.storyId} ${poda.motivo}`);
+        carrossel = undefined;
+      } else {
+        podado = poda;
+        if (poda.tirados.length > 0) {
+          linhas.push(
+            `[SOCIAL V2] ${p.post.pauta.storyId} slide(s) sem foto fora do carrossel: ${poda.tirados.join(", ")} ` +
+              `(${poda.papeis.length} slides)`,
+          );
+        }
+        carrossel = {
+          ...carrossel,
+          papeis: poda.papeis,
+          slides: poda.slides,
+          removidos: [...carrossel.removidos, ...poda.tirados.map((t) => `${t} (sem foto)`)],
+        };
+
+        /*
+         * A bolha do miolo também não cobre rosto (06/10/2026). A foto do slide
+         * é perguntada ao mesmo detector da capa; sem posição livre, ou sem
+         * conseguir conferir, a bolha sai e o slide fica só com a foto.
+         */
+        for (const [i, bolha] of poda.bolhas.entries()) {
+          posicoesDasBolhasDoMiolo[i] = null;
+          rostosDasBolhasDoMiolo[i] = null;
+          if (!bolha?.imageUrl) continue;
+          const decisao = await decidirBolhaDoMiolo({
+            fotoDoSlide: poda.fotos[i]!.imageUrl,
+            canvas: CANVAS_DO_FEED,
+            detectar: opcoes.detectarRostos,
+          });
+          custoDaBolha.usd += decisao.custoUsd;
+          custoDaBolha.tokens += decisao.tokens;
+          linhas.push(`[SOCIAL V2] ${p.post.pauta.storyId} bolha do slide ${i + 2}: ${decisao.motivo}`);
+          if (decisao.posicao) {
+            posicoesDasBolhasDoMiolo[i] = decisao.posicao;
+            rostosDasBolhasDoMiolo[i] = decisao.rostos;
+          } else {
+            poda.bolhas[i] = null;
+          }
+        }
+        // O crédito da bolha que saiu não vai para a legenda.
+        poda.creditos = [
+          ...new Set(
+            [...poda.fotos, ...poda.bolhas].map((f) => (f?.attribution ?? "").trim()).filter(Boolean),
+          ),
+        ];
+      }
+    }
+
+    const congelarPecaUnica = () =>
+      congelar({
+        capa: {
+          headline: p.post.copy.headline,
+          eixo: p.post.pauta.classificacao.eixo,
+          chapeu,
+          asset: p.visual?.asset ?? null,
+          assetSecundario: secundarioDaCapa,
+          posicaoDaBolha,
+          rostosDaBolha,
+          motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
+          gramatica,
+          corpo: corpoDoRecorte,
+        },
+        path,
+        fetcher: opcoes.fetcher,
+      });
+
+    let resultado = carrossel
       ? await congelarSlides({
           slides: entradasDoCarrossel(
             { ...p.post.copy, slides: carrossel.slides },
             carrossel.papeis,
             {
               eixo: p.post.pauta.classificacao.eixo ?? "",
+              chapeu,
               asset: p.visual?.asset ?? null,
               assetSecundario: secundarioDaCapa,
               posicaoDaBolha,
@@ -774,26 +915,30 @@ export async function rodarCicloSocial(
               motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
               gramatica,
               corpo: corpoDoRecorte,
+              fotosDoMiolo: podado?.fotos,
+              bolhasDoMiolo: podado?.bolhas,
+              posicoesDasBolhasDoMiolo: podado ? posicoesDasBolhasDoMiolo : undefined,
+              rostosDasBolhasDoMiolo: podado ? rostosDasBolhasDoMiolo : undefined,
             },
           ).entradas,
           path,
           fetcher: opcoes.fetcher,
         })
-      : await congelar({
-          capa: {
-            headline: p.post.copy.headline,
-            eixo: p.post.pauta.classificacao.eixo,
-            asset: p.visual?.asset ?? null,
-            assetSecundario: secundarioDaCapa,
-            posicaoDaBolha,
-            rostosDaBolha,
-            motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
-            gramatica,
-            corpo: corpoDoRecorte,
-          },
-          path,
-          fetcher: opcoes.fetcher,
-        });
+      : await congelarPecaUnica();
+
+    /*
+     * O carrossel de notícia que não fechou (uma foto de slide que não baixou
+     * no render, por exemplo) sai como peça única, em vez de perder a pauta:
+     * a capa e a legenda já passaram por tudo (06/10/2026).
+     */
+    if (!resultado.ok && carrossel && daNoticia) {
+      linhas.push(
+        `[SOCIAL V2] ${p.post.pauta.storyId} o carrossel não fechou (${resultado.motivo}): sai como peça única`,
+      );
+      carrossel = undefined;
+      podado = null;
+      resultado = await congelarPecaUnica();
+    }
 
     if (!resultado.ok) {
       linhas.push(`[SOCIAL V2] ${p.post.pauta.storyId} não vira post: ${resultado.motivo}`);
@@ -838,7 +983,10 @@ export async function rodarCicloSocial(
     paraGravar.push({
       projectId: opcoes.projectId,
       editionDate: opcoes.editionDate,
-      post: p.post,
+      // O post como foi ao ar: sem os slides que saíram por falta de foto, ou sem carrossel.
+      post: carrossel === p.post.carrossel ? p.post : { ...p.post, carrossel },
+      chapeu,
+      ...(podado ? { fotosDoCarrossel: podado.fotos.map((f) => f ?? null) } : {}),
       vaga: p.vaga,
       visual: p.visual,
       candidateId: p.candidateId,
@@ -862,9 +1010,16 @@ export async function rodarCicloSocial(
        * de licenças e a legenda sai intacta. Foi o caso de 18 das 23 últimas
        * peças: Pexels, Unsplash, domínio público e CC0.
        */
+      /*
+       * Com uma foto por slide, os créditos são vários, e todos entram: a
+       * licença vale para cada foto, não só para a da capa.
+       */
       legendaFinal: legendaComCredito(
         p.post.veredicto.legendaFinal,
-        p.visual?.asset?.attribution,
+        [p.visual?.asset?.attribution ?? "", ...(podado?.creditos ?? [])]
+          .map((c) => c.trim())
+          .filter((c, i, todos) => c && todos.indexOf(c) === i)
+          .join("; "),
       ),
       /*
        * O que a fila de aprovação precisa para refazer só a etapa culpada

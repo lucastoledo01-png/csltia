@@ -64,8 +64,10 @@ describe("sem ciclo, ou com a capacidade desligada, o prompt é o do código byt
   });
 
   it("a regra da manchete do código já sai com os números da guarda", () => {
+    // Desde 06/10/2026 o prompt pede o ALVO do método (10), e a guarda segue
+    // recusando abaixo do piso (6): ver o comentário de FORMA_DA_MANCHETE.
     expect(REGRA_DA_MANCHETE).toContain(
-      `de ${FORMA_DA_MANCHETE.minimoDePalavras} a ${FORMA_DA_MANCHETE.maximoDePalavras} palavras`,
+      `de ${FORMA_DA_MANCHETE.alvoMinimoDePalavras} a ${FORMA_DA_MANCHETE.maximoDePalavras} palavras`,
     );
     expect(REGRA_DA_MANCHETE).not.toContain("{{");
     expect(regraDaMancheteVigente()).toBe(REGRA_DA_MANCHETE);

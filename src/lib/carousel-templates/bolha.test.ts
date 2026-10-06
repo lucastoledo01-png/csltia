@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   CANVAS_DO_FEED,
   POSICOES_DA_BOLHA,
+  POSICOES_DA_BOLHA_DO_MIOLO,
   POSICAO_PADRAO,
   TOPO_DA_FAIXA_DO_TEXTO,
+  TOPO_DA_FAIXA_DO_TEXTO_DO_MIOLO,
+  posicaoPorChave,
   ZONA_DA_MARCA,
   caixaEmPixels,
   circuloCruzaCaixa,
@@ -45,6 +48,30 @@ describe("as posições da bolha", () => {
 
   it("nenhuma posição fica menor que 30% da largura: menos que isso a bolha vira um ponto", () => {
     expect(Math.min(...POSICOES_DA_BOLHA.map((p) => p.diametro))).toBeGreaterThanOrEqual(0.3);
+  });
+});
+
+describe("as posições da bolha no miolo da notícia (06/10/2026)", () => {
+  const canvas = CANVAS_DO_FEED;
+
+  it.each(POSICOES_DA_BOLHA_DO_MIOLO.map((p) => [p.chave, p] as const))(
+    "%s fica inteira no canvas, fora da marca e acima do texto do miolo",
+    (_, p) => {
+      const c = circuloDaPosicao(p, canvas);
+      const r = c.raio + 7;
+      expect(c.cx - r).toBeGreaterThanOrEqual(0);
+      expect(c.cx + r).toBeLessThanOrEqual(canvas.width);
+      expect(c.cy - r).toBeGreaterThanOrEqual(0);
+      expect(c.cy + r).toBeLessThan(TOPO_DA_FAIXA_DO_TEXTO_DO_MIOLO * canvas.height);
+      expect(circuloCruzaCaixa({ ...c, raio: r }, caixaEmPixels(ZONA_DA_MARCA, canvas), 12)).toBe(false);
+    },
+  );
+
+  it("as chaves não colidem com as da capa, e a busca por chave acha as duas listas", () => {
+    const todas = [...POSICOES_DA_BOLHA, ...POSICOES_DA_BOLHA_DO_MIOLO].map((p) => p.chave);
+    expect(new Set(todas).size).toBe(todas.length);
+    expect(posicaoPorChave("miolo_esquerda")?.esquerda).toBe(0.07);
+    expect(posicaoPorChave("padrao")).toBe(POSICAO_PADRAO);
   });
 });
 

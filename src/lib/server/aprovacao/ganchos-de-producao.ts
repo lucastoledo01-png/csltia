@@ -397,6 +397,8 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     const { gramaticaEfetiva, varianteDaCapa } = await import("../social/arte");
     const corpo = typeof copy.gancho === "string" ? copy.gancho : "";
     const eixo = String(arte.eixo ?? "");
+    // O chapéu que foi impresso, tema ou editoria (06/10/2026); ausente, a editoria.
+    const chapeu = typeof arte.chapeu === "string" && arte.chapeu.trim() ? arte.chapeu : undefined;
     /*
      * Arte culpada pelo editor (06/10/2026): a refação troca a decisão recusada
      * em vez de recongelar a mesma peça, e grava o porquê. Arte que roda depois
@@ -414,6 +416,7 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     const gramatica = gramaticaEfetiva({
       pedida: decisao?.gramatica ?? gramaticaAtual,
       eixo,
+      chapeu,
       headline,
       corpo,
       comFoto: Boolean(foto),
@@ -444,8 +447,25 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
       if (papeis.length === 0) return falha(CARROSSEL_SEM_FORMA);
       if (!mundo.congelarCarrossel) return falha("o congelamento do carrossel não está ligado neste processo");
       const { entradasDoCarrossel } = await import("../social/carrossel/arte");
+      const { ehEstruturaDaNoticia } = await import("../social/carrossel/estrutura");
+      /*
+       * O miolo da notícia recongela com as MESMAS fotos de slide (06/10/2026):
+       * slide de notícia sem foto não existe, e a linha guarda a foto de cada um.
+       */
+      const fotosGravadas = Array.isArray(forma.fotos)
+        ? (forma.fotos as Array<{ imageUrl?: unknown; attribution?: unknown } | null>).map((f) =>
+            f && typeof f.imageUrl === "string" && f.imageUrl
+              ? { imageUrl: f.imageUrl, attribution: typeof f.attribution === "string" ? f.attribution : "" }
+              : null,
+          )
+        : null;
+      if (ehEstruturaDaNoticia(String(forma.estrutura ?? "")) && !fotosGravadas) {
+        return falha("o carrossel de notícia não tem as fotos dos slides gravadas, e o slide de notícia não sai sem foto");
+      }
       const entradas = entradasDoCarrossel(copy as unknown as CopyDoCarrossel, papeis, {
         eixo,
+        ...(chapeu ? { chapeu } : {}),
+        ...(fotosGravadas ? { fotosDoMiolo: fotosGravadas } : {}),
         asset: foto ? { imageUrl: foto, attribution: credito } : null,
         assetSecundario: null,
         motivoSemFoto: foto ? "" : String(visual.motivo ?? ""),
@@ -504,6 +524,7 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
       capa: {
         headline,
         eixo,
+        ...(chapeu ? { chapeu } : {}),
         gramatica,
         ...(gramatica === "recorte" ? { corpo } : {}),
         asset: foto ? { imageUrl: foto, attribution: credito } : null,

@@ -14,6 +14,7 @@
 
 import { validarAncoragem, type PacoteFactual } from "../../editorial/pacote-factual";
 import { conferirLinguagemDeUmTexto } from "../../newsroom/leitor";
+import { FORMA_DA_MANCHETE } from "../manchete";
 import { MOTIVOS_DO_SOCIAL_GUARD, type ProblemaDoPost } from "../social-guard";
 import type { SlideDeTexto } from "./copy";
 import { papeisDoModelo, type PapelDeSlide } from "./estrutura";
@@ -143,6 +144,75 @@ export function slidesSemLastro(
  */
 const CORPO_MAIS_BULLETS = 200;
 
+/** Os papéis de conteúdo das estruturas de notícia são "passo 1", "passo único"... */
+export function ehPassoDaNoticia(papel: Pick<PapelDeSlide, "papel">): boolean {
+  return /^passo\b/i.test(papel.papel);
+}
+
+/*
+ * A faixa que a GUARDA aceita é mais larga que a que o prompt pede (15 a 30),
+ * de propósito: bloco de 13 ou 33 palavras é slide bom, e gastar um reparo
+ * nele custaria uma chamada de modelo para nada. O que se recusa é o bloco que
+ * virou legenda (uma frase de seis palavras) ou parágrafo de artigo.
+ */
+export const FAIXA_DO_BLOCO = { minimo: 12, maximo: 36 } as const;
+
+/** Os blocos de um slide de notícia: o corpo partido nas linhas em branco. */
+export function blocosDoCorpo(corpo: string): string[] {
+  return String(corpo ?? "")
+    .split(/\n\s*\n/)
+    .map((b) => b.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+}
+
+/**
+ * O slide de notícia tem um ou dois blocos de 15 a 30 palavras, e nada mais.
+ *
+ * É o roteiro que o método pede e o que a arte (`miolo_noticia`) desenha: os
+ * blocos viram parágrafos em caixa alta sobre a foto. Lista não cabe nesse
+ * desenho, e três blocos são um texto de artigo encolhido até ficar ilegível.
+ */
+export function conferirBlocosDaNoticia(
+  corpo: string,
+  bullets: string[],
+  posicao: number,
+  papel: string,
+): ProblemaDoPost[] {
+  const problemas: ProblemaDoPost[] = [];
+  const blocos = blocosDoCorpo(corpo);
+
+  if (bullets.length > 0) {
+    problemas.push({
+      motivo: MOTIVOS_DO_CARROSSEL.SLIDE_FORA_DA_FORMA,
+      detalhe: `o slide ${posicao} ("${papel}") é de notícia e veio com lista: escreva um ou dois blocos de texto corrido`,
+      reparavel: true,
+    });
+  }
+
+  if (blocos.length > 2) {
+    problemas.push({
+      motivo: MOTIVOS_DO_CARROSSEL.SLIDE_DENSO,
+      detalhe: `o slide ${posicao} ("${papel}") tem ${blocos.length} blocos; o máximo é dois, separados por uma linha em branco`,
+      reparavel: true,
+    });
+  }
+
+  blocos.forEach((bloco, i) => {
+    const n = bloco.split(/\s+/).filter(Boolean).length;
+    if (n < FAIXA_DO_BLOCO.minimo || n > FAIXA_DO_BLOCO.maximo) {
+      problemas.push({
+        motivo: n > FAIXA_DO_BLOCO.maximo ? MOTIVOS_DO_CARROSSEL.SLIDE_DENSO : MOTIVOS_DO_CARROSSEL.SLIDE_FORA_DA_FORMA,
+        detalhe:
+          `o bloco ${i + 1} do slide ${posicao} ("${papel}") tem ${n} palavras; ` +
+          `cada bloco tem de 15 a 30 palavras`,
+        reparavel: true,
+      });
+    }
+  });
+
+  return problemas;
+}
+
 export function conferirFormaDosSlides(slides: SlideDeTexto[], papeis: PapelDeSlide[]): ProblemaDoPost[] {
   const doModelo = papeisDoModelo(papeis);
   const problemas: ProblemaDoPost[] = [];
@@ -226,6 +296,8 @@ export function conferirFormaDosSlides(slides: SlideDeTexto[], papeis: PapelDeSl
       });
     }
 
+    if (ehPassoDaNoticia(papel)) problemas.push(...conferirBlocosDaNoticia(corpo, bullets, posicao, papel.papel));
+
     const semConteudo = temColunas
       ? !(slide.lado_a ?? "").trim() && !(slide.lado_b ?? "").trim()
       : !corpo && bullets.length === 0;
@@ -270,10 +342,32 @@ export function conferirLinguagemDoCarrossel(
     .map((s) => [s.corpo, ...(s.bullets ?? []), s.lado_a, s.lado_b].filter(Boolean).join(" "))
     .join(" ");
 
+  /*
+   * Na NOTÍCIA em carrossel a relevância é silêncio permitido (06/10/2026).
+   *
+   * O método do Not Journal conta o fato, passo a passo, e não acrescenta "para
+   * quem pensa em morar em Los Angeles" quando a fonte não nomeia o grupo. O
+   * primeiro ensaio com pauta real mostrou as duas réguas empurrando em sentidos
+   * opostos: a de leitor recusou o carrossel da Lilly por não ter "quem" nem
+   * "você" em lugar nenhum, e o auditor semântico recusou o de Los Angeles
+   * justamente pela frase "para quem pensa em viver em Los Angeles", que o
+   * pacote não sustenta. É a lição de 16/09 ("dois portões empurrando em
+   * direções opostas custam o dia"), e quem cede é a régua de forma: relevância
+   * vazia já era resultado válido em `leitor.ts`. A régua de lastro não cede.
+   */
+  const daNoticia = slides.some((s) => ehPassoDaNoticia(s));
+  /*
+   * O teto do título é o da ARTE, 130, e não os 95 do e-mail (06/10/2026).
+   * A manchete do carrossel é a capa do Instagram, a mesma faixa medida da
+   * peça única, e as manchetes do método (10 a 18 palavras) passavam de 95 e
+   * iam para reparo pago sem defeito nenhum. A forma da manchete continua
+   * conferida pela guarda do post, com `FORMA_DA_MANCHETE`.
+   */
   const achados = conferirLinguagemDeUmTexto({
     campos,
     titulo: headline,
-    relevancia: `${legenda} ${corpos}`,
+    relevancia: daNoticia ? "" : `${legenda} ${corpos}`,
+    tetoDoTitulo: FORMA_DA_MANCHETE.maximoDeCaracteres,
   });
 
   return achados.map((a) => ({

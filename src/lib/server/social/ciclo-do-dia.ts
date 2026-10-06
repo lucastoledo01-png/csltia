@@ -34,6 +34,11 @@ import {
   verificadorDeClaims,
 } from "./evergreen/ciclo";
 import { modoDoEvergreen } from "./evergreen/modo";
+import { decisorDoDia, modoDoCarrosselDaNoticia } from "./carrossel/modo";
+import { fotosDoCarrossel } from "./carrossel/fotos";
+import { textoDoSlide } from "./carrossel/guarda";
+import { papeisDoModelo } from "./carrossel/estrutura";
+import { resolveVisualAsset } from "../visual/resolver";
 import { fotosUsadasRecentemente } from "../visual/memoria-de-fotos";
 import type { UsoAnterior } from "./evergreen/tipos";
 import type { DiagnosticoDoEvergreen, OpcoesDoEvergreen, ResultadoDoEvergreen } from "./evergreen/ciclo";
@@ -463,6 +468,8 @@ export async function rodarSocialDoDia(
   const moldesDoDia = moldesComAprendizado(moldesLigados(opcoes.projeto), aprendizado.arte);
   for (const l of [...doPool.linhas, ...moldesDoDia.linhas]) console.log(l);
 
+  const modoCarrosselDaNoticia = modoDoCarrosselDaNoticia(opcoes.projeto);
+
   const ciclo = await rodarCicloSocial(doPool.pool, {
     projectId: opcoes.projectId,
     /*
@@ -506,9 +513,50 @@ export async function rodarSocialDoDia(
      * que é o comportamento da notícia. É por isso que o carrossel não precisa
      * de nenhuma condição do lado do gerador: ele nasce desligado.
      */
-    ...(evergreen.extras.length
+    /*
+     * A notícia em carrossel (06/10/2026) entra pelo mesmo gancho, atrás da
+     * capacidade `carrossel_noticia`. Em `enforce` ela traz junto a verificação
+     * semântica, pela mesma razão do conteúdo permanente: slide de prosa sem
+     * número nem nome não tem o que a ancoragem determinística conferir.
+     */
+    ...(modoCarrosselDaNoticia === "enforce"
       ? {
-          decidirCarrossel: decisorDeFormato(evergreen.lastros),
+          decidirCarrossel: decisorDoDia(
+            evergreen.extras.length ? decisorDeFormato(evergreen.lastros) : null,
+            modoCarrosselDaNoticia,
+          )!,
+          verificarClaims: opcoes.verificarClaims ?? verificadorDeClaims({ env, fetcher }),
+          fotosDoCarrossel: async ({ post, visual }) => {
+            const carrossel = post.carrossel!;
+            const pauta = post.pauta;
+            const pacote = pacotes.get(pauta.storyId) ?? null;
+            return fotosDoCarrossel({
+              pauta: paraImagem(pauta),
+              quantas: papeisDoModelo(carrossel.papeis).length,
+              fotoDaCapa: visual?.asset ?? null,
+              pessoas: pacote?.people ?? [],
+              textos: carrossel.slides.map((s) => textoDoSlide(s)),
+              /*
+               * Direto no resolvedor, e não por `imagemDaPauta`: aquela guarda
+               * UMA resposta por pauta, e aqui a pergunta é repetida de
+               * propósito para achar a segunda, a terceira e a quarta foto.
+               */
+              resolver: (alvo, jaUsadas) =>
+                resolveVisualAsset(alvo, {
+                  client: opcoes.client,
+                  env,
+                  fetcher,
+                  somenteLeitura: true,
+                  jaUsadosNestaEdicao: jaUsadas,
+                  // Também por identidade, que ignora os parâmetros do endereço.
+                  jaUsadasRecentemente: [...fotosAntigas, ...fotosDaEdicao, ...jaUsadas],
+                }),
+            });
+          },
+        }
+      : evergreen.extras.length
+      ? {
+          decidirCarrossel: decisorDoDia(decisorDeFormato(evergreen.lastros), modoCarrosselDaNoticia)!,
           /*
            * A verificação semântica entra junto com o evergreen, e sai junto.
            *
@@ -517,6 +565,11 @@ export async function rodarSocialDoDia(
            * nem mudança de comportamento.
            */
           verificarClaims: opcoes.verificarClaims ?? verificadorDeClaims({ env, fetcher }),
+        }
+      : modoCarrosselDaNoticia === "dry_run"
+      ? {
+          // Só anota no log o que viraria carrossel; nenhum post muda.
+          decidirCarrossel: decisorDoDia(null, "dry_run")!,
         }
       : {}),
     ...(opcoes.congelarArte ? { congelarArte: opcoes.congelarArte } : {}),

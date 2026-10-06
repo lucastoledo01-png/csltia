@@ -20,6 +20,8 @@ describe("os arquivos do logotipo", () => {
   it.each([
     ["claro", MARCA.logoClaro],
     ["escuro", MARCA.logoEscuro],
+    ["claro do Instagram", MARCA.logoInstagramClaro],
+    ["escuro do Instagram", MARCA.logoInstagramEscuro],
   ])("a versão %s existe em public, no caminho que o site serve", (_, url) => {
     // O e-mail e a arte usam o endereço absoluto, e o site o relativo; os dois
     // saem do mesmo campo. Um nome de arquivo errado aqui só apareceria como
@@ -35,33 +37,34 @@ describe("os arquivos do logotipo", () => {
   });
 });
 
+// O cabeçalho social é peça do feed, e desde 06/10/2026 usa a marca do Instagram.
 describe("a versão sai da cor do fundo", () => {
   it("fundo claro pede o eua azul-marinho", () => {
-    expect(logoParaOFundo("#ffffff")).toBe(MARCA.logoClaro);
-    expect(logoParaOFundo("#f7f5f0")).toBe(MARCA.logoClaro);
+    expect(logoParaOFundo("#ffffff")).toBe(MARCA.logoInstagramClaro);
+    expect(logoParaOFundo("#f7f5f0")).toBe(MARCA.logoInstagramClaro);
   });
 
   it("fundo escuro pede o eua branco", () => {
-    expect(logoParaOFundo("#0A3161")).toBe(MARCA.logoEscuro);
-    expect(logoParaOFundo("#080808")).toBe(MARCA.logoEscuro);
-    expect(logoParaOFundo("#111")).toBe(MARCA.logoEscuro);
+    expect(logoParaOFundo("#0A3161")).toBe(MARCA.logoInstagramEscuro);
+    expect(logoParaOFundo("#080808")).toBe(MARCA.logoInstagramEscuro);
+    expect(logoParaOFundo("#111")).toBe(MARCA.logoInstagramEscuro);
   });
 
   it("cor ilegível cai na versão clara, que é o fundo padrão dos tokens", () => {
-    expect(logoParaOFundo("azul")).toBe(MARCA.logoClaro);
+    expect(logoParaOFundo("azul")).toBe(MARCA.logoInstagramClaro);
   });
 });
 
 describe("a arte desenha a imagem, e não o nome", () => {
   it("o cabeçalho social", () => {
     const html = chromeHeader("social", 1, 3, "#080808");
-    expect(html).toContain(`src="${MARCA.logoEscuro}"`);
+    expect(html).toContain(`src="${MARCA.logoInstagramEscuro}"`);
     expect(html).toContain(`alt="${MARCA.nome}"`);
   });
 
   it("a sobreposição das capas com foto", () => {
     const html = overlayBrand();
-    expect(html).toContain(`src="${MARCA.logoEscuro}"`);
+    expect(html).toContain(`src="${MARCA.logoInstagramEscuro}"`);
     expect(html).not.toContain("s-wordmark");
   });
 

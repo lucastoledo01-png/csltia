@@ -1,0 +1,144 @@
+{
+  "storyId": "u_f0acb033593689d23669",
+  "titulo": "Sanders introduces bill to ban the federal government from using Flock",
+  "url": "https://techcrunch.com/2026/10/02/sanders-introduces-bill-to-ban-the-federal-government-from-using-flock/",
+  "decisao": {
+    "formato": "carousel",
+    "estrutura": "noticia",
+    "slides": 5,
+    "fatosUteis": 26,
+    "motivo": "o pacote sustenta 3 passos além da capa (escala, detalhe, explicacao): 5 slides"
+  },
+  "passos": {
+    "passos": [
+      "escala",
+      "detalhe",
+      "explicacao"
+    ],
+    "fatosAlemDoLide": 26
+  },
+  "pacote": {
+    "fatos": [
+      "A matéria foi publicada em 2026-10-03.",
+      "Bernie Sanders apresentou o Ban Flock Act na sexta-feira.",
+      "O projeto proibiria agências federais de usar leitores automáticos de placas.",
+      "O projeto proibiria agências federais de acessar dados coletados por leitores operados por polícias locais.",
+      "O projeto proibiria agências federais de acessar dados coletados por empresas privadas.",
+      "O texto do projeto não menciona especificamente a Flock.",
+      "O projeto abrange todos os sistemas ALPR.",
+      "O projeto permite uma exceção para cobrança de pedágios.",
+      "O projeto permite exceções para usos aprovados pelo Congresso em legislação futura.",
+      "A legislação futura teria de limitar a retenção de dados a 48 horas.",
+      "Governos estaduais e locais perderiam recursos financeiros se não cumprissem a lei.",
+      "Os governos perderiam subsídios de cinco departamentos federais a partir do primeiro ano fiscal após a promulgação.",
+      "Os governos perderiam subsídios a menos que proibissem a tecnologia.",
+      "Os americanos poderiam processar o governo federal por violações.",
+      "Os procuradores-gerais estaduais poderiam fazer cumprir a lei.",
+      "A Flock é a maior fornecedora de ALPR nos Estados Unidos, segundo Sanders.",
+      "A Flock tem mais de 120.000 câmeras.",
+      "A rede da Flock processa mais de 20 bilhões de leituras de veículos por mês.",
+      "A Flock está sob pressão crescente de comunidades que protestam contra o produto.",
+      "Comunidades estão suspendendo o uso do produto.",
+      "Comunidades estão cancelando seus contratos com a Flock.",
+      "A Flock reduziu o período padrão de retenção de dados de 30 dias para sete dias.",
+      "Garrett Langley anunciou a mudança no período padrão de retenção em agosto.",
+      "Os clientes agora precisam usar uma ferramenta de auditoria.",
+      "A ferramenta de auditoria bloqueia agentes até uma revisão quando identifica buscas incomuns.",
+      "Um ex-agente de Milwaukee se declarou culpado de má conduta.",
+      "O ex-agente pesquisou sua então parceira e a ex-parceira dela 179 vezes.",
+      "O ex-agente registrou “investigation” como motivo das buscas.",
+      "Alexandria Ocasio-Cortez e Jeff Merkley são co-patrocinadores do projeto.",
+      "Garrett Langley participará de um evento Disrupt em San Francisco.",
+      "O evento Disrupt ocorrerá de October 13-15."
+    ],
+    "pessoas": [
+      "Bernie Sanders",
+      "Garrett Langley",
+      "Jason Calacanis",
+      "Alexandria Ocasio-Cortez",
+      "Jeff Merkley"
+    ],
+    "numeros": [
+      "10,000+ tech leaders",
+      "nine-year-old Flock",
+      "48 hours",
+      "five federal departments",
+      "more than 120,000 cameras",
+      "north of $8 billion",
+      "more than 20 billion vehicle reads each month",
+      "seven days",
+      "30 days",
+      "179 times",
+      "50% off",
+      "50% off a second pass"
+    ]
+  },
+  "headline": "Bernie Sanders apresenta projeto que proíbe governo federal dos EUA de usar leitores de placas",
+  "legenda": "Bernie Sanders apresentou o Ban Flock Act, que proibiria agências federais de usar leitores automáticos de placas e acessar dados privados ou locais.\n\nO projeto abrange todos os sistemas de leitura automática de placas e prevê exceções para pedágios e usos aprovados pelo Congresso. Governos que não proibissem a tecnologia perderiam subsídios de cinco departamentos federais.\n\nO texto do projeto não menciona especificamente a Flock e abrange todos os sistemas de leitura automática de placas.",
+  "slides": [
+    {
+      "papel": "passo 1",
+      "titulo": "escala",
+      "corpo": "A Flock tem mais de 120.000 câmeras e sua rede processa mais de 20 bilhões de leituras de veículos por mês, segundo Sanders.",
+      "bullets": [],
+      "lado_a": "",
+      "lado_b": ""
+    },
+    {
+      "papel": "passo 2",
+      "titulo": "detalhe",
+      "corpo": "O texto abrange todos os sistemas de leitura automática de placas e não menciona especificamente a Flock.\n\nA proposta permite exceção para cobrança de pedágios e para usos aprovados pelo Congresso em legislação futura.",
+      "bullets": [],
+      "lado_a": "",
+      "lado_b": ""
+    },
+    {
+      "papel": "passo 3",
+      "titulo": "consequência",
+      "corpo": "Governos estaduais e locais perderiam subsídios de cinco departamentos federais a partir do primeiro ano fiscal após a promulgação, caso não proibissem a tecnologia.\n\nAmericanos poderiam processar o governo federal por violações, e procuradores-gerais estaduais poderiam fazer cumprir a lei.",
+      "bullets": [],
+      "lado_a": "",
+      "lado_b": ""
+    }
+  ],
+  "papeis": [
+    "capa",
+    "passo 1",
+    "passo 2",
+    "passo 3",
+    "fechamento"
+  ],
+  "removidos": [],
+  "tentativas": 1,
+  "reparos": [
+    [
+      "COUNTRY_UNCLEAR: o título não diz de que país ele fala, e serve para o Brasil e para os Estados Unidos com as mesmas palavras. Quem lê está no Brasil e assume o Brasil por padrão. Situe o leitor com o que a fonte já traz: o país, a cidade, o estado, o órgão, a moeda ou a figura pública. E quando o fato for americano e bom, o título diz o FATO primeiro; a ressalva vem na segunda metade, nunca abrindo a frase.",
+      "HEADLINE_TOO_LONG: o título tem 100 caracteres e ocuparia 4 linhas num celular de 390px. Reescreva em até 95 caracteres, sem perder o fato."
+    ]
+  ],
+  "capa": "https://upload.wikimedia.org/wikipedia/commons/2/2e/Bernie_Sanders_2023.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+  "fotos": [
+    "https://live.staticflickr.com/427/20436987775_218eceee95_b.jpg",
+    "https://live.staticflickr.com/1510/25800615616_dd4308fd4c_b.jpg",
+    "https://live.staticflickr.com/65535/49625742592_7c8c0f28d7_b.jpg"
+  ],
+  "origemDasFotos": [
+    "protagonista",
+    "protagonista",
+    "protagonista"
+  ],
+  "conferenciaVisualDasFotosDosSlides": "DESLIGADA por teto de custo",
+  "bolha": null,
+  "creditos": [
+    "Foto: Palácio do Planalto from Brasilia, Brasil / Wikimedia Commons / CC BY",
+    "\"Bernie Sanders\" by tiffany98101 is licensed under CC BY 2.0. To view a copy of this license, visit https://creativecommons.org/licenses/by/2.0/.",
+    "\"Bernie Sanders\" by Gage Skidmore is licensed under CC BY-SA 2.0. To view a copy of this license, visit https://creativecommons.org/licenses/by-sa/2.0/."
+  ],
+  "arquivos": [
+    "docs/design/metodo-carrossel-2026-10-06/sanders-flock/slide-01.png",
+    "docs/design/metodo-carrossel-2026-10-06/sanders-flock/slide-02.png",
+    "docs/design/metodo-carrossel-2026-10-06/sanders-flock/slide-03.png",
+    "docs/design/metodo-carrossel-2026-10-06/sanders-flock/slide-04.png",
+    "docs/design/metodo-carrossel-2026-10-06/sanders-flock/slide-05.png"
+  ]
+}

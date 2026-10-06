@@ -1465,6 +1465,46 @@ essa, e o remédio é `after()`.
 "configurado" só quer dizer alguma coisa quando o teste roda no MESMO ambiente
 que o cron.
 
+### O resolvedor muta o conjunto que recebe, e toda foto nova parecia repetida (06/10/2026)
+
+**Sintoma.** No primeiro ensaio real do carrossel de notícia, o log mostrava
+duas fotos de Trump aprovadas pela conferência visual, e os três slides saíram
+sem foto.
+
+**Causa.** `resolveVisualAsset` acrescenta a foto escolhida a
+`jaUsadosNestaEdicao` (`usadosAgora.add`). `fotosDoCarrossel` passava o próprio
+conjunto e, na volta, conferia se a foto já estava nele: estava, porque o
+resolvedor tinha acabado de pôr. Os testes passavam porque o resolvedor de
+mentira não mutava nada.
+
+**Corrigido.** O resolvedor recebe uma cópia, e há teste com um resolvedor de
+mentira que muta o conjunto como o de verdade.
+
+**Lição.** É a de 16/09 ("fixture que constrói o caso pela chave que o código
+usa testa a fixture") em outra forma: o dublê precisa ter os efeitos colaterais
+do original, senão o teste prova o caminho que a produção não percorre.
+
+### Duas réguas empurrando o carrossel de notícia em sentidos opostos (06/10/2026)
+
+**Sintoma.** Dos dois primeiros carrosséis reais, um caiu por
+`LOW_READER_RELEVANCE` (nenhum "quem" nem "você" no texto) e o outro pelo
+auditor semântico, por escrever "para quem pensa em viver em Los Angeles", que o
+pacote não sustenta.
+
+**Causa.** A régua de leitor mede relevância procurando palavras de leitor; a
+de lastro recusa alcance inventado. Num texto de fato puro, que é o método,
+satisfazer a primeira exige violar a segunda.
+
+**Corrigido.** Na notícia a relevância é silêncio permitido
+(`conferirLinguagemDoCarrossel`), e o prompt proíbe dizer a quem a notícia
+importa sem o pacote nomear o grupo. A régua de lastro não mudou.
+
+**No mesmo ensaio.** `MARCA.avatar` (`public/marca/eua-journal-avatar.png`)
+ainda desenha ".usa". O convite de assinatura desenha o remetente em CSS; o
+recorte de post continua usando o arquivo e precisa do avatar novo do dono.
+RESOLVIDO no mesmo dia: o avatar passou a ser o ícone do site, e o convite
+voltou a usar o arquivo.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

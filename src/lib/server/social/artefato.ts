@@ -236,7 +236,17 @@ export async function congelarCarrossel(entrada: EntradaDoCarrossel): Promise<Re
 
   if (entrada.slides.length === 0) return { ok: false, motivo: "nenhum slide para congelar" };
 
-  const artes = await renderizar(entrada.slides, { fetcher: entrada.fetcher ?? fetch });
+  /*
+   * Render que lança vira motivo, e não exceção que sobe o ciclo (06/10/2026).
+   * O slide de notícia que exige foto lança quando a foto não baixa, e quem
+   * chamou decide se a pauta sai como peça única.
+   */
+  let artes: Awaited<ReturnType<typeof renderizarCapas>>;
+  try {
+    artes = await renderizar(entrada.slides, { fetcher: entrada.fetcher ?? fetch });
+  } catch (erro) {
+    return { ok: false, motivo: `o render falhou: ${(erro as Error).message}` };
+  }
   if (artes.length !== entrada.slides.length) {
     return {
       ok: false,

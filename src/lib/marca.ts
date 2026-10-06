@@ -105,6 +105,25 @@ export const MARCA = {
    * `height`, e sem ele a imagem sai esticada ou com a altura do arquivo.
    */
   logoProporcao: 800 / 142,
+  /*
+   * O logotipo do INSTAGRAM, e só dele (06/10/2026).
+   *
+   * O dono entregou uma marca compacta para as peças do feed: o "eua" com o
+   * ponto vermelho, sem o ".journal", nas duas tintas. É a que vai na capa, no
+   * miolo do carrossel e no convite final; o portal, o e-mail e o site seguem
+   * com `logoClaro` e `logoEscuro`, que são a assinatura horizontal.
+   *
+   * Os arquivos são os entregues (500x500, fundo transparente) com a margem
+   * transparente cortada rente, para a altura do CSS ser a altura da letra e
+   * não a de uma caixa quase vazia. `fundo-claro` é o "eua" azul-marinho, para
+   * foto clara; `fundo-escuro` é o "eua" branco, para foto escura e para o
+   * fundo preto do convite. Quem escolhe na foto é a medida de brilho atrás da
+   * marca, a mesma de 16/09/2026 (limiar 0.62).
+   */
+  logoInstagramClaro: "https://casaloti.ia.br/marca/eua-instagram-fundo-claro.png",
+  logoInstagramEscuro: "https://casaloti.ia.br/marca/eua-instagram-fundo-escuro.png",
+  /** Largura sobre altura dos dois arquivos cortados (478x129 e 482x129). */
+  logoInstagramProporcao: 480 / 129,
   /**
    * A marca em círculo, que é a foto de perfil.
    *
@@ -113,6 +132,11 @@ export const MARCA = {
    * branco e a Estátua da Liberdade em marca-d'água sobre o azul-marinho. É
    * ela que aparece no recorte de post, onde a peça inteira imita a gramática
    * de uma rede social e o perfil está no topo.
+   *
+   * Até 06/10/2026 o arquivo ainda desenhava ".usa" com a Estátua da
+   * Liberdade. Desde então é o ícone do site (`src/app/icon.png`), o "eua"
+   * branco com o ponto vermelho sobre azul-marinho, achatado sem transparência
+   * e no mesmo tamanho de antes, 320x320.
    */
   avatar: "https://casaloti.ia.br/marca/eua-journal-avatar.png",
   /*

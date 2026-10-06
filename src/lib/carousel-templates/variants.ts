@@ -1,7 +1,7 @@
 import { esc, manterCodigosJuntos, pad2, protegerQuebras, safeImageUrl } from "./util";
 import { overlayBrand } from "./shell";
 import { MARCA } from "@/lib/marca";
-import { POSICAO_PADRAO, estiloDaPosicao, posicaoPorChave } from "./bolha";
+import { POSICAO_PADRAO, POSICOES_DA_BOLHA_DO_MIOLO, estiloDaPosicao, posicaoPorChave } from "./bolha";
 import type {
   InstagramSlide,
   InstagramSlideType,
@@ -182,7 +182,7 @@ const coverNoticiaSemFoto: SlideVariant = {
       onDark: true,
       body: `
 <div class="n-fundo"></div>
-<img class="j-marca" src="${esc(MARCA.logoEscuro)}" alt="" />
+<img class="j-marca" src="${esc(MARCA.logoInstagramEscuro)}" alt="" />
 <div class="n-texto">
   ${editoria ? `<span class="j-chapeu">${esc(editoria)}</span>` : ""}
   <div class="n-manchete lay-texto" data-ajuste="encolher" data-min="40" data-max="104"><span>${protegerQuebras(esc(titulo))}</span></div>
@@ -379,7 +379,7 @@ ${/*
    `data-claro` carrega a versão de tinta escura, e o script de ajuste mede o
    pedaço da foto que fica atrás do logotipo para decidir. Ver escolherMarca, no script de ajuste.
 */ ""}
-<img class="j-marca" src="${esc(MARCA.logoEscuro)}" data-claro="${esc(MARCA.logoClaro)}" alt="" />
+<img class="j-marca" src="${esc(MARCA.logoInstagramEscuro)}" data-claro="${esc(MARCA.logoInstagramClaro)}" alt="" />
 ${opcoes.comBolha && bolha ? bolhaNaPosicao(bolha, slide.inset_position) : ""}
 <div class="j-texto">
   ${chapeu ? `<span class="j-chapeu">${esc(chapeu)}</span>` : ""}
@@ -605,10 +605,133 @@ const ctaNewsletter: SlideVariant = {
       onDark: true,
       body: `
 <div class="j-cta">
-  <img class="j-marca" src="${esc(MARCA.logoEscuro)}" alt="" />
+  <img class="j-marca" src="${esc(MARCA.logoInstagramEscuro)}" alt="" />
   <div class="j-cta-titulo">Receba isso <em>antes</em> de todo mundo.</div>
   <div class="j-cta-linha">${esc(slide.body || ctx.ctaText || "A edição do dia no seu e-mail, todo dia às 6h. De graça.")}</div>
   <span class="j-cta-palavra">Comente ${esc(palavra)}</span>
+</div>`,
+    };
+  },
+};
+
+// --------------------------------------------------------------------------
+// NOTÍCIA EM CARROSSEL (método do Not Journal, 06/10/2026)
+// --------------------------------------------------------------------------
+
+/**
+ * O slide de notícia: foto sangrando, chapéu da editoria e um ou dois blocos
+ * de texto em caixa alta na metade de baixo.
+ *
+ * É a gramática de jornal com outra divisão de peso. Na capa a foto manda e a
+ * manchete é a base; aqui o texto é o motivo de o slide existir, então o
+ * degradê sobe até a metade e o bloco ocupa a metade de baixo inteira. A foto
+ * continua sendo a primeira coisa que se vê, porque no método todo slide é
+ * foto, e é a mesma pessoa em fotos diferentes quando a história tem um
+ * protagonista.
+ *
+ * Não reusa a função `jornal` de propósito: a bolha da capa estava sendo
+ * reposicionada em outra frente (feat/bolha-sem-rosto), e um desenho próprio
+ * deixa as duas mudanças sem se encostar. A bolha daqui usa a mesma classe de
+ * base, `j-bolha`, mais um modificador de tamanho e lugar. Depois da junção
+ * das duas frentes (06/10/2026) ela também desvia de rosto, com posições
+ * próprias do miolo (`POSICOES_DA_BOLHA_DO_MIOLO`).
+ */
+/**
+ * A bolha do miolo, na posição decidida pelos rostos da foto do slide
+ * (06/10/2026). A mesma regra da capa: quem decide é o ciclo, contra a tabela
+ * de `bolha.ts`, e o render mede o círculo de novo e o tira se encostar num
+ * rosto. Sem posição decidida, a primeira do miolo.
+ */
+function bolhaDoMiolo(url: string, chave: string | undefined): string {
+  const posicao = posicaoPorChave(chave) ?? POSICOES_DA_BOLHA_DO_MIOLO[0];
+  return (
+    `<div class="j-bolha jn-bolha" data-posicao="${esc(posicao.chave)}" style="${estiloDaPosicao(posicao)}">` +
+    `<img src="${esc(url)}" alt="" /></div>`
+  );
+}
+
+const mioloNoticia: SlideVariant = {
+  key: "miolo_noticia",
+  label: "Notícia: miolo com foto e blocos de texto",
+  render: (slide): VariantOutput => {
+    const foto = (slide.bg_image_url ?? "").trim();
+    const bolha = (slide.inset_image_url ?? "").trim();
+    const chapeu = (slide.eyebrow ?? "").trim();
+    const blocos = String(slide.body ?? "")
+      .split(/\n\s*\n/)
+      .map((b) => b.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+
+    return {
+      full: true,
+      onDark: true,
+      body: `
+<div class="j-fundo"></div>
+${foto ? `<div class="j-foto">${photo(foto)}</div>` : ""}
+<div class="jn-grad"></div>
+<img class="j-marca" src="${esc(MARCA.logoInstagramEscuro)}" data-claro="${esc(MARCA.logoInstagramClaro)}" alt="" />
+${bolha ? bolhaDoMiolo(bolha, slide.inset_position) : ""}
+<div class="jn-texto">
+  ${chapeu ? `<span class="j-chapeu">${esc(chapeu)}</span>` : ""}
+  <div class="jn-blocos lay-texto" data-ajuste="encolher" data-max="42" data-min="26">
+    <span>${blocos.map((b) => `<p>${protegerQuebras(esc(b))}</p>`).join("")}</span>
+  </div>
+</div>`,
+    };
+  },
+};
+
+/**
+ * O último slide da notícia: o convite para assinar a newsletter.
+ *
+ * Fundo preto, a marca na versão de fundo escuro, uma frase e um elemento
+ * visual honesto: uma caixa de entrada desenhada em HTML, com a NOSSA edição
+ * no topo e as outras linhas em cinza, sem remetente nenhum. Nada de captura
+ * de tela de outro produto, e nada que pareça uma conversa de WhatsApp, que
+ * era o argumento de venda da referência e não é o nosso.
+ *
+ * O remetente é desenhado em CSS, e não com `MARCA.avatar`: o arquivo do
+ * avatar ainda desenha ".usa" (achado em 06/10/2026, ao renderizar esta peça),
+ * e a peça que convida a assinar não pode sair com a marca antiga.
+ *
+ * ATUALIZADO no mesmo dia: o avatar foi refeito a partir do ícone do site, e
+ * o remetente passou a ser o arquivo. O desenho em CSS punha o ponto antes do
+ * "eua", que era a marca antiga.
+ *
+ * A linha de como pedir o link só aparece quando há palavra de comentário
+ * escutada pela automação. Sem ela o convite continua de pé, porque a
+ * newsletter existe com ou sem listener.
+ */
+const ctaAssinatura: SlideVariant = {
+  key: "cta_assinatura",
+  label: "Notícia: convite para assinar a newsletter",
+  render: (slide): VariantOutput => {
+    const palavra = (slide.highlight_text ?? "").trim().toUpperCase();
+    return {
+      full: true,
+      onDark: true,
+      body: `
+<div class="ja-fundo"></div>
+<img class="j-marca" src="${esc(MARCA.logoInstagramEscuro)}" alt="" />
+<div class="ja-celular" aria-hidden="true">
+  <div class="ja-tela">
+    <div class="ja-topo"><span>Caixa de entrada</span></div>
+    <div class="ja-linha ja-nossa">
+      <img class="ja-ava" src="${esc(MARCA.avatar)}" alt="" />
+      <div class="ja-msg">
+        <div class="ja-de">${esc(MARCA.nome)}<span>hoje</span></div>
+        <div class="ja-assunto">a edição de hoje chegou</div>
+        <div class="ja-previa">${esc(MARCA.tagline)}</div>
+      </div>
+    </div>
+    <div class="ja-linha"><u></u><div class="ja-msg"><i></i><i></i></div></div>
+    <div class="ja-linha"><u></u><div class="ja-msg"><i></i><i></i></div></div>
+  </div>
+</div>
+<div class="ja-texto">
+  <div class="ja-titulo">Assine a newsletter do <em>${esc(MARCA.nome)}</em>.</div>
+  <div class="ja-linha-sub">${esc(MARCA.tagline)} No seu <span class="ja-inteiro">e-mail</span>, de graça.</div>
+  ${palavra ? `<span class="ja-palavra">Comente ${esc(palavra)} e receba o link</span>` : ""}
 </div>`,
     };
   },
@@ -1079,6 +1202,7 @@ export const SLIDE_VARIANTS: Record<InstagramSlideType, Record<string, SlideVari
     highlight: contentHighlight,
     conteudo_editorial: conteudoEvergreen,
     miolo_jornal: mioloJornal,
+    miolo_noticia: mioloNoticia,
     miolo_recorte: mioloRecorte,
     comparacao_duas_colunas: comparacaoDuasColunas,
   },
@@ -1097,6 +1221,7 @@ export const SLIDE_VARIANTS: Record<InstagramSlideType, Record<string, SlideVari
     keyword_claro: ctaEditorialClaro,
     dark_card: ctaDarkCard,
     cta_newsletter: ctaNewsletter,
+    cta_assinatura: ctaAssinatura,
   },
 };
 

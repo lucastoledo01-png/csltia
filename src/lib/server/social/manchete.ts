@@ -43,9 +43,27 @@ import { instrucaoVigente, preencherMarcadores } from "../instrucoes";
  * publicada certa e um diagnóstico mentindo sobre ela.
  */
 
+/*
+ * O ALVO de 10 palavras entrou em 06/10/2026; o PISO da guarda continua 6.
+ *
+ * O método do Not Journal, lido em 31 slides de 7 carrosséis e aprovado pelo
+ * dono, é UMA frase com ator, verbo no presente, fato e escala: "China fecha
+ * mais de 670 bancos em um ano: Pequim reestrutura o setor em meio à
+ * desaceleração" (16 palavras), "Trump elogia rapidez da apuração no Brasil e
+ * chama votação nos EUA de 'corrupta'" (14). Abaixo de 10 palavras não cabe a
+ * escala, e é isso que o prompt pede.
+ *
+ * O piso da guarda NÃO subiu junto, e é deliberado: a faixa de 6 a 18 é a que
+ * a guarda confere desde 16/09, e subir o piso para 10 transformaria toda
+ * manchete de 8 ou 9 palavras, que é boa, em reescrita paga ou em post
+ * descartado. O pedido muda o produto; a recusa continua sendo do que é rótulo.
+ * O teto de 18 e 130 também não mudou: é da arte, e a arte não mudou.
+ */
 export const FORMA_DA_MANCHETE = {
   /** Abaixo disto é rótulo, não manchete: cabe na tela e não decide nada. */
   minimoDePalavras: 6,
+  /** O que o prompt pede: dez palavras é onde cabe a escala (método de 06/10/2026). */
+  alvoMinimoDePalavras: 10,
   /** Medido: acima disto nem a faixa da arte segura em corpo legível. */
   maximoDePalavras: 18,
   minimoDeCaracteres: 45,
@@ -70,7 +88,17 @@ export const MODELO_DA_REGRA_DA_MANCHETE = `A MANCHETE DA CAPA
 
 Ela é o post inteiro para quem não deslizou. Manchete ampla não dá o que decidir: "Fed mexe nos juros" (construção ilustrativa) serve para qualquer decisão, qualquer taxa e qualquer pessoa, e quem lê passa reto.
 
-DE QUEM É ESTA NOTÍCIA. Antes da forma, responda isto: quem, entre as pessoas que leem, sente a mudança? Esse grupo TEM QUE APARECER na manchete, com as palavras que a própria fonte usa: quem investe em dólar, quem trabalha com tecnologia, quem paga aluguel, empresa que contrata, profissional de saúde. Medido nas nossas primeiras 79 manchetes: em 25 o sujeito era uma instituição ou um ato jurídico, e em 25 o leitor não aparecia de jeito nenhum.
+O MÉTODO, que é o do Not Journal: UMA frase, com quatro peças nesta ordem.
+  [ator reconhecível] + [verbo no presente] + [o fato] + [a escala ou o detalhe que prova]
+  "China fecha mais de 670 bancos em um ano: Pequim reestrutura o setor em meio à desaceleração" (Not Journal)
+  "Trump elogia rapidez da apuração no Brasil e chama votação nos EUA de 'corrupta'" (Not Journal)
+- O ator é quem fez ou disse: pessoa, empresa, governo, país. Nome que o leitor reconhece abre a frase.
+- O verbo vai no presente: "fecha", "elogia", "corta", "compra". Nada de "teria", "pode vir a", "promete".
+- O número vai EXATO, como está no pacote: "mais de 670 bancos", "4,2%", "US$ 500". Não arredonde, não converta.
+- Fala e acusação vêm com dono: "chama de 'corrupta'", "segundo o BLS". Aspas só para palavra que alguém disse.
+- Zero adjetivo de opinião: "histórico", "polêmico", "chocante", "enorme". O tamanho do fato é o número, não o adjetivo.
+
+DE QUEM É ESTA NOTÍCIA. Quando o fato é uma regra, um preço ou um prazo que muda a vida de um grupo, esse grupo aparece na manchete, com as palavras que a própria fonte usa: quem investe em dólar, quem trabalha com tecnologia, quem paga aluguel, empresa que contrata. Quando o fato é o que um ator fez ou disse, o ator abre a frase, como no método acima, e o grupo entra só se a fonte o nomear. Medido nas nossas primeiras 79 manchetes: em 25 o sujeito era uma instituição ou um ato jurídico, e em 25 o leitor não aparecia de jeito nenhum.
 
 NACIONALIDADE DE TERCEIRO PAÍS NUNCA ENTRA. Se a pessoa da história não é brasileira, a nacionalidade dela sai da manchete e é substituída pela profissão, pela área ou pelo cargo. O leitor está no Brasil e olha para os Estados Unidos; a nacionalidade de um terceiro não diz nada a ele.
   Errado (construção ilustrativa): "Engenheira argentina assume a divisão de chips de uma big tech nos EUA"
@@ -95,7 +123,7 @@ A FORMA. De duas partes, e os dois-pontos são UMA opção, não o padrão: nas 
   "Emprego nos EUA muda pouco e taxa de desemprego fica em 4,2% em setembro" (post real de 05/10/2026)
   "Gilmar Mendes em sessão sobre Moraes: 'até a máfia tem ética'"
 
-TAMANHO: de {{minimo_de_palavras}} a {{maximo_de_palavras}} palavras, de {{minimo_de_caracteres}} a {{maximo_de_caracteres}} caracteres. São três linhas na arte, e três linhas é o alvo.
+TAMANHO: de {{alvo_de_palavras}} a {{maximo_de_palavras}} palavras, de {{minimo_de_caracteres}} a {{maximo_de_caracteres}} caracteres. São de três a quatro linhas na arte. Com menos de {{alvo_de_palavras}} palavras não cabe a escala, que é a metade que faz a manchete valer.
 
 O DETALHE VEM DO PACOTE FACTUAL. Se não houver número, prazo nem citação, a segunda parte é o efeito concreto que a fonte descreve, com as palavras dela. E nomear o leitor é obrigação de FORMA, nunca licença para inventar alcance: o grupo afetado sai da fonte. Continua proibido escrever que algo "muda o cenário para brasileiros" quando o pacote não diz isso.
 
@@ -106,6 +134,7 @@ PROIBIDO na manchete: pergunta, "entenda", "veja o que muda", "tudo sobre", "sai
 
 const TETOS_DA_MANCHETE = {
   minimo_de_palavras: FORMA_DA_MANCHETE.minimoDePalavras,
+  alvo_de_palavras: FORMA_DA_MANCHETE.alvoMinimoDePalavras,
   maximo_de_palavras: FORMA_DA_MANCHETE.maximoDePalavras,
   minimo_de_caracteres: FORMA_DA_MANCHETE.minimoDeCaracteres,
   maximo_de_caracteres: FORMA_DA_MANCHETE.maximoDeCaracteres,
