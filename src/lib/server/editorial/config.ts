@@ -8,6 +8,8 @@
  * quando cada número mora num canto do código.
  */
 
+import { LINHA_PADRAO, linhaDoProjeto, type LinhaDoProjeto } from "./linha-do-projeto";
+
 type Ambiente = Record<string, string | undefined>;
 
 function numeroDoAmbiente(nome: string, padrao: number, env: Ambiente = process.env): number {
@@ -56,10 +58,22 @@ export type ConfigEditorial = {
   maximoDeReparos: number;
   /** Nota mínima do auditor para a edição poder sair. */
   notaMinimaDeQA: number;
+  /**
+   * O recorte do PROJETO (06/10/2026): hoje, só o modo da política
+   * brasileira. Mora na config porque `decidirPauta` e o verificador já a
+   * recebem; com isso nenhum chamador precisou de parâmetro novo, e quem não
+   * passa o projeto recebe `LINHA_PADRAO`, que é a linha de antes. Opcional
+   * porque config montada à mão (teste, script antigo) também vale a de antes.
+   */
+  linha?: LinhaDoProjeto;
 };
 
-export function carregarConfigEditorial(env: Ambiente = process.env): ConfigEditorial {
+export function carregarConfigEditorial(
+  env: Ambiente = process.env,
+  projeto?: { settings?: Record<string, unknown> | null } | null,
+): ConfigEditorial {
   return {
+    linha: projeto ? linhaDoProjeto(projeto) : LINHA_PADRAO,
     // Medido, não chutado. Os pares do histórico mostram repetição real a
     // 0.729 (a mesma matéria do EB-2 voltando no dia seguinte) e pautas
     // distintas do mesmo ator a 0.760. As faixas se sobrepõem, então um
@@ -117,6 +131,10 @@ export const MOTIVOS = {
   /** Pauta brasileira no eixo, sem carga negativa. Existe para o log não
    *  chamar de "desafio" uma notícia boa e virar viés escondido em rótulo. */
   APROVADO_CONTEXTO_BRASIL: "APPROVED_BRAZIL_CONTEXT",
+  /** Política brasileira na abertura eleitoral de 06/10/2026 (temporária). */
+  APROVADO_POLITICA_BRASIL: "APPROVED_BRAZIL_POLITICS",
+  /** Citação de pessoa famosa, formato próprio desde 06/10/2026. */
+  APROVADO_CITACAO_DE_FAMOSO: "APPROVED_FAMOUS_QUOTE",
   /** Não é mais emitido desde 05/10/2026, quando imigração saiu da pauta.
    *  Fica porque nomeia as linhas antigas do banco. */
   APROVADO_IMIGRACAO: "APPROVED_IMMIGRATION",

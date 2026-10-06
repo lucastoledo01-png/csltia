@@ -47,6 +47,23 @@ export type PacoteFactual = z.infer<typeof PacoteFactualSchema> & {
    * o X de verdade. Ausente no pacote de uma fonte só, que é o da camada comum.
    */
   fontes?: FonteDoPacote[];
+  /**
+   * As falas entre aspas da matéria, com o trecho ORIGINAL conferido letra a
+   * letra contra o texto de origem (06/10/2026). Só entra aqui a citação cujo
+   * original está no texto: é o que permite o formato de citação de famoso
+   * sem abrir a porta para fala inventada. Ausente no pacote anterior a esta
+   * data, e aí nenhuma fala entre aspas tem lastro.
+   */
+  citacoes?: CitacaoLiteral[];
+};
+
+export type CitacaoLiteral = {
+  /** Quem falou, como a matéria escreve. */
+  autor: string;
+  /** O trecho como está na matéria, na língua dela. */
+  original: string;
+  /** A tradução fiel para o português; igual ao original se já for português. */
+  traducao: string;
 };
 
 export type FonteDoPacote = z.infer<typeof PacoteFactualSchema> & {
@@ -57,6 +74,8 @@ export type FonteDoPacote = z.infer<typeof PacoteFactualSchema> & {
   principal: boolean;
   /** O texto desta fonte só, para conferir a atribuição de um número a ela. */
   texto_de_origem: string;
+  /** As falas conferidas desta fonte (06/10/2026). */
+  citacoes?: CitacaoLiteral[];
 };
 
 export function montarSystemDoExtrator(): string {
@@ -73,6 +92,7 @@ places: cidades, estados e países citados.
 dates: datas e períodos citados, como aparecem ("31 de agosto", "2026", "nesta quinta-feira").
 numbers: números citados com o que eles medem ("540 dias", "1,2 milhão de pedidos", "US$ 3 mil").
 gaps: o que a matéria NÃO informa e um leitor perguntaria. Só liste lacuna real.
+citacoes: as falas que a matéria traz ENTRE ASPAS, no máximo cinco, cada uma {"autor": "quem falou, como a matéria escreve", "original": "o trecho copiado letra por letra da matéria, sem as aspas", "traducao": "a tradução fiel para o português, sem resumir nem melhorar; igual ao original se já estiver em português"}. Só fala que está entre aspas na matéria; paráfrase não entra. Lista vazia quando não há.
 
 Regras:
 - Se um nome, número ou data não está na matéria, ele não entra. Não deduza, não converta, não estime.
@@ -115,11 +135,120 @@ export async function montarPacoteFactual(
     throw new Error("Extrator não devolveu nenhum fato verificado para esta pauta.");
   }
 
+  // As citações são conferidas aqui, e não confiadas ao modelo: a que não
+  // está no texto de origem não entra no pacote (06/10/2026).
+  const citacoes = citacoesLiterais((data as { citacoes?: unknown } | null)?.citacoes, pauta.texto);
+
   return {
-    pacote: { ...parsed.data, source_urls: pauta.urls, texto_de_origem: pauta.texto },
+    pacote: {
+      ...parsed.data,
+      source_urls: pauta.urls,
+      texto_de_origem: pauta.texto,
+      ...(citacoes.length ? { citacoes } : {}),
+    },
     custoUsd: usage.estimatedCostUsd,
     tokens: usage.totalTokens,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Citações literais (06/10/2026)                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Forma de comparar fala: sem caixa, sem acento, sem pontuação e com as aspas
+ * de qualquer tipo iguais. A fala "literal" sobrevive a uma vírgula a mais; não
+ * sobrevive a uma palavra trocada.
+ */
+export function normalizarFala(t: string): string {
+  return t
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Abaixo disso não é fala, é expressão ("morally binding"), e não se confere. */
+export const PALAVRAS_MINIMAS_DA_FALA = 5;
+
+/**
+ * As citações que o extrator devolveu, só as que estão de fato no texto.
+ *
+ * O original precisa estar no texto de origem, inteiro, na forma normalizada.
+ * Sem tradução, vale o original (a matéria já em português).
+ */
+export function citacoesLiterais(bruto: unknown, textoDeOrigem: string): CitacaoLiteral[] {
+  if (!Array.isArray(bruto)) return [];
+  const texto = normalizarFala(textoDeOrigem);
+  const saida: CitacaoLiteral[] = [];
+  for (const item of bruto.slice(0, 8)) {
+    if (!item || typeof item !== "object") continue;
+    const { autor, original, traducao } = item as Record<string, unknown>;
+    if (typeof autor !== "string" || !autor.trim() || typeof original !== "string") continue;
+    const o = normalizarFala(original);
+    if (o.split(" ").length < 3 || !texto.includes(o)) continue;
+    saida.push({
+      autor: autor.trim(),
+      original: original.trim(),
+      traducao: typeof traducao === "string" && traducao.trim() ? traducao.trim() : original.trim(),
+    });
+  }
+  return saida.slice(0, 5);
+}
+
+/** Os trechos entre aspas de um texto, com a posição. */
+export function falasEntreAspas(texto: string): Array<{ fala: string; posicao: number }> {
+  const saida: Array<{ fala: string; posicao: number }> = [];
+  for (const m of texto.matchAll(/[“"«]([^”"»“\n]{3,400})[”"»]/g)) {
+    saida.push({ fala: m[1].trim(), posicao: m.index ?? 0 });
+  }
+  return saida;
+}
+
+/**
+ * A fala entre aspas tem lastro? Está no texto de origem, num original ou numa
+ * tradução conferida. Reticências separam pedaços, e cada pedaço precisa estar
+ * lá: cortar é permitido, emendar com palavra nova não é.
+ */
+export function falaSustentada(fala: string, pacote: Pick<PacoteFactual, "texto_de_origem" | "citacoes">): boolean {
+  const material = [
+    normalizarFala(pacote.texto_de_origem ?? ""),
+    ...(pacote.citacoes ?? []).flatMap((c) => [normalizarFala(c.original), normalizarFala(c.traducao)]),
+  ];
+  const pedacos = fala
+    .split(/\.\.\.|…|\(\s*\.\.\.\s*\)|\[\s*\.\.\.\s*\]/)
+    .map((p) => normalizarFala(p))
+    .filter((p) => p.length > 0);
+  if (pedacos.length === 0) return true;
+  return pedacos.every((p) => p.split(" ").length < 3 || material.some((m) => m.includes(p)));
+}
+
+/**
+ * As falas do texto que casam com uma citação conferida e não nomeiam quem
+ * falou em lugar nenhum do texto. É a regra do formato de citação de famoso:
+ * literal, ATRIBUÍDA e com a foto da pessoa. Confere o post inteiro (manchete
+ * mais legenda), porque é ali que o leitor precisa ler o nome.
+ */
+export function citacoesSemAtribuicao(
+  texto: string,
+  pacote: Pick<PacoteFactual, "citacoes">,
+): Array<{ fala: string; autor: string }> {
+  const citacoes = pacote.citacoes ?? [];
+  if (citacoes.length === 0) return [];
+  const todo = normalizarFala(texto);
+  const saida: Array<{ fala: string; autor: string }> = [];
+  for (const { fala } of falasEntreAspas(texto)) {
+    const f = normalizarFala(fala);
+    if (f.split(" ").length < PALAVRAS_MINIMAS_DA_FALA) continue;
+    const dona = citacoes.find((c) => normalizarFala(c.original).includes(f) || normalizarFala(c.traducao).includes(f));
+    if (!dona) continue;
+    // Basta o sobrenome: "Huang" atribui a fala de Jensen Huang.
+    const partes = normalizarFala(dona.autor).split(" ").filter((p) => p.length >= 3);
+    const sobrenome = partes[partes.length - 1];
+    if (sobrenome && !new RegExp(`\\b${sobrenome}\\b`).test(todo)) saida.push({ fala, autor: dona.autor });
+  }
+  return saida;
 }
 
 /* ------------------------------------------------------------------ */
@@ -127,7 +256,7 @@ export async function montarPacoteFactual(
 /* ------------------------------------------------------------------ */
 
 export type ClaimNaoSustentada = {
-  tipo: "numero" | "data" | "nome";
+  tipo: "numero" | "data" | "nome" | "citacao";
   valor: string;
   onde: string;
   /**
@@ -305,6 +434,26 @@ export function validarAncoragem(
         valor: bruto,
         onde: trecho(textoGerado, m.index ?? 0),
         severidade: severidadeDoNome(chave),
+      });
+    }
+  }
+
+  /*
+   * Falas entre aspas (06/10/2026). Aspas dizem ao leitor "foi isto que a
+   * pessoa disse", e a citação de famoso virou formato próprio: uma fala
+   * inventada ou "melhorada" entre aspas é a pior forma de invenção, porque
+   * vem com a assinatura de outra pessoa. Abaixo de cinco palavras é
+   * expressão ou nome de obra, e não se confere.
+   */
+  for (const { fala, posicao } of falasEntreAspas(textoGerado)) {
+    if (normalizarFala(fala).split(" ").length < PALAVRAS_MINIMAS_DA_FALA) continue;
+    conferidos += 1;
+    if (!falaSustentada(fala, pacote)) {
+      naoSustentadas.push({
+        tipo: "citacao",
+        valor: fala.slice(0, 120),
+        onde: `fala entre aspas que não está na fonte nem nas citações conferidas (em: "${trecho(textoGerado, posicao)}")`,
+        severidade: "bloqueio",
       });
     }
   }

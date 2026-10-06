@@ -4,7 +4,16 @@ import { callOpenAIJSON, getAIProviderConfig } from "../newsroom/ai-provider";
 import type { Classificacao } from "./classificador";
 import type { ConfigEditorial } from "./config";
 import { MOTIVOS } from "./config";
-import { REGRA_EIXO, REGRA_LEITURA, REGRA_PAIS, leitorVigente, relevanciaVigente } from "./linha-editorial";
+import {
+  LINHA_PADRAO,
+  REGRA_EIXO,
+  REGRA_LEITURA,
+  REGRA_PAIS,
+  leitorVigente,
+  regraDoRecorte,
+  relevanciaVigente,
+  type LinhaDoProjeto,
+} from "./linha-editorial";
 
 /**
  * A segunda leitura, só de quem está disputando vaga.
@@ -72,7 +81,7 @@ export type FinalistaParaVerificar = {
   classificacaoPrimaria: Classificacao;
 };
 
-export function montarSystemDoVerificador(): string {
+export function montarSystemDoVerificador(linha: LinhaDoProjeto = LINHA_PADRAO): string {
   return `
 Você confere a classificação de uma notícia.
 
@@ -92,9 +101,11 @@ ${REGRA_EIXO}
 
 ${relevanciaVigente()}
 
+${regraDoRecorte(linha)}
+
 fato_principal: uma frase dizendo o que aconteceu, tirada do texto. Se o texto não permitir escrever essa frase, devolva string vazia.
 
-adequada: true se esta notícia deve ser publicada por esta marca. false quando o assunto é imigração (visto, green card, processo migratório, deportação, fronteira), quando o fato é negativo sobre os EUA, quando não há fato apurável, ou quando é só repercussão de declaração. Tecnologia, economia, custo de vida e cultura são editorias da publicação.
+adequada: true se esta notícia deve ser publicada por esta marca. false quando o assunto é imigração (visto, green card, processo migratório, deportação, fronteira), quando o fato é negativo sobre os EUA, quando não há fato apurável, ou quando é só repercussão de declaração. Tecnologia, economia, custo de vida e cultura são editorias da publicação. A citação de famoso descrita acima NÃO é "só repercussão de declaração": a fala entre aspas é o fato, e ela é adequada.${linha.politicaBrasileira === "eleicao" ? " Durante a abertura eleitoral, política brasileira e eleição também são adequadas em qualquer tom, inclusive a fala de candidato e o bastidor de campanha." : ""}
 
 motivo: uma frase curta explicando o "adequada".
 
@@ -108,8 +119,8 @@ Devolva JSON: {"pautas": [{"id": "...", "pais": "...", "eua_desfavoravel": false
 }
 
 /** Impressão da régua, para uma verificação antiga não sobreviver a uma régua nova. */
-export function impressaoDaReguaDoVerificador(): string {
-  return createHash("sha1").update(montarSystemDoVerificador()).digest("hex").slice(0, 12);
+export function impressaoDaReguaDoVerificador(linha: LinhaDoProjeto = LINHA_PADRAO): string {
+  return createHash("sha1").update(montarSystemDoVerificador(linha)).digest("hex").slice(0, 12);
 }
 
 function montarUser(lote: FinalistaParaVerificar[]): string {
@@ -120,7 +131,10 @@ function montarUser(lote: FinalistaParaVerificar[]): string {
         `id: ${f.storyId}`,
         `titulo: ${f.titulo}`,
         `fonte: ${f.fonte}`,
-        `leitura anterior: pais ${c.pais}, leitura ${c.leitura}, eixo ${c.eixo}, relevancia ${c.relevancia}`,
+        `leitura anterior: pais ${c.pais}, leitura ${c.leitura}, eixo ${c.eixo}, relevancia ${c.relevancia}` +
+          // O formato vai junto (06/10/2026): sem ele, a segunda leitura vê
+          // uma fala e recusa como "só repercussão de declaração".
+          (c.citacao_de_famoso && c.quem_fala ? `, formato citação de famoso (${c.quem_fala})` : ""),
         `texto: ${f.contexto.slice(0, 2500)}`,
       ].join("\n");
     })
@@ -224,7 +238,7 @@ export async function verificarFinalistas(
     try {
       const { data, usage } = await callOpenAIJSON<unknown>(
         [
-          { role: "system", content: montarSystemDoVerificador() },
+          { role: "system", content: montarSystemDoVerificador(opcoes.config.linha) },
           { role: "user", content: montarUser(lote) },
         ],
         config.editorModel,

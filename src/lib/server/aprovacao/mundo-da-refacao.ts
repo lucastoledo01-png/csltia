@@ -152,7 +152,7 @@ export function mundoDaRefacaoDeProducao(
       const { carregarConfigEditorial } = await import("../editorial/config");
       const { criarHistoricoStore } = await import("../editorial/history");
       const { vozesDosRamosComMemoria } = await import("../ramos/vozes");
-      const config = carregarConfigEditorial(env);
+      const config = carregarConfigEditorial(env, projeto as { settings?: Record<string, unknown> | null });
       const historico = await criarHistoricoStore(client()).janela(projeto.id, config.janelaDeDias);
       const v = await vozesDosRamosComMemoria(projeto);
       const r = await rodarSocialDoDia(pool, {
@@ -211,7 +211,7 @@ export function mundoDaRefacaoDeProducao(
       const { criarHistoricoStore } = await import("../editorial/history");
       const { buscarRelacionadas } = await import("../materias-relacionadas");
       const { vozesDosRamosComMemoria } = await import("../ramos/vozes");
-      const config = carregarConfigEditorial(env);
+      const config = carregarConfigEditorial(env, projeto as { settings?: Record<string, unknown> | null });
       const historico = await criarHistoricoStore(client()).janela(projeto.id, config.janelaDeDias);
       const v = await vozesDosRamosComMemoria(projeto);
       const r = await rodarRamoDoPortal({

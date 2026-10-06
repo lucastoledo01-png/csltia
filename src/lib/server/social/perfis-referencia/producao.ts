@@ -26,7 +26,7 @@ export async function dependenciasDeProducao(
   fetcher: typeof fetch = fetch,
 ): Promise<DependenciasDosPerfis> {
   const client = getSupabaseAdminClient();
-  const config = carregarConfigEditorial(envBase);
+  const config = carregarConfigEditorial(envBase, projeto as { settings?: Record<string, unknown> | null });
 
   return {
     store: criarPerfisStore(client),

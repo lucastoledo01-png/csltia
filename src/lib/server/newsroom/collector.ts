@@ -212,6 +212,30 @@ type RawItem = {
  * Não funciona para contas pessoais nem exige consentimento do alvo —
  * é um recurso público da Graph API, mas sujeito a limite de taxa.
  */
+/**
+ * O texto do feed no charset que ELE declara.
+ *
+ * `res.text()` decodifica tudo como UTF-8. A Folha publica em ISO-8859-1
+ * (`<?xml ... encoding="ISO-8859-1"?>` com `content-type: text/xml` sem
+ * charset), e por isso as manchetes dela chegavam ao banco com o caractere de
+ * substituição no lugar de cada acento, em "Dólar fecha em queda" e "Preço do
+ * diesel" (medido em 06/10/2026, na auditoria de notícia quente): o
+ * classificador lia palavra quebrada e a busca por nome não casava. A ordem é o cabeçalho HTTP, depois a declaração do XML,
+ * depois UTF-8. Charset que o `TextDecoder` não conhece cai em UTF-8, que é o
+ * comportamento de antes.
+ */
+export function textoDoFeed(bytes: Uint8Array, contentType: string | null): string {
+  const doCabecalho = (contentType ?? "").match(/charset=["']?([\w-]+)/i)?.[1];
+  const inicio = new TextDecoder("latin1").decode(bytes.slice(0, 200));
+  const doXml = inicio.match(/<\?xml[^>]*encoding=["']([\w-]+)["']/i)?.[1];
+  const charset = (doCabecalho || doXml || "utf-8").toLowerCase();
+  try {
+    return new TextDecoder(charset).decode(bytes);
+  } catch {
+    return new TextDecoder("utf-8").decode(bytes);
+  }
+}
+
 async function fetchInstagramProfilePosts(
   source: NewsSourceConfig,
   fetcher: typeof fetch
@@ -299,7 +323,7 @@ export async function collectFromSource(
               return [];
             }
 
-            const xmlText = await res.text();
+            const xmlText = textoDoFeed(new Uint8Array(await res.arrayBuffer()), res.headers.get("content-type"));
             return parseRSSItems(xmlText);
           })();
 

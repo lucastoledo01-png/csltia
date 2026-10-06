@@ -1,5 +1,5 @@
 import type { PacoteFactual } from "../editorial/pacote-factual";
-import { validarAncoragem } from "../editorial/pacote-factual";
+import { citacoesSemAtribuicao, validarAncoragem } from "../editorial/pacote-factual";
 import type { PautaAvaliada } from "../editorial/guarda";
 import type { CopyDoPost } from "./copy";
 import { montarLegenda } from "./copy";
@@ -33,6 +33,8 @@ export const MOTIVOS_DO_SOCIAL_GUARD = {
   ASSINATURA_DE_NEWSLETTER: "REJECT_SOCIAL_CAPTION",
   NAO_VERIFICADA: "SOCIAL_REJECT_UNVERIFIED",
   HEADLINE_FORA_DA_FORMA: "SOCIAL_REJECT_HEADLINE_SHAPE",
+  /** Fala conferida entre aspas sem o nome de quem falou no post (06/10/2026). */
+  CITACAO_SEM_ATRIBUICAO: "SOCIAL_REJECT_QUOTE_ATTRIBUTION",
   /*
    * Os motivos do carrossel moram aqui, e não num objeto próprio.
    *
@@ -320,6 +322,20 @@ export function avaliarPostSocial(
       problemas.push({
         motivo: MOTIVOS_DO_SOCIAL_GUARD.CAPTION_SEM_ANCORAGEM,
         detalhe: `a legenda afirma o que a fonte não diz: ${bloqueiosLegenda.map((c) => `${c.tipo} "${c.valor}"`).join(", ")}`,
+        reparavel: true,
+      });
+    }
+
+    /*
+     * A citação de famoso é literal E atribuída (06/10/2026). A literalidade a
+     * ancoragem acima já confere; aqui, que o post inteiro nomeie quem falou.
+     * Fala sem dono é a manchete que circula como se fosse da marca.
+     */
+    const semDono = citacoesSemAtribuicao(`${copy.headline}\n${corpo}`, pacote);
+    if (semDono.length > 0) {
+      problemas.push({
+        motivo: MOTIVOS_DO_SOCIAL_GUARD.CITACAO_SEM_ATRIBUICAO,
+        detalhe: `fala entre aspas sem o nome de quem falou: ${semDono.map((c) => `"${c.fala.slice(0, 60)}" (${c.autor})`).join(", ")}`,
         reparavel: true,
       });
     }

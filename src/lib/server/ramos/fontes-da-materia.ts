@@ -157,6 +157,9 @@ export function fundirPacotes(fontes: FonteDoPacote[]): PacoteFactual {
     source_urls: semDuplicatas(fontes.map((f) => f.url)),
     // O separador leva o nome e não o id: "F2" no material sustentaria um "2" inventado no texto.
     texto_de_origem: fontes.map((f) => `Fonte: ${f.nome}\n${f.texto_de_origem}`).join("\n\n"),
+    // As falas conferidas de cada fonte (06/10/2026): sem elas, a fala
+    // traduzida entre aspas perderia o lastro ao juntar as fontes.
+    ...(fontes.some((f) => f.citacoes?.length) ? { citacoes: fontes.flatMap((f) => f.citacoes ?? []) } : {}),
     fontes,
   };
 }
@@ -226,6 +229,7 @@ export async function reunirFontesDaMateria(e: EntradaDasFontes): Promise<Result
     numbers: e.principal.pacote.numbers,
     gaps: e.principal.pacote.gaps,
     texto_de_origem: e.principal.pacote.texto_de_origem.slice(0, TEXTO_POR_FONTE),
+    ...(e.principal.pacote.citacoes?.length ? { citacoes: e.principal.pacote.citacoes } : {}),
   };
   const fontes: FonteDoPacote[] = [principal];
 
@@ -273,6 +277,7 @@ export async function reunirFontesDaMateria(e: EntradaDasFontes): Promise<Result
         numbers: r.pacote.numbers,
         gaps: r.pacote.gaps,
         texto_de_origem: texto,
+        ...(r.pacote.citacoes?.length ? { citacoes: r.pacote.citacoes } : {}),
       });
       linhas.push(
         `[FONTES] ${id} ${alvo.origem}${alvo.cosseno ? ` (cosseno ${alvo.cosseno.toFixed(2)})` : ""}, ${r.pacote.verified_facts.length} fato(s), via ${lida.via}: ${alvo.url}`,

@@ -91,6 +91,11 @@ LISTMONK_URL / LISTMONK_API_USER / LISTMONK_API_TOKEN / LISTMONK_DEFAULT_LIST_ID
 # horário gravado na cadência do projeto (painel, Cadência). Substitui a linha
 # fixa das 20:00 UTC; não mantenha as duas.
 */15 * * * * /usr/bin/curl -fsS -m 60 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" "https://casaloti.ia.br/api/cron/producao?relogio=1" >> /home/deploy/producao-cron.log 2>&1
+
+# Notícia quente no mesmo dia (06/10/2026): ciclo da tarde, só do Instagram.
+# A rota roda na janela de settings.quente_da_tarde.horario (padrão 15:30) e
+# não faz nada com a capacidade quente_da_tarde em off.
+*/15 * * * * /usr/bin/curl -fsS -m 60 -X POST -H "Authorization: Bearer SEU_CRON_SECRET" "https://casaloti.ia.br/api/cron/quente-da-tarde?relogio=1" >> /home/deploy/quente-da-tarde-cron.log 2>&1
 ```
 
 A produção sai no primeiro disparo entre o horário gravado e 15 minutos depois

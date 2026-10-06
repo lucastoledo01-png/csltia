@@ -93,6 +93,20 @@ export const CAPACIDADES = [
    * `social/carrossel/modo.ts`.
    */
   "carrossel_noticia",
+  /**
+   * O calor da pauta (06/10/2026): quantos veículos, tendência, fama, recência
+   * e número forte, somados à nota na seleção do Instagram e na abertura da
+   * newsletter. Sem fallback de ambiente: ausente vale `off`, a seleção de
+   * sempre. Ver `editorial/calor-do-dia.ts`.
+   */
+  "calor",
+  /**
+   * A notícia quente no mesmo dia (06/10/2026): um ciclo da tarde, só do
+   * Instagram, que coleta de novo e preenche as vagas livres de hoje com a
+   * pauta nova e quente. Sem fallback de ambiente: ausente vale `off`. Ver
+   * `social/quente-da-tarde.ts` e `/api/cron/quente-da-tarde`.
+   */
+  "quente_da_tarde",
 ] as const;
 
 export type Capacidade = (typeof CAPACIDADES)[number];

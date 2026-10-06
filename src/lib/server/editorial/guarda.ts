@@ -175,7 +175,7 @@ export async function avaliarPautas(
     opcoes.candidatos?.store ??
     (opcoes.candidatos?.client ? criarCandidatosStore(opcoes.candidatos.client) : null);
   const projectId = opcoes.candidatos?.projectId ?? "";
-  const assinatura = assinaturaDoClassificador(montarSystemDoClassificador(), env);
+  const assinatura = assinaturaDoClassificador(montarSystemDoClassificador(config.linha), env);
 
   const reuso = {
     candidatasLidas: 0,
@@ -237,7 +237,8 @@ export async function avaliarPautas(
       url: g.primary.url,
     })),
     env,
-    fetcher
+    fetcher,
+    config.linha,
   );
 
   reuso.classificadasAgora = classificacoes.size;
@@ -427,7 +428,8 @@ export async function avaliarPautas(
         url: e.grupo.primary.url,
       })),
       env,
-      fetcher
+      fetcher,
+      config.linha,
     );
 
     custoTotal += segunda.custoUsd;

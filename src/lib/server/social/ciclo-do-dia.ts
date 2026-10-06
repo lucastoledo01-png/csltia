@@ -19,6 +19,9 @@ import { modoDoPipelineSocial } from "./modo";
 import type { ModoSocial, ResumoVisualDoDia } from "./modo";
 import type { ProjetoComCapacidades } from "../capacidades";
 import { rodarCicloSocial } from "./pipeline-v2";
+import { ehCitacaoDeFamoso } from "../editorial/classificador";
+import { calorNoPoolDoInstagram } from "./calor-no-feed";
+import { fontesPadraoDoCalor, modoDoCalor, type FontesDoCalor } from "../editorial/calor-do-dia";
 import { comHistoricoDoFeed, foraDoFeed, lerHistoricoDoFeed } from "./historico-do-feed";
 import { moldesLigados } from "./moldes-do-feed";
 import { modoDaFila } from "../aprovacao/modo";
@@ -160,6 +163,12 @@ export type OpcoesDoSocialDoDia = {
    * pauta sem ele sai do dia. Ausente, o comportamento é o de antes.
    */
   exigirPacoteFactual?: boolean;
+  /**
+   * As fontes de sinal do calor (06/10/2026), injetáveis no teste. Ausentes,
+   * valem as de verdade, e só são chamadas com a capacidade `calor` fora de
+   * `off`.
+   */
+  fontesDoCalor?: FontesDoCalor;
   /*
    * Injetados só em teste, pelas mesmas razões de sempre: um abre navegador e
    * escreve no Storage, o outro lê `prompt_campaigns` no banco. Em produção os
@@ -224,6 +233,18 @@ export type ResultadoDoSocialDoDia = {
  * token gasto, nenhum navegador aberto. É o que torna a integração inócua
  * enquanto a flag não for ligada.
  */
+/**
+ * Os atores na ordem em que a foto os procura. Na citação de famoso, quem fala
+ * primeiro, uma vez só; nos demais casos, a ordem do classificador.
+ */
+export function atoresParaAFoto(pauta: Pick<PautaAvaliada, "classificacao">): string[] {
+  const atores = pauta.classificacao.atores ?? [];
+  const quem = ehCitacaoDeFamoso(pauta.classificacao) ? pauta.classificacao.quem_fala!.trim() : "";
+  if (!quem) return atores;
+  const chave = quem.toLowerCase();
+  return [quem, ...atores.filter((a) => a.toLowerCase() !== chave)];
+}
+
 export async function rodarSocialDoDia(
   approvedEditorialPool: PautaAvaliada[],
   opcoes: OpcoesDoSocialDoDia,
@@ -282,6 +303,34 @@ export async function rodarSocialDoDia(
   if (feedIlegivel) diagnostico.errors.push(feedIlegivel);
 
   const configSocial = limitarTetoDoDia(carregarConfigSocial(env), opcoes.tetoDoDia);
+
+  /*
+   * O calor (06/10/2026), antes dos finalistas: é a ordem do pool que decide
+   * quem é verificado. Em `off` nada é chamado; em `dry_run` o pool volta o
+   * mesmo e o que mudaria vai para `platform_events`; em `enforce` a nota leva
+   * o calor somado. Falha aqui nunca derruba o dia: o pool segue como veio.
+   */
+  const modoCalor = modoDoCalor(opcoes.projeto);
+  if (modoCalor !== "off") {
+    try {
+      const comCalor = await calorNoPoolDoInstagram(approvedEditorialPool, {
+        modo: modoCalor,
+        fontes:
+          opcoes.fontesDoCalor ??
+          fontesPadraoDoCalor({ client: opcoes.client, projectId: opcoes.projectId, env, fetcher, agoraMs: opcoes.agoraMs }),
+        configSocial,
+        client: opcoes.client,
+        projectId: opcoes.projectId,
+        editionDate: opcoes.editionDate,
+        agoraMs: opcoes.agoraMs,
+      });
+      approvedEditorialPool = comCalor.pool;
+      for (const l of comCalor.linhas) console.log(l);
+    } catch (erro) {
+      console.warn(`[CALOR] não rodou, o pool segue sem calor: ${(erro as Error)?.message ?? erro}`);
+    }
+  }
+
   const candidatosStore = criarCandidatosStore(opcoes.client);
 
   /*
@@ -488,7 +537,13 @@ export async function rodarSocialDoDia(
     resumo: pauta.enriquecimento?.texto ?? "",
     categoria: pauta.classificacao.eixo,
     classificacao: {
-      atores: pauta.classificacao.atores,
+      /*
+       * Na citação de famoso, quem fala vai à frente (06/10/2026): o formato
+       * pede a foto da PESSOA, e o resolvedor procura a entidade pela ordem
+       * dos atores. Sem isto, a fala de Jensen Huang sobre data centers
+       * podia sair com a foto da Nvidia ou de um galpão.
+       */
+      atores: atoresParaAFoto(pauta),
       lugares: pauta.classificacao.lugares,
       acontecimento: pauta.classificacao.acontecimento,
       pais: pauta.classificacao.pais,
