@@ -14,7 +14,9 @@ import { modoDoPipelineSocial, permiteEnforce, diagnosticoSocialVazio } from "./
 import type { ResumoVisualDoDia } from "./modo";
 import type { DiagnosticoSocial, ModoSocial } from "./modo";
 import { chaveDeIdempotencia, resolverOrigem } from "./social-posts-store";
-import { alternarBolha, ultimaTeveBolha } from "./ritmo-da-bolha";
+import { ultimaTeveBolha } from "./ritmo-da-bolha";
+import { decidirBolha, type BuscaDaSegundaFoto, type DecisaoDaBolha, type DeteccaoDeRostos } from "./bolha-sem-rosto";
+import { CANVAS_DO_FEED } from "@/lib/carousel-templates/bolha";
 import { TODOS_OS_MOLDES, type MoldesLigados } from "./moldes-do-feed";
 import { alternarGramatica, recortesSeguidosNoFim, TETO_DE_RECORTES_SEGUIDOS } from "./ritmo-do-recorte";
 import { gramaticaEfetiva } from "./arte";
@@ -83,6 +85,11 @@ export type ResultadoDoCicloSocial = {
   /** Preenchido só em enforce liberado. */
   gravacao: { gravados: number; bloqueados: number; erros: string[] } | null;
   linhasDeLog: string[];
+  /**
+   * O que a bolha custou no ciclo: localizar rostos e, na vez da bolha, a
+   * busca extra da segunda foto. Vai para o livro de custos do dia.
+   */
+  custoDaBolha?: { usd: number; tokens: number };
 };
 
 export type OpcoesDoCiclo = {
@@ -102,6 +109,18 @@ export type OpcoesDoCiclo = {
   candidatas?: Map<string, CandidataPersistida>;
   /** Resolve a imagem de uma pauta. Ausente, o ciclo roda sem imagem. */
   resolverVisual?: (pauta: PautaAvaliada) => Promise<ResultadoVisual | null>;
+  /**
+   * Onde estão os rostos da foto de fundo, como a peça a mostra (06/10/2026).
+   *
+   * Ausente, a vez da bolha passa sempre: sem saber onde estão os rostos, a
+   * bolha não é desenhada. É a regra "falha de conferência é recusa".
+   */
+  detectarRostos?: (urlDaFoto: string) => Promise<DeteccaoDeRostos>;
+  /**
+   * Mais uma busca da foto do círculo, só na vez da bolha e só quando o
+   * resolvedor não trouxe vice. Ausente, vale só a vice do resolvedor.
+   */
+  buscarSegundaFoto?: (pauta: PautaAvaliada, visual: ResultadoVisual) => Promise<BuscaDaSegundaFoto>;
   store?: SocialPostsStore | null;
   persistenciaDegradada?: boolean;
   /*
@@ -618,15 +637,16 @@ export async function rodarCicloSocial(
     linhas.push(`[SOCIAL V2] moldes desligados no painel: ${desligados.join(", ")}`);
   }
 
-  const bolhas = alternarBolha(
-    previews.map((p) => ({ temSegundaFoto: Boolean(p.visual?.assetSecundario) })),
-    ultimaComBolha,
-    moldes.jornal_bolha,
-  );
-  linhas.push(
-    `[SOCIAL V2] ritmo da bolha: ${bolhas.map((b) => (b ? "com" : "sem")).join(", ")} ` +
-      `(a peça anterior do feed ${ultimaComBolha ? "tinha" : "não tinha"} bolha)`,
-  );
+  /*
+   * A bolha agora é decidida peça a peça, dentro do laço, e não numa passada
+   * antes dele (06/10/2026). A vez depende de a peça ANTERIOR ter saído com
+   * bolha de verdade, e isso só se sabe depois de conferir os rostos, achar a
+   * segunda foto e medir o círculo no render. Quando a vez não se cumpre, ela
+   * passa para a peça seguinte.
+   */
+  let anteriorTeveBolha = ultimaComBolha;
+  const custoDaBolha = { usd: 0, tokens: 0 };
+  const ritmoDaBolha: string[] = [];
 
   /*
    * A gramática de cada capa, decidida antes de qualquer render.
@@ -689,15 +709,6 @@ export async function rodarCicloSocial(
     const gramatica: GramaticaDaCapa = gramaticas[indice] ?? "jornal";
     const corpoDoRecorte = gramatica === "recorte" ? p.post.copy.gancho : undefined;
 
-    /*
-     * A bolha desta peça, já decidida pelo ritmo.
-     *
-     * Zerar o secundário AQUI, e não lá dentro do desenho, é o que faz o
-     * artefato congelado e a linha do banco contarem a mesma história: o que
-     * for gravado como `bolha` é o que a peça realmente mostra.
-     */
-    const secundarioDaCapa = bolhas[indice] ? (p.visual?.assetSecundario ?? null) : null;
-
     if (jaTemPostHoje.has(chaveDeIdempotencia(opcoes.editionDate, p.post.pauta.storyId))) {
       linhas.push(
         `[SOCIAL V2] ${p.post.pauta.storyId} já tem post hoje: não renderiza de novo ` +
@@ -706,8 +717,34 @@ export async function rodarCicloSocial(
       continue;
     }
 
+    /*
+     * A bolha desta peça: a vez, os rostos, a posição e a segunda foto.
+     *
+     * Zerar o secundário AQUI, e não lá dentro do desenho, é o que faz o
+     * artefato congelado e a linha do banco contarem a mesma história: o que
+     * for gravado como `bolha` é o que a peça realmente mostra. E o render
+     * ainda confere o círculo medido, ver `bolhaFoi` abaixo.
+     */
+    const { decisao: decisaoDaBolha, asset: secundarioDaCapa } = await decidirBolha({
+      moldeLigado: moldes.jornal_bolha,
+      anteriorTeveBolha,
+      gramatica,
+      fotoDeFundo: p.visual?.asset?.imageUrl ?? null,
+      segundaFoto: p.visual?.assetSecundario ?? null,
+      canvas: CANVAS_DO_FEED,
+      detectar: opcoes.detectarRostos,
+      buscarSegunda:
+        opcoes.buscarSegundaFoto && p.visual
+          ? () => opcoes.buscarSegundaFoto!(p.post.pauta, p.visual!)
+          : undefined,
+    });
+    custoDaBolha.usd += decisaoDaBolha.custoUsd;
+    custoDaBolha.tokens += decisaoDaBolha.tokens;
+
     const path = `${opcoes.slugDoProjeto ?? opcoes.projectId}/${opcoes.editionDate}/${p.chaveDeIdempotencia}`;
     const carrossel = p.post.carrossel;
+    const posicaoDaBolha = secundarioDaCapa ? (decisaoDaBolha.posicao ?? undefined) : undefined;
+    const rostosDaBolha = decisaoDaBolha.rostos ?? undefined;
 
     /*
      * Um caminho por formato, e o mesmo tratamento de falha nos dois.
@@ -725,6 +762,8 @@ export async function rodarCicloSocial(
               eixo: p.post.pauta.classificacao.eixo ?? "",
               asset: p.visual?.asset ?? null,
               assetSecundario: secundarioDaCapa,
+              posicaoDaBolha,
+              rostosDaBolha,
               motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
               gramatica,
               corpo: corpoDoRecorte,
@@ -739,6 +778,8 @@ export async function rodarCicloSocial(
             eixo: p.post.pauta.classificacao.eixo,
             asset: p.visual?.asset ?? null,
             assetSecundario: secundarioDaCapa,
+            posicaoDaBolha,
+            rostosDaBolha,
             motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
             gramatica,
             corpo: corpoDoRecorte,
@@ -760,6 +801,25 @@ export async function rodarCicloSocial(
 
     const artefatos = "artefatos" in resultado ? resultado.artefatos : [{ ...resultado.artefato, index: 1 }];
 
+    /*
+     * A bolha que FOI ao arquivo. O render pode tê-la tirado (a foto do
+     * círculo não baixou, ou o círculo medido encostou num rosto), e aí a
+     * peça não tem bolha e a vez passa, por mais que a decisão a tenha pedido.
+     */
+    const bolhaFoi = Boolean(secundarioDaCapa) && resultado.bolhaDesenhada !== false;
+    const decisaoGravada: DecisaoDaBolha =
+      secundarioDaCapa && !bolhaFoi
+        ? {
+            ...decisaoDaBolha,
+            resultado: "tirada_no_render",
+            motivo: `${decisaoDaBolha.motivo}; no render: ${resultado.notaDaBolha || "bolha não desenhada"}`,
+          }
+        : decisaoDaBolha;
+    anteriorTeveBolha = bolhaFoi;
+    ritmoDaBolha.push(
+      `${p.post.pauta.storyId}: ${bolhaFoi ? `com (${decisaoGravada.posicao})` : "sem"} [${decisaoGravada.resultado}]`,
+    );
+
     linhas.push(
       `[SOCIAL V2] ${carrossel ? `carrossel de ${artefatos.length} slides congelado` : "arte congelada"}: ` +
         artefatos
@@ -780,7 +840,8 @@ export async function rodarCicloSocial(
       origem: p.origem,
       formato: carrossel ? "carousel" : "static",
       artefatos,
-      bolha: Boolean(secundarioDaCapa),
+      bolha: bolhaFoi,
+      decisaoDaBolha: decisaoGravada,
       gramatica,
       /*
        * O crédito da foto entra na legenda, e não na imagem.
@@ -803,9 +864,15 @@ export async function rodarCicloSocial(
 
   diagnostico.descartados = descartados.length;
 
+  linhas.push(
+    `[SOCIAL V2] ritmo da bolha (a peça anterior do feed ${ultimaComBolha ? "tinha" : "não tinha"} bolha): ` +
+      (ritmoDaBolha.length ? ritmoDaBolha.join(" | ") : "nenhuma peça") +
+      ` ; custo ${custoDaBolha.usd.toFixed(4)} USD`,
+  );
+
   if (paraGravar.length === 0) {
     linhas.push("[SOCIAL V2] nenhuma arte congelou: nada gravado");
-    return { modo, previews, descartados, composicao, diagnostico, gravacao: null, linhasDeLog: linhas };
+    return { modo, previews, descartados, composicao, diagnostico, gravacao: null, linhasDeLog: linhas, custoDaBolha };
   }
 
   const r = await opcoes.store.gravar(paraGravar);
@@ -819,5 +886,6 @@ export async function rodarCicloSocial(
     diagnostico,
     gravacao: { gravados: r.gravados, bloqueados: r.bloqueadosPorIdempotencia.length, erros: r.erros },
     linhasDeLog: linhas,
+    custoDaBolha,
   };
 }

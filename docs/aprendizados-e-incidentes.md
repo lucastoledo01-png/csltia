@@ -1363,6 +1363,23 @@ reescrita por script é lida contra a fonte antes do `--aplicar`, e o
 `--de <arquivo>` existe para gravar exatamente a versão lida, já que rodar de
 novo daria outro texto.
 
+### A bolha gravada não era a bolha desenhada (06/10/2026)
+
+**Sintoma.** Nenhum visível. Achado ao fazer a bolha desviar de rosto.
+
+**Causa.** `arte.bolha` era `Boolean(secundarioDaCapa)`, o que foi PEDIDO. O
+render tira a bolha em silêncio quando a foto do círculo não baixa, e o
+recorte nunca desenhou bolha mas recebia a segunda foto do mesmo jeito. Nos
+dois casos a linha dizia `bolha: true` numa peça sem círculo, e o ritmo, que lê
+esse campo, tirava a vez da peça seguinte sem motivo.
+
+**Corrigido.** `renderizarCapas` devolve `bolha.desenhada`, medida na página
+montada, e o congelamento a repassa; o ciclo grava o que foi ao arquivo. O
+recorte não recebe mais a segunda foto.
+
+**Lição.** É a "linha gravada mentindo" de 16/09 outra vez: campo que descreve
+uma decisão precisa ser escrito por quem a EXECUTA, não por quem a pediu.
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

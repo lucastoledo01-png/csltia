@@ -397,3 +397,174 @@ describe("a keyword do CTA no ciclo", () => {
     expect(r.linhasDeLog.join(" ")).not.toContain("e não da configuração");
   });
 });
+
+/*
+ * A bolha no ciclo de verdade (06/10/2026): a vez, os rostos e o registro.
+ *
+ * O laço decide peça a peça, e a vez de cada uma depende de a ANTERIOR ter
+ * saído com bolha. Estes testes passam pelo ciclo inteiro, com o congelamento
+ * espião no lugar do navegador, para provar que o que é gravado em
+ * `arte.bolha` é o que a peça mostra.
+ */
+describe("a bolha no ciclo", () => {
+  const COM_SEGUNDA = (fundo: string) => ({
+    ...FOTO(fundo),
+    assetSecundario: { imageUrl: `${fundo}-bolha`, attribution: "" },
+  });
+  const ENFORCE = {
+    SOCIAL_PIPELINE_V2: "enforce",
+    VISUAL_RESOLVER_V2: "enforce",
+    SOCIAL_V2_ENFORCE_LIBERADO: "true",
+    SOCIAL_POSTS_MAX_PER_DAY: "3",
+    SOCIAL_POSTS_TARGET_PER_DAY: "3",
+  };
+  const pautas = () => [
+    pauta("1", "USCIS amplia prazo"),
+    pauta("2", "Fed mantém juros e o crédito segue caro", "Fed"),
+    pauta("3", "Tesouro emite título de trinta anos", "Tesouro"),
+  ];
+  const mapas = {
+    pacotes: new Map([["s-1", PACOTE], ["s-2", PACOTE], ["s-3", PACOTE]]),
+    candidatas: new Map([["s-1", CONFIRMADA], ["s-2", CONFIRMADA], ["s-3", CONFIRMADA]]),
+  };
+  const SEM_ROSTO = { ok: true as const, rostos: [], custoUsd: 0.004, tokens: 1300, emCache: false, modelo: "m" };
+
+  function congelarEspiao(desenhada?: (path: string) => boolean) {
+    const pedidos: Array<{ path: string; posicao?: string; secundario?: string | null }> = [];
+    const congelarArte = async (e: {
+      capa: { posicaoDaBolha?: string; assetSecundario?: { imageUrl: string } | null };
+      path: string;
+    }) => {
+      pedidos.push({ path: e.path, posicao: e.capa.posicaoDaBolha, secundario: e.capa.assetSecundario?.imageUrl ?? null });
+      const foi = desenhada ? desenhada(e.path) : undefined;
+      return {
+        ok: true as const,
+        ...(foi === undefined ? {} : { bolhaDesenhada: foi, notaDaBolha: foi ? "" : "a foto da bolha não baixou" }),
+        artefato: {
+          url: "https://storage.exemplo/peca.png", path: `${e.path}/peca.png`, filename: "social-v2.png",
+          mime: "image/png", sha256: "c".repeat(64), bytes: 120_000, largura: 2160, altura: 2880, otimizado: false,
+        },
+      };
+    };
+    return { pedidos, congelarArte };
+  }
+
+  type Gravado = {
+    post: { pauta: { storyId: string } };
+    bolha: boolean;
+    decisaoDaBolha?: { resultado: string; posicao: string | null; rostos: unknown; segundaFoto: unknown; notaDaBusca: string };
+  };
+
+  it("alterna com a vez passando: rosto no caminho, depois com bolha, depois sem", async () => {
+    const { store, tentativas } = storeEspiao();
+    const { pedidos, congelarArte } = congelarEspiao();
+    const r = await rodarCicloSocial(
+      pautas(),
+      opcoes(ENFORCE, {
+        ...mapas,
+        store,
+        congelarArte,
+        resolverVisual: async (p: PautaAvaliada) => COM_SEGUNDA(`https://x/${p.storyId}.jpg`),
+        // A foto da primeira pauta é um retrato fechado: rosto ocupando a peça.
+        detectarRostos: async (url: string) =>
+          url.includes("s-1")
+            ? { ...SEM_ROSTO, custoUsd: 0.005, rostos: [{ x: 0.05, y: 0.02, largura: 0.9, altura: 0.6 }] }
+            : SEM_ROSTO,
+      }),
+    );
+
+    const gravados = tentativas[0] as Gravado[];
+    expect(gravados.map((g) => [g.post.pauta.storyId, g.bolha])).toEqual([
+      ["s-1", false],
+      ["s-2", true],
+      ["s-3", false],
+    ]);
+    expect(gravados[0].decisaoDaBolha).toMatchObject({ resultado: "sem_posicao_livre", posicao: null });
+    expect(gravados[0].decisaoDaBolha?.rostos).toHaveLength(1);
+    expect(gravados[1].decisaoDaBolha).toMatchObject({ resultado: "com_bolha", posicao: "padrao" });
+    expect(gravados[2].decisaoDaBolha).toMatchObject({ resultado: "nao_era_a_vez" });
+
+    // A peça sem bolha vai ao congelamento SEM a segunda foto.
+    expect(pedidos.map((p) => p.secundario)).toEqual([null, "https://x/s-2.jpg-bolha", null]);
+    // Só a vez paga a pergunta dos rostos: a terceira não perguntou.
+    expect(r.custoDaBolha?.usd).toBeCloseTo(0.009, 6);
+  });
+
+  it("o estado vem do feed: depois de uma capa com bolha, a primeira da leva sai sem", async () => {
+    const { store, tentativas } = storeEspiao();
+    store.ultimasCapas = async () => [{ bolha: true, gramatica: "jornal" }];
+    const { congelarArte } = congelarEspiao();
+    await rodarCicloSocial(
+      pautas().slice(0, 2),
+      opcoes(ENFORCE, {
+        ...mapas,
+        store,
+        congelarArte,
+        resolverVisual: async (p: PautaAvaliada) => COM_SEGUNDA(`https://x/${p.storyId}.jpg`),
+        detectarRostos: async () => SEM_ROSTO,
+      }),
+    );
+    expect((tentativas[0] as Gravado[]).map((g) => g.bolha)).toEqual([false, true]);
+  });
+
+  it("na vez sem vice, a busca extra é chamada, e a foto dela vai para o círculo", async () => {
+    const { store, tentativas } = storeEspiao();
+    const { pedidos, congelarArte } = congelarEspiao();
+    const buscadas: string[] = [];
+    await rodarCicloSocial(
+      pautas().slice(0, 1),
+      opcoes(ENFORCE, {
+        ...mapas,
+        store,
+        congelarArte,
+        resolverVisual: async (p: PautaAvaliada) => FOTO(`https://x/${p.storyId}.jpg`),
+        detectarRostos: async () => SEM_ROSTO,
+        buscarSegundaFoto: async (p: PautaAvaliada) => {
+          buscadas.push(p.storyId);
+          return { asset: { imageUrl: "https://x/extra.jpg", attribution: "" }, nota: "commons: 7" };
+        },
+      }),
+    );
+    expect(buscadas).toEqual(["s-1"]);
+    expect(pedidos[0].secundario).toBe("https://x/extra.jpg");
+    const g = (tentativas[0] as Gravado[])[0];
+    expect(g.bolha).toBe(true);
+    expect(g.decisaoDaBolha?.segundaFoto).toEqual({ url: "https://x/extra.jpg", origem: "busca_extra" });
+    expect(g.decisaoDaBolha?.notaDaBusca).toBe("commons: 7");
+  });
+
+  it("sem detector de rostos não há bolha, e a vez passa", async () => {
+    const { store, tentativas } = storeEspiao();
+    const { congelarArte } = congelarEspiao();
+    await rodarCicloSocial(
+      pautas().slice(0, 1),
+      opcoes(ENFORCE, {
+        ...mapas,
+        store,
+        congelarArte,
+        resolverVisual: async (p: PautaAvaliada) => COM_SEGUNDA(`https://x/${p.storyId}.jpg`),
+      }),
+    );
+    const g = (tentativas[0] as Gravado[])[0];
+    expect(g.bolha).toBe(false);
+    expect(g.decisaoDaBolha).toMatchObject({ resultado: "deteccao_falhou" });
+  });
+
+  it("bolha que o render não desenhou é gravada como sem bolha, e a vez passa", async () => {
+    const { store, tentativas } = storeEspiao();
+    const { congelarArte } = congelarEspiao((path) => !path.includes("s-1"));
+    await rodarCicloSocial(
+      pautas().slice(0, 2),
+      opcoes(ENFORCE, {
+        ...mapas,
+        store,
+        congelarArte,
+        resolverVisual: async (p: PautaAvaliada) => COM_SEGUNDA(`https://x/${p.storyId}.jpg`),
+        detectarRostos: async () => SEM_ROSTO,
+      }),
+    );
+    const gravados = tentativas[0] as Gravado[];
+    expect(gravados.map((g) => g.bolha)).toEqual([false, true]);
+    expect(gravados[0].decisaoDaBolha).toMatchObject({ resultado: "tirada_no_render" });
+  });
+});

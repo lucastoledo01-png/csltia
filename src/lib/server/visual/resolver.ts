@@ -1053,3 +1053,162 @@ function escolherVice<T extends AssetVisual>(
       a.item.imageContextType !== "conceptual",
   );
 }
+
+/**
+ * Quantas imagens a busca extra da bolha abre na conferência visual.
+ *
+ * O dobro do teto da vice comum, e só quando é a vez da bolha: é aqui que a
+ * alternância deixa de ser acaso e vira alvo (pedido do dono, 06/10/2026).
+ */
+const TETO_DE_CONFERENCIAS_DA_BUSCA_EXTRA = 4;
+
+/** Quantos arquivos o Commons devolve na busca extra, contra 12 da busca comum. */
+const LIMITE_DO_COMMONS_NA_BUSCA_EXTRA = 30;
+
+export type SegundaFotoBuscada = { asset: AssetVisual | null; nota: string };
+
+/**
+ * Mais uma tentativa de achar a foto do círculo, quando é a vez da bolha.
+ *
+ * Em 06/10/2026 só 1 das 12 últimas capas tinha bolha, e parte da causa está
+ * neste arquivo: a vice só existia no caminho das fontes externas. Quando a
+ * foto de fundo saía do acervo ou da biblioteca, a resolução terminava ali e
+ * ninguém procurava segunda foto; e no caminho externo a vice tinha duas
+ * conferências e doze arquivos do Commons.
+ *
+ * A régua NÃO muda, e esse é o ponto. A busca é mais funda, não mais frouxa:
+ *
+ *   - só para pauta com entidade nomeada (a bolha mostra quem a pauta cita);
+ *   - o acervo primeiro, pelo assunto da entidade, que é identidade por
+ *     construção e foi conferido na entrada;
+ *   - depois biblioteca, Commons (30 arquivos) e Openverse, somados, pelas
+ *     MESMAS barreiras da vice: resolução, tempo, figura não central, piso de
+ *     relevância e o piso de identidade, nunca banco conceitual;
+ *   - e a conferência visual abrindo até quatro delas. Sem conferente (sem
+ *     chave), nada é aprovado: falha de conferência é recusa.
+ *
+ * Nunca devolve a foto de fundo nem foto já usada hoje ou na janela.
+ */
+export async function buscarSegundaFoto(
+  pauta: PautaParaImagem,
+  principal: Pick<AssetVisual, "imageUrl">,
+  entidade: EntidadeVisual | null,
+  opcoes: OpcoesDeResolucao = {},
+): Promise<SegundaFotoBuscada> {
+  if (!entidade || entidade.tipo === "conceptual") {
+    return { asset: null, nota: "pauta sem entidade nomeada: a bolha mostra quem a pauta cita, e aqui não há quem" };
+  }
+
+  const env = opcoes.env ?? process.env;
+  const config = carregarConfigDeImagem(env);
+  const usadosAgora = opcoes.jaUsadosNestaEdicao ?? new Set<string>();
+  const usadasAntes = new Set(
+    [...(opcoes.jaUsadasRecentemente ?? [])].map((u) => identidadeDaFoto(u)).filter(Boolean),
+  );
+  const daFotoDeFundo = identidadeDaFoto(principal.imageUrl);
+  const livre = (url: string) =>
+    Boolean(url) &&
+    identidadeDaFoto(url) !== daFotoDeFundo &&
+    !usadosAgora.has(url) &&
+    !usadasAntes.has(identidadeDaFoto(url));
+
+  const notas: string[] = [];
+
+  // 1. O acervo, pelo assunto da entidade.
+  if (opcoes.acervo && opcoes.acervo.modo === "enforce") {
+    try {
+      const imagens = await opcoes.acervo.porAssunto(assuntosDaEntidade(entidade));
+      const livres = imagens.filter((i) => livre(i.urlPublica));
+      notas.push(`acervo: ${imagens.length} da entidade, ${livres.length} livre(s)`);
+      if (livres[0]) return { asset: assetDoAcervo(livres[0], entidade), nota: notas.join(" ; ") };
+    } catch (erro) {
+      notas.push(`acervo indisponível: ${(erro as Error).message}`);
+    }
+  }
+
+  const conferir = conferenteDe(opcoes);
+  if (!conferir) {
+    notas.push("sem conferência visual: a busca externa não aprova nada sem alguém olhar");
+    return { asset: null, nota: notas.join(" ; ") };
+  }
+
+  // 2. Biblioteca, Commons e Openverse, somados antes de pontuar.
+  const candidatos: AssetVisual[] = [];
+  const biblioteca = opcoes.biblioteca ?? (opcoes.client ? criarBiblioteca(opcoes.client) : null);
+  if (biblioteca) {
+    try {
+      const guardados = (await biblioteca.daEntidade(entidade.normalizado)).filter(
+        (g) => !usadoRecentemente(g, config.janelaEmDias),
+      );
+      candidatos.push(...guardados);
+      notas.push(`biblioteca: ${guardados.length}`);
+    } catch (erro) {
+      notas.push(`biblioteca indisponível: ${(erro as Error).message}`);
+    }
+  }
+  try {
+    const busca = await buscarNoCommons(entidade, {
+      env,
+      fetcher: opcoes.fetcher,
+      limite: LIMITE_DO_COMMONS_NA_BUSCA_EXTRA,
+    });
+    let convertidos = 0;
+    for (const c of busca.candidatos) {
+      const conversao = candidatoParaAsset(c, entidade, env);
+      if (conversao.ok) {
+        candidatos.push(conversao.asset);
+        convertidos += 1;
+      }
+    }
+    notas.push(`commons: ${convertidos}`);
+  } catch (erro) {
+    notas.push(`commons falhou: ${(erro as Error).message}`);
+  }
+  try {
+    const busca = await buscarNoOpenverse(entidade, { env, fetcher: opcoes.fetcher });
+    let convertidos = 0;
+    for (const c of busca.candidatos) {
+      const conversao = candidatoDoOpenverse(c, entidade, env);
+      if (conversao.ok) {
+        candidatos.push(conversao.asset);
+        convertidos += 1;
+      }
+    }
+    notas.push(`openverse: ${convertidos}`);
+  } catch (erro) {
+    notas.push(`openverse falhou: ${(erro as Error).message}`);
+  }
+
+  const vistos = new Set<string>();
+  const disponiveis = candidatos.filter((c) => {
+    const id = identidadeDaFoto(c.imageUrl);
+    if (!livre(c.imageUrl) || vistos.has(id)) return false;
+    vistos.add(id);
+    return true;
+  });
+
+  const recusados: CandidatoRecusado[] = [];
+  const { aprovadas } = melhorPontuado(
+    disponiveis,
+    entidade,
+    pisoDeRelevancia(entidade, config),
+    recusados,
+    config.larguraMinima,
+    { titulo: pauta.titulo, resumo: pauta.resumo, atores: pauta.classificacao.atores },
+  );
+  const comIdentidade = escolherVice(aprovadas, { imageUrl: principal.imageUrl } as AssetVisual);
+  notas.push(`${disponiveis.length} candidata(s), ${comIdentidade.length} com identidade`);
+
+  const vice = await primeiraAprovada(
+    comIdentidade.map((x) => x.item),
+    conferir,
+    pauta,
+    recusados,
+    TETO_DE_CONFERENCIAS_DA_BUSCA_EXTRA,
+  );
+  if (!vice) {
+    const conferidas = Math.min(comIdentidade.length, TETO_DE_CONFERENCIAS_DA_BUSCA_EXTRA);
+    notas.push(`${conferidas} conferida(s), nenhuma aprovada`);
+  }
+  return { asset: vice, nota: notas.join(" ; ") };
+}

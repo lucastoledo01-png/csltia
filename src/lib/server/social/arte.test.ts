@@ -448,3 +448,33 @@ describe("a capa de texto é decisão, não fallback quebrado", () => {
     expect(html(CURTA)).toContain("data-ajuste-pronto");
   });
 });
+
+describe("a bolha na capa montada (06/10/2026)", () => {
+  const foto = { imageUrl: "https://x/fundo.jpg", attribution: "" };
+  const segunda = { imageUrl: "https://x/bolha.jpg", attribution: "" };
+  const base = { headline: "Fed mantém juros e o crédito segue caro nos EUA", eixo: "economia", asset: foto };
+
+  it("a posição decidida vai para o slide", () => {
+    const capa = montarCapaDoPost({ ...base, assetSecundario: segunda, posicaoDaBolha: "direita_alta" });
+    expect(capa.slide.inset_image_url).toBe("https://x/bolha.jpg");
+    expect(capa.slide.inset_position).toBe("direita_alta");
+  });
+
+  it("sem posição decidida, o slide não carrega o campo", () => {
+    const capa = montarCapaDoPost({ ...base, assetSecundario: segunda });
+    expect(capa.slide.inset_position).toBeUndefined();
+  });
+
+  it("o recorte não desenha bolha, então não carrega a segunda foto", () => {
+    const capa = montarCapaDoPost({
+      ...base,
+      assetSecundario: segunda,
+      posicaoDaBolha: "padrao",
+      gramatica: "recorte",
+      corpo: "Quem tem financiamento continua pagando caro.",
+    });
+    expect(capa.variante).toBe("recorte_post");
+    expect(capa.slide.inset_image_url).toBe("");
+    expect(capa.slide.inset_position).toBeUndefined();
+  });
+});
