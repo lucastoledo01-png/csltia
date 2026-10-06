@@ -1,3 +1,4 @@
+import { buscaDeEntidadePadrao } from "../editorial/alcance";
 import { escapeHtml, safeHttpUrl } from "../html";
 import { createListmonkClient } from "../listmonk";
 import {
@@ -1531,6 +1532,8 @@ async function executarRedacaoDoDia(
       candidatos: { client: getSupabaseAdminClient(), projectId: project.id },
       // Só a newsletter usa o material que a véspera classificou. Ver `soReaproveitadas`.
       ...(somenteNewsletter ? { soReaproveitadas: true } : {}),
+      // O piso de alcance nacional da pauta centrada em gente (06/10/2026, `alcance.ts`).
+      alcance: buscaDeEntidadePadrao(env, fetcher),
     });
 
     if (resultado.reuso.erros.length > 0) {

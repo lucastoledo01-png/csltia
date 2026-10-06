@@ -159,6 +159,8 @@ export const MOTIVOS = {
    * Nenhum limiar mudou aqui. Mudou o que o log diz.
    */
   REJEITADO_DECLARACAO: "REJECT_POLITICAL_STATEMENT",
+  /** Pauta centrada em gente sem alcance nacional (06/10/2026, `alcance.ts`). */
+  REJEITADO_ALCANCE: "REJECT_LOW_REACH",
   REJEITADO_EIXO_BRASIL: "REJECT_BR_OFF_AXIS",
   REJEITADO_SEM_CLASSIFICACAO: "REJECT_UNCLASSIFIED",
   /** Imigração saiu da linha editorial em 05/10/2026, por decisão do dono. */

@@ -105,7 +105,7 @@ ${regraDoRecorte(linha)}
 
 fato_principal: uma frase dizendo o que aconteceu, tirada do texto. Se o texto não permitir escrever essa frase, devolva string vazia.
 
-adequada: true se esta notícia deve ser publicada por esta marca. false quando o assunto é imigração (visto, green card, processo migratório, deportação, fronteira), quando o fato é negativo sobre os EUA, quando não há fato apurável, ou quando é só repercussão de declaração. Tecnologia, economia, custo de vida e cultura são editorias da publicação. A citação de famoso descrita acima NÃO é "só repercussão de declaração": a fala entre aspas é o fato, e ela é adequada.${linha.politicaBrasileira === "eleicao" ? " Durante a abertura eleitoral, política brasileira e eleição também são adequadas em qualquer tom, inclusive a fala de candidato e o bastidor de campanha." : ""}
+adequada: true se esta notícia deve ser publicada por esta marca. false quando o assunto é imigração (visto, green card, processo migratório, deportação, fronteira), quando o fato é negativo sobre os EUA, quando não há fato apurável, ou quando é só repercussão de declaração. Tecnologia, economia, custo de vida e cultura são editorias da publicação. A citação de famoso descrita acima NÃO é "só repercussão de declaração": a fala entre aspas é o fato, e ela é adequada.${linha.politicaBrasileira === "eleicao" ? " Durante a abertura eleitoral, política brasileira e eleição também são adequadas em qualquer tom, inclusive a fala de candidato e o bastidor de campanha, desde que a notícia tenha alcance nacional: disputa estadual ou municipal e candidato pouco conhecido fora do próprio estado não são adequados, salvo com uma figura nacional como protagonista." : ""}
 
 motivo: uma frase curta explicando o "adequada".
 

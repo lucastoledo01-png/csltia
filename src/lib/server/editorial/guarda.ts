@@ -1,3 +1,4 @@
+import { conferirAlcance, type BuscaDeEntidade } from "./alcance";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DeduplicatedGroup } from "../newsroom/deduplicator";
 import type { Classificacao } from "./classificador";
@@ -178,6 +179,12 @@ export type OpcoesDaGuarda = {
    * classificado e a edição não fecha: é o lado barato do erro.
    */
   soReaproveitadas?: boolean;
+  /**
+   * O piso de alcance nacional das pautas centradas em gente (06/10/2026,
+   * `alcance.ts`). Ausente, nada é conferido: os scripts de medição e os
+   * testes seguem sem rede. O ciclo de verdade passa `buscaDeEntidadePadrao`.
+   */
+  alcance?: BuscaDeEntidade | null;
 };
 
 export async function avaliarPautas(
@@ -359,6 +366,37 @@ export async function avaliarPautas(
     }
 
     aprovadasNoFiltro.push({ grupo, classificacao: c, motivo: decisao.motivo });
+  }
+
+  /*
+   * Alcance nacional (06/10/2026). Depois da linha, antes do enriquecimento:
+   * a pauta de candidato regional não paga busca de página nem pacote.
+   * Wikipédia fora do ar deixa passar, com a linha no log: a regra de texto
+   * do classificador continua valendo, e a eleição do dia não cai por isso.
+   */
+  if (opcoes.alcance) {
+    const ficam: typeof aprovadasNoFiltro = [];
+    for (const a of aprovadasNoFiltro) {
+      try {
+        const v = await conferirAlcance({ classificacao: a.classificacao, motivo: a.motivo }, opcoes.alcance);
+        if (v.confere && !v.passa) {
+          linhas.push(`[GUARDA] não ${v.motivo} :: ${a.grupo.primary.title.slice(0, 70)} :: ${v.explicacao}`);
+          recusadas.push({
+            titulo: a.grupo.primary.title,
+            url: a.grupo.primary.url,
+            fonte: a.grupo.primary.source_name,
+            motivo: v.motivo as Motivo,
+            explicacao: v.explicacao,
+          });
+          continue;
+        }
+      } catch (erro) {
+        linhas.push(`[GUARDA] alcance não conferido (${textoDoErro(erro)}), segue :: ${a.grupo.primary.title.slice(0, 70)}`);
+      }
+      ficam.push(a);
+    }
+    aprovadasNoFiltro.length = 0;
+    aprovadasNoFiltro.push(...ficam);
   }
 
   /*

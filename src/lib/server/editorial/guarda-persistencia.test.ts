@@ -349,6 +349,33 @@ describe("só as classificações que já estão no banco", () => {
     expect(r.recusadas.find((x) => x.url === "https://b.com/2")?.motivo).toBe(MOTIVOS.REJEITADO_SEM_CLASSIFICACAO);
   });
 
+  it("o piso de alcance recusa a citação de quem o leitor não conhece, e a recusa é gravada", async () => {
+    const { store, gravadas } = storeFalso();
+    const { fetcher } = fetcherCom([
+      classificacao({
+        id: "1",
+        eixo: "tecnologia",
+        natureza: "political_statement",
+        citacao_de_famoso: true,
+        quem_fala: "Bret Taylor",
+        atores: ["Bret Taylor", "OpenAI"],
+      }),
+    ]);
+    const r = await avaliarPautas([grupo("1", "Bret Taylor diz que agentes vão mudar o trabalho", "https://a.com/1")], {
+      canal: "newsletter",
+      historico: [],
+      config,
+      env: ENV,
+      fetcher,
+      candidatos: { store, projectId: PROJ },
+      alcance: async () => ({ nome: "Bret Taylor", sitelinks: 10, tipo: "pessoa" }),
+    });
+    expect(r.approvedEditorialPool).toHaveLength(0);
+    expect(r.recusadas[0].motivo).toBe(MOTIVOS.REJEITADO_ALCANCE);
+    expect(gravadas[0].status).toBe("rejected");
+    expect(gravadas[0].decisionReason).toBe(MOTIVOS.REJEITADO_ALCANCE);
+  });
+
   it("sem a camada persistida, nada é classificado: o lado barato do erro", async () => {
     const { fetcher, chamadas } = fetcherCom([classificacao({ id: "1" })]);
     const r = await avaliarPautas([grupo("1", "USCIS amplia prazo do EAD", "https://a.com/1")], {
