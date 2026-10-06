@@ -1,4 +1,5 @@
 import type { EditoriaId } from "@/lib/editorias";
+import { enderecoLimpoDaImagem, miniaturaDoCommons } from "@/lib/imagem-da-capa";
 
 /**
  * As peças pequenas que a home, a lista de edições e o artigo dividem.
@@ -90,9 +91,8 @@ export function FotoDaPauta({
  * tamanho, que o banco de imagem ignora e devolve o arquivo cheio.
  */
 export function enderecoDaFoto(src: string): string {
-  let atual = src;
-  for (let i = 0; i < 4 && atual.includes("&amp;"); i++) atual = atual.replace(/&amp;/g, "&");
-  return atual;
+  // Também desfaz o `&amp%3B` que 15 capas do Pexels gravaram (05/10/2026).
+  return enderecoLimpoDaImagem(src);
 }
 
 /**
@@ -110,12 +110,7 @@ export function enderecoDaFoto(src: string): string {
  * fica por baixo de toda foto aparece no lugar. SVG e TIFF ficam como estão,
  * porque a miniatura deles muda de extensão.
  */
-export function miniaturaDoCommons(src: string, largura: number): string {
-  const m = src.match(/^https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\/([0-9a-f])\/([0-9a-f]{2})\/([^/?#]+\.(?:jpe?g|png|webp))(?:[?#].*)?$/i);
-  if (!m) return src;
-  const [, a, ab, arquivo] = m;
-  return `https://upload.wikimedia.org/wikipedia/commons/thumb/${a}/${ab}/${arquivo}/${largura}px-${arquivo}`;
-}
+export { miniaturaDoCommons };
 
 /**
  * O resumo da pauta como texto corrido.

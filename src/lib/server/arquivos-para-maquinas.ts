@@ -45,6 +45,32 @@ export async function materiasRecentes(limite: number, desde?: Date): Promise<Ma
   }
 }
 
+/** Uma linha do sitemap: o slug e as duas datas, em ISO, como o banco guarda. */
+export type MateriaDoSitemap = { slug: string; published_at: string | null; updated_at: string | null };
+
+/**
+ * As matérias publicadas para o `sitemap.xml`, com as datas cruas (auditoria
+ * de SEO, 05/10/2026). O sitemap lia `getPublishedArticles`, que entrega a
+ * data já formatada ("05 de out. de 2026"): a conversão falhava e NENHUMA das
+ * 62 matérias saía com `lastmod`. E aquela leitura cai nos artigos estáticos
+ * da vertical antiga quando o banco falha. Aqui é direto no banco, e falha é
+ * lista vazia.
+ */
+export async function materiasDoSitemap(): Promise<MateriaDoSitemap[]> {
+  try {
+    const { data, error } = await getSupabaseAdminClient()
+      .from("articles")
+      .select("slug, published_at, updated_at")
+      .eq("status", "published")
+      .order("published_at", { ascending: false })
+      .limit(5000);
+    if (error) return [];
+    return (data ?? []) as MateriaDoSitemap[];
+  } catch {
+    return [];
+  }
+}
+
 function xml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  corpoComLeiaTambem,
   corpoComPerguntas,
+  dadosEstruturadosDaEditoria,
+  dadosEstruturadosDaHome,
   dadosEstruturadosDoArtigo,
   dataDeModificacao,
   jsonLdSeguro,
@@ -30,7 +33,8 @@ describe("dadosEstruturadosDoArtigo", () => {
     expect(materia.dateModified).toBe("2026-10-04T09:29:38.729Z");
     expect(materia.author).toEqual({ "@type": "Organization", name: "Redação eua.journal", url: "https://casaloti.ia.br" });
     expect(materia.publisher).toEqual({ "@id": "https://casaloti.ia.br/#organizacao" });
-    expect(materia.image).toEqual([base.cover_image]);
+    // A miniatura de 1280 do Commons, e não o original (que chega a 9 MB).
+    expect(materia.image).toEqual(["https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Wall_Street.jpg/1280px-Wall_Street.jpg"]);
     expect(materia.articleSection).toBe("Economia");
     expect(g.some((n) => n["@type"] === "Organization" && n["@id"] === "https://casaloti.ia.br/#organizacao")).toBe(true);
   });
@@ -171,5 +175,75 @@ describe("indexação no NewsArticle (06/10/2026)", () => {
     const html = '<section><p>Texto.</p></section><section class="fontes"><h2>Fontes</h2><ul><li>x</li></ul></section>';
     const r = corpoComPerguntas(html, [{ pergunta: "Q?", resposta: "R." }]);
     expect(r.indexOf("Perguntas e respostas")).toBeLessThan(r.indexOf('class="fontes"'));
+  });
+});
+
+describe("auditoria de SEO de 05/10/2026", () => {
+  it("a capa do Pexels gravada com &amp%3B sai limpa no JSON-LD", () => {
+    const g = grafo(
+      dadosEstruturadosDoArtigo(
+        { ...base, cover_image: "https://images.pexels.com/photos/1/p.jpeg?auto=compress&amp%3Bcs=tinysrgb&amp%3Bdpr=2&w=600" },
+        { perguntasVisiveis: [] },
+      ),
+    );
+    const materia = g.find((n) => n["@type"] === "NewsArticle")!;
+    expect(materia.image).toEqual(["https://images.pexels.com/photos/1/p.jpeg?auto=compress&cs=tinysrgb&dpr=2&w=600"]);
+    expect(materia.isPartOf).toEqual({ "@id": "https://casaloti.ia.br/#site" });
+  });
+
+  it("a organização tem logotipo com medida e o Instagram em sameAs", () => {
+    const g = grafo(dadosEstruturadosDoArtigo(base, { perguntasVisiveis: [] }));
+    const org = g.find((n) => n["@type"] === "Organization")!;
+    expect(org.sameAs).toEqual(["https://instagram.com/eua.journal"]);
+    expect(org.logo).toMatchObject({ width: 800, height: 142 });
+  });
+
+  it("a home declara o site e a organização, sem SearchAction porque não há busca", () => {
+    const g = grafo(dadosEstruturadosDaHome());
+    expect(g.map((n) => n["@type"])).toEqual(["Organization", "WebSite"]);
+    expect(JSON.stringify(g)).not.toContain("SearchAction");
+  });
+
+  it("a editoria é CollectionPage com a lista das matérias e o caminho", () => {
+    const g = grafo(
+      dadosEstruturadosDaEditoria(
+        { nome: "Economia", descricao: "Juros.", url: "https://casaloti.ia.br/editoria/economia" },
+        [{ url: "https://casaloti.ia.br/artigos/a", titulo: "A" }],
+      ),
+    );
+    const pagina = g.find((n) => n["@type"] === "CollectionPage")!;
+    expect((pagina.mainEntity as { itemListElement: unknown[] }).itemListElement).toEqual([
+      { "@type": "ListItem", position: 1, url: "https://casaloti.ia.br/artigos/a", name: "A" },
+    ]);
+    expect(g.some((n) => n["@type"] === "BreadcrumbList")).toBe(true);
+  });
+});
+
+describe("corpoComLeiaTambem", () => {
+  const relacionadas = [{ slug: "b-2026-10-01", titulo: "B <x>" }];
+  const editoria = { nome: "Economia", href: "/editoria/economia" };
+
+  it("põe o bloco antes das perguntas e da fonte", () => {
+    const html = '<p>Texto.</p><section class="perguntas"><h2>Perguntas e respostas</h2></section><p class="fonte">Fonte</p>';
+    const saida = corpoComLeiaTambem(html, relacionadas, editoria);
+    expect(saida.indexOf('<section class="leia-tambem">')).toBeGreaterThan(saida.indexOf("<p>Texto.</p>"));
+    expect(saida.indexOf('<section class="leia-tambem">')).toBeLessThan(saida.indexOf('class="perguntas"'));
+    expect(saida).toContain('<a href="/artigos/b-2026-10-01">B &lt;x&gt;</a>');
+    expect(saida).toContain('<a href="/editoria/economia">Mais de Economia</a>');
+  });
+
+  it("não duplica quando o corpo já tem o bloco, e não inventa sem relacionadas", () => {
+    const comBloco = '<p>a</p><section class="leia-tambem"><h2>Leia também</h2></section>';
+    expect(corpoComLeiaTambem(comBloco, relacionadas, editoria)).toBe(comBloco);
+    expect(corpoComLeiaTambem("<p>a</p>", [], null)).toBe("<p>a</p>");
+  });
+});
+
+describe("tituloDaAba", () => {
+  it("põe a marca só quando o total cabe em 60 caracteres", async () => {
+    const { tituloDaAba } = await import("./dados-estruturados-do-artigo");
+    expect(tituloDaAba("Emprego nos EUA quase não muda em setembro")).toBe("Emprego nos EUA quase não muda em setembro | eua.journal");
+    const longo = "Juíza considera inconstitucional busca sem mandado no Flock, em Oklahoma";
+    expect(tituloDaAba(longo)).toBe(longo);
   });
 });

@@ -3,16 +3,25 @@ import { MARCA, TITULO_DO_SITE } from "@/lib/marca";
 import { Archivo_Black, Inter, Sora, Space_Mono } from "next/font/google";
 import "./globals.css";
 
+/*
+ * Sem `preload` (auditoria de SEO, 05/10/2026): nenhuma página usa
+ * `--font-archivo-black` nem `--font-space-mono` hoje, e os três arquivos
+ * eram pré-carregados em toda página do portal, disputando banda com a capa,
+ * que é o LCP da matéria. Declarados continuam; o navegador só baixa se alguém
+ * voltar a usar.
+ */
 const archivoBlack = Archivo_Black({
   variable: "--font-archivo-black",
   subsets: ["latin"],
   weight: "400",
+  preload: false,
 });
 
 const spaceMono = Space_Mono({
   variable: "--font-space-mono",
   subsets: ["latin"],
   weight: ["400", "700"],
+  preload: false,
 });
 
 const inter = Inter({
@@ -41,9 +50,21 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
+  /*
+   * A base dos endereços relativos, e a prévia grande de imagem para o Google
+   * (auditoria de SEO, 05/10/2026). Sem `max-image-preview:large` o Google
+   * Discover e as notícias principais mostram a miniatura pequena, e é a foto
+   * grande que decide o clique ali.
+   */
+  metadataBase: new URL(MARCA.site),
   title: TITULO_DO_SITE,
   description:
     MARCA.descricao,
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 },
+  },
 };
 
 export default function RootLayout({

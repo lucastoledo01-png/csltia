@@ -10,6 +10,7 @@ import {
 } from "../lib/server/auditoria-de-artigo";
 import { urlDoArtigo } from "../lib/server/dados-estruturados-do-artigo";
 import { identidadeDaImagem } from "../lib/imagem-da-capa";
+import { distribuicaoDaEstrutura, estruturaDaMateria, estruturaEmMarkdown } from "../lib/server/estrutura-da-materia";
 import { argumento, carregarEnv, clienteDoBanco, lerEnsaioDoDesmonte, lerPagina, lerPublicadas, type LinhaDoArtigo } from "./artigos-comum";
 
 /**
@@ -29,6 +30,12 @@ import { argumento, carregarEnv, clienteDoBanco, lerEnsaioDoDesmonte, lerPagina,
  *       desmonte para as conferências de repetição
  *
  *   --sem-pagina   não lê a página no ar; usa o JSON-LD que o código desta versão monta
+ *
+ *   npx tsx src/scripts/auditar-artigos.ts --estrutura
+ *       só a estrutura das publicadas pelas réguas das skills de SEO, AEO e
+ *       GEO (`estrutura-da-materia.ts`): palavras, intertítulo em pergunta,
+ *       fonte na abertura, perguntas, legenda, crédito, assuntos e o piso de
+ *       dois assuntos. Lê o banco, não a página; com --saida, grava a tabela
  *
  * O JSON-LD de quem está no ar vem da PÁGINA servida, não do código: o
  * relatório mede o que o Google lê hoje. Para as matérias do desmonte, que
@@ -68,6 +75,20 @@ async function main(): Promise<void> {
   const blocos: string[] = [];
   const csv: string[] = [];
   const data = new Date().toISOString().slice(0, 10);
+
+  if (process.argv.includes("--estrutura")) {
+    const publicadas = await lerPublicadas(client);
+    const lista = publicadas.map(estruturaDaMateria);
+    const d = distribuicaoDaEstrutura(lista);
+    const tabela = estruturaEmMarkdown(d);
+    console.log(`\n== estrutura das ${d.total} publicadas\n${tabela}`);
+    if (saida) {
+      fs.mkdirSync(path.dirname(saida), { recursive: true });
+      fs.writeFileSync(saida, `# Estrutura das matérias publicadas, ${data}\n\nGerado por \`npx tsx src/scripts/auditar-artigos.ts --estrutura\`. Só leitura.\n\n${tabela}\n`);
+      console.log(`\ntabela em ${saida}`);
+    }
+    return;
+  }
 
   if (arquivo) {
     const locais = JSON.parse(fs.readFileSync(arquivo, "utf-8")) as LinhaDoArtigo[] | LinhaDoArtigo;

@@ -45,7 +45,7 @@ describe("PaginaDaMateria", () => {
     expect(screen.getByRole("heading", { name: "Perguntas e respostas" })).toBeInTheDocument();
     expect(screen.getByText("Quanto tempo leva uma produção independente?")).toBeInTheDocument();
     const grafo = jsonLd(container)["@graph"] as Array<Record<string, unknown>>;
-    expect(grafo.map((n) => n["@type"])).toEqual(["Organization", "NewsArticle", "BreadcrumbList", "FAQPage"]);
+    expect(grafo.map((n) => n["@type"])).toEqual(["Organization", "WebSite", "NewsArticle", "BreadcrumbList", "FAQPage"]);
   });
 
   it("sem pergunta, sem FAQPage", () => {
@@ -70,5 +70,51 @@ describe("PaginaDaMateria", () => {
     const bruto = container.querySelector('script[type="application/ld+json"]')?.innerHTML ?? "";
     expect(bruto).not.toContain("</script>");
     expect(bruto).toContain("\\u003c/script>");
+  });
+});
+
+describe("PaginaDaMateria depois da auditoria de SEO (05/10/2026)", () => {
+  const semCredito: MateriaDaPagina = {
+    ...materia,
+    content_html: `<section><p>Investidores privados estão entrando no financiamento de Hollywood.</p></section><p class="fonte">Fonte: <a href="https://www.cnbc.com/x">CNBC</a></p>`,
+    aeo_questions: [],
+  };
+
+  it("a data de publicação é um <time> com a mesma data do JSON-LD", () => {
+    const { container } = render(<PaginaDaMateria article={semCredito} comComentarios={false} />);
+    const tempo = container.querySelector("article time");
+    expect(tempo?.getAttribute("dateTime")).toBe("2026-10-04T09:29:38.729Z");
+    expect(container.textContent).not.toContain("Atualizado em");
+  });
+
+  it("modificada em outro dia, mostra 'Atualizado em' com o dateModified", () => {
+    const { container } = render(
+      <PaginaDaMateria article={{ ...semCredito, updated_at: "2026-10-06T12:00:00.000Z" }} comComentarios={false} />,
+    );
+    expect(container.textContent).toContain("Atualizado em");
+    const tempos = [...container.querySelectorAll("article time")].map((t) => t.getAttribute("dateTime"));
+    expect(tempos).toContain("2026-10-06T12:00:00.000Z");
+  });
+
+  it("foto do Commons sem crédito gravado ganha o link para a página do arquivo", () => {
+    const { container } = render(<PaginaDaMateria article={semCredito} comComentarios={false} />);
+    const link = container.querySelector("figcaption a");
+    expect(link?.getAttribute("href")).toBe(
+      "https://commons.wikimedia.org/wiki/File:New_York_City_%28New_York%2C_USA%29%2C_Wall_Street_--_2012_--_6614.jpg",
+    );
+  });
+
+  it("o chapéu leva à página da editoria", () => {
+    const { container } = render(<PaginaDaMateria article={semCredito} comComentarios={false} />);
+    expect(container.querySelector('article header a[href="/editoria/economia"]')?.textContent).toBe("Economia");
+  });
+
+  it("matéria sem 'Leia também' ganha o bloco com as relacionadas, antes da fonte", () => {
+    const { container } = render(
+      <PaginaDaMateria article={semCredito} comComentarios={false} relacionadas={[{ slug: "outra-2026-10-01", titulo: "Outra matéria" }]} />,
+    );
+    const corpo = container.querySelector(".artigo-corpo")?.innerHTML ?? "";
+    expect(corpo).toContain('<a href="/artigos/outra-2026-10-01">Outra matéria</a>');
+    expect(corpo.indexOf("leia-tambem")).toBeLessThan(corpo.indexOf('class="fonte"'));
   });
 });

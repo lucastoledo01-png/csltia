@@ -93,3 +93,31 @@ describe("usoDasCapas", () => {
     expect(uso.size).toBe(2);
   });
 });
+
+describe("o endereço da foto para fora da página (auditoria de SEO, 05/10/2026)", () => {
+  it("desfaz o &amp%3B que 15 capas do Pexels gravaram, e o &amp; de sempre", async () => {
+    const { enderecoLimpoDaImagem } = await import("./imagem-da-capa");
+    expect(enderecoLimpoDaImagem("https://images.pexels.com/p.jpeg?auto=compress&amp%3Bcs=tinysrgb&amp%3Bdpr=2&w=600")).toBe(
+      "https://images.pexels.com/p.jpeg?auto=compress&cs=tinysrgb&dpr=2&w=600",
+    );
+    expect(enderecoLimpoDaImagem("https://x.com/a.jpg?a=1&amp;amp;w=6")).toBe("https://x.com/a.jpg?a=1&w=6");
+    expect(enderecoLimpoDaImagem(null)).toBe("");
+  });
+
+  it("para compartilhar, o Commons vai na miniatura de 1280, nunca no original de 9 MB", async () => {
+    const { imagemParaCompartilhar } = await import("./imagem-da-capa");
+    expect(imagemParaCompartilhar("https://upload.wikimedia.org/wikipedia/commons/d/db/Wall.jpg?utm_source=x")).toBe(
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Wall.jpg/1280px-Wall.jpg",
+    );
+    expect(imagemParaCompartilhar("https://images.pexels.com/p.jpeg?w=600")).toBe("https://images.pexels.com/p.jpeg?w=600");
+  });
+
+  it("o crédito mínimo do Commons aponta para a página do arquivo, do original ou da miniatura", async () => {
+    const { creditoDoCommons } = await import("./imagem-da-capa");
+    expect(creditoDoCommons("https://upload.wikimedia.org/wikipedia/commons/d/db/Wall.jpg")?.href).toBe("https://commons.wikimedia.org/wiki/File:Wall.jpg");
+    expect(creditoDoCommons("https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Wall.jpg/1280px-Wall.jpg")?.href).toBe(
+      "https://commons.wikimedia.org/wiki/File:Wall.jpg",
+    );
+    expect(creditoDoCommons("https://images.pexels.com/p.jpeg")).toBeNull();
+  });
+});

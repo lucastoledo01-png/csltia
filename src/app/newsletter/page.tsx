@@ -1,7 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { MARCA } from "@/lib/marca";
 import { BrandMark } from "@/components/SiteHeader";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { newsletterBenefits } from "@/lib/editorial";
+
+// Título, descrição e canônico próprios (auditoria de SEO, 05/10/2026).
+export const metadata: Metadata = {
+  title: `Newsletter | ${MARCA.nome}`,
+  description: "Os Estados Unidos no seu e-mail, toda manhã, de graça: economia, trabalho, custo de vida e política, com a fonte ao lado de cada notícia.",
+  alternates: { canonical: `${MARCA.site}/newsletter` },
+};
 
 export default function NewsletterPage() {
   return (

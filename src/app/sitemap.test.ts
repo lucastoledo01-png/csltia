@@ -13,13 +13,13 @@ import { describe, expect, it, vi } from "vitest";
  */
 
 const artigos = [
-  { slug: "edicao-2026-09-12", date: "12 de set. de 2026" },
-  { slug: "edicao-2026-09-09", date: "2026-09-09T09:12:00.000Z" },
-  { slug: "sem-data", date: "" },
+  { slug: "materia-com-data-torta", published_at: "12 de set. de 2026", updated_at: null },
+  { slug: "materia-2026-09-09", published_at: "2026-09-09T09:12:00.000Z", updated_at: "2026-09-12T10:00:00.000Z" },
+  { slug: "sem-data", published_at: null, updated_at: null },
 ];
 
-vi.mock("@/lib/server/articles-service", () => ({
-  getPublishedArticles: async () => artigos,
+vi.mock("@/lib/server/arquivos-para-maquinas", () => ({
+  materiasDoSitemap: async () => artigos,
 }));
 
 const { default: sitemap } = await import("./sitemap");
@@ -55,8 +55,8 @@ describe("sitemap", () => {
 
   it("falha de leitura devolve as fixas em vez de derrubar a rota", async () => {
     vi.resetModules();
-    vi.doMock("@/lib/server/articles-service", () => ({
-      getPublishedArticles: async () => {
+    vi.doMock("@/lib/server/arquivos-para-maquinas", () => ({
+      materiasDoSitemap: async () => {
         throw new Error("banco fora do ar");
       },
     }));
@@ -67,5 +67,12 @@ describe("sitemap", () => {
     // As três fixas mais as seis editorias, que não dependem do banco.
     expect(urls.length).toBe(9);
     expect(urls.some((u) => u.includes("/artigos/"))).toBe(false);
+  });
+});
+
+describe("sitemap com a data do banco (auditoria de 05/10/2026)", () => {
+  it("lastmod é a modificação honesta da matéria, a mesma do JSON-LD", async () => {
+    const entrada = (await sitemap()).find((e) => e.url.endsWith("/artigos/materia-2026-09-09"));
+    expect((entrada?.lastModified as Date).toISOString()).toBe("2026-09-12T10:00:00.000Z");
   });
 });

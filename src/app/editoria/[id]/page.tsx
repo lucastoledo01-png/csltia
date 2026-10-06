@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PaginaDaEditoria } from "@/components/PaginaDaEditoria";
 import { editoriaPeloId, hrefDaEditoria } from "@/lib/editorias";
 import { MARCA } from "@/lib/marca";
+import { dadosEstruturadosDaEditoria, jsonLdSeguro } from "@/lib/server/dados-estruturados-do-artigo";
 import { pautasDaEditoria, pautasRecentes } from "@/lib/server/portal";
 import { DEFAULT_PROJECT_ID, getProjectById } from "@/lib/server/projects";
 import { modoDosRamos } from "@/lib/server/ramos/modo";
@@ -35,6 +36,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       description: editoria.descricao,
       url,
       siteName: MARCA.nome,
+      locale: "pt_BR",
     },
   };
 }
@@ -57,5 +59,26 @@ export default async function EditoriaPage({ params }: { params: Promise<{ id: s
     artigos: 300,
   }).catch(() => []);
 
-  return <PaginaDaEditoria editoria={editoria.id} pautas={pautasDaEditoria(pautas, editoria.id)} />;
+  const daEditoria = pautasDaEditoria(pautas, editoria.id);
+
+  /*
+   * CollectionPage com a lista do que a página mostra (auditoria de SEO,
+   * 05/10/2026). Só matéria com página própria: o link de edição arquivada
+   * redireciona e não é item da coleção.
+   */
+  const vistas = new Set<string>();
+  const materias = daEditoria
+    .filter((p) => p.href.startsWith("/artigos/") && !p.href.startsWith("/artigos/edicao-") && !vistas.has(p.href) && vistas.add(p.href))
+    .map((p) => ({ url: `${MARCA.site}${p.href}`, titulo: p.titulo }));
+  const dados = dadosEstruturadosDaEditoria(
+    { nome: editoria.nome, descricao: editoria.descricao, url: `${MARCA.site}${hrefDaEditoria(editoria.id)}` },
+    materias,
+  );
+
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdSeguro(dados) }} />
+      <PaginaDaEditoria editoria={editoria.id} pautas={daEditoria} />
+    </>
+  );
 }

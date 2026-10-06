@@ -9,11 +9,20 @@ type SubstackArticleRendererProps = {
   title: string;
   subtitle?: string;
   date?: string;
+  /** A data de publicação em ISO, para o `<time>`: a mesma do `datePublished`. */
+  dateTime?: string;
+  /** "Atualizado em", só quando a modificação honesta cai em outro dia. */
+  updated?: string;
+  updatedTime?: string;
   category?: string;
+  /** A página da editoria: o chapéu vira o caminho de navegação visível. */
+  categoryHref?: string;
   readTime?: string;
   coverImage?: string | null;
   /** O crédito da foto da capa, que a licença CC BY exige visível junto da obra. */
   coverCredit?: string | null;
+  /** Link do crédito (a página do arquivo no Commons, quando não há crédito gravado). */
+  coverCreditHref?: string | null;
   /**
    * O que a foto da capa mostra, em uma frase: vai para o `alt` e abre a
    * legenda visível. Sem ela, o `alt` cai no título, como era.
@@ -34,10 +43,15 @@ export function SubstackArticleRenderer({
   title,
   subtitle,
   date,
+  dateTime,
+  updated,
+  updatedTime,
   category = "Notícias",
+  categoryHref,
   readTime,
   coverImage,
   coverCredit,
+  coverCreditHref,
   coverDescription,
   shareUrl,
   topics,
@@ -67,7 +81,13 @@ export function SubstackArticleRenderer({
       {/* 1. Cabeçalho */}
       <header className="border-b border-[#F4F4F5] pb-6">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.16em]">
-          <span className="rounded-sm bg-[var(--portal-vermelho)] px-3 py-1 text-white">{category}</span>
+          {categoryHref ? (
+            <a href={categoryHref} className="rounded-sm bg-[var(--portal-vermelho)] px-3 py-1 text-white hover:underline">
+              {category}
+            </a>
+          ) : (
+            <span className="rounded-sm bg-[var(--portal-vermelho)] px-3 py-1 text-white">{category}</span>
+          )}
           {readTime ? <span className="text-[#71717A]">{readTime} de leitura</span> : null}
         </div>
 
@@ -85,7 +105,15 @@ export function SubstackArticleRenderer({
             {date ? (
               <>
                 <span aria-hidden="true" className="h-1 w-1 rounded-full bg-[#D4D4D8]" />
-                <span>{date}</span>
+                {dateTime ? <time dateTime={dateTime}>{date}</time> : <span>{date}</span>}
+              </>
+            ) : null}
+            {updated ? (
+              <>
+                <span aria-hidden="true" className="h-1 w-1 rounded-full bg-[#D4D4D8]" />
+                <span>
+                  Atualizado em {updatedTime ? <time dateTime={updatedTime}>{updated}</time> : updated}
+                </span>
               </>
             ) : null}
           </p>
@@ -121,7 +149,15 @@ export function SubstackArticleRenderer({
             <figcaption className="mt-2 text-xs leading-relaxed text-[#71717A]">
               {coverDescription?.trim() ? <span className="text-[#52525B]">{coverDescription.trim()}</span> : null}
               {coverDescription?.trim() && coverCredit?.trim() ? <span aria-hidden="true"> · </span> : null}
-              {coverCredit?.trim() ? <span>{coverCredit.trim()}</span> : null}
+              {coverCredit?.trim() ? (
+                coverCreditHref ? (
+                  <a href={coverCreditHref} target="_blank" rel="noopener noreferrer" className="underline">
+                    {coverCredit.trim()}
+                  </a>
+                ) : (
+                  <span>{coverCredit.trim()}</span>
+                )
+              ) : null}
             </figcaption>
           ) : null}
         </figure>
