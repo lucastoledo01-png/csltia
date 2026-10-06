@@ -6,6 +6,10 @@ import { conferenciaDaCapa } from "../lib/server/estrutura-da-materia";
 import { avisarBuscadores } from "../lib/server/indexnow";
 import { htmlDaLegenda } from "../lib/server/legenda-da-capa";
 import { carregarEnv, clienteDoBanco, type LinhaDoArtigo } from "./artigos-comum";
+import { criarFilaStore } from "../lib/server/aprovacao/fila-store";
+import { criarAdaptadorSupabase } from "../lib/server/aprovacao/pecas-supabase";
+import { decidirManutencaoNaFila, gravarComAFila } from "../lib/server/aprovacao/manutencao";
+import type { ProjetoDaFila } from "../lib/server/aprovacao/fila";
 
 /**
  * Conserta a capa das matérias já gravadas (06/10/2026): endereço sem `&amp;`,
@@ -33,6 +37,14 @@ import { carregarEnv, clienteDoBanco, type LinhaDoArtigo } from "./artigos-comum
  * Por padrão só `published`. A `scheduled` está, ou vai estar, na fila de
  * aprovação, cujo hash cobre o HTML e a capa: mexer nela depois de aprovada a
  * seguraria. Com `--incluir-agendadas`, o dono sabe disso.
+ *
+ * ATUALIZADO em 06/10/2026: `published` também pode estar na fila. Com a fila
+ * em `dry_run` a matéria vai ao ar no horário e continua `aguardando`, e foi
+ * assim que este script, rodado pelo Claude nesse dia, quebrou a aprovação da
+ * matéria do diesel: o HTML mudou e o hash da fila deixou de bater. Agora
+ * TODA matéria é conferida na fila antes de gravar, pelas regras de
+ * `aprovacao/manutencao.ts`: aguardando reentra com o hash novo, refazendo e
+ * aprovada sem liberar são puladas com o motivo.
  */
 
 type Patch = { cover_image?: string; content_html?: string };
@@ -91,6 +103,18 @@ async function main(): Promise<void> {
   if (error) throw new Error(`não consegui ler os artigos: ${error.message}`);
   const linhas = (data ?? []) as LinhaDoArtigo[];
 
+  // O projeto de cada matéria, para a fila saber o modo dela (`settings.capacidades.aprovacao`).
+  const projetos = new Map<string, ProjetoDaFila>();
+  const ids = [...new Set(linhas.map((l) => l.project_id).filter(Boolean))];
+  if (ids.length) {
+    const { data: ps, error: erroDosProjetos } = await client.from("projects").select("id, timezone, settings").in("id", ids);
+    if (erroDosProjetos) throw new Error(`não consegui ler os projetos: ${erroDosProjetos.message}`);
+    for (const p of (ps ?? []) as Array<{ id: string; timezone?: string | null; settings?: Record<string, unknown> | null }>) {
+      projetos.set(p.id, { id: p.id, timezone: p.timezone || "America/Sao_Paulo", settings: p.settings ?? null });
+    }
+  }
+  const store = criarFilaStore(client);
+
   const gravadas: Array<{ projectId: string; slug: string }> = [];
   for (const a of linhas) {
     const { patch, notas } = await planejar(a);
@@ -102,19 +126,38 @@ async function main(): Promise<void> {
     }
     const depois = conferenciaDaCapa({ ...a, ...patch });
     console.log(`  depois: ${depois.problemas.length ? depois.problemas.join("; ") : "sem problema de capa gravado"}`);
-    if (!aplicar) continue;
-    const { error: erroDeGravacao } = await client
-      .from("articles")
-      .update(patch)
-      .eq("id", a.id ?? "")
-      .eq("slug", a.slug)
-      // A trava contra corrida: se o status mudou entre ler e gravar, nada acontece.
-      .eq("status", a.status);
-    if (erroDeGravacao) console.log(`  NÃO GRAVOU: ${erroDeGravacao.message}`);
-    else {
-      console.log("  gravada");
-      if (a.status === "published") gravadas.push({ projectId: a.project_id, slug: a.slug });
+
+    /*
+     * A fila, antes de gravar, inclusive no ensaio: o ensaio tem de dizer que
+     * a matéria seria pulada, e não só o aplicar.
+     */
+    const projeto = projetos.get(a.project_id);
+    if (!a.id || !projeto) {
+      console.log("  PULADA: sem id ou sem projeto, não dá para conferir a fila de aprovação");
+      continue;
     }
+    if (!aplicar) {
+      console.log(`  fila: ${decidirManutencaoNaFila(await store.porPeca(projeto.id, "artigo", a.id)).motivo}`);
+      continue;
+    }
+    const desfecho = await gravarComAFila({
+      projeto,
+      ramo: "artigo",
+      pecaId: a.id,
+      deps: { store, pecas: criarAdaptadorSupabase(client, projeto) },
+      gravar: async () => {
+        const { error: erroDeGravacao } = await client
+          .from("articles")
+          .update(patch)
+          .eq("id", a.id ?? "")
+          .eq("slug", a.slug)
+          // A trava contra corrida: se o status mudou entre ler e gravar, nada acontece.
+          .eq("status", a.status);
+        return erroDeGravacao ? erroDeGravacao.message : null;
+      },
+    });
+    console.log(`  ${desfecho.gravou ? "gravada; " : ""}fila: ${desfecho.motivo}`);
+    if (desfecho.gravou && a.status === "published") gravadas.push({ projectId: a.project_id, slug: a.slug });
   }
 
   if (!aplicar) {
