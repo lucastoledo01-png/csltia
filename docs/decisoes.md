@@ -1178,6 +1178,73 @@ com o que tem e o ramo registra `ASSUNTOS ABAIXO DO MÍNIMO`. Não bloqueia,
 porque bloquear empurraria o redator a inventar. A página não completa nada
 na leitura.
 
+## O método do Not Journal e do The News (06/10/2026)
+
+O dono leu 7 carrosséis do Not Journal (31 slides) e 40 assuntos do The News e
+aprovou o método. O teste com dados reais, as peças e o custo estão em
+`docs/design/metodo-carrossel-2026-10-06/comparacao.md`.
+
+**O assunto do e-mail é sobre UMA história**, a mais forte do dia, em caixa
+baixa inteira (nome e sigla inclusive; só "R$" e "US$" ficam), de 2 a 7
+palavras, uns 40 caracteres, sem ponto final, numa de cinco formas: pergunta que
+a edição responde, dois ou três nomes, personagem com detalhe curioso, cena ou
+número, o momento. A forma é conferida e consertada em código
+(`newsroom/assunto.ts`): caixa, ponto e travessão sem pedir nada a ninguém;
+tamanho escolhendo a primeira opção da própria redação que cabe, nunca
+cortando. O teto do código é 9 palavras e 45 caracteres, e não 7 e 40, porque
+os exemplos que ensinam o método passam disso ("o advogado que apostou R$ 5 bi
+no tigrinho" tem 9 e 42). O piso do schema caiu de 15 para 5 caracteres: "lula &
+trump" derrubaria a edição inteira depois de paga. **O preheader continua
+nosso**, editorial, e não a propaganda do The News.
+
+**A pergunta é permitida no ASSUNTO e continua proibida na MANCHETE.** O assunto
+abre o e-mail e a edição responde logo abaixo; a capa do Instagram é o post
+inteiro para quem não desliza, e pergunta ali é teaser.
+
+**A manchete da capa é uma frase: ator, verbo no presente, fato, escala.**
+Número exato, atribuição, zero adjetivo de opinião. O prompt pede de 10 a 18
+palavras; a guarda continua recusando abaixo de 6 (`FORMA_DA_MANCHETE`), de
+propósito: subir o piso transformaria toda manchete boa de 8 ou 9 palavras em
+reescrita paga ou post descartado, e a recusa é do que é rótulo. A legenda abre
+com o lide inteiro em uma frase (`gancho`, teto do aparador subiu de 160 para
+240 para não cortar a frase no meio).
+
+**A notícia vira carrossel só com material para dois passos além da capa**
+(`determinarFormatoDaNoticia`): escala, detalhe, explicação com dono,
+consequência. Dois passos dão 3 slides (capa, um slide com dois blocos,
+convite); três dão 5; quatro, ou dois com seis fatos ou mais além do lide, dão
+5 ou 6. Cada slide de conteúdo tem um ou dois blocos de 15 a 30 palavras,
+conferidos (`conferirBlocosDaNoticia`, faixa de 12 a 36 na guarda). Na notícia
+a relevância para o leitor é silêncio permitido: o método conta o fato, e o
+ensaio mostrou a régua de leitor exigindo "quem" enquanto o auditor recusava
+justamente o "para quem pensa em morar em Los Angeles" que o pacote não
+sustenta.
+
+**Todo slide é foto, e o protagonista aparece em fotos diferentes**
+(`carrossel/fotos.ts`): o resolvedor de sempre, perguntado de novo com a lista
+do que já saiu, primeiro pelo RETRATO do protagonista (a conferência visual
+pergunta "é esta pessoa?", e não se a foto sustenta a manchete), depois pela
+cena sem atores; sem foto nova, o slide sai no azul-marinho, nunca com a foto
+de outro slide nem com rosto de outra pessoa. A bolha só entra no slide em que
+um SEGUNDO personagem nomeado aparece no texto, com foto cuja entidade é ele. O
+LUGAR da bolha é da frente `feat/bolha-sem-rosto`; o miolo usa a classe
+`j-bolha` mais o modificador `jn-bolha`.
+
+**O último slide da notícia convida a assinar a newsletter**, sempre, com ou
+sem keyword: fundo preto, logotipo de fundo escuro, "Assine a newsletter do
+eua.journal." e uma caixa de entrada desenhada em HTML com a NOSSA edição no
+topo (`cta_assinatura`). A linha "Comente NEWS e receba o link" só aparece com
+keyword escutada. É a regra "o CTA do Instagram oferece a NEWSLETTER" levada à
+arte.
+
+**Tudo do carrossel atrás de `settings.capacidades.carrossel_noticia`.** Não
+declarado é `off`, a peça única de sempre; `dry_run` só anota no log o que
+viraria carrossel; `enforce` faz o carrossel com a verificação semântica ligada.
+
+**Os textos editoriais novos são os padrões do código** (RF-26): valem sem
+painel. `src/scripts/salvar-instrucoes.ts` grava as cinco etapas como versões
+ativas quando o dono aprovar (ensaio por padrão, `--aplicar`, `--reverter`).
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

@@ -536,4 +536,69 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
   background:#E4344A;color:#fff;font-family:var(--s-font-display);
   font-size:40px;font-weight:800;letter-spacing:0.02em;text-transform:uppercase;}
 
+/* --- noticia em carrossel (06/10/2026) -------------------------------------
+   O miolo da noticia, no metodo do Not Journal: foto sangrando, marca no alto,
+   chapeu pequeno e espacado, e o texto em caixa alta branca na METADE de baixo,
+   sobre um degrade escuro e suave. O degrade sobe mais que o da capa porque o
+   texto aqui ocupa a metade da peca, e nao a base dela. */
+.jn-grad{position:absolute;inset:0;z-index:2;background:linear-gradient(to top,
+  rgba(0,0,0,0.92) 0%,rgba(0,0,0,0.86) 30%,rgba(0,0,0,0.62) 46%,
+  rgba(0,0,0,0.22) 60%,rgba(0,0,0,0) 72%);}
+/* Faixa de topo e base fixos: o script de ajuste mede a caixa, e caixa sem
+   altura definida nao e medivel (a licao da manchete que subia sobre a bolha). */
+.jn-texto{position:absolute;left:9%;right:9%;top:50%;bottom:8%;z-index:4;
+  display:flex;flex-direction:column;justify-content:flex-end;}
+.jn-blocos{flex:0 0 auto;max-height:90%;overflow:hidden;display:block;
+  font-family:var(--s-font-display);font-size:42px;font-weight:800;line-height:1.16;
+  letter-spacing:-0.003em;text-transform:uppercase;color:#fff;}
+.jn-blocos > span{display:block;}
+.jn-blocos p{margin:0 0 0.7em;}
+.jn-blocos p:last-child{margin-bottom:0;}
+/* A bolha do segundo personagem, menor que a da capa e acima do texto. A base
+   e a classe da capa; o tamanho e o lugar sao daqui. */
+.j-bolha.jn-bolha{left:auto;right:7%;top:15%;width:30%;}
+
+/* --- convite para assinar ---------------------------------------------------
+   Fundo preto, marca de fundo escuro, e uma caixa de entrada desenhada em HTML
+   com a NOSSA edicao no topo. As outras linhas sao barras cinzas, sem
+   remetente: nada de imitar outra marca. */
+.ja-fundo{position:absolute;inset:0;z-index:0;background:#000;}
+.ja-celular{position:absolute;z-index:2;left:17%;right:17%;top:15%;height:43%;
+  border-radius:56px 56px 0 0;border:10px solid #2b2b2b;border-bottom:none;
+  background:#111;overflow:hidden;}
+.ja-celular::after{content:"";position:absolute;left:0;right:0;bottom:0;height:38%;
+  background:linear-gradient(to top,#000 0%,rgba(0,0,0,0) 100%);}
+.ja-tela{position:absolute;inset:0;padding:44px 34px 0 34px;}
+.ja-topo{font-family:var(--s-font-display);font-size:26px;font-weight:700;color:#fff;
+  margin-bottom:26px;letter-spacing:0.01em;}
+.ja-linha{display:flex;gap:20px;align-items:flex-start;padding:22px 0;
+  border-top:1px solid rgba(255,255,255,0.10);}
+.ja-linha u{flex:0 0 64px;height:64px;border-radius:50%;background:#2a2a2a;}
+.ja-linha i{display:block;height:18px;border-radius:9px;background:#2a2a2a;margin:8px 0 14px;width:88%;}
+.ja-linha i + i{width:62%;}
+.ja-nossa{border-top:none;}
+.ja-ava{flex:0 0 64px;width:64px;height:64px;border-radius:50%;background:#0A3161;color:#fff;
+  display:flex;align-items:center;justify-content:center;gap:2px;font-family:var(--s-font-display);
+  font-size:21px;font-weight:800;letter-spacing:-0.01em;}
+.ja-ava i{display:block;width:9px;height:9px;border-radius:50%;background:#E4344A;margin-top:9px;}
+.ja-msg{flex:1 1 auto;min-width:0;}
+.ja-de{display:flex;justify-content:space-between;font-family:var(--s-font-display);
+  font-size:25px;font-weight:800;color:#fff;}
+.ja-de span{font-weight:500;color:rgba(255,255,255,0.55);font-size:21px;}
+.ja-assunto{margin-top:6px;font-family:var(--s-font-display);font-size:23px;font-weight:700;
+  color:#fff;}
+.ja-previa{margin-top:6px;font-family:var(--s-font-display);font-size:21px;font-weight:500;
+  color:rgba(255,255,255,0.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ja-texto{position:absolute;z-index:3;left:9%;right:9%;bottom:9%;display:flex;
+  flex-direction:column;}
+.ja-titulo{font-family:var(--s-font-display);font-size:72px;font-weight:800;
+  line-height:1.06;letter-spacing:-0.02em;color:#fff;}
+.ja-titulo em{font-style:normal;color:#E4344A;}
+.ja-linha-sub{margin-top:28px;font-family:var(--s-font-display);font-size:32px;
+  font-weight:500;line-height:1.4;color:rgba(255,255,255,0.78);}
+.ja-inteiro{white-space:nowrap;}
+.ja-palavra{align-self:flex-start;margin-top:40px;padding:20px 38px;
+  background:#E4344A;color:#fff;font-family:var(--s-font-display);
+  font-size:32px;font-weight:800;letter-spacing:0.02em;text-transform:uppercase;}
+
 `;

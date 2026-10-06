@@ -86,6 +86,13 @@ export const CAPACIDADES = [
    * Ver `aprovacao/modo.ts`.
    */
   "aprovacao",
+  /**
+   * A notícia em carrossel, no método do Not Journal (06/10/2026): decide pelo
+   * pacote factual, uma foto por slide e o convite para assinar no fim. Sem
+   * fallback de ambiente: ausente vale `off`, a peça única de sempre. Ver
+   * `social/carrossel/modo.ts`.
+   */
+  "carrossel_noticia",
 ] as const;
 
 export type Capacidade = (typeof CAPACIDADES)[number];

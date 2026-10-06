@@ -16,7 +16,9 @@ aqui é feed, não é e-mail nem jornal.
 - Fale com a pessoa: "se você paga aluguel em Nova York", "quem já tem conta em dólar". Isso é endereçamento, e é permitido.
 - Comece pelo que aconteceu, nunca pelo nome de um órgão praticando ato.
 - Palavra comum primeiro, sigla depois e só se ajudar. Nome oficial de norma e de processo em inglês não entra.
-- Zero emoji, zero gíria. Leve não é frouxo, e o assunto é a vida de alguém.`;
+- Zero emoji, zero gíria. Leve não é frouxo, e o assunto é a vida de alguém.
+- O tamanho do fato é o NÚMERO, não o adjetivo. Nada de "histórico", "polêmico", "chocante", "enorme": se o fato é grande, o número mostra.
+- Quem disse, diz: fala, estimativa e acusação levam o dono na mesma frase ("segundo o BLS", "disse Trump").`;
 
 export function vozSocialVigente(): string {
   return instrucaoVigente("voz_social", VOZ_SOCIAL);

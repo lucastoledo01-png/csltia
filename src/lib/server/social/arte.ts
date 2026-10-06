@@ -268,7 +268,7 @@ const ROTULO_DO_EIXO: Record<string, string> = {
   // seria inventar uma editoria.
 };
 
-function sobrancelha(eixo: string | undefined): string {
+export function sobrancelha(eixo: string | undefined): string {
   return ROTULO_DO_EIXO[(eixo ?? "").trim()] ?? "";
 }
 
@@ -321,10 +321,26 @@ export function montarCapaDoPost(entrada: EntradaDaCapa): CapaDoPost {
    * formato do slide.
    */
   if (entrada.slidePronto) {
+    /*
+     * O slide de notícia do carrossel TEM foto (06/10/2026).
+     *
+     * No método do Not Journal todo slide é foto sangrando, e não só a capa. A
+     * foto chega por `asset`, como na capa, e não escrita no slide pronto: é
+     * assim que ela passa pelo mesmo download embutido de `renderizarCapas`, e
+     * que download falho vira slide sem foto em vez de buraco branco. A bolha
+     * chega por `assetSecundario` e segue a mesma regra da capa: nunca a
+     * mesma foto do fundo.
+     */
+    const fotoDoSlide = (entrada.asset?.imageUrl ?? "").trim();
+    const bolhaDoSlide = (entrada.assetSecundario?.imageUrl ?? "").trim();
     return {
-      slide: entrada.slidePronto,
+      slide: {
+        ...entrada.slidePronto,
+        bg_image_url: fotoDoSlide,
+        inset_image_url: fotoDoSlide && bolhaDoSlide && bolhaDoSlide !== fotoDoSlide ? bolhaDoSlide : "",
+      },
       variante: entrada.slidePronto.variant || entrada.slidePronto.type,
-      comFoto: false,
+      comFoto: Boolean(fotoDoSlide),
       credito: "",
       motivoSemFoto: "",
     };

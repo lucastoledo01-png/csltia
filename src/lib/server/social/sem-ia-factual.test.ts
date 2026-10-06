@@ -96,9 +96,17 @@ describe("o caminho factual do social V2 não alcança geração de imagem por I
       .map((l) => l.trim())
       .filter((t) => !t.startsWith("*") && !t.startsWith("//") && !t.startsWith("/*"));
 
-    expect(emCodigo).toHaveLength(2);
-    expect(emCodigo[0]).toContain("asset");
-    expect(emCodigo[1]).toContain("dataUrl");
+    /*
+     * Três desde 06/10/2026, e a terceira é a mesma origem: o slide de notícia
+     * do carrossel recebe a foto por `entrada.asset`, como a capa
+     * (`fotoDoSlide` sai de `entrada.asset?.imageUrl`), e passa pelo mesmo
+     * download embutido. Uma quarta, ou uma terceira de outra coisa, é o bug.
+     */
+    expect(emCodigo).toHaveLength(3);
+    expect(emCodigo[0]).toContain("fotoDoSlide");
+    expect(fonte).toContain("const fotoDoSlide = (entrada.asset?.imageUrl");
+    expect(emCodigo[1]).toContain("asset");
+    expect(emCodigo[2]).toContain("dataUrl");
     // E `dataUrl` é o download da própria URL aprovada, não de outra.
     expect(fonte).toContain("baixarComoDataUrl(capa.slide.bg_image_url");
   });

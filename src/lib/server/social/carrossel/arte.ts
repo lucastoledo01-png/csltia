@@ -12,10 +12,10 @@
  */
 
 import type { InstagramSlide } from "../../../carousel-templates/types";
-import type { EntradaDaCapa, FotoDaCapa, GramaticaDaCapa } from "../arte";
+import { sobrancelha, type EntradaDaCapa, type FotoDaCapa, type GramaticaDaCapa } from "../arte";
 import type { CopyDoCarrossel, SlideDeTexto } from "./copy";
 import { papeisDoModelo, type PapelDeSlide } from "./estrutura";
-import { destaqueEhTrechoDaManchete } from "./guarda";
+import { blocosDoCorpo, destaqueEhTrechoDaManchete, ehPassoDaNoticia } from "./guarda";
 
 /**
  * As variantes de desenho de cada tipo de slide do carrossel.
@@ -35,6 +35,10 @@ const VARIANTE_POR_TIPO: Record<string, string> = {
   tip: "miolo_jornal",
   cta: "cta_newsletter",
 };
+
+/** O desenho do slide de notícia e do convite final, no método de 06/10/2026. */
+export const VARIANTE_DO_PASSO_DA_NOTICIA = "miolo_noticia";
+export const VARIANTE_DO_CONVITE = "cta_assinatura";
 
 function slideVazio(index: number, type: string, variant: string): InstagramSlide {
   return {
@@ -69,6 +73,23 @@ export function slideDoPapel(
   index: number,
   eixo: string,
 ): InstagramSlide {
+  /*
+   * O slide de NOTÍCIA (06/10/2026): só os blocos vão para a arte.
+   *
+   * O título do passo é rótulo interno ("escala", "detalhe") e não é impresso;
+   * o chapéu é a EDITORIA, igual ao da capa, porque no método do Not Journal
+   * todo slide carrega o mesmo chapéu pequeno e espaçado. Os blocos vão
+   * separados por linha em branco, que é o que `miolo_noticia` desenha como
+   * dois parágrafos.
+   */
+  if (ehPassoDaNoticia(papel)) {
+    const slide = slideVazio(index, papel.tipo, VARIANTE_DO_PASSO_DA_NOTICIA);
+    slide.eyebrow = sobrancelha(eixo);
+    slide.title = "";
+    slide.body = blocosDoCorpo(texto.corpo).join("\n\n");
+    return slide;
+  }
+
   const variante = papel.variante ?? VARIANTE_POR_TIPO[papel.tipo] ?? "";
   const slide = slideVazio(index, papel.tipo, variante);
 
@@ -153,6 +174,18 @@ export function entradasDoCarrossel(
     gramatica?: GramaticaDaCapa;
     /** O corpo do recorte, quando a capa sai nessa gramática. */
     corpo?: string;
+    /**
+     * A foto de cada slide de conteúdo, na ordem dos slides do modelo
+     * (06/10/2026). Só a notícia usa: no método do Not Journal todo slide é
+     * foto. Posição sem foto sai no fundo azul-marinho da gramática, que é
+     * melhor que repetir a foto de outro slide.
+     */
+    fotosDoMiolo?: Array<FotoDaCapa | null>;
+    /**
+     * A bolha de cada slide de conteúdo: só no slide em que um SEGUNDO
+     * personagem nomeado entra na história, e só com a foto dele.
+     */
+    bolhasDoMiolo?: Array<FotoDaCapa | null>;
   },
 ): EntradasDoCarrossel {
   const doModelo = papeisDoModelo(papeis);
@@ -193,6 +226,30 @@ export function entradasDoCarrossel(
         molduraDiscreta: true,
         gramatica: opcoes.gramatica,
         corpo: opcoes.corpo,
+      });
+      return;
+    }
+
+    if (papel.tipo === "cta" && papeis.some(ehPassoDaNoticia)) {
+      /*
+       * O fechamento da NOTÍCIA convida a assinar a newsletter (06/10/2026).
+       *
+       * É a regra "o CTA do Instagram oferece a NEWSLETTER" levada à arte. O
+       * texto do convite é da marca e mora no desenho; o que vem daqui é só a
+       * palavra do comentário, quando há automação escutando. Sem ela, o slide
+       * convida do mesmo jeito, só sem a linha de como pedir o link.
+       */
+      const slide = slideVazio(posicao, "cta", VARIANTE_DO_CONVITE);
+      slide.cta_text = copy.cta;
+      slide.highlight_text = palavraDoCta(copy.cta);
+      entradas.push({
+        headline: copy.headline,
+        asset: null,
+        slidePronto: slide,
+        posicao,
+        total,
+        affordance: "discreta",
+        molduraDiscreta: true,
       });
       return;
     }
@@ -238,7 +295,8 @@ export function entradasDoCarrossel(
 
     entradas.push({
       headline: copy.headline,
-      asset: null,
+      asset: opcoes.fotosDoMiolo?.[indiceNoModelo] ?? null,
+      assetSecundario: opcoes.bolhasDoMiolo?.[indiceNoModelo] ?? null,
       slidePronto: slideDoPapel(papel, texto, posicao, opcoes.eixo),
       posicao,
       total,

@@ -22,7 +22,14 @@ export const EditionQuickBitSchema = z.object({
 
 export const EditionContentSchema = z.object({
   subject_options: z.array(z.string()).min(3).max(5),
-  subject: z.string().min(15).max(70),
+  /*
+   * Piso de 5, e não mais de 15 (06/10/2026). O método do The News tem assunto
+   * de duas palavras ("nikolas & vorcaro", 17 caracteres, e "lula & trump"
+   * teria 12), e recusar aqui derrubaria a edição inteira DEPOIS de paga por
+   * causa de um assunto bom. A forma fina é conferida e consertada em
+   * `assunto.ts`, depois da validação.
+   */
+  subject: z.string().min(5).max(70),
   preheader: z.string().min(30).max(120),
   headline: z.string().min(10),
   intro: z.string().min(40).max(800),

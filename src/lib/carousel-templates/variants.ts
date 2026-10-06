@@ -596,6 +596,109 @@ const ctaNewsletter: SlideVariant = {
   },
 };
 
+// --------------------------------------------------------------------------
+// NOTÍCIA EM CARROSSEL (método do Not Journal, 06/10/2026)
+// --------------------------------------------------------------------------
+
+/**
+ * O slide de notícia: foto sangrando, chapéu da editoria e um ou dois blocos
+ * de texto em caixa alta na metade de baixo.
+ *
+ * É a gramática de jornal com outra divisão de peso. Na capa a foto manda e a
+ * manchete é a base; aqui o texto é o motivo de o slide existir, então o
+ * degradê sobe até a metade e o bloco ocupa a metade de baixo inteira. A foto
+ * continua sendo a primeira coisa que se vê, porque no método todo slide é
+ * foto, e é a mesma pessoa em fotos diferentes quando a história tem um
+ * protagonista.
+ *
+ * Não reusa a função `jornal` de propósito: a bolha da capa está sendo
+ * reposicionada em outra frente (feat/bolha-sem-rosto), e um desenho próprio
+ * deixa as duas mudanças sem se encostar. A bolha daqui usa a mesma classe de
+ * base, `j-bolha`, mais um modificador de tamanho e lugar.
+ */
+const mioloNoticia: SlideVariant = {
+  key: "miolo_noticia",
+  label: "Notícia: miolo com foto e blocos de texto",
+  render: (slide): VariantOutput => {
+    const foto = (slide.bg_image_url ?? "").trim();
+    const bolha = (slide.inset_image_url ?? "").trim();
+    const chapeu = (slide.eyebrow ?? "").trim();
+    const blocos = String(slide.body ?? "")
+      .split(/\n\s*\n/)
+      .map((b) => b.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+
+    return {
+      full: true,
+      onDark: true,
+      body: `
+<div class="j-fundo"></div>
+${foto ? `<div class="j-foto">${photo(foto)}</div>` : ""}
+<div class="jn-grad"></div>
+<img class="j-marca" src="${esc(MARCA.logoEscuro)}" data-claro="${esc(MARCA.logoClaro)}" alt="" />
+${bolha ? `<div class="j-bolha jn-bolha"><img src="${esc(bolha)}" alt="" /></div>` : ""}
+<div class="jn-texto">
+  ${chapeu ? `<span class="j-chapeu">${esc(chapeu)}</span>` : ""}
+  <div class="jn-blocos lay-texto" data-ajuste="encolher" data-max="42" data-min="26">
+    <span>${blocos.map((b) => `<p>${protegerQuebras(esc(b))}</p>`).join("")}</span>
+  </div>
+</div>`,
+    };
+  },
+};
+
+/**
+ * O último slide da notícia: o convite para assinar a newsletter.
+ *
+ * Fundo preto, a marca na versão de fundo escuro, uma frase e um elemento
+ * visual honesto: uma caixa de entrada desenhada em HTML, com a NOSSA edição
+ * no topo e as outras linhas em cinza, sem remetente nenhum. Nada de captura
+ * de tela de outro produto, e nada que pareça uma conversa de WhatsApp, que
+ * era o argumento de venda da referência e não é o nosso.
+ *
+ * O remetente é desenhado em CSS, e não com `MARCA.avatar`: o arquivo do
+ * avatar ainda desenha ".usa" (achado em 06/10/2026, ao renderizar esta peça),
+ * e a peça que convida a assinar não pode sair com a marca antiga.
+ *
+ * A linha de como pedir o link só aparece quando há palavra de comentário
+ * escutada pela automação. Sem ela o convite continua de pé, porque a
+ * newsletter existe com ou sem listener.
+ */
+const ctaAssinatura: SlideVariant = {
+  key: "cta_assinatura",
+  label: "Notícia: convite para assinar a newsletter",
+  render: (slide): VariantOutput => {
+    const palavra = (slide.highlight_text ?? "").trim().toUpperCase();
+    return {
+      full: true,
+      onDark: true,
+      body: `
+<div class="ja-fundo"></div>
+<img class="j-marca" src="${esc(MARCA.logoEscuro)}" alt="" />
+<div class="ja-celular" aria-hidden="true">
+  <div class="ja-tela">
+    <div class="ja-topo"><span>Caixa de entrada</span></div>
+    <div class="ja-linha ja-nossa">
+      <span class="ja-ava"><i></i>${esc(MARCA.nomeBase)}</span>
+      <div class="ja-msg">
+        <div class="ja-de">${esc(MARCA.nome)}<span>hoje</span></div>
+        <div class="ja-assunto">a edição de hoje chegou</div>
+        <div class="ja-previa">${esc(MARCA.tagline)}</div>
+      </div>
+    </div>
+    <div class="ja-linha"><u></u><div class="ja-msg"><i></i><i></i></div></div>
+    <div class="ja-linha"><u></u><div class="ja-msg"><i></i><i></i></div></div>
+  </div>
+</div>
+<div class="ja-texto">
+  <div class="ja-titulo">Assine a newsletter do <em>${esc(MARCA.nome)}</em>.</div>
+  <div class="ja-linha-sub">${esc(MARCA.tagline)} No seu <span class="ja-inteiro">e-mail</span>, de graça.</div>
+  ${palavra ? `<span class="ja-palavra">Comente ${esc(palavra)} e receba o link</span>` : ""}
+</div>`,
+    };
+  },
+};
+
 const coverBrandCard: SlideVariant = {
   key: "brand_card",
   label: "Fundo claro + card da marca",
@@ -1061,6 +1164,7 @@ export const SLIDE_VARIANTS: Record<InstagramSlideType, Record<string, SlideVari
     highlight: contentHighlight,
     conteudo_editorial: conteudoEvergreen,
     miolo_jornal: mioloJornal,
+    miolo_noticia: mioloNoticia,
     miolo_recorte: mioloRecorte,
     comparacao_duas_colunas: comparacaoDuasColunas,
   },
@@ -1079,6 +1183,7 @@ export const SLIDE_VARIANTS: Record<InstagramSlideType, Record<string, SlideVari
     keyword_claro: ctaEditorialClaro,
     dark_card: ctaDarkCard,
     cta_newsletter: ctaNewsletter,
+    cta_assinatura: ctaAssinatura,
   },
 };
 

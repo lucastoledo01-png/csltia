@@ -345,3 +345,128 @@ export function alternarFormatos<T>(itens: T[], formatoDe: (item: T) => FormatoD
 
   return saida;
 }
+
+/* ------------------------------------------------------------------ */
+/* A notícia (06/10/2026)                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Os quatro passos de uma notícia contada em carrossel, no método do Not
+ * Journal. A ordem é a de leitura, e é a mesma do prompt.
+ */
+export type PassoDaNoticia = "escala" | "detalhe" | "explicacao" | "consequencia";
+
+export const ORDEM_DOS_PASSOS: PassoDaNoticia[] = ["escala", "detalhe", "explicacao", "consequencia"];
+
+/*
+ * Número com sentido: dígito acompanhado de unidade, moeda, porcentagem ou
+ * ordem de grandeza. Dígito solto não serve, porque "2026" e "Section 245" são
+ * dígitos e não dão o tamanho de nada (a lição de `numeros-com-sentido.ts`).
+ */
+const TEM_ESCALA =
+  /(?:US\$|R\$|\$|€)\s?\d|\d[\d.,]*\s?(?:%|por cento|percent|mil\b|milh|bilh|trilh|million|billion|trillion|thousand)|\b\d[\d.,]*\s+(?:pessoas|empregos|vagas|bancos|empresas|casas|dólares|reais|vezes|anos|meses|dias|horas|semanas|km|quilômetros|toneladas|barris|votos|eleitores|funcionários|trabalhadores|lojas|voos|pacientes|people|jobs|workers|stores|votes|patients|banks|companies|homes|times|years|months|days|hours|weeks)\b/i;
+
+const TEM_ATRIBUICAO =
+  /\b(?:segundo|de acordo com|disse|afirmou|declarou|informou|explicou|alertou|avalia|avaliou|estima|estimou|according to|said|says|told|stated|warned|estimates?)\b/i;
+
+const TEM_CONSEQUENCIA =
+  /\b(?:vai|v[aã]o|ir[aá]|ir[aã]o|dever[aá]|deve|devem|a partir de|prazo|próxim[oa]s?|até o fim|passa(?:m)? a|entra(?:m)? em vigor|prev[eê]|planeja|pretende|considera|considerando|retomar|will|plans?|expected|next|deadline|starting|effective|considering)\b/i;
+
+export type PassosDaNoticia = {
+  /** Os passos que o pacote sustenta, na ordem de leitura. */
+  passos: PassoDaNoticia[];
+  /** Fatos úteis além do lide, que é a capa. */
+  fatosAlemDoLide: number;
+};
+
+/**
+ * Quais passos narrativos o pacote sustenta.
+ *
+ * O primeiro fato útil é o lide, e o lide é a capa: ele não conta como passo.
+ * Cada fato restante serve a UM passo, o primeiro da ordem que ele satisfaz e
+ * que ainda está livre. É uma conta de material, e não de qualidade: ela diz
+ * se HÁ o que pôr em cada slide, e o modelo escreve com o pacote na mão.
+ *
+ * A escala que está no LIDE não conta, e é o caso comum: "o desemprego ficou
+ * em 4,2%" é o lide e é o número. Ela existe no material, mas já foi gasta na
+ * capa, e um slide de escala repetiria a manchete.
+ */
+export function passosDaNoticia(pacote: PacoteFactual): PassosDaNoticia {
+  const uteis = fatosQueViramSlide(pacote);
+  const alemDoLide = uteis.slice(1);
+  const livres = new Set<PassoDaNoticia>(ORDEM_DOS_PASSOS);
+
+  for (const fato of alemDoLide) {
+    const serve: PassoDaNoticia[] = [];
+    if (TEM_ESCALA.test(fato)) serve.push("escala");
+    if (TEM_ATRIBUICAO.test(fato)) serve.push("explicacao");
+    if (TEM_CONSEQUENCIA.test(fato)) serve.push("consequencia");
+    serve.push("detalhe");
+
+    const passo = ORDEM_DOS_PASSOS.find((p) => serve.includes(p) && livres.has(p));
+    if (passo) livres.delete(passo);
+  }
+
+  return {
+    passos: ORDEM_DOS_PASSOS.filter((p) => !livres.has(p)),
+    fatosAlemDoLide: alemDoLide.length,
+  };
+}
+
+/** O piso do método: dois passos além da capa, ou a notícia é peça única. */
+export const PASSOS_MINIMOS_PARA_CARROSSEL = 2;
+
+/** Com tantos fatos além do lide, dois passos já sustentam cinco slides. */
+export const FATOS_PARA_NOTICIA_RICA = 6;
+
+/**
+ * Peça única ou carrossel, para uma NOTÍCIA.
+ *
+ * A regra do dono: a notícia só vira carrossel quando o pacote tem material
+ * para pelo menos dois passos além da capa. Com dois passos, três slides
+ * (capa, um slide com os dois blocos, convite); com três, cinco; com quatro,
+ * seis. Determinística pela mesma razão da decisão do conteúdo permanente.
+ */
+export function determinarFormatoDaNoticia(pacote: PacoteFactual | null): DecisaoDeFormato {
+  if (!pacote) {
+    return { formato: "static", slides: 1, fatosUteis: 0, motivo: "sem pacote factual, a notícia é peça única" };
+  }
+
+  const { passos, fatosAlemDoLide } = passosDaNoticia(pacote);
+  const n = passos.length;
+
+  if (n < PASSOS_MINIMOS_PARA_CARROSSEL) {
+    return {
+      formato: "static",
+      slides: 1,
+      fatosUteis: fatosAlemDoLide,
+      motivo:
+        `o pacote sustenta ${n} passo(s) além da capa (${passos.join(", ") || "nenhum"}), ` +
+        `e o carrossel pede ${PASSOS_MINIMOS_PARA_CARROSSEL}: uma peça só conta melhor`,
+    };
+  }
+
+  /*
+   * Material de sobra também conta. Dois passos com SEIS fatos ou mais além do
+   * lide não são uma notícia simples: o detalhe se desdobra em mais de um slide
+   * (quem estava, o que se decidiu, o que se disse), e cortar isso em três
+   * slides joga fora o que o pacote tem. Medido no primeiro ensaio real
+   * (06/10/2026): a reunião de Camp David tinha 15 fatos e só dois tipos de
+   * passo, e saía com um slide de conteúdo.
+   */
+  const rica = fatosAlemDoLide >= FATOS_PARA_NOTICIA_RICA;
+  const passosEfetivos = n === 2 && rica ? 3 : n;
+  const estrutura: EstruturaDoCarrossel = passosEfetivos === 2 ? "noticia_curta" : "noticia";
+  const slides = passosEfetivos === 2 ? 3 : passosEfetivos === 3 ? 5 : 6;
+
+  return {
+    formato: "carousel",
+    estrutura,
+    slides,
+    fatosUteis: fatosAlemDoLide,
+    motivo:
+      `o pacote sustenta ${n} passos além da capa (${passos.join(", ")})` +
+      (passosEfetivos !== n ? ` e ${fatosAlemDoLide} fatos além do lide` : "") +
+      `: ${slides} slides`,
+  };
+}

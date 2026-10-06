@@ -1,5 +1,13 @@
 # O modelo de título do eua.journal
 
+> **Nota de 06/10/2026.** A capa do Instagram ganhou o método do Not Journal
+> (uma frase: ator, verbo no presente, fato, escala; alvo de 10 a 18 palavras,
+> com a guarda ainda em 6 a 18) e o assunto do e-mail ganhou o do The News
+> (caixa baixa, UMA história, cinco formas, pergunta permitida). "O que NÃO
+> muda", no fim deste arquivo, continua valendo para a manchete; para o
+> ASSUNTO, a pergunta deixou de ser proibida. Ver "O método do Not Journal e do
+> The News" em `decisoes.md`.
+
 > **Nota de 05/10/2026.** Os exemplos abaixo são o registro histórico do
 > levantamento de 16 e 17/09/2026 e ficam como estão. Os exemplos que vão nos
 > PROMPTS foram trocados nesta data por exemplos da linha atual (economia,

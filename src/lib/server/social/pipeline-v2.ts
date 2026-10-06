@@ -25,6 +25,8 @@ import type { ResolucaoDaKeyword } from "./keyword-canonica";
 import { congelarArtefato, congelarCarrossel } from "./artefato";
 import type { EntradaDoCarrossel, ResultadoDoCarrossel } from "./artefato";
 import { entradasDoCarrossel } from "./carrossel/arte";
+import { ehEstruturaDaNoticia } from "./carrossel/estrutura";
+import type { FotosDoCarrossel } from "./carrossel/fotos";
 import { alternarFormatos } from "./carrossel/formato";
 import { legendaComCredito } from "./legenda";
 import { comporFeedDoDia } from "./evergreen/compositor";
@@ -141,6 +143,14 @@ export type OpcoesDoCiclo = {
   congelarCarrossel?: (entrada: EntradaDoCarrossel) => Promise<ResultadoDoCarrossel>;
   /** Verificação semântica das claims. Ausente significa não rodar. */
   verificarClaims?: OpcoesDoGerador["verificarClaims"];
+  /**
+   * As fotos dos slides de conteúdo do carrossel de NOTÍCIA (06/10/2026).
+   *
+   * Ausente, o carrossel sai como antes: foto só na capa. Quem liga é a
+   * capacidade `carrossel_noticia`, em `ciclo-do-dia.ts`, que monta isto com
+   * o resolvedor de sempre (`carrossel/fotos.ts`).
+   */
+  fotosDoCarrossel?: (entrada: { post: PostGerado; visual: ResultadoVisual | null }) => Promise<FotosDoCarrossel>;
   /** Decide static ou carousel por pauta. Ausente significa tudo static. */
   decidirCarrossel?: (
     pauta: PautaAvaliada,
@@ -716,6 +726,24 @@ export async function rodarCicloSocial(
      * artefato que não fecha vira descarte, não vira linha `scheduled` com
      * defeito, porque linha `scheduled` é compromisso de publicar.
      */
+    /*
+     * Na notícia, cada slide de conteúdo tem a sua foto (06/10/2026). Falha ao
+     * resolver não derruba o post: o slide sai no fundo azul-marinho, que é o
+     * mesmo desenho sem a foto, e o motivo vai para o log.
+     */
+    let fotosDoMiolo: FotosDoCarrossel | null = null;
+    if (carrossel && ehEstruturaDaNoticia(carrossel.estrutura) && opcoes.fotosDoCarrossel) {
+      try {
+        fotosDoMiolo = await opcoes.fotosDoCarrossel({ post: p.post, visual: p.visual ?? null });
+        linhas.push(
+          `[SOCIAL V2] ${p.post.pauta.storyId} fotos do carrossel: ${fotosDoMiolo.origem.join(", ")}` +
+            (fotosDoMiolo.segundoPersonagem ? ` | bolha: ${fotosDoMiolo.segundoPersonagem}` : ""),
+        );
+      } catch (erro) {
+        linhas.push(`[SOCIAL V2] ${p.post.pauta.storyId} fotos do carrossel falharam: ${(erro as Error).message}`);
+      }
+    }
+
     const resultado = carrossel
       ? await congelarSlides({
           slides: entradasDoCarrossel(
@@ -728,6 +756,8 @@ export async function rodarCicloSocial(
               motivoSemFoto: p.visual?.motivo ?? "NO_VALID_VISUAL_ASSET",
               gramatica,
               corpo: corpoDoRecorte,
+              fotosDoMiolo: fotosDoMiolo?.fotos,
+              bolhasDoMiolo: fotosDoMiolo?.bolhas,
             },
           ).entradas,
           path,
@@ -794,9 +824,16 @@ export async function rodarCicloSocial(
        * de licenças e a legenda sai intacta. Foi o caso de 18 das 23 últimas
        * peças: Pexels, Unsplash, domínio público e CC0.
        */
+      /*
+       * Com uma foto por slide, os créditos são vários, e todos entram: a
+       * licença vale para cada foto, não só para a da capa.
+       */
       legendaFinal: legendaComCredito(
         p.post.veredicto.legendaFinal,
-        p.visual?.asset?.attribution,
+        [p.visual?.asset?.attribution ?? "", ...(fotosDoMiolo?.creditos ?? [])]
+          .map((c) => c.trim())
+          .filter((c, i, todos) => c && todos.indexOf(c) === i)
+          .join("; "),
       ),
     });
   }

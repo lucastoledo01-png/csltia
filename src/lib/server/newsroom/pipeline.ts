@@ -4,6 +4,7 @@ import { DeduplicatedGroup } from "./deduplicator";
 import { RankedCandidate } from "./ranker";
 import { EditionContent, EditionContentSchema, QAResult, QAResultSchema } from "./schemas";
 import { limparVicios } from "./anti-vicios";
+import { aplicarFormaDoAssunto } from "./assunto";
 import type { ClaimNaoSustentada, PacoteFactual } from "../editorial/pacote-factual";
 import { validarAncoragem } from "../editorial/pacote-factual";
 import type { ResultadoDeClaims } from "../editorial/claims-semanticas";
@@ -284,41 +285,42 @@ DIRETRIZES DE TOM & ESTILO:
  * porque é outro julgamento, com outra régua: o título da pauta informa, o
  * assunto faz abrir. Editável no painel desde 05/10/2026.
  */
-export const INSTRUCAO_PADRAO_ASSUNTO = `SKILL: TÍTULOS EDITORIAIS DE ALTA ABERTURA (regras para "subject_options" e "subject"):
-O assunto do e-mail transforma a pauta PRINCIPAL (rank 1) num título curto, humano e curioso. NÃO é manchete jornalística tradicional. Precisa dar vontade de abrir o e-mail sem esconder totalmente o assunto e sem clickbait falso (a matéria precisa entregar o que o título promete).
+export const INSTRUCAO_PADRAO_ASSUNTO = `ASSUNTO DO E-MAIL (regras para "subject_options" e "subject"), no método do The News:
 
-Processo: leia a pauta principal, identifique o fato central, depois o elemento mais curioso, inesperado, contraditório, específico ou "conversável" dela: a tensão, o número, o personagem ou a situação estranha. Escreva o assunto a partir DESSE elemento, não de um resumo da notícia. Teste mental: "se eu tivesse acabado de ler isso e fosse comentar com um amigo, que frase faria ele perguntar 'como assim?'". Essa frase costuma ser o assunto ideal.
+O assunto é sobre UMA história, a mais forte do dia, e não um resumo da edição. Ele não tenta dar conta das outras pautas: quem abre o e-mail encontra o resto lá dentro.
 
-Características: 3 a 9 palavras, linguagem coloquial e falada, palavras simples, curiosidade incompleta, números específicos quando forem surpreendentes, perguntas curtas quando fizerem sentido, pequenas provocações, afirmações inesperadas, trocadilho só quando for realmente bom, caixa baixa como padrão.
+A FORMA, que o código confere e conserta:
+- tudo em caixa baixa, nomes próprios e siglas inclusive ("stf", "lula", "nike"); só "R$" e "US$" ficam como são;
+- de 2 a 7 palavras e até uns 40 caracteres;
+- sem ponto final; interrogação, quando for pergunta, fica;
+- sem travessão e sem dois-pontos.
 
-Varie a estrutura entre as opções, não repita sempre o mesmo formato. Exemplos de estruturas possíveis (inspiração, não modelo fixo):
-- pergunta curiosa: "você comeria um biscoito de plástico?"
-- afirmação inesperada: "as vacas do futuro são brasileiras"
-- número + consequência: "105 horas para 1 cesta básica"
-- conversa: "alô, trump? alô, lula?"
-- provocação: "não abra este email"
-- referência cultural: "o nana neném da meta"
-- pergunta sobre mudança: "a era concorde vai voltar?"
-- choque entre dois conceitos: "ganhar menos para sorrir mais?"
+AS CINCO FORMAS. Escreva as opções em formas DIFERENTES entre si, escolhendo as que a história permite. Os exemplos são assuntos reais do The News e ensinam a forma; o fato sai da edição de hoje, nunca do exemplo.
+1. pergunta direta, que a edição responde: "quem vai sofrer impeachment?", "canadá vai entrar na união europeia?", "você comeria um biscoito de plástico?"
+2. dois ou três nomes da história, lado a lado: "nikolas & vorcaro", "lula, trump e delcy na onu"
+3. personagem com um detalhe curioso: "o advogado que apostou R$ 5 bi no tigrinho", "o herói do 11 de setembro"
+4. cena ou número que intriga: "a balada com 20 homens e 120 mulheres", "a nike saiu do top-100"
+5. o momento: "o dia que o stf rachou", "a reviravolta eleitoral"
 
-O ASSUNTO PODE SER CURTO E CURIOSO, MAS NÃO PODE INVERTER O FATO:
-- Curiosidade não autoriza ambiguidade sobre o que aconteceu. Se o leitor pode entender o contrário do fato lendo só o assunto, o assunto está errado.
-- Um caso do tipo (construção ilustrativa): um juiz suspende uma regra que LIMITAVA o reajuste de aluguel, e o assunto sai como "reajuste em pausa", que sugere que o reajuste foi suspenso. Aconteceu o oposto.
-- Quando o fato é a suspensão de uma restrição, o assunto não pode sugerir que o direito foi suspenso. Prefira a forma factual e curta: "Justiça suspende regra que limitava reajuste de aluguel", ou uma redução equivalente que preserve quem suspendeu o quê.
-- Vale para toda inversão do mesmo tipo: barrar uma taxa não é criar uma taxa, adiar um prazo não é encerrar um prazo, negar um recurso não é conceder.
+Como chegar lá: leia a pauta mais forte, ache o fato central e, dentro dele, o nome, o número, a cena ou a virada que faria alguém perguntar "como assim?". O assunto nasce desse elemento, não do resumo.
+
+A VERDADE VEM ANTES DA CURIOSIDADE:
+- Tudo no assunto está na edição: o nome, o número, a cena. Número que não está no texto não entra.
+- Pergunta só quando a edição RESPONDE a pergunta. Pergunta que a edição não responde é promessa falsa.
+- Nada de promessa que a matéria não entrega, nada de "você não vai acreditar", nada de mistério sobre o que não existe.
+- Curiosidade não autoriza inverter o fato. Se o leitor pode entender o contrário lendo só o assunto, ele está errado. Um caso do tipo (construção ilustrativa): um juiz suspende uma regra que LIMITAVA o reajuste de aluguel, e o assunto sai como "reajuste em pausa", que sugere que o reajuste foi suspenso. Vale para toda inversão do mesmo tipo: barrar uma taxa não é criar uma taxa, adiar um prazo não é encerrar um prazo, negar um recurso não é conceder.
 
 PROIBIDO em subject_options e subject:
-- travessão (—) e dois-pontos (:)
-- formato "Empresa X anuncia Y: entenda o impacto"
-- as palavras "entenda", "saiba tudo", "veja como", "descubra", "confira", "revoluciona", "transforma o mercado", "o futuro de...", "a nova era de...", "como X está mudando Y"
-- resumir toda a notícia ou entregar a conclusão no título
-- empilhar várias informações numa frase só
-- tom institucional, acadêmico ou de release corporativo
-- adjetivos vazios: "inovador", "revolucionário", "impressionante", "surpreendente"
-- emoji como muleta
-- clickbait que a matéria não entrega de verdade
+- formato "Empresa X anuncia Y: entenda o impacto";
+- "entenda", "saiba tudo", "veja como", "descubra", "confira", "revoluciona", "o futuro de...", "a nova era de...";
+- resumir a edição ou empilhar duas notícias numa linha;
+- tom de release, de blog corporativo ou de portal de SEO;
+- adjetivo vazio: "inovador", "revolucionário", "impressionante", "surpreendente";
+- emoji.
 
-Teste antes de escolher: "uma pessoa mandaria essa frase de verdade num grupo de WhatsApp?" Se parecer título de blog corporativo, portal de SEO, release de assessoria ou texto de IA, descarte e tente outra. Exemplo RUIM: "OpenAI lança ferramenta revolucionária que promete transformar a criação de vídeos". Exemplo MELHOR pro mesmo fato: "o hollywood da openai chegou?".`;
+Teste antes de escolher: a frase seria mandada assim, de verdade, num grupo de WhatsApp? Exemplo RUIM, descritivo, do nosso próprio arquivo: "o depósito de imigração rende juros". Ele descreve; não dá vontade de abrir.
+
+O PREHEADER continua sendo nosso, e não o do The News: uma linha editorial que completa o assunto com o fato seguinte (quem, quanto, quando), sem propaganda e sem repetir o assunto.`;
 
 export function montarSystemEditorial(marca: MarcaEditorial): string {
   return `
@@ -339,9 +341,9 @@ ${instrucaoVigente("newsletter_assunto", INSTRUCAO_PADRAO_ASSUNTO)}
 ESTRUTURA DO JSON DE SAÍDA (retorne exclusivamente este JSON estrito):
 {
   "subject_options": [
-    "3 a 5 opções de assunto seguindo a SKILL: TÍTULOS EDITORIAIS DE ALTA ABERTURA acima, variadas entre si"
+    "3 a 5 opções de assunto seguindo a regra ASSUNTO DO E-MAIL acima, cada uma numa das cinco formas, todas sobre a mesma história"
   ],
-  "subject": "A opção mais curta entre as subject_options que ainda preserva a curiosidade",
+  "subject": "A opção mais forte entre as subject_options: caixa baixa, de 2 a 7 palavras, até 40 caracteres, sem ponto final",
   "preheader": "De 60 a 110 caracteres. NÃO é resumo do headline: é a informação seguinte, a que mais interessa a quem vai decidir se lê. Quem é afetado, o prazo, o número. Se ela repetir o headline com outras palavras, está errada.",
   "headline": "O título da edição, uma frase afirmativa de até 70 caracteres, em linguagem comum, dizendo o que mudou. Não começa por nome de órgão, não usa sigla sozinha, não é pergunta.",
   "intro": "Saudação matinal super leve e descontraída dando o bom dia e o clima da edição.",
@@ -512,6 +514,21 @@ Requisitos obrigatórios:
    * novo. Passou do teto sem passar nas conferências, a edição não sai. Um
    * laço sem teto tentaria para sempre e gastaria para sempre.
    */
+  /*
+   * A forma do assunto é conferida em código, e não só pedida (06/10/2026).
+   *
+   * Caixa baixa, sem ponto final e sem travessão são consertados aqui; o
+   * tamanho escolhe entre as opções que a própria redação escreveu. Roda em
+   * toda versão da edição, inclusive a dos reparos, porque o reparo reescreve
+   * o JSON inteiro e pode devolver o assunto fora da forma.
+   */
+  const comFormaDoAssunto = (edicao: EditionContent): EditionContent => {
+    const r = aplicarFormaDoAssunto(edicao);
+    if (r.mudou) console.log(`[NEWSROOM] assunto ajustado à forma: "${r.antes}" -> "${r.edicao.subject}"`);
+    if (r.problemas.length) console.warn(`[NEWSROOM] assunto fora da forma: ${r.problemas.join(", ")}`);
+    return r.edicao;
+  };
+
   const escreverEdicao = async (promptUsuario: string): Promise<EditionContent> => {
     const resposta = await callOpenAIJSON<EditionContent>(
       [
@@ -532,12 +549,12 @@ Requisitos obrigatórios:
       // Antes da validação: o travessão é removido em toda string da edição.
       // O prompt já pede; isto garante. Uma edição bem escrita perde
       // credibilidade numa única frase que abre com traço longo.
-      return EditionContentSchema.parse(limparVicios(resposta.data));
+      return comFormaDoAssunto(EditionContentSchema.parse(limparVicios(resposta.data)));
     } catch {
       console.warn("[NEWSROOM QA] Ajustando formato do JSON...");
       const bruto = limparVicios(resposta.data) as Record<string, unknown>;
       bruto.final_line = marca.assinatura;
-      return EditionContentSchema.parse(bruto);
+      return comFormaDoAssunto(EditionContentSchema.parse(bruto));
     }
   };
 

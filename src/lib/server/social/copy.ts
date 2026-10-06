@@ -58,7 +58,15 @@ export const CopyDoPostSchema = z.object({
   headline: z.string().min(8),
   /** A expressão do headline que sai em cor. Copiada literalmente dele. */
   destaque: aparar(60).pipe(z.string()).default(""),
-  gancho: aparar(160).pipe(z.string().min(10)),
+  /*
+   * 240, e não mais 160 (06/10/2026). O gancho passou a ser o lide inteiro em
+   * uma frase, no método do Not Journal, e o lide de 20 a 35 palavras tem de
+   * 140 a 230 caracteres: com o teto antigo o aparador cortava a frase no meio
+   * em silêncio. Efeito colateral conhecido: o recorte usa o gancho como corpo
+   * e tem orçamento de 200 caracteres com foto (`CAPACIDADE_DO_RECORTE`), então
+   * o gancho longo cai na gramática de jornal, pela regra que já existe.
+   */
+  gancho: aparar(240).pipe(z.string().min(10)),
   fato_principal: aparar(400).pipe(z.string().min(20)),
   contexto: aparar(400).pipe(z.string()).default(""),
   informacao_util: aparar(300).pipe(z.string()).default(""),
@@ -161,15 +169,17 @@ export function ctaDaPosicao(posicao: number, keyword: string): string {
  */
 export const INSTRUCAO_PADRAO_SOCIAL_COPY = `E, na manchete, as quatro que derrubam o post:
 - Nada de clickbait, nada de pergunta retórica, nada de "você não vai acreditar".
+- Nada de adjetivo de opinião ("histórico", "polêmico", "chocante"): a escala é o número.
 - Não transforme possibilidade em certeza: "pode mudar" não vira "muda", "proposta avançou" não vira "aprovado".
 - Não inverta a decisão: quem suspendeu não aprovou.
 - Não invente consequência: se a matéria não diz o efeito, a manchete não afirma efeito.
 
 destaque: de 1 a 4 palavras copiadas LITERALMENTE de dentro do headline, mesma grafia. É o pedaço que sai em cor. Sem nada óbvio para destacar, devolva vazio.
 
-gancho: a primeira linha da legenda, antes do "mais". Continua a manchete, não a repete.
+gancho: a primeira linha da legenda, antes do "mais", e ela é o LIDE INTEIRO em UMA frase, no método do Not Journal: quem fez o quê, com o número exato e a atribuição, de 20 a 35 palavras. Quem lê só essa linha já sabe a notícia. Ela pode partir da manchete, com o detalhe que não coube na capa, mas não a copia palavra por palavra.
+  Exemplo da forma (construção ilustrativa): "A China fechou mais de 670 bancos em um ano, segundo o regulador bancário, numa reestruturação do setor em meio à desaceleração da economia."
 
-fato_principal: o que aconteceu, em duas frases no máximo.
+fato_principal: o que vem depois do lide, em duas frases no máximo: o detalhe, o contexto ou o próximo passo que o pacote traz. Não repete o gancho.
 
 contexto: por que isso importa para quem planeja se mudar. Sem futurologia.
 
