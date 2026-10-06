@@ -2517,6 +2517,78 @@ legislativa:** "Deliberação dos dispositivos do Veto nº 51" tem "veto", que o
 detector lê como rejeição, e derrubou as fotos de 2026 do Flávio na Câmara
 numa pauta de tom positivo. Nenhuma das duas foi mexida aqui.
 
+## O protagonista da manchete: a foto é dele, verificada (06/10/2026)
+
+A regra do dono, depois da fila de 07/10/2026 ("a gente precisa ser 100%
+certeiro"): **a manchete que nomeia uma pessoa mostra ESSA pessoa, com a
+identidade conferida; a que nomeia uma empresa ou organização mostra a marca
+dela ou quem a representa. Cena no lugar do protagonista nomeado não existe.**
+Sem foto verificada, vale "pauta sem foto não vira conteúdo". O incidente que
+motivou está em `aprendizados-e-incidentes.md` ("A foto do casamento na pauta
+do Caiado"). O código mora em `visual/protagonista.ts`,
+`visual/verificacao-do-protagonista.ts`, `visual/cartao-da-marca.ts` e no
+`fotoDoProtagonista` de `resolver.ts`.
+
+**Quem é o protagonista.** O ator da classificação que a manchete nomeia, na
+ordem da manchete; a manchete da PEÇA (`PautaParaImagem.manchete`, que a
+refação e o script da fila passam) vem antes do título da fonte. Nome completo
+reserva as partes dele, e a parte de nome que casa com dois atores é do
+primeiro da lista. É resolvido no Wikidata ANTES de tudo; vale se for pessoa,
+empresa, instituição ou órgão. Nome que o Wikidata diz ser lugar ou conceito
+passa a vez; falha ou 429 do Wikidata deixa a pauta sem foto (não se sabe quem
+é, então não se escolhe nada). Com dois nomes na manchete e nenhuma foto do
+primeiro, a vez passa ao segundo (até três).
+
+**Pessoa: a identidade tem prova.** Três provas, nesta ordem: a foto É o
+retrato que o Wikidata declara (P18); a foto foi comparada pelo modelo com
+esse retrato, que respondeu mesma pessoa e em destaque com confiança de 85 ou
+mais; sem P18, a foto de banco oficial cuja legenda põe a pessoa como
+protagonista vira a referência. Sem referência nenhuma, nenhuma foto passa. A
+conferência de sempre continua rodando (outro país, texto, logotipo de
+terceiro), avisada de que o rosto já foi conferido. A foto da biblioteca não
+sai direto: entra na fila da verificação. A bolha de pessoa exige a mesma
+prova.
+
+**Organização: a marca primeiro, o rosto por último.** A ordem e o porquê:
+
+1. foto com o nome LEGÍVEL (o modelo transcreve o texto, e o código confere o
+   nome da empresa nele; órgão público e instituição também passam pela sede
+   reconhecível, o Capitólio, o prédio do STF). É o exemplo aprovado: a
+   fachada da SpaceX com o nome na parede.
+2. o LOGOTIPO oficial (P154), num cartão: logotipo centrado, fundo neutro
+   escolhido pelo brilho do próprio logotipo (papel claro ou grafite; cor de
+   marca inventada seria marca adulterada), 1600 px, área segura que sobrevive
+   ao recorte 3:4 do post e ao 16:9 da matéria e fica acima da faixa da
+   manchete. A arte não mudou: o cartão é uma foto como outra, servida por
+   `/api/visual/cartao-da-marca?arquivo=<arquivo do Commons>` (só nome de
+   arquivo do Commons; não é proxy). O modelo confere o cartão composto, como
+   `data:`, e precisa ler o nome nele. Amostras em
+   `docs/design/imagem-certeira-2026-10-06/cartao-*`.
+3. o REPRESENTANTE: o CEO (P169), depois o fundador (P112), cargo vigente (sem
+   P582), com a identidade provada como a de qualquer pessoa.
+
+O rosto vem por último porque o dono reprovou duas vezes a Anduril com o
+fundador num palco ("não tem a marca Anduril e tem um rapaz que não tem
+contexto nenhum"). Produto sem a marca legível não passa: não há como provar
+que o drone é da Anduril, e certeza é a regra.
+
+**O registro.** `asset.metadata.verificacao` (e `content_json.visual.verificacao`
+no post, com `protagonista`): o tipo (`identidade`, `marca`, `logotipo`,
+`representante`), como se provou, a referência e o veredicto. Recusas novas:
+`PROTAGONIST_PHOTO_NOT_VERIFIED`, `IDENTITY_NOT_VERIFIED`, `BRAND_NOT_VERIFIED`.
+
+**O que continua igual.** Pauta cuja manchete não nomeia ninguém segue pela
+cena e pela escada (#96); o órgão citado e não nomeado na manchete ainda cai na
+cena depois da entidade. **Custo:** até duas chamadas de visão por candidata
+(identidade ou marca, mais a de sempre), quatro candidatas por degrau. No
+ensaio da fila de 07/10 (8 peças, três rodadas) foram US$ 2,24 no total.
+
+**A fila de 07/10.** `src/scripts/refazer-imagens-da-fila.ts` (ensaio por
+padrão; `--folha=<pasta>` grava a folha de contato; `--aplicar` refaz as
+peças `aguardando` pelo gancho de imagem e de arte da própria fila e reentra
+com o hash novo, sem contar como reprovação; peça aprovada não é tocada).
+Antes e depois em `docs/design/imagem-certeira-2026-10-06/`.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

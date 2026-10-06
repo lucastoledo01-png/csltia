@@ -78,7 +78,12 @@ específica que a pauta não cita. "É genérica" e "não identifica o órgão" 
 motivos de recusa aqui.
 Continuam sendo recusa, sem exceção: pessoa identificável, texto legível como
 assunto, cena de outro país, logotipo ou marca de empresa em destaque, assunto
-homônimo e cena sem relação com o tema.`;
+homônimo e cena sem relação com o tema.
+Também é recusa a cena de ocasião PRIVADA ou festiva que um leitor tomaria pelo
+lugar do fato: salão decorado, casamento, festa, cerimônia, banquete, buffet.
+Em 06/10/2026 um salão de casamento em São Paulo foi aprovado como "espaço
+preparado para um evento" numa pauta de aliança política, e o leitor viu um
+casamento.`;
 
 /**
  * O que a conferência precisa saber a mais quando a foto vai para a bolha.

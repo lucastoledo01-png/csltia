@@ -19,7 +19,17 @@ function mundo() {
     }
     if (url.includes("wbgetentities")) {
       return new Response(
-        JSON.stringify({ entities: { Q1: { claims: { P31: [{ mainsnak: { datavalue: { value: { id: "Q5" } } } }] } } } }),
+        JSON.stringify({
+          entities: {
+            Q1: {
+              claims: {
+                P31: [{ mainsnak: { datavalue: { value: { id: "Q5" } } } }],
+                // O retrato de referência (06/10/2026): sem ele, nenhuma foto do Flávio teria a identidade conferida.
+                P18: [{ mainsnak: { datavalue: { value: "Flávio Bolsonaro 2019.jpg" } } }],
+              },
+            },
+          },
+        }),
       );
     }
     if (url.includes("commons.wikimedia.org")) {
@@ -117,8 +127,15 @@ describe("bancos oficiais no resolvedor", () => {
     expect(r.asset?.attribution).toBe("Foto: Kayo Magalhães/Câmara dos Deputados");
     expect(r.legenda).toBe("Foto: Kayo Magalhães/Câmara dos Deputados");
     expect(r.asset?.metadata).toMatchObject({ banco: "camara", autor: "Kayo Magalhães", data: "2026-05-21" });
-    // A vice (bolha) também sai da fila com o banco oficial à frente.
-    expect(r.assetSecundario?.imageUrl).toContain("velha");
+    /*
+     * Com a pessoa na manchete (06/10/2026, "imagem certeira"), a vice não sai
+     * daqui: a bolha é procurada na vez dela por `buscarSegundaFoto`, com a
+     * identidade conferida contra o retrato de referência (teste abaixo).
+     */
+    expect(r.assetSecundario).toBeNull();
+    const prova = r.asset?.metadata.verificacao as { tipo: string; como: string };
+    expect(prova.tipo).toBe("identidade");
+    expect(prova.como).toContain("retrato de referência");
     expect(r.fontesConsultadas.some((f) => f.fonte === "banco_oficial")).toBe(true);
   });
 
@@ -147,9 +164,10 @@ describe("bancos oficiais no resolvedor", () => {
 
   it("a foto do banco recusada pela conferência visual passa a vez para o Commons", async () => {
     const banco = camaraFalsa([foto("nova", "2026-05-21")]);
-    const recusaOBanco: Conferente = async (asset) => ({
+    // A identidade confere (é o Flávio); a conferência de sempre recusa o plano aberto.
+    const recusaOBanco: Conferente = async (asset, ctx) => ({
       ...(await aprovaTudo(asset, { titulo: "" })),
-      aprovada: !asset.imageUrl.includes("camara.leg.br"),
+      aprovada: Boolean(ctx.papel) || !asset.imageUrl.includes("camara.leg.br"),
       motivo: "plenário cheio, a pessoa não é o assunto",
     });
     const r = await resolveVisualAsset(PAUTA, {
@@ -173,7 +191,8 @@ describe("bancos oficiais no resolvedor", () => {
         normalizado: "flavio bolsonaro",
         tipo: "politician",
         qid: "Q1",
-        imagemPrincipal: null,
+        // A bolha de pessoa exige o retrato de referência (06/10/2026).
+        imagemPrincipal: "Flávio Bolsonaro 2019.jpg",
         categoriaCommons: null,
         siteOficial: null,
         origem: "teste",

@@ -1706,6 +1706,56 @@ porque crédito de foto não é edição do editor e não deve virar aprendizado
 e todo escritor de peça na fila precisa falar com a fila. "Só published" não
 é proxy de "fora da fila" quando a fila está em ensaio.
 
+### A foto do casamento na pauta do Caiado (06/10/2026)
+
+**Sintoma.** O dono reviu a fila de 07/10/2026 e reprovou quatro fotos: a
+pauta "Ronaldo Caiado oficializa apoio a Flávio Bolsonaro" (post e matéria)
+com um salão de casamento em São Paulo, a da Anthropic com racks de servidor,
+a da Anduril com o fundador num palco e nenhuma marca, a do Bret Taylor com um
+túnel de dados. Nas palavras dele: "a gente precisa ser 100% certeiro".
+
+**Como o casamento foi escolhido, reproduzido com o código e os dados da
+fila.** O post gravou `caminho: "cena"`, `degrau: "cena_ampla"`, Pexels
+"elegant-wedding-ceremony-setup-in-sao-paulo", e a conferência aprovou como
+"espaço preparado para um evento, contexto genérico". `caminho: "cena"` quer
+dizer que NENHUMA entidade foi resolvida, e foi assim:
+
+1. Os atores eram oito nomes. `escolherEntidadeVisual` ordenava por TAMANHO e
+   consultava só os quatro mais longos: Tarcísio de Freitas, Flávio
+   Bolsonaro, Rogério Marinho, Gracinha Caiado. Ronaldo Caiado, o
+   protagonista, nunca foi ao Wikidata.
+2. A centralidade empatou Flávio e Gracinha: o "Caiado" do título da fonte
+   ("Caiado oficializa apoio a Flávio") casou com o sobrenome DELA. Empate
+   vira "ambígua", e ambígua desde 06/10 segue pela cena.
+3. A regra "pessoa não troca por cena" só vale quando a entidade resolvida é
+   pessoa. Sem entidade, ela nem é perguntada.
+4. A pergunta da cena devolveu "event stage Brazil" no degrau amplo, o Pexels
+   devolveu salões de casamento, e a conferência com `papel: "cena"` aceita
+   "genérico".
+
+Os outros três, pelo mesmo mapa: na Anthropic, "Claude" virou Claude, a cidade
+do Texas, empatou com a Anthropic, e a pauta foi para a cena; na Anduril,
+"Anduril" é curto e ficou fora dos quatro, e a entidade foi o Palmer Luckey; no
+Bret Taylor, a foto dele foi recusada e, como o título DA FONTE ("Meta joins
+with group of companies...") não o nomeia, a regra de pessoa não valeu e a
+pauta desceu para a cena.
+
+**Corrigido** (ver "O protagonista da manchete" em `decisoes.md`): o
+protagonista sai da manchete (a da peça antes da da fonte), é resolvido
+primeiro, e com ele não existe cena; a foto da pessoa tem a identidade
+conferida contra o retrato de referência, a da organização tem o nome lido na
+imagem ou é o logotipo oficial ou o representante conferido. O corte por
+tamanho dá a vez a quem o título nomeia; a parte do nome é do primeiro ator
+que a tem; recusa 429 do Wikidata deixou de ser "não existe" (no ensaio, o 429
+no meio da rajada fez o Caiado "não existir" e a pauta voltar para a cena); e
+a conferência da cena recusa salão decorado, casamento, festa e cerimônia.
+
+**Lição.** Quatro regras certas em sequência produziram o erro: corte por
+custo, empate por sobrenome, ambiguidade que não mata a pauta, cena que aceita
+genérico. Cada uma é razoável sozinha; juntas, trocaram um governador por um
+casamento. E falha de rede que vira "lista vazia" é o mesmo colapso de
+`if (error || !data)` de 13/09: "não consegui olhar" lido como "não existe".
+
 ## Legal & marca
 
 ### Não usar o mascote do Claude como identidade genérica da conta

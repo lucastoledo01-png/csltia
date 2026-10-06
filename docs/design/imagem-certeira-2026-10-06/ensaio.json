@@ -1,0 +1,515 @@
+{
+  "data": "2026-10-07",
+  "custoUsd": 0.6321,
+  "pecas": [
+    {
+      "ramo": "artigo",
+      "pecaId": "ef7c4be0-9b43-455c-991a-021744a70bc8",
+      "estado": "aguardando",
+      "manchete": "Anduril consegue contrato de até US$ 2,9 bilhões com a U.S. Navy para submarinos",
+      "antes": {
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/7/78/CES_2026_-_Palmer_Luckey_02.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "caminho": null,
+        "degrau": null,
+        "source": null
+      },
+      "depois": {
+        "status": "SELECTED",
+        "motivo": null,
+        "imageUrl": "https://casaloti.ia.br/api/visual/cartao-da-marca?arquivo=Anduril%20Industries%20Logo.svg",
+        "source": "wikimedia_commons",
+        "protagonista": {
+          "nome": "Anduril Industries",
+          "tipo": "company",
+          "qid": "Q61918830"
+        },
+        "verificacao": {
+          "regra": "protagonista_da_manchete",
+          "protagonista": "Anduril Industries",
+          "qid": "Q61918830",
+          "tipo": "logotipo",
+          "como": "logotipo oficial declarado no Wikidata (P154 \"Anduril Industries Logo.svg\"), e o modelo leu \"ANDURIL\"",
+          "veredicto": {
+            "confianca": 100,
+            "descricao": "Logotipo preto com um símbolo gráfico e o nome ANDURIL em destaque sobre fundo claro.",
+            "motivo": "marca conferida: o modelo leu \"ANDURIL\" na imagem. O logotipo da Anduril está completo, legível e em destaque, sendo adequado como imagem de capa sobre a empresa.",
+            "textoLido": "ANDURIL"
+          }
+        },
+        "conferenciaVisual": null,
+        "recusados": [
+          "LOW_RESOLUTION: File:Anduril Industries Altius 600.jpg | 514px de largura, mínimo 800",
+          "NON_CENTRAL_PUBLIC_FIGURE: 5b615701-d3fe-4cb6-9c4b-8278a786db3e | o acervo declara Doug Beck na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_type.",
+          "NON_CENTRAL_PUBLIC_FIGURE: 9e4d7bb0-3ef7-4586-8c3f-4e9e9817c40d | o acervo declara Mount Cristo Rey na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_t",
+          "NON_CENTRAL_PUBLIC_FIGURE: dc245ba6-95a6-4282-be0a-2433beadcfee | o acervo declara Mount Cristo Rey na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_t",
+          "NON_CENTRAL_PUBLIC_FIGURE: 6a82b7e6-585f-4fbc-946a-792b4210c545 | o acervo declara El Paso na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_type.",
+          "NON_CENTRAL_PUBLIC_FIGURE: f452f29b-83fd-4a57-93ee-6f35f251439f | o acervo declara Mount Cristo Rey na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_t",
+          "NON_CENTRAL_PUBLIC_FIGURE: ca672d82-6272-45c1-ba8f-1c4b2c563968 | o acervo declara 2 pessoas, Helicopter Flies, Mount Cristo Rey na imagem, e nenhuma delas aparece na pauta. Contexto declarado: company. Quem vê o post vê o ros",
+          "BRAND_NOT_VERIFIED: File:An Anduril Sentry and its base next to State Road 9, Luna County, NM (1).jpg | viu \"Foto de um equipamento militar ou de vigilância instalado em uma área externa, com uma antena e estruturas angulares ao fundo.\": marca NÃO conferida (leu \"",
+          "BRAND_NOT_VERIFIED: File:An Anduril Sentry and its base next to State Road 9, Luna County, NM (2).jpg | viu \"Vejo um drone militar em voo sobre uma área aberta, com o céu ao fundo.\": marca NÃO conferida (leu \"nada\", sem o nome \"Anduril Industries\", confiança 99): ",
+          "BRAND_NOT_VERIFIED: File:An Anduril Sentry off CA-98 in Imperial County, CA.jpg | viu \"Veem-se painéis solares instalados em um terreno árido e rochoso, sob um céu nublado.\": marca NÃO conferida (leu \"nada\", sem o nome \"Anduril Industries\", c",
+          "BRAND_NOT_VERIFIED: File:A close-up image of the top portion of an Anduril Sentry next to CA-98 in Imperial County, CA.jpg | viu \"Imagem de um drone militar em voo contra um céu claro.\": marca NÃO conferida (leu \"nada\", sem o nome \"Anduril Industries\", confiança 98): Nenhum texto ou m"
+        ],
+        "fontesConsultadas": [
+          "biblioteca_interna: protagonista da manchete: \"Anduril\" (nome completo) => Q61918830: American defense contractor, tipo company, nota 100",
+          "biblioteca_interna: entidade: Anduril Industries (company), confiança 100, via protagonista da manchete (\"Anduril\", nome completo); Wikidata Q61918830, nota 100 entre 7 candidatos",
+          "wikimedia_commons: categoria \"Anduril Industries\": 12",
+          "fonte_oficial: /: sem declaração de direitos na página, recusado ; /newsroom: sem declaração de direitos na página, recusado ; /news: sem declaração de direitos na página, recusado ; /press: sem declaração de direitos na página, recusa",
+          "openverse: \"Anduril Industries\" devolveu 11, 11 utilizável(is)",
+          "biblioteca_interna: protagonista Anduril Industries (organização): 4 foto(s) abertas, nenhuma com a marca legível",
+          "biblioteca_interna: Q61918830: logotipo (P154) \"Anduril Industries Logo.svg\"; representantes Brian Schimpf (ceo), Palmer Luckey (fundador), Trae Stephens (fundador)"
+        ]
+      },
+      "mesmaFoto": false
+    },
+    {
+      "ramo": "post",
+      "pecaId": "c3001847-87a8-44dd-ba1d-2f2ae7c18987",
+      "estado": "aguardando",
+      "manchete": "Meta, Walmart e Stripe criam padrão aberto para agentes de IA interagirem com empresas",
+      "antes": {
+        "imageUrl": "https://images.pexels.com/photos/36040448/pexels-photo-36040448.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "caminho": "cena_depois_da_entidade",
+        "degrau": "cena",
+        "source": "banco_conceitual"
+      },
+      "depois": {
+        "status": "SELECTED",
+        "motivo": null,
+        "imageUrl": "https://casaloti.ia.br/api/visual/cartao-da-marca?arquivo=Meta%20Platforms%20Inc.%20logo.svg",
+        "source": "wikimedia_commons",
+        "protagonista": {
+          "nome": "Meta",
+          "tipo": "company",
+          "qid": "Q380"
+        },
+        "verificacao": {
+          "regra": "protagonista_da_manchete",
+          "protagonista": "Meta",
+          "qid": "Q380",
+          "tipo": "logotipo",
+          "como": "logotipo oficial declarado no Wikidata (P154 \"Meta Platforms Inc. logo.svg\"), e o modelo leu \"Meta\"",
+          "veredicto": {
+            "confianca": 100,
+            "descricao": "Logotipo da Meta com o símbolo azul de infinito ao lado do nome da empresa.",
+            "motivo": "marca conferida: o modelo leu \"Meta\" na imagem. A marca Meta aparece inteira, legível e em destaque no logotipo.",
+            "textoLido": "Meta"
+          }
+        },
+        "conferenciaVisual": null,
+        "recusados": [
+          "NON_CENTRAL_PUBLIC_FIGURE: File:Meta HQ 2023.png | o acervo declara An Aerial na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_type.",
+          "LOW_RESOLUTION: File:Ad-tech London 2010 (6).JPG | 640px de largura, mínimo 800",
+          "NON_CENTRAL_PUBLIC_FIGURE: 265bd63b-7951-47de-afba-a14a3f18b7c9 | o acervo declara Metroid Prime na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_type",
+          "NON_CENTRAL_PUBLIC_FIGURE: 89bd1290-320a-4c67-97a0-98b3fb31369f | o acervo declara Wiki Global na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_type.",
+          "NON_CENTRAL_PUBLIC_FIGURE: 4555fa1b-afaa-48ad-9b09-d501b7722574 | o acervo declara Liberty Bell na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_type.",
+          "NON_CENTRAL_PUBLIC_FIGURE: 5f6cd81b-3f9b-4210-81ab-593f85aca3d1 | o acervo declara Wiki Global na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_type.",
+          "NON_CENTRAL_PUBLIC_FIGURE: a52adf0d-faed-41ac-ae21-c9a5e38c2432 | o acervo declara Dawn Redwood na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_type.",
+          "LOW_RESOLUTION: 723d0bb7-64e4-4b9f-850a-f052bb97e432 | 529px de largura, mínimo 800",
+          "LOW_RESOLUTION: 6c49f13f-7157-4a98-ba90-81a7ff8d7f0f | 750px de largura, mínimo 800",
+          "BRAND_NOT_VERIFIED: File:Ad-tech London 2010 (3).JPG | viu \"Foto de um evento com palco, palestrantes e painéis exibindo a marca ad:tech London.\": marca NÃO conferida (leu \"ad:tech LONDON\", sem o nome \"Meta\", confia",
+          "BRAND_NOT_VERIFIED: File:Ad-tech London 2010 (5).JPG | viu \"Estande de exposição com a marca Facebook em destaque e várias pessoas ao redor.\": marca NÃO conferida (leu \"Facebook\", sem o nome \"Meta\", confiança 99): A",
+          "BRAND_NOT_VERIFIED: File:Ad-tech London 2010 (4).JPG | viu \"Foto panorâmica de uma feira de tecnologia com um estande grande da marca Facebook em primeiro plano.\": marca NÃO conferida (leu \"facebook\", sem o nome \"Me"
+        ],
+        "fontesConsultadas": [
+          "biblioteca_interna: protagonista da manchete: \"Meta\" (nome completo) => Q380: empresa norte-americana de tecnologia, tipo company, nota 120",
+          "biblioteca_interna: entidade: Meta (company), confiança 100, via protagonista da manchete (\"Meta\", nome completo); Wikidata Q380, nota 120 entre 8 candidatos",
+          "wikimedia_commons: P18 (imagem declarada): 1 ; categoria \"Meta Platforms, Inc.\": 12",
+          "fonte_oficial: /: sem declaração de direitos na página, recusado ; /newsroom: HTTP 404 ; /news: sem declaração de direitos na página, recusado ; /press: HTTP 404 ; /media: HTTP 404 ; /press-kit: HTTP 404 ; /media-kit: HTTP 404",
+          "openverse: \"Meta\" devolveu 240, 12 utilizável(is)",
+          "biblioteca_interna: protagonista Meta (organização): 4 foto(s) abertas, nenhuma com a marca legível",
+          "biblioteca_interna: Q380: logotipo (P154) \"Meta Platforms Inc. logo.svg\"; representantes Mark Zuckerberg (ceo), Eduardo Saverin (fundador), Dustin Moskovitz (fundador)"
+        ]
+      },
+      "mesmaFoto": false
+    },
+    {
+      "ramo": "post",
+      "pecaId": "71a5312c-9e30-43b3-baf4-e968f70ad3fa",
+      "estado": "aguardando",
+      "manchete": "Anthropic amplia programa para startups com até US$ 45.000 em descontos e créditos",
+      "antes": {
+        "imageUrl": "https://images.pexels.com/photos/5203849/pexels-photo-5203849.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "caminho": "cena",
+        "degrau": "cena",
+        "source": "banco_conceitual"
+      },
+      "depois": {
+        "status": "SELECTED",
+        "motivo": null,
+        "imageUrl": "https://casaloti.ia.br/api/visual/cartao-da-marca?arquivo=Anthropic%20logo.svg",
+        "source": "wikimedia_commons",
+        "protagonista": {
+          "nome": "Anthropic",
+          "tipo": "company",
+          "qid": "Q116758847"
+        },
+        "verificacao": {
+          "regra": "protagonista_da_manchete",
+          "protagonista": "Anthropic",
+          "qid": "Q116758847",
+          "tipo": "logotipo",
+          "como": "logotipo oficial declarado no Wikidata (P154 \"Anthropic logo.svg\"), e o modelo leu \"ANTHROPIC\"",
+          "veredicto": {
+            "confianca": 100,
+            "descricao": "Logotipo da Anthropic em letras pretas sobre fundo claro.",
+            "motivo": "marca conferida: o modelo leu \"ANTHROPIC\" na imagem. A marca Anthropic aparece inteira, legível e em destaque no logotipo, sem outras marcas ou elementos que impeçam seu uso como imagem de capa.",
+            "textoLido": "ANTHROPIC"
+          }
+        },
+        "conferenciaVisual": null,
+        "recusados": [
+          "SOURCE_NOT_ALLOWED: File:Anthropic logo.svg | formato image/svg+xml não é publicável; aceitos: image/jpeg, image/png, image/webp",
+          "SOURCE_NOT_ALLOWED: File:Anthropic corporate structure.svg | formato image/svg+xml não é publicável; aceitos: image/jpeg, image/png, image/webp",
+          "SOURCE_NOT_ALLOWED: File:Anthropic's corporate structure, updated.svg | formato image/svg+xml não é publicável; aceitos: image/jpeg, image/png, image/webp",
+          "NON_CENTRAL_PUBLIC_FIGURE: File:Fragment of an Egyptian Textile, circa 700-1000 CE, depicting the anthropic figure of Anthousa, a rarely depicted divinity, considered to be the deity of blossoming plants. Fitzwilliam Museum, Cambridge.jpg | o acervo declara Egyptian Textile na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_t",
+          "LOW_RESOLUTION: c51425c9-bddf-4965-832d-435031927e93 | 563px de largura, mínimo 800",
+          "LOW_RESOLUTION: 368df26a-d59f-4182-8170-67438496cd21 | 576px de largura, mínimo 800",
+          "LOW_RESOLUTION: 2726394b-ffb7-4835-9b9e-7cc59f1eaef1 | 512px de largura, mínimo 800",
+          "LOW_RESOLUTION: 141e8a2d-aec9-4ef7-98a4-81e285d50b21 | 200px de largura, mínimo 800",
+          "LOW_RESOLUTION: fd120ed3-1cd8-4e7c-a8e5-67a6e8080ba2 | 576px de largura, mínimo 800",
+          "LOW_RESOLUTION: 51035ec2-81d6-4bd3-b4b4-ddf820073c26 | 576px de largura, mínimo 800",
+          "LOW_RESOLUTION: 4d303fad-4943-4470-be6f-baecd3dfcd27 | 576px de largura, mínimo 800",
+          "LOW_RESOLUTION: 04d0f2b1-56b6-4a4f-b61e-1f9b8fc58a33 | 574px de largura, mínimo 800"
+        ],
+        "fontesConsultadas": [
+          "biblioteca_interna: protagonista da manchete: \"Anthropic\" (nome completo) => Q116758847: startup americana de pesquisa em inteligência artificial, tipo company, nota 110",
+          "biblioteca_interna: entidade: Anthropic (company), confiança 100, via protagonista da manchete (\"Anthropic\", nome completo); Wikidata Q116758847, nota 110 entre 8 candidatos",
+          "wikimedia_commons: categoria \"Anthropic\": 4",
+          "fonte_oficial: /: sem declaração de direitos na página, recusado ; /newsroom: HTTP 404 ; /news: sem declaração de direitos na página, recusado ; /press: HTTP 404 ; /media: HTTP 404 ; /press-kit: sem declaração de direitos na página, re",
+          "openverse: \"Anthropic\" devolveu 240, 12 utilizável(is)",
+          "biblioteca_interna: protagonista Anthropic (organização): 2 foto(s) abertas, nenhuma com a marca legível",
+          "biblioteca_interna: Q116758847: logotipo (P154) \"Anthropic logo.svg\"; representantes Dario Amodei (ceo), Daniela Amodei (fundador), Chris Olah (fundador)"
+        ]
+      },
+      "mesmaFoto": false
+    },
+    {
+      "ramo": "artigo",
+      "pecaId": "d5cc620b-d125-4711-a2ad-e2d51d25b691",
+      "estado": "aprovada",
+      "manchete": "Meta, Walmart e Sierra criam padrão aberto para agentes de IA",
+      "antes": {
+        "imageUrl": "https://images.pexels.com/photos/36040448/pexels-photo-36040448.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "caminho": null,
+        "degrau": null,
+        "source": null
+      },
+      "depois": {
+        "status": "SELECTED",
+        "motivo": null,
+        "imageUrl": "https://casaloti.ia.br/api/visual/cartao-da-marca?arquivo=Meta%20Platforms%20Inc.%20logo.svg",
+        "source": "wikimedia_commons",
+        "protagonista": {
+          "nome": "Meta",
+          "tipo": "company",
+          "qid": "Q380"
+        },
+        "verificacao": {
+          "regra": "protagonista_da_manchete",
+          "protagonista": "Meta",
+          "qid": "Q380",
+          "tipo": "logotipo",
+          "como": "logotipo oficial declarado no Wikidata (P154 \"Meta Platforms Inc. logo.svg\"), e o modelo leu \"Meta\"",
+          "veredicto": {
+            "confianca": 100,
+            "descricao": "Logotipo da Meta com o símbolo azul de infinito ao lado do nome da empresa.",
+            "motivo": "marca conferida: o modelo leu \"Meta\" na imagem. A marca Meta aparece completa, legível e em destaque no logotipo.",
+            "textoLido": "Meta"
+          }
+        },
+        "conferenciaVisual": null,
+        "recusados": [
+          "NON_CENTRAL_PUBLIC_FIGURE: File:Meta HQ 2023.png | o acervo declara An Aerial na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_type.",
+          "LOW_RESOLUTION: File:Ad-tech London 2010 (6).JPG | 640px de largura, mínimo 800",
+          "NON_CENTRAL_PUBLIC_FIGURE: 265bd63b-7951-47de-afba-a14a3f18b7c9 | o acervo declara Metroid Prime na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_type",
+          "NON_CENTRAL_PUBLIC_FIGURE: 89bd1290-320a-4c67-97a0-98b3fb31369f | o acervo declara Wiki Global na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_type.",
+          "NON_CENTRAL_PUBLIC_FIGURE: 4555fa1b-afaa-48ad-9b09-d501b7722574 | o acervo declara Liberty Bell na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_type.",
+          "NON_CENTRAL_PUBLIC_FIGURE: 5f6cd81b-3f9b-4210-81ab-593f85aca3d1 | o acervo declara Wiki Global na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_type.",
+          "NON_CENTRAL_PUBLIC_FIGURE: a52adf0d-faed-41ac-ae21-c9a5e38c2432 | o acervo declara Dawn Redwood na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_type.",
+          "LOW_RESOLUTION: 723d0bb7-64e4-4b9f-850a-f052bb97e432 | 529px de largura, mínimo 800",
+          "LOW_RESOLUTION: 6c49f13f-7157-4a98-ba90-81a7ff8d7f0f | 750px de largura, mínimo 800",
+          "BRAND_NOT_VERIFIED: File:Ad-tech London 2010 (3).JPG | viu \"Foto de um evento em palco com painéis exibindo a marca “ad:tech LONDON” e telas de apresentação.\": marca NÃO conferida (leu \"ad:tech LONDON\", sem o nome \"",
+          "BRAND_NOT_VERIFIED: File:Ad-tech London 2010 (5).JPG | viu \"Estande do Facebook em um evento, com várias pessoas diante de painéis e computadores.\": marca NÃO conferida (leu \"facebook\", sem o nome \"Meta\", confiança ",
+          "BRAND_NOT_VERIFIED: File:Ad-tech London 2010 (4).JPG | viu \"Foto de uma feira de tecnologia com um estande grande identificado como Facebook.\": marca NÃO conferida (leu \"facebook\", sem o nome \"Meta\", confiança 98): "
+        ],
+        "fontesConsultadas": [
+          "biblioteca_interna: protagonista da manchete: \"Meta\" (nome completo) => Q380: empresa norte-americana de tecnologia, tipo company, nota 120",
+          "biblioteca_interna: entidade: Meta (company), confiança 100, via protagonista da manchete (\"Meta\", nome completo); Wikidata Q380, nota 120 entre 8 candidatos",
+          "wikimedia_commons: P18 (imagem declarada): 1 ; categoria \"Meta Platforms, Inc.\": 12",
+          "fonte_oficial: /: sem declaração de direitos na página, recusado ; /newsroom: HTTP 404 ; /news: sem declaração de direitos na página, recusado ; /press: HTTP 404 ; /media: HTTP 404 ; /press-kit: HTTP 404 ; /media-kit: HTTP 404",
+          "openverse: \"Meta\" devolveu 240, 12 utilizável(is)",
+          "biblioteca_interna: protagonista Meta (organização): 4 foto(s) abertas, nenhuma com a marca legível",
+          "biblioteca_interna: Q380: logotipo (P154) \"Meta Platforms Inc. logo.svg\"; representantes Mark Zuckerberg (ceo), Eduardo Saverin (fundador), Dustin Moskovitz (fundador)"
+        ]
+      },
+      "mesmaFoto": false
+    },
+    {
+      "ramo": "post",
+      "pecaId": "ad4671f7-de78-4a4a-9b67-136a442aa248",
+      "estado": "aguardando",
+      "manchete": "Ronaldo Caiado, derrotado no primeiro turno, oficializa apoio a Flávio Bolsonaro contra Lula",
+      "antes": {
+        "imageUrl": "https://images.pexels.com/photos/37606503/pexels-photo-37606503.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "caminho": "cena",
+        "degrau": "cena_ampla",
+        "source": "banco_conceitual"
+      },
+      "depois": {
+        "status": "SELECTED",
+        "motivo": null,
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f5/Foto_oficial_do_governador_de_Goi%C3%A1s%2C_Ronaldo_Caiado_em_2023_%28ombros%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "source": "wikimedia_commons",
+        "protagonista": {
+          "nome": "Ronaldo Caiado",
+          "tipo": "person",
+          "qid": "Q10364348"
+        },
+        "verificacao": {
+          "regra": "protagonista_da_manchete",
+          "protagonista": "Ronaldo Caiado",
+          "qid": "Q10364348",
+          "tipo": "identidade",
+          "como": "é o retrato que o Wikidata declara para Ronaldo Caiado (P18 de Q10364348)",
+          "referencia": "https://upload.wikimedia.org/wikipedia/commons/f/f5/Foto_oficial_do_governador_de_Goi%C3%A1s%2C_Ronaldo_Caiado_em_2023_%28ombros%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "representante": null,
+          "veredicto": {
+            "confianca": 98,
+            "descricao": "Retrato de Ronaldo Caiado usando terno e uma faixa com as cores e o brasão do estado de Goiás.",
+            "motivo": "A foto mostra Ronaldo Caiado, pessoa citada na manchete, em contexto institucional ligado a Goiás, sem texto ou marca de terceiros em destaque."
+          }
+        },
+        "conferenciaVisual": {
+          "descricao": "Retrato de Ronaldo Caiado usando terno e uma faixa com as cores e o brasão do estado de Goiás.",
+          "motivo": "A foto mostra Ronaldo Caiado, pessoa citada na manchete, em contexto institucional ligado a Goiás, sem texto ou marca de terceiros em destaque.",
+          "paisAparente": "Brasil",
+          "confianca": 98
+        },
+        "recusados": [
+          "NON_CENTRAL_PUBLIC_FIGURE: camara:ECA0668F-0E67-4F3F-AD85-D69E6E56FDBE | a legenda do banco não tem Ronaldo Caiado como a pessoa da foto: \"Audiência Pública - Competências federativas na segurança pública, sob a ótica estadual. Gover",
+          "NON_CENTRAL_PUBLIC_FIGURE: camara:CD5D8B8A-5183-48FE-8513-DC9760FFEAF2 | a legenda do banco não tem Ronaldo Caiado como a pessoa da foto: \"Audiência Pública - Competências federativas na segurança pública, sob a ótica estadual. Gover",
+          "NON_CENTRAL_PUBLIC_FIGURE: camara:3259B809-9530-4394-8414-ABBE9B8F5AFD | a legenda do banco não tem Ronaldo Caiado como a pessoa da foto: \"Audiência Pública - Competências federativas na segurança pública, sob a ótica estadual. Gover",
+          "NON_CENTRAL_PUBLIC_FIGURE: camara:EFDAE674-CB95-4BA9-A6A8-FFCBF12482F0 | a legenda do banco não tem Ronaldo Caiado como a pessoa da foto: \"Audiência Pública - Competências federativas na segurança pública, sob a ótica estadual. Gover",
+          "SOURCE_NOT_ALLOWED: File:Sentença n.º 0600166-82.2024.6.09.0001.pdf | formato application/pdf não é publicável; aceitos: image/jpeg, image/png, image/webp",
+          "VISUAL_CHECK_UNAVAILABLE: senado:54579054350 | conferência de identidade falhou: OpenAI API error (400): {\n  \"error\": {\n    \"message\": \"Error while downloading file. Upstream status code: 429.\",\n    \"type\": ",
+          "VISUAL_CHECK_UNAVAILABLE: senado:31621210607 | conferência de identidade falhou: OpenAI API error (400): {\n  \"error\": {\n    \"message\": \"Error while downloading file. Upstream status code: 429.\",\n    \"type\": ",
+          "VISUAL_CHECK_UNAVAILABLE: senado:32419883088 | conferência de identidade falhou: OpenAI API error (400): {\n  \"error\": {\n    \"message\": \"Error while downloading file. Upstream status code: 429.\",\n    \"type\": "
+        ],
+        "fontesConsultadas": [
+          "biblioteca_interna: protagonista da manchete: \"Ronaldo Caiado\" (nome completo) => Q10364348: médico e político brasileiro, ex-governador de Goiás, tipo person, nota 100",
+          "biblioteca_interna: entidade: Ronaldo Caiado (person), confiança 100, via protagonista da manchete (\"Ronaldo Caiado\", nome completo); Wikidata Q10364348, nota 100 entre 4 candidatos",
+          "banco_oficial: busca \"Ronaldo Caiado\" ; Câmara dos Deputados: 153 evento(s), 10 foto(s) na primeira página ; Agência Senado: 500 no acervo, 4 citam \"Ronaldo Caiado\" na legenda, 4 com licença lida ; Palácio do Planalto: sem FLICKR_API_K",
+          "wikimedia_commons: P18 (imagem declarada): 1 ; categoria \"Ronaldo Caiado\": 4",
+          "fonte_oficial: /: declara \"Creative Commons\" mas não expõe imagem utilizável ; /newsroom: HTTP 404 ; /news: HTTP 404 ; /press: HTTP 404 ; /media: HTTP 404 ; /press-kit: HTTP 404 ; /media-kit: HTTP 404",
+          "openverse: \"Ronaldo Caiado\" devolveu 240, 12 utilizável(is)",
+          "biblioteca_interna: protagonista Ronaldo Caiado (pessoa): 20 foto(s) passaram na pontuação; a identidade é conferida uma a uma",
+          "wikimedia_commons: retrato de referência de Ronaldo Caiado: P18 \"Foto oficial do governador de Goiás, Ronaldo Caiado em 2023 (ombros).jpg\""
+        ]
+      },
+      "mesmaFoto": false
+    },
+    {
+      "ramo": "artigo",
+      "pecaId": "589b66d9-3a97-4c5e-9f3c-ddf4b2c7820a",
+      "estado": "aguardando",
+      "manchete": "Ronaldo Caiado apoia Flávio Bolsonaro no segundo turno da eleição presidencial no Brasil",
+      "antes": {
+        "imageUrl": "https://images.pexels.com/photos/31847832/pexels-photo-31847832.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "caminho": null,
+        "degrau": null,
+        "source": null
+      },
+      "depois": {
+        "status": "SELECTED",
+        "motivo": null,
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f5/Foto_oficial_do_governador_de_Goi%C3%A1s%2C_Ronaldo_Caiado_em_2023_%28ombros%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "source": "wikimedia_commons",
+        "protagonista": {
+          "nome": "Ronaldo Caiado",
+          "tipo": "person",
+          "qid": "Q10364348"
+        },
+        "verificacao": {
+          "regra": "protagonista_da_manchete",
+          "protagonista": "Ronaldo Caiado",
+          "qid": "Q10364348",
+          "tipo": "identidade",
+          "como": "é o retrato que o Wikidata declara para Ronaldo Caiado (P18 de Q10364348)",
+          "referencia": "https://upload.wikimedia.org/wikipedia/commons/f/f5/Foto_oficial_do_governador_de_Goi%C3%A1s%2C_Ronaldo_Caiado_em_2023_%28ombros%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "representante": null,
+          "veredicto": {
+            "confianca": 99,
+            "descricao": "Ronaldo Caiado aparece em close, usando terno, gravata e uma faixa oficial nas cores verde e amarela com o brasão de Goiás.",
+            "motivo": "A foto mostra a pessoa citada na manchete e é compatível com a pauta política brasileira, sem apresentar texto ou acontecimento conflitante."
+          }
+        },
+        "conferenciaVisual": {
+          "descricao": "Ronaldo Caiado aparece em close, usando terno, gravata e uma faixa oficial nas cores verde e amarela com o brasão de Goiás.",
+          "motivo": "A foto mostra a pessoa citada na manchete e é compatível com a pauta política brasileira, sem apresentar texto ou acontecimento conflitante.",
+          "paisAparente": "Brasil",
+          "confianca": 99
+        },
+        "recusados": [
+          "NON_CENTRAL_PUBLIC_FIGURE: camara:ECA0668F-0E67-4F3F-AD85-D69E6E56FDBE | a legenda do banco não tem Ronaldo Caiado como a pessoa da foto: \"Audiência Pública - Competências federativas na segurança pública, sob a ótica estadual. Gover",
+          "NON_CENTRAL_PUBLIC_FIGURE: camara:CD5D8B8A-5183-48FE-8513-DC9760FFEAF2 | a legenda do banco não tem Ronaldo Caiado como a pessoa da foto: \"Audiência Pública - Competências federativas na segurança pública, sob a ótica estadual. Gover",
+          "NON_CENTRAL_PUBLIC_FIGURE: camara:3259B809-9530-4394-8414-ABBE9B8F5AFD | a legenda do banco não tem Ronaldo Caiado como a pessoa da foto: \"Audiência Pública - Competências federativas na segurança pública, sob a ótica estadual. Gover",
+          "NON_CENTRAL_PUBLIC_FIGURE: camara:EFDAE674-CB95-4BA9-A6A8-FFCBF12482F0 | a legenda do banco não tem Ronaldo Caiado como a pessoa da foto: \"Audiência Pública - Competências federativas na segurança pública, sob a ótica estadual. Gover",
+          "SOURCE_NOT_ALLOWED: File:Sentença n.º 0600166-82.2024.6.09.0001.pdf | formato application/pdf não é publicável; aceitos: image/jpeg, image/png, image/webp",
+          "VISUAL_CHECK_UNAVAILABLE: senado:54579054350 | conferência de identidade falhou: OpenAI API error (400): {\n  \"error\": {\n    \"message\": \"Error while downloading file. Upstream status code: 429.\",\n    \"type\": ",
+          "VISUAL_CHECK_UNAVAILABLE: senado:31621210607 | conferência de identidade falhou: OpenAI API error (400): {\n  \"error\": {\n    \"message\": \"Error while downloading file. Upstream status code: 429.\",\n    \"type\": ",
+          "VISUAL_CHECK_UNAVAILABLE: senado:32419883088 | conferência de identidade falhou: OpenAI API error (400): {\n  \"error\": {\n    \"message\": \"Error while downloading file. Upstream status code: 429.\",\n    \"type\": "
+        ],
+        "fontesConsultadas": [
+          "biblioteca_interna: protagonista da manchete: \"Ronaldo Caiado\" (nome completo) => Q10364348: médico e político brasileiro, ex-governador de Goiás, tipo person, nota 100",
+          "biblioteca_interna: entidade: Ronaldo Caiado (person), confiança 100, via protagonista da manchete (\"Ronaldo Caiado\", nome completo); Wikidata Q10364348, nota 100 entre 4 candidatos",
+          "banco_oficial: busca \"Ronaldo Caiado\" ; Câmara dos Deputados: 153 evento(s), 10 foto(s) na primeira página ; Agência Senado: 500 no acervo, 4 citam \"Ronaldo Caiado\" na legenda, 4 com licença lida ; Palácio do Planalto: sem FLICKR_API_K",
+          "wikimedia_commons: P18 (imagem declarada): 1 ; categoria \"Ronaldo Caiado\": 4",
+          "fonte_oficial: /: declara \"Creative Commons\" mas não expõe imagem utilizável ; /newsroom: HTTP 404 ; /news: HTTP 404 ; /press: HTTP 404 ; /media: HTTP 404 ; /press-kit: HTTP 404 ; /media-kit: HTTP 404",
+          "openverse: \"Ronaldo Caiado\" devolveu 240, 12 utilizável(is)",
+          "biblioteca_interna: protagonista Ronaldo Caiado (pessoa): 20 foto(s) passaram na pontuação; a identidade é conferida uma a uma",
+          "wikimedia_commons: retrato de referência de Ronaldo Caiado: P18 \"Foto oficial do governador de Goiás, Ronaldo Caiado em 2023 (ombros).jpg\""
+        ]
+      },
+      "mesmaFoto": false
+    },
+    {
+      "ramo": "post",
+      "pecaId": "af4a2c30-dfe4-4152-b47b-aae25d2acd9a",
+      "estado": "aguardando",
+      "manchete": "Douglas Ruas pode vencer no primeiro turno se votos de Garotinho forem anulados no RJ",
+      "antes": {
+        "imageUrl": "https://www.camara.leg.br/internet/bancoimagem/banco/2013/10/img201310221930267022641.jpg",
+        "caminho": "entidade",
+        "degrau": null,
+        "source": "banco_oficial"
+      },
+      "depois": {
+        "status": "SELECTED",
+        "motivo": null,
+        "imageUrl": "https://www.camara.leg.br/internet/bancoimagem/banco/2013/10/img201310221930267022641.jpg",
+        "source": "banco_oficial",
+        "protagonista": {
+          "nome": "Anthony Garotinho",
+          "tipo": "person",
+          "qid": "Q525804"
+        },
+        "verificacao": {
+          "regra": "protagonista_da_manchete",
+          "protagonista": "Anthony Garotinho",
+          "qid": "Q525804",
+          "tipo": "identidade",
+          "como": "comparada com o retrato de referência de Anthony Garotinho (P18): mesma pessoa, em destaque, confiança 99",
+          "referencia": "https://upload.wikimedia.org/wikipedia/commons/2/26/Deputado_Anthony_Garotinho_entrevistado_em_2011_%28cropped%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "representante": null,
+          "veredicto": {
+            "confianca": 99,
+            "descricao": "Homem de terno e gravata discursando ao microfone, com uma das mãos levantada.",
+            "motivo": "identidade conferida contra o retrato de referência de Anthony Garotinho: A pessoa em destaque tem os mesmos traços faciais, formato do rosto, olhos, nariz, boca e linha do cabelo do retrato de referência."
+          }
+        },
+        "conferenciaVisual": {
+          "descricao": "Anthony Garotinho aparece de terno, falando ao microfone e gesticulando em uma tribuna, com parte da bandeira do Brasil ao fundo.",
+          "motivo": "A pessoa em destaque é Anthony Garotinho, citado na manchete, e a imagem o identifica de forma pertinente à notícia sobre sua candidatura e os votos recebidos.",
+          "paisAparente": "Brasil",
+          "confianca": 98
+        },
+        "recusados": [
+          "IDENTITY_NOT_VERIFIED: File:Secretário Estadual RJ Douglas Ruas (2).jpg | sem retrato de referência de Douglas Ruas para comparar",
+          "IDENTITY_NOT_VERIFIED: File:Deputados Estaduais RJ Douglas Ruas e Marcio Canella.png | sem retrato de referência de Douglas Ruas para comparar",
+          "IDENTITY_NOT_VERIFIED: File:Douglas Ruas 2023.png | sem retrato de referência de Douglas Ruas para comparar",
+          "IDENTITY_NOT_VERIFIED: File:Entrevista do Secretario de Cidades do RJ, Douglas Ruas 3.png | sem retrato de referência de Douglas Ruas para comparar",
+          "IDENTITY_NOT_VERIFIED: dbe3b88a-0343-4c89-b3d5-8e8ad1659979 | sem retrato de referência de Douglas Ruas para comparar",
+          "IDENTITY_NOT_VERIFIED: 4c5277e1-2e3f-4371-9cd9-73ee882c95f2 | sem retrato de referência de Douglas Ruas para comparar",
+          "IDENTITY_NOT_VERIFIED: 256c3881-6d96-4b89-9c2f-d6e4a5ea2673 | sem retrato de referência de Douglas Ruas para comparar",
+          "IDENTITY_NOT_VERIFIED: b4a54f4b-12da-4728-af15-f1df13ec8b5d | sem retrato de referência de Douglas Ruas para comparar",
+          "IDENTITY_NOT_VERIFIED: 93a31aa7-99c1-4968-b49e-74f0366c1b62 | sem retrato de referência de Douglas Ruas para comparar",
+          "IDENTITY_NOT_VERIFIED: c07e1967-9c4d-436e-b0ef-57cebcfacd60 | sem retrato de referência de Douglas Ruas para comparar",
+          "IDENTITY_NOT_VERIFIED: File:Secretário Estadual RJ Douglas Ruas (cropped).jpg | sem retrato de referência de Douglas Ruas para comparar",
+          "IDENTITY_NOT_VERIFIED: File:Secretário Estadual RJ Douglas Ruas (2) (cropped).jpg | sem retrato de referência de Douglas Ruas para comparar"
+        ],
+        "fontesConsultadas": [
+          "biblioteca_interna: protagonista da manchete: \"Douglas Ruas\" (nome completo) => Q116266229: político brasileiro e presidente da Assembleia Legislativa do estado do Rio de Janeiro, tipo person, nota 80",
+          "biblioteca_interna: entidade: Douglas Ruas (person), confiança 80, via protagonista da manchete (\"Douglas Ruas\", nome completo); Wikidata Q116266229, nota 80 entre 1 candidatos",
+          "banco_oficial: busca \"Douglas Ruas\" ; Câmara dos Deputados: 0 evento(s), 0 foto(s) na primeira página ; Agência Senado: 12 no acervo, 0 citam \"Douglas Ruas\" na legenda, 0 com licença lida ; Palácio do Planalto: sem FLICKR_API_KEY, pula",
+          "wikimedia_commons: busca textual \"Douglas Ruas\": 12",
+          "fonte_oficial: entidade não declara site oficial no Wikidata",
+          "openverse: \"Douglas Ruas\" devolveu 54, 12 utilizável(is)",
+          "biblioteca_interna: protagonista Douglas Ruas (pessoa): 16 foto(s) passaram na pontuação; a identidade é conferida uma a uma",
+          "wikimedia_commons: Douglas Ruas sem retrato de referência (nem P18 nem banco oficial): nenhuma foto pode ter a identidade conferida",
+          "biblioteca_interna: Douglas Ruas sem foto verificada; a vez passa ao nome seguinte da manchete",
+          "biblioteca_interna: protagonista da manchete: \"Anthony Garotinho\" (parte do nome) => Q525804: político brasileiro, tipo person, nota 100",
+          "biblioteca_interna: entidade: Anthony Garotinho (person), confiança 100, via protagonista da manchete (\"Anthony Garotinho\", parte do nome); Wikidata Q525804, nota 100 entre 2 candidatos",
+          "banco_oficial: busca \"Anthony Garotinho\" ; Câmara dos Deputados: 157 evento(s), 4 foto(s) na primeira página ; Agência Senado: 46 no acervo, 4 citam \"Anthony Garotinho\" na legenda, 4 com licença lida ; Palácio do Planalto: sem FLICKR_A",
+          "wikimedia_commons: P18 (imagem declarada): 1 ; categoria \"Anthony Garotinho\": 12",
+          "fonte_oficial: entidade não declara site oficial no Wikidata",
+          "openverse: \"Anthony Garotinho\" devolveu 66, 12 utilizável(is)",
+          "biblioteca_interna: protagonista Anthony Garotinho (pessoa): 22 foto(s) passaram na pontuação; a identidade é conferida uma a uma",
+          "wikimedia_commons: retrato de referência de Anthony Garotinho: P18 \"Deputado Anthony Garotinho entrevistado em 2011 (cropped).jpg\""
+        ]
+      },
+      "mesmaFoto": true
+    },
+    {
+      "ramo": "post",
+      "pecaId": "a8168226-f2cf-45ab-a427-2f886d1eceba",
+      "estado": "aguardando",
+      "manchete": "Ações da SpaceX sobem quase 8% e devolvem Elon Musk ao status de trilionário",
+      "antes": {
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/86/Entrance_to_SpaceX_headquarters.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "caminho": "entidade",
+        "degrau": null,
+        "source": "wikimedia_commons"
+      },
+      "depois": {
+        "status": "SELECTED",
+        "motivo": null,
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/86/Entrance_to_SpaceX_headquarters.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "source": "wikimedia_commons",
+        "protagonista": {
+          "nome": "SpaceX",
+          "tipo": "company",
+          "qid": "Q193701"
+        },
+        "verificacao": {
+          "regra": "protagonista_da_manchete",
+          "protagonista": "SpaceX",
+          "qid": "Q193701",
+          "tipo": "marca",
+          "como": "foto com a marca legível: leu \"SPACEX\"",
+          "veredicto": {
+            "confianca": 98,
+            "descricao": "Fachada de um edifício moderno com o logotipo SpaceX em destaque.",
+            "motivo": "marca conferida: o modelo leu \"SPACEX\" na imagem. A marca SpaceX aparece legível, inteira e em destaque na fachada, embora o prédio não seja reconhecível como sede oficial sem o texto.",
+            "textoLido": "SPACEX"
+          }
+        },
+        "conferenciaVisual": {
+          "descricao": "Fachada de um edifício moderno da SpaceX, com o nome e o logotipo da empresa visíveis.",
+          "motivo": "A imagem mostra claramente a própria SpaceX, empresa diretamente citada na manchete, sem pessoas identificáveis ou acontecimentos conflitantes.",
+          "paisAparente": "Estados Unidos",
+          "confianca": 98
+        },
+        "recusados": [
+          "SOURCE_NOT_ALLOWED: File:Elon Musk On The Future Of Human Civilization And The Main Goal Of SpaceX.wav | formato audio/wav não é publicável; aceitos: image/jpeg, image/png, image/webp",
+          "NON_CENTRAL_PUBLIC_FIGURE: File:Dragon breathing fire (49216482403).jpg | o acervo declara Luca Parmitano na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_typ",
+          "LOW_RESOLUTION: File:Cellular Base Stations in Orbit — From 5G to Zero-G.jpg | 708px de largura, mínimo 800",
+          "NON_CENTRAL_PUBLIC_FIGURE: File:Carta de Faber Burgos enviada a la ISS EEI por la JAXA y adoptaunmec.jpg | o acervo declara 2 pessoas, Carta de Faber Burgos, Faber Burgos na imagem, e nenhuma delas aparece na pauta. Contexto declarado: company. Quem vê o post vê o ro",
+          "NON_CENTRAL_PUBLIC_FIGURE: File:Argon Hall Effect thruster (54224806923).jpg | o acervo declara Steve Jurvetson na imagem, e essa pessoa aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, não o campo image_context_ty",
+          "NON_CENTRAL_PUBLIC_FIGURE: File:Happy New Space Year! (38737260305).jpg | o acervo declara 2 pessoas, Steve Jurvetson, Spacemedia Individuals Flickr na imagem, e nenhuma delas aparece na pauta. Contexto declarado: company. Quem vê o p",
+          "NON_CENTRAL_PUBLIC_FIGURE: File:Excited for the Falcon Heavy launch today (39405051774).jpg | o acervo declara 3 pessoas, Falcon Heavy, Steve Jurvetson, Spacemedia Individuals Flickr na imagem, e nenhuma delas aparece na pauta. Contexto declarado: compan",
+          "LOW_RESOLUTION: 0ed8ad2a-1e5f-4348-b576-c6d307897c9b | 375px de largura, mínimo 800",
+          "NON_CENTRAL_PUBLIC_FIGURE: 7b200a2f-ac76-4587-bc56-7c496e1da88d | o acervo declara 2 pessoas, Merlin Blaster, Falcon Heavy na imagem, e nenhuma delas aparece na pauta. Contexto declarado: company. Quem vê o post vê o rosto, nã"
+        ],
+        "fontesConsultadas": [
+          "biblioteca_interna: protagonista da manchete: \"SpaceX\" (nome completo) => Q193701: empresa americana de voos espaciais e IA, tipo company, nota 120",
+          "biblioteca_interna: entidade: SpaceX (company), confiança 100, via protagonista da manchete (\"SpaceX\", nome completo); Wikidata Q193701, nota 120 entre 8 candidatos",
+          "wikimedia_commons: P18 (imagem declarada): 1 ; categoria \"SpaceX\": 12",
+          "fonte_oficial: /: sem declaração de direitos na página, recusado ; /newsroom: sem declaração de direitos na página, recusado ; /news: sem declaração de direitos na página, recusado ; /press: sem declaração de direitos na página, recusa",
+          "openverse: \"SpaceX\" devolveu 240, 12 utilizável(is)"
+        ]
+      },
+      "mesmaFoto": true
+    }
+  ]
+}

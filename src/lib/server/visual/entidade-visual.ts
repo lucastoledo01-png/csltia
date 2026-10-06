@@ -175,7 +175,22 @@ export async function escolherEntidadeVisual(
    * resolve para metanfetamina, que é o que o Wikidata considera mais popular
    * com esse nome. Quando a classificação traz os dois, o longo vai primeiro.
    */
-  const porEspecificidade = (a: string, b: string) => b.length - a.length;
+  /*
+   * ATUALIZADO em 06/10/2026: quem o TÍTULO nomeia vem antes, e só depois a
+   * especificidade. O corte em quatro consultas, aplicado depois de ordenar
+   * por tamanho, tirava da disputa exatamente o protagonista de nome curto: na
+   * pauta "Caiado oficializa apoio a Flávio", com oito atores, "Ronaldo
+   * Caiado" ficou de fora e "Gracinha Caiado" entrou; em "Anduril lands $2.9
+   * billion Navy contract", "Anduril" ficou atrás de "Department of Defense",
+   * "Palmer Luckey", "Newt Gingrich" e "Emil Michael".
+   */
+  const tituloNormalizado = ` ${normalizarEntidade(classificacao.titulo ?? "")} `;
+  const noTitulo = (a: string) =>
+    normalizarEntidade(a)
+      .split(" ")
+      .some((p) => p.length > 3 && tituloNormalizado.includes(` ${p} `)) ||
+    tituloNormalizado.includes(` ${normalizarEntidade(a)} `);
+  const porEspecificidade = (a: string, b: string) => Number(noTitulo(b)) - Number(noTitulo(a)) || b.length - a.length;
   const candidatos = [...atores.sort(porEspecificidade), ...lugares].slice(0, MAXIMO_DE_CONSULTAS);
   const pais = classificacao.pais || inferirPais(lugares, atores);
   const resolvidas: EntidadeVisual[] = [];

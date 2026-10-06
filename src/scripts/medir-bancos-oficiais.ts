@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import sharp, { type OverlayOptions } from "sharp";
-import { resolveVisualAsset, type Conferente, type PautaParaImagem } from "../lib/server/visual/resolver";
-import { conferirImagem, paraConferir } from "../lib/server/visual/conferencia-visual";
+import { conferenteDeVerdade, resolveVisualAsset, type Conferente, type PautaParaImagem } from "../lib/server/visual/resolver";
+import { paraConferir } from "../lib/server/visual/conferencia-visual";
 import { calculateCost } from "../lib/server/newsroom/ai-provider";
 import { ehPessoa, normalizarEntidade, type ResultadoVisual } from "../lib/server/visual/tipos";
 import { getSupabaseAdminClient } from "../lib/server/supabase-admin";
@@ -139,7 +139,7 @@ const fetchContado: typeof fetch = async (entrada, init) => {
 const veredictos = new Map<string, ReturnType<Conferente>>();
 const conferente: Conferente = (asset, pauta) => {
   const chave = [asset.imageUrl, pauta.titulo, pauta.uso ?? "", pauta.papel ?? ""].join("|");
-  if (!veredictos.has(chave)) veredictos.set(chave, conferirImagem(asset, pauta, { fetcher: fetchContado }));
+  if (!veredictos.has(chave)) veredictos.set(chave, conferenteDeVerdade({ fetcher: fetchContado })(asset, pauta));
   return veredictos.get(chave)!;
 };
 

@@ -577,6 +577,14 @@ export function criarSocialPostsStore(client: SupabaseClient, fila: OpcoesDaFila
                   caminho: p.visual?.caminho ?? null,
                   // E em qual degrau da escada da cena ela foi achada.
                   degrau: p.visual?.degrau ?? null,
+                  /*
+                   * O protagonista da manchete e a PROVA de que a foto é dele
+                   * (06/10/2026, "imagem certeira"): retrato P18, comparação
+                   * de rosto com o retrato de referência, nome da marca lido
+                   * na foto, logotipo oficial ou representante conferido.
+                   */
+                  protagonista: p.visual?.protagonista ?? null,
+                  verificacao: (asset.metadata?.verificacao as Record<string, unknown> | undefined) ?? null,
                 }
               : {
                   // Sem foto não é falha registrada como falha: é a decisão de

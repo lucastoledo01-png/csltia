@@ -123,9 +123,14 @@ describe("resolveVisualAsset", () => {
     });
 
     expect(r.status).toBe("NO_VALID_IMAGE");
-    expect(r.motivo).toBe("NO_ENTITY_IMAGE_FOUND");
-    const banco = r.fontesConsultadas.find((f) => f.fonte === "banco_conceitual");
-    expect(banco?.nota).toContain("bloqueado por regra");
+    /*
+     * Desde 06/10/2026 a pessoa que a MANCHETE nomeia é protagonista, e o
+     * caminho dela termina na verificação: sem foto dela conferida, nem chega
+     * a perguntar ao banco conceitual ("imagem certeira").
+     */
+    expect(r.motivo).toBe("PROTAGONIST_PHOTO_NOT_VERIFIED");
+    expect(r.protagonista?.nome).toBe("Donald Trump");
+    expect(r.fontesConsultadas.some((f) => f.fonte === "banco_conceitual")).toBe(false);
   });
 
   it("recusa foto pequena antes de pontuar", async () => {
@@ -139,8 +144,9 @@ describe("resolveVisualAsset", () => {
   });
 
   it("guarda a licença e a página de origem junto da URL", async () => {
+    // Com o P18: a pessoa da manchete só tem foto com retrato de referência (06/10/2026).
     const r = await resolveVisualAsset(pautaDePessoa, {
-      fetcher: fetcherFalso({ licenca: "CC BY-SA 4.0" }),
+      fetcher: fetcherFalso({ licenca: "CC BY-SA 4.0", p18: "Retrato.jpg" }),
       somenteLeitura: true,
     });
 
@@ -188,12 +194,86 @@ describe("resolveVisualAsset", () => {
     };
 
     const fetcher = fetcherFalso({});
-    const r = await resolveVisualAsset(pautaDePessoa, { biblioteca, fetcher, somenteLeitura: true });
+    // Pauta cuja manchete NÃO nomeia a pessoa: a biblioteca devolve na hora, como sempre.
+    const r = await resolveVisualAsset(
+      { ...pautaDePessoa, titulo: "Medida para profissionais estrangeiros é anunciada" },
+      { biblioteca, fetcher, somenteLeitura: true },
+    );
 
     expect(r.asset?.sourceAssetId).toBe("File:Guardado.jpg");
     // Wikidata é consultado para tipar a entidade; o Commons não.
     const chamadas = (fetcher as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((c) => String(c[0]));
     expect(chamadas.some((u) => u.includes("commons.wikimedia.org"))).toBe(false);
+  });
+
+  /*
+   * A manchete nomeia a pessoa (06/10/2026, "imagem certeira"): a foto
+   * guardada foi aprovada por uma régua que não conferia identidade, então ela
+   * não sai direto. Entra na fila da verificação, e só passa sendo o retrato
+   * de referência (P18) ou com o rosto conferido contra ele.
+   */
+  it("com a pessoa na manchete, a foto da biblioteca passa pela verificação de identidade", async () => {
+    const guardado = {
+      id: "asset-2",
+      entityName: "Donald Trump",
+      entityNormalized: "donald trump",
+      entityType: "person" as const,
+      source: "wikimedia_commons" as const,
+      sourceAssetId: "File:Guardado.jpg",
+      imageUrl: "https://upload.wikimedia.org/guardado.jpg",
+      sourcePageUrl: "https://commons.wikimedia.org/wiki/File:Guardado.jpg",
+      author: "Alguém",
+      license: "Public Domain",
+      licenseUrl: "",
+      attribution: "",
+      rightsStatement: "",
+      rightsStatus: "verified" as const,
+      rightsCheckedAt: "",
+      sourceLastCheckedAt: "",
+      width: 1600,
+      height: 1200,
+      mimeType: "image/jpeg",
+      storagePath: null,
+      perceptualHash: null,
+      imageRelevanceScore: 0,
+      imageContextType: "entity_portrait" as const,
+      metadata: { categorias: "Donald Trump" },
+      usageCount: 0,
+      lastUsedAt: null,
+    };
+    const biblioteca: Biblioteca = {
+      daEntidade: vi.fn(async () => [guardado]),
+      guardar: vi.fn(async () => null),
+      registrarUso: vi.fn(async () => {}),
+      porUrl: vi.fn(async () => null),
+    };
+    const rodar = async (mesmaPessoa: boolean) => {
+      const papeis: string[] = [];
+      const r = await resolveVisualAsset(pautaDePessoa, {
+        biblioteca,
+        // O P18 pequeno demais: ele é a referência, mas não a capa. A guardada é a única candidata.
+        fetcher: fetcherFalso({ p18: "Retrato.jpg", largura: 300 }),
+        somenteLeitura: true,
+        conferenciaVisual: async (asset, ctx) => {
+          papeis.push(`${ctx.papel ?? "assunto"}:${asset.sourceAssetId}`);
+          const aprovada = ctx.papel === "identidade" ? mesmaPessoa : true;
+          return { aprovada, descricao: "", motivo: aprovada ? "ok" : "outra pessoa", paisAparente: null, confianca: 95, falhou: false };
+        },
+      });
+      return { r, papeis };
+    };
+
+    const outra = await rodar(false);
+    expect(outra.papeis).toContain("identidade:File:Guardado.jpg");
+    expect(outra.r.status).toBe("NO_VALID_IMAGE");
+    expect(outra.r.motivo).toBe("PROTAGONIST_PHOTO_NOT_VERIFIED");
+    expect(outra.r.recusados.some((x) => x.identificacao === "File:Guardado.jpg" && x.motivo === "IDENTITY_NOT_VERIFIED")).toBe(true);
+
+    const mesma = await rodar(true);
+    expect(mesma.r.asset?.sourceAssetId).toBe("File:Guardado.jpg");
+    const prova = mesma.r.asset?.metadata.verificacao as { tipo: string; como: string };
+    expect(prova.tipo).toBe("identidade");
+    expect(prova.como).toContain("retrato de referência");
   });
 
   it("respeita a janela: asset usado ontem não volta hoje", async () => {
@@ -415,10 +495,11 @@ describe("contexto da imagem", () => {
   });
 
   it("foto de pessoa que não é a declarada vira retrato comum", async () => {
-    const r = await resolveVisualAsset(pautaDePessoa, {
-      fetcher: fetcherFalso({}),
-      somenteLeitura: true,
-    });
+    // A manchete não nomeia a pessoa: sem protagonista, a régua de identidade não entra (06/10/2026).
+    const r = await resolveVisualAsset(
+      { ...pautaDePessoa, titulo: "Medida para profissionais estrangeiros é anunciada" },
+      { fetcher: fetcherFalso({}), somenteLeitura: true },
+    );
 
     expect(r.asset?.imageContextType).toBe("entity_portrait");
   });

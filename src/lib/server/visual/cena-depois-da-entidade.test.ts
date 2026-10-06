@@ -105,6 +105,15 @@ const PAUTA = {
   },
 };
 
+/*
+ * A mesma pauta com a manchete que NÃO nomeia o órgão (06/10/2026, "imagem
+ * certeira"). Com o órgão na manchete, ele é protagonista e a foto tem de ser
+ * dele, verificada, sem cena no lugar (ver `imagem-certeira.test.ts`). A cena
+ * depois da entidade continua valendo para o órgão que a pauta cita e a
+ * manchete não nomeia, que é o que estes casos medem.
+ */
+const PAUTA_DA_CENA = { ...PAUTA, titulo: "Tax season: quando o americano declara o imposto de renda" };
+
 /** Reprova o que vier do Commons (a placa do órgão, legível) e aprova o resto. */
 function conferenteQueReprovaOOrgao(): Conferente {
   return async (asset) => {
@@ -123,7 +132,7 @@ function conferenteQueReprovaOOrgao(): Conferente {
 describe("a cena depois da entidade", () => {
   it("as fotos do órgão reprovadas não matam a pauta: ela ganha a foto da cena", async () => {
     const fetcher = mundo();
-    const r = await resolveVisualAsset(PAUTA, {
+    const r = await resolveVisualAsset(PAUTA_DA_CENA, {
       env: ENV,
       fetcher,
       somenteLeitura: true,
@@ -142,7 +151,7 @@ describe("a cena depois da entidade", () => {
   });
 
   it("o diagnóstico diz que a foto veio da etapa da cena, e por quê", async () => {
-    const r = await resolveVisualAsset(PAUTA, {
+    const r = await resolveVisualAsset(PAUTA_DA_CENA, {
       env: ENV,
       fetcher: mundo(),
       somenteLeitura: true,
@@ -161,7 +170,7 @@ describe("a cena depois da entidade", () => {
    * ninguém abrir a imagem.
    */
   it("sem foto do órgão que passe na pontuação, a cena é pontuada pela cena, não pelo nome do órgão", async () => {
-    const r = await resolveVisualAsset(PAUTA, {
+    const r = await resolveVisualAsset(PAUTA_DA_CENA, {
       env: ENV,
       fetcher: mundo({ commonsVazio: true }),
       somenteLeitura: true,
@@ -175,7 +184,7 @@ describe("a cena depois da entidade", () => {
 
   it("foto do órgão aprovada continua vencendo, e o banco nem é consultado", async () => {
     const fetcher = mundo();
-    const r = await resolveVisualAsset(PAUTA, {
+    const r = await resolveVisualAsset(PAUTA_DA_CENA, {
       env: ENV,
       fetcher,
       somenteLeitura: true,
@@ -201,7 +210,7 @@ describe("a cena depois da entidade", () => {
    * que recusa pessoa identificável e texto continua decidindo.
    */
   it("a cena passa pela mesma conferência: reprovou tudo, sai sem foto", async () => {
-    const r = await resolveVisualAsset(PAUTA, {
+    const r = await resolveVisualAsset(PAUTA_DA_CENA, {
       env: ENV,
       fetcher: mundo(),
       somenteLeitura: true,
@@ -222,7 +231,7 @@ describe("a cena depois da entidade", () => {
   });
 
   it("falha de conferência continua sendo recusa, também na cena", async () => {
-    const r = await resolveVisualAsset(PAUTA, {
+    const r = await resolveVisualAsset(PAUTA_DA_CENA, {
       env: ENV,
       fetcher: mundo(),
       somenteLeitura: true,
@@ -257,7 +266,8 @@ describe("a cena depois da entidade", () => {
     );
 
     expect(r.status).toBe("NO_VALID_IMAGE");
-    expect(r.fontesConsultadas.some((f) => f.nota.includes("pauta sobre pessoa não aceita foto conceitual"))).toBe(true);
+    // A pessoa está na manchete: é protagonista, e o caminho dela acaba na verificação (06/10/2026).
+    expect(r.motivo).toBe(MOTIVOS_DE_RECUSA.FOTO_DO_PROTAGONISTA_NAO_VERIFICADA);
     const chamadas = (fetcher as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((c) => String(c[0]));
     expect(chamadas.some((u) => u.includes("api.pexels.com"))).toBe(false);
   });
@@ -277,7 +287,7 @@ describe("a cena depois da entidade", () => {
 describe("a conferência sabe quando a foto vai para a bolha", () => {
   it("a vice é conferida como bolha, a foto de fundo como fundo", async () => {
     const usos: Array<string | undefined> = [];
-    await resolveVisualAsset(PAUTA, {
+    await resolveVisualAsset(PAUTA_DA_CENA, {
       env: ENV,
       fetcher: mundo(),
       somenteLeitura: true,
