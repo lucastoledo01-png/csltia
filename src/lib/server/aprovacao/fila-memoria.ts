@@ -108,6 +108,12 @@ export function criarFilaEmMemoria(relogio: () => number = Date.now): FilaStore 
         .map((a) => ({ ...a }));
     },
 
+    async recentes(projectId, desdeIso) {
+      return aprovacoes
+        .filter((a) => a.projectId === projectId && ((a.publicarEm ?? "") >= desdeIso || a.updatedAt >= desdeIso))
+        .map((a) => ({ ...a }));
+    },
+
     async decididasDesde(projectId, desdeIso) {
       return aprovacoes
         .filter(

@@ -6,6 +6,8 @@ import { depsDaFila } from "@/lib/server/aprovacao/integracao";
 import { executarAcao, visaoDaFila, type CorpoDaAcao } from "@/lib/server/aprovacao/painel";
 import { processarRefacoes } from "@/lib/server/aprovacao/refacao-assincrona";
 import { comoProjetoDaFila, projetoPeloSlug, quemDecide } from "@/lib/server/aprovacao/rotas";
+import { previasDaFila, type PreviaDaPeca } from "@/lib/server/aprovacao/previa";
+import { explicarDiaDoInstagram, lerDiaDoInstagram } from "@/lib/server/aprovacao/dia-do-instagram";
 
 /**
  * A fila de aprovação de um projeto (05/10/2026, RF-21 a RF-24).
@@ -26,8 +28,37 @@ export async function GET(req: NextRequest) {
     const projeto = await projetoPeloSlug(req.nextUrl.searchParams.get("projeto"));
     if (!projeto) return NextResponse.json({ ok: false, error: "projeto não encontrado" }, { status: 404 });
     const p = comoProjetoDaFila(projeto);
-    const visao = await visaoDaFila(p, depsDaFila(getSupabaseAdminClient(), p));
-    return NextResponse.json({ ok: true, projeto: { slug: projeto.slug, nome: projeto.name }, ...visao });
+    const client = getSupabaseAdminClient();
+    const visao = await visaoDaFila(p, depsDaFila(client, p));
+    /*
+     * A peça como vai ao ar e o dia do Instagram (06/10/2026). Ver
+     * `previa.ts` e `dia-do-instagram.ts`. Falhar aqui não derruba a fila:
+     * o painel mostra o cartão sem a prévia, com o motivo, e as decisões
+     * continuam possíveis.
+     */
+    const agora = Date.now();
+    const [previas, instagram] = await Promise.all([
+      previasDaFila(client, projeto.id, visao.fila, visao.modo, agora).catch((erro: unknown) => {
+        console.error("[ADMIN APROVACAO] prévias:", erro);
+        return {} as Record<string, PreviaDaPeca>;
+      }),
+      lerDiaDoInstagram(client, projeto.id, new Date(agora - 36 * 60 * 60 * 1000).toISOString())
+        .then(explicarDiaDoInstagram)
+        .catch((erro: unknown) => ({
+          gravados: 0,
+          frase: `Não consegui ler o diagnóstico do Instagram: ${erro instanceof Error ? erro.message : String(erro)}`,
+          detalhes: [],
+          quando: null,
+        })),
+    ]);
+    return NextResponse.json({
+      ok: true,
+      projeto: { slug: projeto.slug, nome: projeto.name },
+      ...visao,
+      previas,
+      instagram,
+      agora: new Date(agora).toISOString(),
+    });
   } catch (err) {
     console.error("[ADMIN APROVACAO]", err);
     return NextResponse.json(

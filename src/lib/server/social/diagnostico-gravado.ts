@@ -36,6 +36,18 @@ export function montarRegistroDoSocial(
     editionDate: contexto.editionDate,
     dryRun: contexto.dryRun,
     diagnostico,
+    /*
+     * O bloqueio da composição e a liberação do enforce (06/10/2026). Em
+     * 06/10 o ciclo rodou, conferiu 7 pautas e gravou zero posts sem custo de
+     * redação, e o registro não dizia por quê: o bloqueio
+     * (`SOCIAL_PERSISTENCE_UNAVAILABLE`) existia só no diagnóstico do ciclo,
+     * que não era copiado para cá. A fila de aprovação lê estes campos para
+     * explicar a aba vazia do Instagram (`aprovacao/dia-do-instagram.ts`).
+     */
+    bloqueio: ciclo?.composicao?.bloqueio ?? null,
+    escolhidasNaComposicao: ciclo?.composicao ? ciclo.composicao.escolhidas.length : null,
+    enforcePermitido: ciclo?.diagnostico?.enforcePermitido ?? null,
+    motivoDoBloqueio: ciclo?.diagnostico?.motivoDoBloqueio ?? null,
     recusadas: (conferencia?.recusadas ?? []).slice(0, MAX_ITENS).map((r) => ({
       storyId: r.pauta.storyId,
       titulo: cortar(r.pauta.grupo.primary.title ?? ""),

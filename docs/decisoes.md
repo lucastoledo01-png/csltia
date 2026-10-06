@@ -1909,6 +1909,67 @@ candidatos morriam antes, 1 depois). Mas a bolha, que é a razão de declarar o
 órgão, não achou segunda foto em nenhum dos onze, e entidade que não rende
 bolha só acrescenta consulta.
 
+## A fila mostra a peça, e não o resumo dela (06/10/2026)
+
+O dono abriu a fila com as peças do dia e achou confusa: uma coluna só
+misturando os canais; a matéria e a newsletter mostradas pelo pacote factual
+(os fatos brutos, e não o texto); avisos com código cru ("AVISO_DO_RAMO:
+APAGADO pergunta.3: previsao sem lastro") em caixa vermelha; nenhum post; e uma
+matéria "aprovada" com só "Cancelar peça", que já estava no ar. Ao aprovar,
+"Esta peça tem aviso de QA" foi lido como Q&A, o bloco de perguntas e
+respostas, como se ele fosse entrar no texto. Capturas em
+`docs/design/aprovacao-2026-10-06/`.
+
+**Aprovar é aprovar o que vai ao ar, então o cartão mostra o que vai ao ar.**
+A newsletter é a linha da caixa de entrada (assunto e pré-cabeçalho) e o HTML
+gravado em `news_editions.content_html`, o mesmo que a liberação entrega ao
+Listmonk e que entra no hash, num iframe sem script
+(`/api/admin/aprovacao/previa`). A matéria é desenhada por `PaginaDaMateria`,
+o MESMO componente da rota pública, a partir da linha em qualquer status, só
+com a sessão do painel (`/admin/<projeto>/aprovacao/previa/<id>`; com
+`?moldura=0` sem cabeçalho e rodapé do portal, para a prévia embutida). O post
+são as telas congeladas, na ordem do hash, e a legenda com as quebras de
+linha. O pacote factual continua, recolhido e por último. Nada disso remonta a
+peça: uma prévia que redesenha seria aprovar uma coisa parecida com o que sai.
+
+**Um canal por aba, e a situação junta a fila com a tabela da peça**
+(`situacao.ts`). "No ar" vence o estado da fila: no ensaio a peça sai no
+horário dela, e o cartão dizia "aprovada" ou "aguardando" de uma matéria
+publicada. Os botões espelham o que o servidor aceita: peça no ar não se
+edita nem se cancela; no ensaio, a que saiu sem decisão ainda pode ser
+aprovada ou reprovada, porque a decisão ensina o canal. Quando a linha não é
+mais a versão que entrou na fila (`hashConfere`), o cartão diz isso antes do
+clique, e o botão de aprovar some. Medido em 06/10: o HTML da matéria do
+diesel mudou nove segundos depois de entrar na fila, com título e capa
+iguais; a causa não foi achada, e em `enforce` essa matéria ficaria segurada.
+
+**Aviso tem frase e gravidade** (`avisos-legiveis.ts`). `resolvido` é o que a
+máquina já tratou (trecho apagado pela poda, assunto descartado, pauta
+retirada, texto reescrito): informação, recolhida. `confira` é o que pede o
+olhar do dono (risco de fato inventado, nome que não está na fonte, auditoria
+que não rodou, apontamento da guarda do post). Só `confira` pede confirmação
+ao aprovar, e a confirmação diz que aprovar publica a peça como está e que
+nada da lista entra nela. Formato sem tradução cai em `confira`, com o texto
+cru. O código e o texto gravado ficam em "detalhes técnicos".
+
+**O lote não mudou de regra**, só de nome: "Aprovar todas as N matérias sem
+aviso", e ele continua deixando de fora toda peça com aviso, inclusive o
+resolvido (RF-21). A confirmação diz quantas ficam de fora.
+
+**Por que não havia post (06/10/2026).** Não era a fila: nenhum post foi
+gravado em `social_posts` nesse dia. O ciclo do Instagram das 06:11 conferiu 7
+pautas e terminou com `selected: 0, scheduled: 0`, sem custo de redação de
+post. O único caminho que corta tudo entre a composição e a redação é o
+bloqueio da composição (`SOCIAL_PERSISTENCE_UNAVAILABLE`, persistência de
+candidatas degradada), e ele não era gravado. Agora o diagnóstico grava
+`bloqueio`, `escolhidasNaComposicao` e a liberação do enforce, e a aba vazia
+do Instagram explica o dia com o registro mais recente
+(`dia-do-instagram.ts`). Com o post gravado, o ensaio já o enfileirava.
+
+**O painel mostra três dias de histórico** além do que está aberto
+(`recentes`, opcional no store): aprovadas, reprovadas, canceladas e
+publicadas, para os filtros. O relógio da fila continua lendo só `abertas`.
+
 ## Armadilhas que já custaram tempo
 
 Estas não são preferências, são fatos da plataforma. Repetir custa horas.

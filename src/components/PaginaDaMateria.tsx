@@ -146,9 +146,17 @@ export function PaginaDaMateria({
   relacionadas = [],
   creditoResolvido = null,
   autor = null,
+  moldura = true,
 }: {
   article: MateriaDaPagina;
   comComentarios?: boolean;
+  /**
+   * Sem a moldura do portal (barra, cabeçalho, rodapé, "Voltar" e a caixa de
+   * assinatura), só a matéria. É a prévia embutida na fila de aprovação
+   * (06/10/2026): no celular, o cabeçalho do portal ocupava a janela inteira
+   * da prévia antes do título. A rota pública nunca passa isto.
+   */
+  moldura?: boolean;
   /** O autor cadastrado e ativo da matéria, lido pela rota. `null` assina como a Redação. */
   autor?: AutorDaAssinatura | null;
   /** Para o "Leia também" da matéria que nasceu sem ele. Lidas pela rota; vazio não acrescenta nada. */
@@ -228,18 +236,19 @@ export function PaginaDaMateria({
   const dadosEstruturados = dadosEstruturadosDoArtigo(article, { perguntasVisiveis: perguntasNaPagina, dimensoesDaCapa: dimensoes, autor });
   const minutos = minutosDeLeitura(article);
 
-  return (
-    <MolduraDoPortal>
+  const conteudo = (
       <main>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: jsonLdSeguro(dadosEstruturados) }}
         />
 
-        <div className="mx-auto max-w-[720px] px-5 pb-20 pt-6 sm:px-6 md:pt-10">
-          <div className="mb-2">
-            <BotaoVoltar className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-marca-texto hover:underline" />
-          </div>
+        <div className={`mx-auto max-w-[720px] px-5 sm:px-6 ${moldura ? "pb-20 pt-6 md:pt-10" : "pb-10 pt-5"}`}>
+          {moldura ? (
+            <div className="mb-2">
+              <BotaoVoltar className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-marca-texto hover:underline" />
+            </div>
+          ) : null}
 
           <SubstackArticleRenderer
             title={article.title}
@@ -265,11 +274,16 @@ export function PaginaDaMateria({
             autor={autor ? { nome: autor.nome, href: hrefDoAutor(autor.slug), foto: autor.foto_url } : null}
           />
 
-          <CaixaDeAssinatura origem="portal-artigo" className="my-12" />
+          {moldura ? <CaixaDeAssinatura origem="portal-artigo" className="my-12" /> : null}
 
           {comComentarios ? <ArticleComments articleSlug={article.slug} /> : null}
         </div>
       </main>
-    </MolduraDoPortal>
+  );
+
+  return moldura ? (
+    <MolduraDoPortal>{conteudo}</MolduraDoPortal>
+  ) : (
+    <div className="portal bg-white font-portal text-[#0A0A0A]">{conteudo}</div>
   );
 }
