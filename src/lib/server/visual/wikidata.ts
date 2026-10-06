@@ -24,6 +24,30 @@ import { normalizarEntidade } from "./tipos";
 const API = "https://www.wikidata.org/w/api.php";
 const TEMPO_LIMITE_MS = 12_000;
 
+/**
+ * Um pedido à Wikimedia com UMA segunda tentativa quando ela pede calma (429)
+ * ou está fora (5xx) (06/10/2026, "imagem certeira").
+ *
+ * No ensaio da fila de 07/10/2026 o Wikidata respondeu 429 no meio da rajada,
+ * e a busca devolvia lista vazia como se o Caiado não existisse: a pauta virou
+ * "sem entidade" e desceu para a cena. Agora a recusa é tentada de novo depois
+ * de uma pausa curta e, se persistir, vira ERRO, que quem chama trata como
+ * "não deu para saber", e não como "não existe".
+ */
+export async function pedirComPaciencia(
+  fetcher: typeof fetch,
+  url: URL | string,
+  init: RequestInit,
+  pausaMs = 1_500,
+): Promise<Response> {
+  const r = await fetcher(url, init);
+  if (r.status !== 429 && r.status < 500) return r;
+  const depois = Number(r.headers?.get?.("retry-after") ?? "");
+  const espera = Number.isFinite(depois) && depois > 0 ? Math.min(depois * 1000, 5_000) : pausaMs;
+  await new Promise((ok) => setTimeout(ok, espera));
+  return fetcher(url, { ...init, signal: AbortSignal.timeout(TEMPO_LIMITE_MS) });
+}
+
 /** Identifica o robô, como a política da Wikimedia pede. */
 export function agenteDaWikimedia(env: Record<string, string | undefined> = process.env): string {
   const contato = env.WIKIMEDIA_CONTACT || "contato@lokta.com.br";
@@ -301,7 +325,9 @@ async function buscarCandidatos(
   busca.searchParams.set("format", "json");
   busca.searchParams.set("limit", "6");
 
-  const r = await fetcher(busca, { headers: cabecalho, signal: AbortSignal.timeout(TEMPO_LIMITE_MS) });
+  const r = await pedirComPaciencia(fetcher, busca, { headers: cabecalho, signal: AbortSignal.timeout(TEMPO_LIMITE_MS) });
+  // Recusa do servidor não é "não existe" (06/10/2026): sobe como erro, e a pauta não finge que ninguém foi nomeado.
+  if (r.status === 429 || r.status >= 500) throw new Error(`Wikidata respondeu ${r.status}`);
   if (!r.ok) return [];
 
   const corpo = (await r.json()) as { search?: Array<{ id: string; label?: string; description?: string }> };
@@ -350,7 +376,7 @@ export async function resolverEntidadeNoWikidata(
     detalhe.searchParams.set("props", "claims");
     detalhe.searchParams.set("format", "json");
 
-    const r2 = await fetcher(detalhe, { headers: cabecalho, signal: AbortSignal.timeout(TEMPO_LIMITE_MS) });
+    const r2 = await pedirComPaciencia(fetcher, detalhe, { headers: cabecalho, signal: AbortSignal.timeout(TEMPO_LIMITE_MS) });
     if (!r2.ok) return { entidade: null, nota: `Wikidata (claims) respondeu ${r2.status}` };
 
     const corpo = (await r2.json()) as { entities?: Record<string, { claims?: Claims }> };
@@ -533,5 +559,136 @@ export async function resolverEntidadeNoWikidata(
     };
   } catch (erro) {
     return { entidade: null, nota: `Wikidata falhou: ${(erro as Error).message}` };
+  }
+}
+
+/**
+ * O logotipo e quem representa uma organização, pelo próprio Wikidata
+ * (06/10/2026, "imagem certeira").
+ *
+ * A regra do dono: pauta cuja manchete nomeia uma empresa mostra a MARCA (foto
+ * com o nome legível, ou o logotipo) ou quem a representa. As duas coisas são
+ * dado estruturado no Wikidata, de graça e sem palpite:
+ *
+ *   P154  o logotipo, um arquivo do Commons
+ *   P169  o diretor-executivo (CEO)
+ *   P112  o fundador
+ *   P488  o presidente do conselho
+ *
+ * Declaração com data de fim (qualificador P582) é cargo que acabou, e sai: o
+ * CEO de 2019 numa pauta de 2026 é a foto de outra gestão. Rank `preferred`
+ * vai na frente, como o Wikidata pede para o valor atual.
+ */
+export type Representante = {
+  qid: string;
+  nome: string;
+  papel: "ceo" | "fundador" | "presidente_do_conselho";
+  /** O retrato declarado da pessoa (P18), que é a referência da conferência de identidade. */
+  imagemPrincipal: string | null;
+  categoriaCommons: string | null;
+};
+
+export type DadosDaMarca = {
+  logotipo: string | null;
+  representantes: Representante[];
+  nota: string;
+};
+
+type DeclaracaoComQualificadores = {
+  rank?: string;
+  mainsnak?: { datavalue?: { value?: unknown } };
+  qualifiers?: Record<string, unknown[]>;
+};
+
+/** Os valores vigentes de uma propriedade: sem data de fim, o preferido primeiro. */
+export function valoresVigentes(
+  claims: Record<string, DeclaracaoComQualificadores[] | undefined>,
+  prop: string,
+): string[] {
+  const lista = (claims[prop] ?? []).filter((c) => c.rank !== "deprecated" && !c.qualifiers?.P582?.length);
+  const ordenada = [...lista].sort((a, b) => Number(b.rank === "preferred") - Number(a.rank === "preferred"));
+  return ordenada
+    .map((c) => {
+      const v = c.mainsnak?.datavalue?.value;
+      if (typeof v === "string") return v;
+      if (v && typeof v === "object" && "id" in v) return String((v as { id: string }).id);
+      return "";
+    })
+    .filter(Boolean);
+}
+
+export async function dadosDaMarca(
+  qid: string,
+  opcoes: { env?: Record<string, string | undefined>; fetcher?: typeof fetch } = {},
+): Promise<DadosDaMarca> {
+  const env = opcoes.env ?? process.env;
+  const fetcher = opcoes.fetcher ?? fetch;
+  const cabecalho = { "User-Agent": agenteDaWikimedia(env), Accept: "application/json" };
+  const pedir = async (ids: string[], props: string) => {
+    const url = new URL(API);
+    url.searchParams.set("action", "wbgetentities");
+    url.searchParams.set("ids", ids.join("|"));
+    url.searchParams.set("props", props);
+    url.searchParams.set("languages", "pt|en");
+    url.searchParams.set("format", "json");
+    const r = await pedirComPaciencia(fetcher, url, { headers: cabecalho, signal: AbortSignal.timeout(TEMPO_LIMITE_MS) });
+    if (!r.ok) throw new Error(`Wikidata respondeu ${r.status}`);
+    return (await r.json()) as {
+      entities?: Record<
+        string,
+        { claims?: Record<string, DeclaracaoComQualificadores[]>; labels?: Record<string, { value?: string }> }
+      >;
+    };
+  };
+
+  try {
+    const corpo = await pedir([qid], "claims");
+    const claims = corpo.entities?.[qid]?.claims ?? {};
+    const logotipo = valoresVigentes(claims, "P154")[0] ?? null;
+    const papeis: Array<{ prop: string; papel: Representante["papel"] }> = [
+      { prop: "P169", papel: "ceo" },
+      { prop: "P112", papel: "fundador" },
+      { prop: "P488", papel: "presidente_do_conselho" },
+    ];
+    const pedidos: Array<{ qid: string; papel: Representante["papel"] }> = [];
+    for (const { prop, papel } of papeis) {
+      for (const q of valoresVigentes(claims, prop).slice(0, 3)) {
+        if (!pedidos.some((p) => p.qid === q)) pedidos.push({ qid: q, papel });
+      }
+    }
+
+    const representantes: Representante[] = [];
+    if (pedidos.length > 0) {
+      const lote = pedidos.slice(0, 6);
+      const pessoas = await pedir(
+        lote.map((p) => p.qid),
+        "claims|labels",
+      );
+      for (const p of lote) {
+        const e = pessoas.entities?.[p.qid];
+        if (!e) continue;
+        // Só gente: o "fundador" de uma subsidiária costuma ser outra empresa.
+        if (!valoresVigentes(e.claims ?? {}, "P31").includes("Q5")) continue;
+        const nome = e.labels?.pt?.value || e.labels?.en?.value || "";
+        if (!nome) continue;
+        representantes.push({
+          qid: p.qid,
+          nome,
+          papel: p.papel,
+          imagemPrincipal: valoresVigentes(e.claims ?? {}, "P18")[0] ?? null,
+          categoriaCommons: valoresVigentes(e.claims ?? {}, "P373")[0] ?? null,
+        });
+      }
+    }
+
+    return {
+      logotipo,
+      representantes,
+      nota:
+        `${qid}: logotipo (P154) ${logotipo ? `"${logotipo}"` : "não declarado"}; representantes ` +
+        (representantes.map((r) => `${r.nome} (${r.papel})`).join(", ") || "nenhum"),
+    };
+  } catch (erro) {
+    return { logotipo: null, representantes: [], nota: `marca de ${qid} não lida: ${(erro as Error).message}` };
   }
 }

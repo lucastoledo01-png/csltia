@@ -178,6 +178,16 @@ export const MOTIVOS_DE_RECUSA = {
   /** A conferência visual não pôde ser feita, e sem ela não se aprova. */
   CONFERENCIA_VISUAL_INDISPONIVEL: "VISUAL_CHECK_UNAVAILABLE",
   SEM_IMAGEM_VALIDA: "NO_VALID_IMAGE",
+  /**
+   * A manchete nomeia uma pessoa ou organização e nenhuma foto DELA passou na
+   * verificação de identidade ou de marca (06/10/2026, "imagem certeira"). A
+   * pauta não vira conteúdo: foto de cena no lugar do protagonista não existe.
+   */
+  FOTO_DO_PROTAGONISTA_NAO_VERIFICADA: "PROTAGONIST_PHOTO_NOT_VERIFIED",
+  /** A foto não é, com certeza, da pessoa que a manchete nomeia. */
+  IDENTIDADE_NAO_CONFERIDA: "IDENTITY_NOT_VERIFIED",
+  /** A marca da organização que a manchete nomeia não está legível na imagem. */
+  MARCA_NAO_CONFERIDA: "BRAND_NOT_VERIFIED",
 } as const;
 
 export type MotivoDeRecusa = (typeof MOTIVOS_DE_RECUSA)[keyof typeof MOTIVOS_DE_RECUSA];
@@ -223,6 +233,34 @@ export type ResultadoVisual = {
    * `reuso` diz que a foto já tinha saído nos últimos 30 dias.
    */
   degrau?: DegrauDaCena;
+  /**
+   * O protagonista que a manchete nomeia, quando nomeia (06/10/2026). Com ele,
+   * a foto é dele ou da marca dele, verificada, e nunca uma cena. A prova da
+   * verificação fica em `asset.metadata.verificacao`.
+   */
+  protagonista?: { nome: string; tipo: TipoDeEntidade; qid: string | null } | null;
+};
+
+/**
+ * Como a foto do protagonista foi provada (06/10/2026, "imagem certeira").
+ * Vai para `asset.metadata.verificacao` e para `content_json.visual.verificacao`.
+ */
+export type VerificacaoDoProtagonista = {
+  regra: "protagonista_da_manchete";
+  protagonista: string;
+  qid: string | null;
+  /**
+   * `identidade`: a pessoa da manchete, conferida contra o retrato de referência.
+   * `marca`: foto com o nome da organização legível. `logotipo`: o cartão do
+   * logotipo oficial (P154). `representante`: o CEO ou fundador (P169, P112),
+   * com a identidade conferida.
+   */
+  tipo: "identidade" | "marca" | "logotipo" | "representante";
+  /** De onde vem a certeza: retrato P18, legenda do banco oficial, comparação de rosto, texto lido. */
+  como: string;
+  referencia?: string | null;
+  representante?: { nome: string; papel: string; qid: string } | null;
+  veredicto?: { confianca: number; descricao: string; motivo: string; textoLido?: string };
 };
 
 export type CaminhoDaFoto = "entidade" | "cena" | "cena_depois_da_entidade";

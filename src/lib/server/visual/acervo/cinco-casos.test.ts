@@ -321,12 +321,20 @@ describe("a inversão: a cena só depois de a entidade falhar nos dois lados", (
     const { acervo, faltas } = acervoFalso([foto("tecnologia-eua-chip-macro-01.jpg")]);
     const fetcher = fetcherFalso({ tipo: "Q4830453", commonsTem: false, tag: "tecnologia/chip" });
 
-    const r = await resolveVisualAsset(PAUTA_COM_ENTIDADE, {
-      acervo,
-      fetcher,
-      env: ENV,
-      conferenciaVisual: conferenteQueAprova(),
-    });
+    /*
+     * A empresa é citada e a manchete NÃO a nomeia (06/10/2026): só então a
+     * cena entra. Com a empresa na manchete ela é protagonista, e sem foto da
+     * marca a pauta não vira conteúdo ("imagem certeira").
+     */
+    const r = await resolveVisualAsset(
+      { ...PAUTA_COM_ENTIDADE, titulo: "Corte de tarifa para importados é anunciado nos EUA" },
+      {
+        acervo,
+        fetcher,
+        env: ENV,
+        conferenciaVisual: conferenteQueAprova(),
+      },
+    );
 
     expect(r.asset?.source).toBe("acervo_proprio");
     expect(r.asset?.sourceAssetId).toBe("tecnologia-eua-chip-macro-01.jpg");

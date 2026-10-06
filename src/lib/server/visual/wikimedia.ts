@@ -1,7 +1,7 @@
 import type { AssetVisual, EntidadeVisual } from "./tipos";
 import { ehPessoa, normalizarEntidade } from "./tipos";
 import { avaliarLicenca, limparAutor, montarAtribuicao } from "./licencas";
-import { agenteDaWikimedia } from "./wikidata";
+import { agenteDaWikimedia, pedirComPaciencia } from "./wikidata";
 
 /**
  * Fotos do Wikimedia Commons, com a licença junto.
@@ -109,7 +109,7 @@ async function consultar(
   url.searchParams.set("prop", "imageinfo");
   url.searchParams.set("iiprop", "url|size|mime|extmetadata");
 
-  const resposta = await fetcher(url, {
+  const resposta = await pedirComPaciencia(fetcher, url, {
     headers: { "User-Agent": agenteDaWikimedia(env), Accept: "application/json" },
     signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
   });

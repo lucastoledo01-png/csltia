@@ -233,7 +233,7 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     if (!origem) return falha(SEM_ORIGEM);
     const projeto = await mundo.projeto(ctx.aprovacao.projectId);
     const client = mundo.client();
-    const linha = await lerLinha(client, "articles", "id, cover_image, content_html, tags, category", ctx.aprovacao.pecaId, projeto.id);
+    const linha = await lerLinha(client, "articles", "id, title, cover_image, content_html, tags, category", ctx.aprovacao.pecaId, projeto.id);
     if (!linha) return falha("o artigo não existe mais");
     const atual = typeof linha.cover_image === "string" ? linha.cover_image : "";
     // O canal não volta a uma foto que já recusou, e a cena recebe o porquê (06/10/2026).
@@ -243,6 +243,8 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
       {
         storyId: origem.storyId,
         titulo: origem.titulo,
+        // O protagonista sai da manchete que vai ao ar (06/10/2026, "imagem certeira").
+        ...(typeof linha.title === "string" && linha.title ? { manchete: linha.title } : {}),
         resumo: origem.resumo,
         categoria: origem.eixo,
         classificacao: {
@@ -344,6 +346,7 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
       {
         storyId,
         titulo: String(copy.headline ?? l.title ?? ""),
+        manchete: String(copy.headline ?? l.title ?? ""),
         resumo,
         categoria: String(arte.eixo ?? ""),
         classificacao,
@@ -367,6 +370,28 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
             attribution: r.asset?.attribution ?? "",
             credito: r.asset?.attribution ?? "",
             motivo: r.motivo ?? "",
+            /*
+             * A foto nova leva o próprio registro (06/10/2026): origem, autor,
+             * licença, o que a conferência viu e a prova de que é do
+             * protagonista. Sem isso a linha ficava com a descrição e a
+             * licença da foto VELHA ao lado do endereço da nova.
+             */
+            ...(r.asset
+              ? {
+                  source: r.asset.source,
+                  sourceAssetId: r.asset.sourceAssetId,
+                  sourcePageUrl: r.asset.sourcePageUrl,
+                  author: r.asset.author,
+                  license: r.asset.license,
+                  licenseUrl: r.asset.licenseUrl,
+                  imageContextType: r.asset.imageContextType,
+                  conferenciaVisual: r.asset.conferenciaVisual ?? null,
+                  caminho: r.caminho ?? null,
+                  degrau: r.degrau ?? null,
+                  protagonista: r.protagonista ?? null,
+                  verificacao: (r.asset.metadata?.verificacao as Record<string, unknown> | undefined) ?? null,
+                }
+              : {}),
           },
         },
         updated_at: new Date(mundo.agora ? mundo.agora() : Date.now()).toISOString(),

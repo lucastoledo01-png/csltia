@@ -49,6 +49,12 @@ import {
 } from "./bancos-oficiais";
 import { BANCOS_OFICIAIS } from "./bancos-oficiais/registro";
 import type { DefinicaoDoBanco, PaisDoBanco } from "./bancos-oficiais/tipos";
+import { resolverProtagonista } from "./protagonista";
+import { conferirIdentidade, conferirMarca } from "./verificacao-do-protagonista";
+import { dadosDaMarca, type Representante } from "./wikidata";
+import { arquivoDoCommons } from "./wikimedia";
+import { baixarLogotipo, comporCartaoDaMarca, urlDoCartaoDaMarca, urlDoLogotipoNoCommons } from "./cartao-da-marca";
+import type { VerificacaoDoProtagonista } from "./tipos";
 
 /**
  * A imagem de uma pauta, resolvida pela entidade.
@@ -72,6 +78,13 @@ import type { DefinicaoDoBanco, PaisDoBanco } from "./bancos-oficiais/tipos";
 export type PautaParaImagem = {
   storyId: string;
   titulo: string;
+  /**
+   * A manchete da PEÇA, quando ela já existe (06/10/2026): a refação de imagem
+   * e o script da fila a conhecem. O protagonista é lido dela antes do título
+   * da fonte, porque é ela que vai ao ar: o post "Bret Taylor: ..." nasceu de
+   * uma fonte cujo título fala da Meta.
+   */
+  manchete?: string;
   /** Resumo da matéria. Entra no contexto que desambigua lugar. */
   resumo?: string;
   categoria: string;
@@ -132,6 +145,12 @@ export type OpcoesDeResolucao = {
    * Uma lista de bancos no lugar do `true` é para o teste trocar a rede.
    */
   bancosOficiais?: boolean | DefinicaoDoBanco[];
+  /**
+   * Protagonistas da manchete já tentados sem foto verificada (06/10/2026).
+   * Uso interno: o resolvedor se chama de novo com o nome seguinte da
+   * manchete, e quem chama de fora não passa nada.
+   */
+  protagonistasExcluidos?: string[];
 };
 
 /** Os bancos que esta resolução consulta, ou nenhum. */
@@ -142,7 +161,22 @@ function bancosDaResolucao(opcoes: OpcoesDeResolucao): DefinicaoDoBanco[] | null
 
 export type Conferente = (
   asset: AssetVisual,
-  pauta: { titulo: string; resumo?: string; eixo?: string; uso?: "fundo" | "bolha"; papel?: "assunto" | "cena" },
+  pauta: {
+    titulo: string;
+    resumo?: string;
+    eixo?: string;
+    uso?: "fundo" | "bolha";
+    /**
+     * `identidade`, `marca` e `logotipo` (06/10/2026) são as perguntas do
+     * protagonista da manchete: é a MESMA pessoa do retrato de referência? o
+     * nome da organização está legível? Ver `verificacao-do-protagonista.ts`.
+     */
+    papel?: "assunto" | "cena" | "identidade" | "marca" | "logotipo";
+    /** Para `identidade`: quem, e o retrato de referência (P18 ou banco oficial). */
+    referencia?: { nome: string; url: string };
+    /** Para `marca` e `logotipo`: o nome da organização. */
+    marca?: { nome: string; apelidos?: string[]; instituicao?: boolean };
+  },
 ) => Promise<VeredictoVisual>;
 
 export async function resolveVisualAsset(
@@ -203,16 +237,50 @@ export async function resolveVisualAsset(
     };
   };
 
-  // 1. Quem é o assunto visual.
-  const escolha = await escolherEntidadeVisual(
+  /*
+   * 0. O PROTAGONISTA da manchete (06/10/2026, "imagem certeira").
+   *
+   * Regra do dono depois da fila de 07/10/2026: manchete que nomeia uma pessoa
+   * mostra ESSA pessoa, com a identidade conferida; manchete que nomeia uma
+   * organização mostra a marca dela ou quem a representa. Cena no lugar do
+   * protagonista nomeado não existe mais. O protagonista é decidido antes de
+   * tudo, pela manchete, e não pela lista de atores: foi a lista (os quatro
+   * nomes mais longos, depois um empate de centralidade) que trocou o Caiado
+   * por um salão de casamento. Ver `protagonista.ts`.
+   */
+  const protagonista = await resolverProtagonista(
     {
-      ...pauta.classificacao,
       titulo: pauta.titulo,
-      resumo: pauta.resumo ?? "",
-      contexto: `${pauta.titulo} ${pauta.resumo ?? ""} ${pauta.categoria}`,
+      manchete: pauta.manchete,
+      resumo: pauta.resumo,
+      atores: pauta.classificacao.atores,
+      lugares: pauta.classificacao.lugares,
+      pais: pauta.classificacao.pais,
     },
-    { env, fetcher: opcoes.fetcher }
+    { env, fetcher: opcoes.fetcher, excluir: opcoes.protagonistasExcluidos },
   );
+  for (const nota of protagonista.notas) fontesConsultadas.push({ fonte: "biblioteca_interna", encontrados: 0, nota });
+  /*
+   * Já houve protagonista na manchete, sem foto conferida, e não sobrou outro:
+   * a pauta continua sendo SOBRE quem a manchete nomeia, e não vira cena.
+   */
+  if (protagonista.indeterminado || (!protagonista.entidade && opcoes.protagonistasExcluidos?.length)) {
+    return { ...semFotoDaPauta(null, MOTIVOS_DE_RECUSA.FOTO_DO_PROTAGONISTA_NAO_VERIFICADA), protagonista: null };
+  }
+  const estrito = Boolean(protagonista.entidade);
+
+  // 1. Quem é o assunto visual. Com protagonista na manchete, é ele, e a lista de atores não decide.
+  const escolha = protagonista.entidade
+    ? { entidade: protagonista.entidade, tentativas: [], ambigua: false }
+    : await escolherEntidadeVisual(
+        {
+          ...pauta.classificacao,
+          titulo: pauta.titulo,
+          resumo: pauta.resumo ?? "",
+          contexto: `${pauta.titulo} ${pauta.resumo ?? ""} ${pauta.categoria}`,
+        },
+        { env, fetcher: opcoes.fetcher }
+      );
 
   /*
    * Ambiguidade não vira palpite.
@@ -276,6 +344,9 @@ export async function resolveVisualAsset(
     legenda: asset.attribution,
     // A etapa da cena sobrescreve; aqui é a foto que veio pela entidade, ou a cena da pauta sem entidade.
     caminho: entidade.tipo === "conceptual" ? "cena" : "entidade",
+    protagonista: protagonista.entidade
+      ? { nome: protagonista.entidade.nome, tipo: protagonista.entidade.tipo, qid: protagonista.entidade.qid }
+      : null,
   });
 
   /*
@@ -344,6 +415,8 @@ export async function resolveVisualAsset(
     }
   }
 
+  const guardadasParaVerificar: AssetVisual[] = [];
+
   // 2. A biblioteca primeiro. O que já foi validado não precisa de busca nova.
   if (biblioteca && entidade.tipo !== "conceptual") {
     try {
@@ -392,11 +465,21 @@ export async function resolveVisualAsset(
           (soOficiais ? `, ${daBiblioteca.length} de banco oficial (bancos oficiais ligados: as outras esperam a busca)` : ""),
       });
 
-      const { melhor } = melhorPontuado(daBiblioteca, entidade, piso, recusados, config.larguraMinima, {
-        titulo: pauta.titulo,
-        resumo: pauta.resumo,
-        atores: pauta.classificacao.atores,
-      });
+      /*
+       * Com protagonista na manchete, a foto guardada não sai daqui direto: ela
+       * foi aprovada por uma régua que não conferia identidade, e entra na fila
+       * da verificação junto com as fontes externas (06/10/2026).
+       */
+      if (estrito) {
+        guardadasParaVerificar.push(...daBiblioteca);
+      }
+      const { melhor } = estrito
+        ? { melhor: null }
+        : melhorPontuado(daBiblioteca, entidade, piso, recusados, config.larguraMinima, {
+            titulo: pauta.titulo,
+            resumo: pauta.resumo,
+            atores: pauta.classificacao.atores,
+          });
       if (melhor) {
         if (!opcoes.somenteLeitura && melhor.id) await biblioteca.registrarUso(melhor.id);
         usadosAgora.add(melhor.imageUrl);
@@ -411,7 +494,7 @@ export async function resolveVisualAsset(
     }
   }
 
-  const novos: AssetVisual[] = [];
+  const novos: AssetVisual[] = [...guardadasParaVerificar];
 
   /*
    * 2.5. Os bancos de imagem oficiais (06/10/2026), antes do Commons.
@@ -565,6 +648,57 @@ export async function resolveVisualAsset(
    * Agora são duas etapas. Esta é a da entidade, com a régua de sempre. A
    * seguinte é a da cena, que só roda quando esta não entregou foto aprovada.
    */
+  /*
+   * 5.5. O PROTAGONISTA da manchete decide sozinho, e não desce para a cena
+   * (06/10/2026, "imagem certeira"). Ver `fotoDoProtagonista`.
+   */
+  if (estrito) {
+    const r = await fotoDoProtagonista({
+      pauta,
+      entidade,
+      candidatas: novos.filter((a) => !usadosAgora.has(a.imageUrl) && !jaSaiu(a.imageUrl)),
+      piso,
+      config,
+      bancos,
+      conferir,
+      env,
+      opcoes,
+      recusados,
+      fontesConsultadas,
+      livre: (url) => !usadosAgora.has(url) && !jaSaiu(url),
+    });
+    if (r) {
+      usadosAgora.add(r.asset.imageUrl);
+      const aprovado = aprovar({ ...r.asset, metadata: { ...r.asset.metadata, verificacao: r.verificacao } });
+      return aprovado;
+    }
+    /*
+     * A manchete nomeia mais alguém: a vez passa para ele, com a mesma régua.
+     * As notas desta tentativa vão junto, para o relatório dizer por que o
+     * primeiro nome ficou sem foto.
+     */
+    if (protagonista.nomeNaManchete && (protagonista.restantes ?? 0) > 0) {
+      const seguinte = await resolveVisualAsset(pauta, {
+        ...opcoes,
+        jaUsadosNestaEdicao: usadosAgora,
+        protagonistasExcluidos: [...(opcoes.protagonistasExcluidos ?? []), protagonista.nomeNaManchete],
+      });
+      return {
+        ...seguinte,
+        fontesConsultadas: [
+          ...fontesConsultadas.filter((f) => f.fonte !== "ultimo_recurso"),
+          { fonte: "biblioteca_interna", encontrados: 0, nota: `${entidade.nome} sem foto verificada; a vez passa ao nome seguinte da manchete` },
+          ...seguinte.fontesConsultadas,
+        ],
+        recusados: [...recusados, ...seguinte.recusados],
+      };
+    }
+    return {
+      ...semFotoDaPauta(entidade, MOTIVOS_DE_RECUSA.FOTO_DO_PROTAGONISTA_NAO_VERIFICADA),
+      protagonista: { nome: entidade.nome, tipo: entidade.tipo, qid: entidade.qid },
+    };
+  }
+
   const disponiveisDeFato = novos.filter((a) => !usadosAgora.has(a.imageUrl) && !jaSaiu(a.imageUrl));
   const desta = [] as CandidatoRecusado[];
   const { aprovadas: pontuadasDeFato } = melhorPontuado(disponiveisDeFato, entidade, piso, desta, config.larguraMinima, {
@@ -647,7 +781,8 @@ export async function resolveVisualAsset(
     return aprovar(escolhidoDeFato, undefined, vice);
   }
 
-  if (ehPessoa(entidade.tipo) && pessoaNaManchete(entidade, pauta.titulo)) {
+  // A manchete da peça conta junto com a da fonte (06/10/2026): o post "Bret Taylor: ..." veio de "Meta joins...".
+  if (ehPessoa(entidade.tipo) && pessoaNaManchete(entidade, `${pauta.manchete ?? ""} ${pauta.titulo}`)) {
     /*
      * Pessoa continua sem cena no lugar, e isso não mudou com a etapa da cena.
      *
@@ -1009,6 +1144,457 @@ export async function resolveVisualAsset(
   );
 }
 
+/** Quantas candidatas cada degrau da verificação do protagonista abre. */
+const TETO_DA_VERIFICACAO = 4;
+/** Quantos representantes (CEO, fundador) são tentados antes de desistir. */
+const TETO_DE_REPRESENTANTES = 2;
+
+type EntradaDoProtagonista = {
+  pauta: PautaParaImagem;
+  entidade: EntidadeVisual;
+  candidatas: AssetVisual[];
+  piso: number;
+  config: ReturnType<typeof carregarConfigDeImagem>;
+  bancos: DefinicaoDoBanco[] | null;
+  conferir: Conferente | null;
+  env: Record<string, string | undefined>;
+  opcoes: OpcoesDeResolucao;
+  recusados: CandidatoRecusado[];
+  fontesConsultadas: ResultadoVisual["fontesConsultadas"];
+  livre: (url: string) => boolean;
+};
+
+type FotoVerificada = { asset: AssetVisual; verificacao: VerificacaoDoProtagonista };
+
+/** O retrato de referência de uma pessoa: o P18 do Wikidata, pelo endereço que o modelo consegue abrir. */
+async function retratoDeReferencia(
+  arquivo: string | null,
+  candidatas: AssetVisual[],
+  env: Record<string, string | undefined>,
+  fetcher?: typeof fetch,
+): Promise<{ arquivo: string; url: string } | null> {
+  if (!arquivo) return null;
+  const jaVeio = candidatas.find((c) => c.source === "wikimedia_commons" && c.sourceAssetId.endsWith(arquivo));
+  if (jaVeio) return { arquivo, url: jaVeio.imageUrl };
+  try {
+    const c = await arquivoDoCommons(arquivo, { env, fetcher, tempoLimiteMs: 12_000 });
+    return c ? { arquivo, url: c.imageUrl } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A candidata é o próprio retrato de referência (o P18)? Então a identidade é a da fonte. */
+function ehOProprioRetrato(c: AssetVisual, arquivo: string | null): boolean {
+  return Boolean(arquivo && c.source === "wikimedia_commons" && c.sourceAssetId.replace(/^File:/i, "") === arquivo.replace(/^File:/i, ""));
+}
+
+/**
+ * A primeira foto DA PESSOA, com a identidade provada.
+ *
+ * Três provas aceitas, nesta ordem de força:
+ *
+ *   1. a candidata É o retrato que o Wikidata declara para a pessoa (P18);
+ *   2. a candidata foi comparada com esse retrato pelo modelo, que respondeu
+ *      "mesma pessoa, em destaque" com confiança de 85 ou mais;
+ *   3. sem retrato de referência, a foto de banco oficial cuja legenda põe a
+ *      pessoa como PROTAGONISTA (`protagonistaDaLegenda`, que já filtrou a fila).
+ *
+ * Toda candidata passa também pela conferência de sempre, que recusa outro
+ * país, texto dominando, logotipo de terceiro. Na dúvida, não.
+ */
+async function pessoaVerificada(
+  e: EntradaDoProtagonista,
+  pessoa: { nome: string; qid: string | null; imagemPrincipal: string | null },
+  fila: AssetVisual[],
+  tipo: "identidade" | "representante",
+  representante: VerificacaoDoProtagonista["representante"],
+): Promise<FotoVerificada | null> {
+  /*
+   * A referência é o P18. Sem ele, a foto de banco oficial cuja legenda põe a
+   * pessoa como protagonista (a fila já foi filtrada por
+   * `protagonistaDaLegenda`): é a outra fonte confiável que o dono aceitou.
+   */
+  const p18 = await retratoDeReferencia(pessoa.imagemPrincipal, fila, e.env, e.opcoes.fetcher);
+  const doBanco = p18 ? null : (fila.find((c) => c.source === "banco_oficial") ?? null);
+  const ref = p18 ?? (doBanco ? { arquivo: "", url: doBanco.imageUrl } : null);
+  e.fontesConsultadas.push({
+    fonte: "wikimedia_commons",
+    encontrados: ref ? 1 : 0,
+    nota: p18
+      ? `retrato de referência de ${pessoa.nome}: P18 "${p18.arquivo}"`
+      : doBanco
+        ? `${pessoa.nome} sem P18: a referência é a foto de banco oficial cuja legenda o põe como protagonista (${doBanco.sourceAssetId})`
+        : `${pessoa.nome} sem retrato de referência (nem P18 nem banco oficial): nenhuma foto pode ter a identidade conferida`,
+  });
+
+  let abertas = 0;
+  for (const c of fila) {
+    if (abertas >= TETO_DA_VERIFICACAO) break;
+    const proprio = ehOProprioRetrato(c, p18?.arquivo ?? null) || c === doBanco;
+    const pelaLegenda = c === doBanco;
+    if (!proprio && !ref) {
+      e.recusados.push({
+        origem: c.source,
+        identificacao: c.sourceAssetId,
+        motivo: MOTIVOS_DE_RECUSA.IDENTIDADE_NAO_CONFERIDA,
+        detalhe: `sem retrato de referência de ${pessoa.nome} para comparar`,
+      });
+      continue;
+    }
+    abertas += 1;
+    if (!e.conferir) {
+      // Sem conferente (ensaio sem chamada de modelo): a primeira da fila, como no resto do resolvedor.
+      return {
+        asset: c,
+        verificacao: {
+          regra: "protagonista_da_manchete",
+          protagonista: e.entidade.nome,
+          qid: e.entidade.qid,
+          tipo,
+          como: "NÃO CONFERIDA: ensaio sem conferência visual",
+          referencia: ref?.url ?? null,
+          representante,
+        },
+      };
+    }
+
+    let como: string;
+    let veredicto: VeredictoVisual | null = null;
+    if (pelaLegenda) {
+      como = `banco oficial: a legenda põe ${pessoa.nome} como protagonista da foto (sem P18 para comparar)`;
+    } else if (proprio) {
+      como = `é o retrato que o Wikidata declara para ${pessoa.nome} (P18${pessoa.qid ? ` de ${pessoa.qid}` : ""})`;
+    } else if (ref) {
+      veredicto = await e.conferir(c, {
+        titulo: e.pauta.manchete || e.pauta.titulo,
+        resumo: e.pauta.resumo,
+        eixo: e.pauta.categoria,
+        papel: "identidade",
+        referencia: { nome: pessoa.nome, url: ref.url },
+      });
+      if (!veredicto.aprovada) {
+        e.recusados.push({
+          origem: c.source,
+          identificacao: c.sourceAssetId,
+          motivo: veredicto.falhou ? MOTIVOS_DE_RECUSA.CONFERENCIA_VISUAL_INDISPONIVEL : MOTIVOS_DE_RECUSA.IDENTIDADE_NAO_CONFERIDA,
+          detalhe: veredicto.descricao ? `viu "${veredicto.descricao}": ${veredicto.motivo}` : veredicto.motivo,
+        });
+        continue;
+      }
+      como =
+        `comparada com o retrato de referência de ${pessoa.nome} (${p18 ? "P18" : "banco oficial"}): ` +
+        `mesma pessoa, em destaque, confiança ${veredicto.confianca}`;
+    } else {
+      continue;
+    }
+
+    /*
+     * A conferência de sempre, para as recusas duras (outro país, texto,
+     * logotipo de terceiro). Para o representante ela não roda: a pergunta
+     * dela recusa "pessoa identificável que a manchete não cita", e o CEO não
+     * está na manchete por definição; a da identidade já recusa montagem,
+     * texto dominando e baixa qualidade.
+     */
+    if (tipo === "identidade") {
+      /*
+       * A conferência de sempre recusa "pessoa identificável que a manchete não
+       * cita", e ela não sabe quem é o rosto: no ensaio de 06/10/2026 ela
+       * recusou o retrato P18 do Bret Taylor numa manchete que abre com "Bret
+       * Taylor:". Ela recebe o que já foi provado, e segue julgando o resto.
+       */
+      const provado = `IDENTIDADE JÁ CONFERIDA: a pessoa em destaque na foto é ${pessoa.nome}, que a manchete nomeia (${
+        proprio ? "retrato declarado no Wikidata" : pelaLegenda ? "legenda do banco oficial" : "comparada com o retrato de referência"
+      }). Não recuse por ser pessoa identificável; julgue o resto.`;
+      const geral = await e.conferir(c, {
+        titulo: e.pauta.manchete || e.pauta.titulo,
+        resumo: [provado, e.pauta.resumo ?? ""].filter(Boolean).join("\n"),
+        eixo: e.pauta.categoria,
+      });
+      if (!geral.aprovada) {
+        e.recusados.push({
+          origem: c.source,
+          identificacao: c.sourceAssetId,
+          motivo: geral.falhou ? MOTIVOS_DE_RECUSA.CONFERENCIA_VISUAL_INDISPONIVEL : MOTIVOS_DE_RECUSA.CONFERENCIA_VISUAL_REPROVOU,
+          detalhe: geral.descricao ? `viu "${geral.descricao}": ${geral.motivo}` : geral.motivo,
+        });
+        continue;
+      }
+      veredicto = veredicto ?? geral;
+      c.conferenciaVisual = { descricao: geral.descricao, motivo: geral.motivo, paisAparente: geral.paisAparente, confianca: geral.confianca };
+    } else if (veredicto) {
+      c.conferenciaVisual = { descricao: veredicto.descricao, motivo: veredicto.motivo, paisAparente: null, confianca: veredicto.confianca };
+    }
+
+    return {
+      asset: c,
+      verificacao: {
+        regra: "protagonista_da_manchete",
+        protagonista: e.entidade.nome,
+        qid: e.entidade.qid,
+        tipo,
+        como,
+        referencia: ref?.url ?? null,
+        representante,
+        veredicto: veredicto
+          ? { confianca: veredicto.confianca, descricao: veredicto.descricao, motivo: veredicto.motivo }
+          : undefined,
+      },
+    };
+  }
+  return null;
+}
+
+/**
+ * A foto do protagonista da manchete, verificada, ou nada (06/10/2026).
+ *
+ * PESSOA: a foto é dela, com a identidade provada (`pessoaVerificada`).
+ *
+ * ORGANIZAÇÃO, nesta ordem, e a ordem é do dono:
+ *
+ *   1. foto com a MARCA legível (a fachada da SpaceX com o nome na parede foi o
+ *      exemplo aprovado na fila de 07/10/2026);
+ *   2. o LOGOTIPO oficial (P154), no cartão neutro de `cartao-da-marca.ts`;
+ *   3. quem a REPRESENTA: o CEO (P169), depois o fundador (P112), com a
+ *      identidade provada.
+ *
+ * O representante vem por último de propósito. O dono reprovou duas vezes a
+ * capa da Anduril com o fundador num palco: "não tem a marca Anduril e tem um
+ * rapaz que não tem contexto nenhum! Enquanto não tiver a marca ou contexto ou
+ * produto da marca, não será aprovado". Rosto sem marca só serve quando a
+ * marca não tem foto nem logotipo publicável.
+ *
+ * Nada aqui desce para a cena. Sem foto verificada, `null`, e a pauta não vira
+ * conteúdo.
+ */
+async function fotoDoProtagonista(e: EntradaDoProtagonista): Promise<FotoVerificada | null> {
+  const { entidade, pauta } = e;
+  const desta: CandidatoRecusado[] = [];
+  const pontuar = (lista: AssetVisual[], alvo: EntidadeVisual) => {
+    const { aprovadas } = melhorPontuado(lista, alvo, pisoDeRelevancia(alvo, e.config), desta, e.config.larguraMinima, {
+      titulo: pauta.titulo,
+      resumo: pauta.resumo,
+      atores: pauta.classificacao.atores,
+    });
+    return (e.bancos ? oficiaisPrimeiro(aprovadas) : aprovadas).map((x) => x.item);
+  };
+  const fechar = <T>(r: T): T => {
+    for (const x of desta) {
+      if (!e.recusados.some((y) => y.identificacao === x.identificacao && y.motivo === x.motivo)) e.recusados.push(x);
+    }
+    return r;
+  };
+
+  if (ehPessoa(entidade.tipo)) {
+    const fila = pontuar(e.candidatas, entidade);
+    e.fontesConsultadas.push({
+      fonte: "biblioteca_interna",
+      encontrados: fila.length,
+      nota: `protagonista ${entidade.nome} (pessoa): ${fila.length} foto(s) passaram na pontuação; a identidade é conferida uma a uma`,
+    });
+    return fechar(await pessoaVerificada(e, entidade, fila, "identidade", null));
+  }
+
+  // 1. Foto com a marca legível.
+  const fila = pontuar(e.candidatas, entidade);
+  let abertas = 0;
+  for (const c of fila) {
+    if (abertas >= TETO_DA_VERIFICACAO) break;
+    abertas += 1;
+    if (!e.conferir) {
+      return fechar({
+        asset: c,
+        verificacao: { regra: "protagonista_da_manchete", protagonista: entidade.nome, qid: entidade.qid, tipo: "marca", como: "NÃO CONFERIDA: ensaio sem conferência visual" },
+      });
+    }
+    const marca = await e.conferir(c, { titulo: pauta.manchete || pauta.titulo, eixo: pauta.categoria, papel: "marca", marca: { nome: entidade.nome, instituicao: entidade.tipo !== "company" } });
+    if (!marca.aprovada) {
+      desta.push({
+        origem: c.source,
+        identificacao: c.sourceAssetId,
+        motivo: marca.falhou ? MOTIVOS_DE_RECUSA.CONFERENCIA_VISUAL_INDISPONIVEL : MOTIVOS_DE_RECUSA.MARCA_NAO_CONFERIDA,
+        detalhe: marca.descricao ? `viu "${marca.descricao}": ${marca.motivo}` : marca.motivo,
+      });
+      continue;
+    }
+    const geral = await e.conferir(c, { titulo: pauta.manchete || pauta.titulo, resumo: pauta.resumo, eixo: pauta.categoria });
+    if (!geral.aprovada) {
+      desta.push({
+        origem: c.source,
+        identificacao: c.sourceAssetId,
+        motivo: geral.falhou ? MOTIVOS_DE_RECUSA.CONFERENCIA_VISUAL_INDISPONIVEL : MOTIVOS_DE_RECUSA.CONFERENCIA_VISUAL_REPROVOU,
+        detalhe: geral.descricao ? `viu "${geral.descricao}": ${geral.motivo}` : geral.motivo,
+      });
+      continue;
+    }
+    c.conferenciaVisual = { descricao: geral.descricao, motivo: geral.motivo, paisAparente: geral.paisAparente, confianca: geral.confianca };
+    const lido = (marca as VeredictoVisual & { textoLido?: string }).textoLido;
+    return fechar({
+      asset: c,
+      verificacao: {
+        regra: "protagonista_da_manchete",
+        protagonista: entidade.nome,
+        qid: entidade.qid,
+        tipo: "marca",
+        como: `foto com a marca legível${lido ? `: leu "${lido}"` : ""}`,
+        veredicto: { confianca: marca.confianca, descricao: marca.descricao, motivo: marca.motivo, ...(lido ? { textoLido: lido } : {}) },
+      },
+    });
+  }
+  e.fontesConsultadas.push({
+    fonte: "biblioteca_interna",
+    encontrados: fila.length,
+    nota: `protagonista ${entidade.nome} (organização): ${Math.min(fila.length, TETO_DA_VERIFICACAO)} foto(s) abertas, nenhuma com a marca legível`,
+  });
+
+  const marca = entidade.qid ? await dadosDaMarca(entidade.qid, { env: e.env, fetcher: e.opcoes.fetcher }) : null;
+  if (marca) e.fontesConsultadas.push({ fonte: "biblioteca_interna", encontrados: marca.representantes.length + (marca.logotipo ? 1 : 0), nota: marca.nota });
+
+  // 2. O logotipo oficial, no cartão.
+  if (marca?.logotipo) {
+    const logo = await assetDoLogotipo(marca.logotipo, entidade, e);
+    /*
+     * O modelo confere o CARTÃO, e não o arquivo cru: o logotipo do Commons é
+     * PNG com fundo transparente, e o da Anduril, claro sobre transparente,
+     * chegava ao modelo como um quadrado vazio ("a marca não aparece"). O
+     * cartão é composto aqui e vai como `data:`; é exatamente o que a rota
+     * publica.
+     */
+    let cartao: string | null = null;
+    try {
+      const png = (await comporCartaoDaMarca(await baixarLogotipo(marca.logotipo, { env: e.env, fetcher: e.opcoes.fetcher }))).png;
+      cartao = `data:image/png;base64,${png.toString("base64")}`;
+    } catch (erro) {
+      e.fontesConsultadas.push({ fonte: "wikimedia_commons", encontrados: 0, nota: `cartão do logotipo não composto: ${(erro as Error).message}` });
+    }
+    if (logo && cartao && e.livre(logo.imageUrl)) {
+      const fonteDoLogotipo = { ...logo, imageUrl: cartao };
+      const v = e.conferir
+        ? await e.conferir(fonteDoLogotipo, { titulo: pauta.manchete || pauta.titulo, eixo: pauta.categoria, papel: "logotipo", marca: { nome: entidade.nome } })
+        : null;
+      if (!v || v.aprovada) {
+        const lido = (v as (VeredictoVisual & { textoLido?: string }) | null)?.textoLido;
+        return fechar({
+          asset: logo,
+          verificacao: {
+            regra: "protagonista_da_manchete",
+            protagonista: entidade.nome,
+            qid: entidade.qid,
+            tipo: "logotipo",
+            como: v
+              ? `logotipo oficial declarado no Wikidata (P154 "${marca.logotipo}")${lido ? `, e o modelo leu "${lido}"` : ""}`
+              : "NÃO CONFERIDA: ensaio sem conferência visual",
+            veredicto: v ? { confianca: v.confianca, descricao: v.descricao, motivo: v.motivo, ...(lido ? { textoLido: lido } : {}) } : undefined,
+          },
+        });
+      }
+      desta.push({
+        origem: "wikimedia_commons",
+        identificacao: `File:${marca.logotipo}`,
+        motivo: v.falhou ? MOTIVOS_DE_RECUSA.CONFERENCIA_VISUAL_INDISPONIVEL : MOTIVOS_DE_RECUSA.MARCA_NAO_CONFERIDA,
+        detalhe: v.motivo,
+      });
+    }
+  }
+
+  // 3. Quem representa a organização, com a identidade provada.
+  for (const rep of (marca?.representantes ?? []).slice(0, TETO_DE_REPRESENTANTES)) {
+    const doRepresentante = await fotosDoRepresentante(rep, e);
+    const fila = pontuar(doRepresentante.candidatas, doRepresentante.entidade);
+    const achada = await pessoaVerificada(e, { nome: rep.nome, qid: rep.qid, imagemPrincipal: rep.imagemPrincipal }, fila, "representante", {
+      nome: rep.nome,
+      papel: rep.papel,
+      qid: rep.qid,
+    });
+    if (achada) {
+      return fechar({
+        ...achada,
+        asset: { ...achada.asset, entityName: entidade.nome, entityNormalized: entidade.normalizado },
+      });
+    }
+  }
+  return fechar(null);
+}
+
+/** O logotipo (P154) como asset: o cartão é a imagem publicada; a licença é a do arquivo no Commons. */
+async function assetDoLogotipo(arquivo: string, entidade: EntidadeVisual, e: EntradaDoProtagonista): Promise<AssetVisual | null> {
+  let info: Awaited<ReturnType<typeof arquivoDoCommons>> = null;
+  try {
+    info = await arquivoDoCommons(arquivo, { env: e.env, fetcher: e.opcoes.fetcher, tempoLimiteMs: 12_000 });
+  } catch (erro) {
+    e.fontesConsultadas.push({ fonte: "wikimedia_commons", encontrados: 0, nota: `logotipo "${arquivo}" não lido: ${(erro as Error).message}` });
+    return null;
+  }
+  if (!info) return null;
+  const veredicto = avaliarLicenca(info.licenca, e.env);
+  if (!veredicto.aceita) {
+    e.recusados.push({
+      origem: "wikimedia_commons",
+      identificacao: `File:${arquivo}`,
+      motivo: MOTIVOS_DE_RECUSA.LICENCA_DESCONHECIDA,
+      detalhe: veredicto.motivo,
+    });
+    return null;
+  }
+  const agora = new Date().toISOString();
+  return {
+    entityName: entidade.nome,
+    entityNormalized: entidade.normalizado,
+    entityType: entidade.tipo,
+    source: "wikimedia_commons",
+    sourceAssetId: info.arquivo,
+    imageUrl: urlDoCartaoDaMarca(arquivo),
+    sourcePageUrl: info.paginaUrl,
+    author: info.autor,
+    license: veredicto.nome,
+    licenseUrl: info.licencaUrl,
+    attribution: montarAtribuicao({ autor: info.autor, fonte: "Wikimedia Commons", licenca: veredicto.nome, exigeAtribuicao: veredicto.exigeAtribuicao }),
+    rightsStatement: info.licenca,
+    rightsStatus: "verified",
+    rightsCheckedAt: agora,
+    sourceLastCheckedAt: agora,
+    width: 1600,
+    height: 1600,
+    mimeType: "image/png",
+    storagePath: null,
+    perceptualHash: null,
+    imageRelevanceScore: 100,
+    imageContextType: "company",
+    metadata: { tratamento: "cartao_do_logotipo", logotipo: arquivo, logotipo_url: urlDoLogotipoNoCommons(arquivo) },
+  };
+}
+
+/** As fotos de um representante: Commons (P18 e categoria) e os bancos oficiais, pelas mesmas conversões. */
+async function fotosDoRepresentante(
+  rep: Representante,
+  e: EntradaDoProtagonista,
+): Promise<{ entidade: EntidadeVisual; candidatas: AssetVisual[] }> {
+  const pessoa: EntidadeVisual = {
+    nome: rep.nome,
+    normalizado: normalizarEntidade(rep.nome),
+    tipo: "person",
+    qid: rep.qid,
+    imagemPrincipal: rep.imagemPrincipal,
+    categoriaCommons: rep.categoriaCommons,
+    siteOficial: null,
+    origem: `representante de ${e.entidade.nome} no Wikidata (${rep.papel})`,
+    confianca: 80,
+    evidencias: [`${rep.papel} de ${e.entidade.nome} (Wikidata ${rep.qid})`],
+  };
+  const candidatas: AssetVisual[] = [];
+  try {
+    const busca = await buscarNoCommons(pessoa, { env: e.env, fetcher: e.opcoes.fetcher });
+    for (const c of busca.candidatos) {
+      const conv = candidatoParaAsset(c, pessoa, e.env);
+      if (conv.ok && e.livre(conv.asset.imageUrl)) candidatas.push(conv.asset);
+    }
+    e.fontesConsultadas.push({ fonte: "wikimedia_commons", encontrados: candidatas.length, nota: `representante ${rep.nome}: ${busca.caminhos.join(" ; ")}` });
+  } catch (erro) {
+    e.fontesConsultadas.push({ fonte: "wikimedia_commons", encontrados: 0, nota: `representante ${rep.nome}: ${(erro as Error).message}` });
+  }
+  return { entidade: pessoa, candidatas };
+}
+
 /**
  * A manchete nomeia a pessoa? Basta o sobrenome ou qualquer parte do nome com
  * mais de três letras ("Trump", "Altman"), sem acento nem caixa.
@@ -1132,7 +1718,30 @@ function conferenteDe(opcoes: OpcoesDeResolucao): Conferente | null {
   if (typeof opcoes.conferenciaVisual === "function") return opcoes.conferenciaVisual;
   const env = opcoes.env ?? process.env;
   if (!getAIProviderConfig(env).isConfigured) return null;
-  return (asset, contexto) => conferirImagem(asset, contexto, { env, fetcher: opcoes.fetcher });
+  return conferenteDeVerdade({ env, fetcher: opcoes.fetcher });
+}
+
+/**
+ * A conferência de verdade, com as três perguntas: a de sempre, a de
+ * identidade e a de marca (06/10/2026). Exportada para os scripts de medição
+ * contarem o custo pelo próprio `fetcher` sem perder as perguntas novas.
+ */
+export function conferenteDeVerdade(o: { env?: Record<string, string | undefined>; fetcher?: typeof fetch }): Conferente {
+  return (asset, contexto) => {
+    // As perguntas do protagonista (06/10/2026) têm instrução própria; sem o dado que pedem, é recusa.
+    if (contexto.papel === "identidade") {
+      return contexto.referencia
+        ? conferirIdentidade(asset, contexto.referencia, o)
+        : Promise.resolve({ aprovada: false, descricao: "", motivo: "sem retrato de referência", paisAparente: null, confianca: 0, falhou: true });
+    }
+    if (contexto.papel === "marca" || contexto.papel === "logotipo") {
+      return contexto.marca
+        ? conferirMarca(asset, { ...contexto.marca, tipo: contexto.papel === "logotipo" ? "logotipo" : "foto" }, o)
+        : Promise.resolve({ aprovada: false, descricao: "", motivo: "sem o nome da marca", paisAparente: null, confianca: 0, falhou: true });
+    }
+    const papel = contexto.papel === "cena" ? "cena" : "assunto";
+    return conferirImagem(asset, { ...contexto, papel }, o);
+  };
 }
 
 /**
@@ -1536,9 +2145,34 @@ export async function buscarSegundaFoto(
   } as AssetVisual);
   notas.push(`${disponiveis.length} candidata(s), ${comIdentidade.length} com identidade`);
 
+  /*
+   * A bolha mostra quem a pauta cita, e a mesma régua do protagonista vale
+   * para ela (06/10/2026, "imagem certeira"): rosto no círculo é rosto
+   * conferido contra o retrato de referência; organização no círculo é marca
+   * legível. Sem retrato de referência, bolha de pessoa não sai.
+   */
+  const daPessoa = ehPessoa(entidade.tipo);
+  const ref = daPessoa
+    ? await retratoDeReferencia(entidade.imagemPrincipal, comIdentidade.map((x) => x.item), env, opcoes.fetcher)
+    : null;
+  if (daPessoa && !ref) {
+    notas.push(`${entidade.nome} sem retrato de referência (P18): bolha de pessoa exige identidade conferida`);
+    return { asset: null, nota: notas.join(" ; ") };
+  }
+  const conferirNaBolha: Conferente = async (asset, ctx) => {
+    if (daPessoa && ref && !ehOProprioRetrato(asset, ref.arquivo)) {
+      const v = await conferir(asset, { ...ctx, papel: "identidade", referencia: { nome: entidade.nome, url: ref.url } });
+      if (!v.aprovada) return v;
+    }
+    if (!daPessoa && entidade.tipo !== "place") {
+      const v = await conferir(asset, { ...ctx, papel: "marca", marca: { nome: entidade.nome, instituicao: entidade.tipo !== "company" } });
+      if (!v.aprovada) return v;
+    }
+    return conferir(asset, ctx);
+  };
   const vice = await primeiraAprovada(
     comIdentidade.map((x) => x.item),
-    conferir,
+    conferirNaBolha,
     pauta,
     recusados,
     TETO_DE_CONFERENCIAS_DA_BUSCA_EXTRA,
