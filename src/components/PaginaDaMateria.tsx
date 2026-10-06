@@ -86,7 +86,12 @@ function datasDaMateria(a: MateriaDaPagina): { publicada?: { iso: string; texto:
   const modificada = dataDeModificacao(a.published_at, a.updated_at);
   const textoModificada = porExtenso(modificada);
   if (!modificada || !textoModificada || textoModificada === textoPublicada) return { publicada };
-  return { publicada, atualizada: { iso: modificada, texto: textoModificada } };
+  /*
+   * Decisão do dono em 06/10/2026: na tela, só a data de publicação. A data
+   * de modificação continua no NewsArticle (`dateModified`), que é onde o
+   * Google e os buscadores de IA a leem; na página ela soava como errata.
+   */
+  return { publicada };
 }
 
 /**
