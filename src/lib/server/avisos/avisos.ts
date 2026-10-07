@@ -1,3 +1,4 @@
+import { MARCA } from "@/lib/marca";
 import { resolverCapacidade, type EstadoDaCapacidade } from "../capacidades";
 import { cadenciaDoProjeto, decidirProducao, somarDiasIso, type DecisaoDeProducao } from "../cadencia";
 import { zonedTimeToUtc } from "../time";
@@ -238,7 +239,7 @@ export function descreverContagem(c: ContagemPorRamo, omitirZeros = false): stri
 }
 
 export function linkDaFila(slug: string): string {
-  return `https://casaloti.ia.br/admin/${slug}/aprovacao`;
+  return `${MARCA.site}/admin/${slug}/aprovacao`;
 }
 
 function formatarUsd(valor: number): string {

@@ -26,7 +26,7 @@ type TurnstileSiteverifyResponse = {
 
 export function getTurnstileConfig(env: EnvLike = process.env): TurnstileConfig {
   const secret = env.TURNSTILE_SECRET_KEY;
-  const allowedHostnames = String(env.TURNSTILE_ALLOWED_HOSTNAMES ?? "casaloti.ia.br,www.casaloti.ia.br")
+  const allowedHostnames = String(env.TURNSTILE_ALLOWED_HOSTNAMES ?? "casaloti.ia.br,www.casaloti.ia.br,euajournal.com,www.euajournal.com")
     .split(",")
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean);

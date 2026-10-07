@@ -239,6 +239,7 @@ export const HOSTS_OTIMIZAVEIS = [
   "images.unsplash.com",
   "azqpdesusdzqndvsqmko.supabase.co",
   "casaloti.ia.br",
+  "euajournal.com",
   "upload.wikimedia.org",
   "live.staticflickr.com",
   // Os bancos de imagem oficiais (06/10/2026); o Senado e o Flickr usam o host acima.

@@ -1,5 +1,15 @@
 import type { NextConfig } from "next";
 
+/*
+ * O domínio do portal vem do ambiente no build (07/10/2026, troca para
+ * euajournal.com). Ver `ENDERECO_DO_SITE` em `src/lib/marca.ts`.
+ */
+const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://casaloti.ia.br").trim().replace(/\/+$/, "");
+const HOST_DO_SITE = new URL(SITE).host;
+const HOSTS_QUE_REDIRECIONAM = [
+  ...new Set([`www.${HOST_DO_SITE}`, "casaloti.ia.br", "www.casaloti.ia.br"].filter((h) => h !== HOST_DO_SITE)),
+];
+
 const nextConfig: NextConfig = {
   /*
    * Um endereço só para cada página (auditoria de SEO, 05/10/2026).
@@ -8,14 +18,16 @@ const nextConfig: NextConfig = {
    * de forma permanente, com o mesmo caminho.
    */
   async redirects() {
-    return [
-      {
-        source: "/:caminho*",
-        has: [{ type: "host", value: "www.casaloti.ia.br" }],
-        destination: "https://casaloti.ia.br/:caminho*",
-        permanent: true,
-      },
-    ];
+    /*
+     * Na troca para euajournal.com, o domínio antigo vai para o novo do mesmo
+     * jeito, página por página e permanente, para o Google levar a indexação.
+     */
+    return HOSTS_QUE_REDIRECIONAM.map((host) => ({
+      source: "/:caminho*",
+      has: [{ type: "host" as const, value: host }],
+      destination: `${SITE}/:caminho*`,
+      permanent: true,
+    }));
   },
 
   /*
@@ -66,6 +78,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "azqpdesusdzqndvsqmko.supabase.co" },
       { protocol: "https", hostname: "casaloti.ia.br" },
+      { protocol: "https", hostname: "euajournal.com" },
       /*
        * O Commons entrou depois, junto com o resolvedor visual da fase 2.
        *

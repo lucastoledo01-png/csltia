@@ -13,6 +13,17 @@
  * e de cliente, sem consulta.
  */
 
+/**
+ * O endereço do portal, sem barra no fim (07/10/2026).
+ *
+ * O dono trocou o domínio para euajournal.com junto com a mudança de VPS. O
+ * endereço vem do ambiente (`NEXT_PUBLIC_SITE_URL`, lido no BUILD, porque o
+ * Next grava `NEXT_PUBLIC_*` no pacote), e sem ele é o domínio antigo. Assim o
+ * servidor antigo segue em casaloti.ia.br até a virada, e o novo nasce no
+ * domínio novo, com o mesmo código. Depois da virada o padrão muda aqui.
+ */
+export const ENDERECO_DO_SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://casaloti.ia.br").trim().replace(/\/+$/, "");
+
 export const MARCA = {
   /** Nome exibido. Aparece no site, no e-mail e nos slides. */
   nome: "eua.journal",
@@ -60,7 +71,7 @@ export const MARCA = {
    */
   keyword: "NEWS",
 
-  site: "https://casaloti.ia.br",
+  site: ENDERECO_DO_SITE,
 
   /**
    * Logotipo, nas duas versões.
@@ -85,7 +96,7 @@ export const MARCA = {
    * vermelho nas duas. As versões `-alta` são o arquivo entregue sem as
    * margens, em resolução cheia, e nada no código aponta para elas.
    */
-  logoClaro: "https://casaloti.ia.br/marca/eua-journal-fundo-claro.png",
+  logoClaro: `${ENDERECO_DO_SITE}/marca/eua-journal-fundo-claro.png`,
   /*
    * A versão escura é a clara com o azul-marinho virado branco.
    *
@@ -96,7 +107,7 @@ export const MARCA = {
    * Isso valeu até 05/10/2026. Desde então a versão escura é desenhada pelo
    * dono, e não derivada.
    */
-  logoEscuro: "https://casaloti.ia.br/marca/eua-journal-fundo-escuro.png",
+  logoEscuro: `${ENDERECO_DO_SITE}/marca/eua-journal-fundo-escuro.png`,
   /**
    * Proporção dos dois arquivos, largura sobre altura (800 por 142 o claro,
    * 800 por 143 o escuro: a diferença é de um pixel e não aparece).
@@ -120,8 +131,8 @@ export const MARCA = {
    * fundo preto do convite. Quem escolhe na foto é a medida de brilho atrás da
    * marca, a mesma de 16/09/2026 (limiar 0.62).
    */
-  logoInstagramClaro: "https://casaloti.ia.br/marca/eua-instagram-fundo-claro.png",
-  logoInstagramEscuro: "https://casaloti.ia.br/marca/eua-instagram-fundo-escuro.png",
+  logoInstagramClaro: `${ENDERECO_DO_SITE}/marca/eua-instagram-fundo-claro.png`,
+  logoInstagramEscuro: `${ENDERECO_DO_SITE}/marca/eua-instagram-fundo-escuro.png`,
   /** Largura sobre altura dos dois arquivos cortados (478x129 e 482x129). */
   logoInstagramProporcao: 480 / 129,
   /**
@@ -138,7 +149,7 @@ export const MARCA = {
    * branco com o ponto vermelho sobre azul-marinho, achatado sem transparência
    * e no mesmo tamanho de antes, 320x320.
    */
-  avatar: "https://casaloti.ia.br/marca/eua-journal-avatar.png",
+  avatar: `${ENDERECO_DO_SITE}/marca/eua-journal-avatar.png`,
   /*
    * O perfil, perguntado à Graph API em 28/09/2026, não suposto.
    *
