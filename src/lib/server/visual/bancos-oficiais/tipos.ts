@@ -17,6 +17,7 @@ export type IdDoBanco =
   | "agencia_gov"
   | "casa_branca"
   | "casa_branca_flickr"
+  | "casa_branca_commons"
   | "federal_reserve"
   | "dvids"
   | "nasa"
