@@ -1,6 +1,6 @@
 import { getImageProps } from "next/image";
 import type { EditoriaId } from "@/lib/editorias";
-import { enderecoLimpoDaImagem, fotoNaLargura, hostOtimizavel, miniaturaDoCommons } from "@/lib/imagem-da-capa";
+import { enderecoLimpoDaImagem, fotoNaLargura, hostOtimizavel, miniaturaDoCommons, recorteDaFoto } from "@/lib/imagem-da-capa";
 
 /**
  * As peças pequenas que a home, a lista de edições e o artigo dividem.
@@ -62,8 +62,7 @@ export function FotoDaPauta({
   /** O `sizes` da foto: a largura que a caixa ocupa em cada tela. */
   tamanhos?: string;
 }) {
-  const classe =
-    "absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100";
+  const classe = `absolute inset-0 h-full w-full object-cover ${recorteDaFoto(src).classe} transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100`;
   const fonte = src ? fotoNaLargura(enderecoDaFoto(src), prioridade ? 1280 : 960) : "";
 
   /*

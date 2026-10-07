@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { logoDoSite, MARCA } from "@/lib/marca";
+import { recorteDaFoto } from "@/lib/imagem-da-capa";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -92,7 +93,7 @@ export function NewsletterRenderer({
             width={1200}
             height={720}
             priority
-            className="aspect-[5/3] h-auto w-full object-cover"
+            className={`aspect-[5/3] h-auto w-full object-cover ${recorteDaFoto(coverImage).classe}`}
           />
         </div>
       ) : null}

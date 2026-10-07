@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { MARCA } from "@/lib/marca";
 import { enderecoDaPaginaAtual, linkDoWhatsApp } from "@/lib/compartilhar";
+import { recorteDaFoto } from "@/lib/imagem-da-capa";
 
 type SubstackArticleRendererProps = {
   title: string;
@@ -179,7 +180,7 @@ export function SubstackArticleRenderer({
               fill
               sizes="(min-width: 768px) 680px, 100vw"
               preload
-              className="object-cover"
+              className={`object-cover ${recorteDaFoto(coverImage).classe}`}
             />
           </div>
           {legendaDaCapa.length ? (
