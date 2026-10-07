@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { CASA_BRANCA, dataNaLegenda, galeriasQueCitam, lerGaleria, lerMapaDeGalerias } from "./casa-branca";
 import { FEDERAL_RESERVE, fotosQueCitam, lerGaleriaDoFed } from "./federal-reserve";
 import { NASA, autorDaNasa, lerBuscaDaNasa } from "./nasa";
+import { CASA_BRANCA_FLICKR, autorNaLegenda } from "./flickr";
 import { fotoParaAsset, legendaCita } from "./index";
 import { esquecerRedeDosBancos, medidaDoJpeg } from "./rede";
 import type { EntidadeVisual } from "../tipos";
@@ -139,5 +140,35 @@ describe("NASA", () => {
       },
     });
     expect(lerBuscaDaNasa(json)).toHaveLength(0);
+  });
+});
+
+describe("Casa Branca no Flickr (pedido do dono, 07/10/2026)", () => {
+  it("o crédito oficial da legenda vira o nome do fotógrafo", () => {
+    expect(autorNaLegenda("Thursday, August 20, 2026, in the Rose Garden of the White House. (Official White House Photo by Andrea Hanks)")).toBe("Andrea Hanks");
+    expect(autorNaLegenda("Foto: Jonas Pereira/Agência Senado")).toBe("Jonas Pereira");
+  });
+
+  it("busca na conta oficial, lê a licença do governo e descarta foto de outra conta", async () => {
+    let pedido = "";
+    const foto = (id: string, owner: string, license: string) => ({
+      id,
+      owner,
+      license,
+      title: "President Trump",
+      description: { _content: "President Donald J. Trump in the Oval Office. (Official White House Photo by Daniel Torok)" },
+      datetaken: "2026-10-01 10:00:00",
+      url_k: `https://live.staticflickr.com/65535/${id}_k.jpg`,
+      width_k: 2048,
+      height_k: 1365,
+    });
+    const fetcher = (async (url: string) => {
+      pedido = url;
+      return new Response(JSON.stringify({ stat: "ok", photos: { total: 2, photo: [foto("1", "202101414@N05", "8"), foto("2", "99@N01", "8")] } }));
+    }) as unknown as typeof fetch;
+    const r = await CASA_BRANCA_FLICKR.buscar("Trump", { env: { FLICKR_API_KEY: "k" }, fetcher, quantos: 5, espaco: 0 });
+    expect(pedido).toContain("user_id=202101414%40N05");
+    expect(r.fotos).toHaveLength(1);
+    expect(r.fotos[0]).toMatchObject({ licenca: "United States Government Work", autor: "Daniel Torok", paginaUrl: "https://www.flickr.com/photos/whitehouse/1/" });
   });
 });

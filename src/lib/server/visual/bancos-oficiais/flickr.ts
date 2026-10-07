@@ -76,8 +76,13 @@ function texto(v: FotoDoFlickr["title"] | FotoDoFlickr["description"]): string {
   return (typeof v === "string" ? v : (v._content ?? "")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-/** "Foto: Jonas Pereira/Agência Senado" na legenda vira "Jonas Pereira". */
+/**
+ * "Foto: Jonas Pereira/Agência Senado" na legenda vira "Jonas Pereira"; o
+ * "(Official White House Photo by Andrea Hanks)" da Casa Branca vira "Andrea Hanks".
+ */
 export function autorNaLegenda(legenda: string): string {
+  const casaBranca = legenda.match(/\(Official White House Photo by ([^)]+)\)/i);
+  if (casaBranca) return casaBranca[1].trim();
   const m = legenda.match(/Fotos?:\s*([^\n]+?)\s*$/im) ?? legenda.match(/Fotos?:\s*([^\n;]+)/i);
   if (!m) return "";
   return m[1].split(/\s*\/\s*/)[0].replace(/[.;,]+$/, "").trim();
@@ -182,6 +187,21 @@ export const PLANALTO = bancoNoFlickr({
   pais: "BR",
   nsid: "51178866@N04",
   alias: "palaciodoplanalto",
+});
+
+/**
+ * A conta oficial da Casa Branca no Flickr (flickr.com/photos/whitehouse),
+ * pedida pelo dono em 07/10/2026. O NSID e a licença foram conferidos na
+ * revisão do Commons de uma foto da conta (FlickreviewR, "United States
+ * Government Work", que é a licença 8, comercial). Complementa as galerias do
+ * whitehouse.gov com a busca por texto da API, que acha a pessoa pela legenda.
+ */
+export const CASA_BRANCA_FLICKR = bancoNoFlickr({
+  id: "casa_branca_flickr",
+  nome: "Casa Branca",
+  pais: "US",
+  nsid: "202101414@N05",
+  alias: "whitehouse",
 });
 
 /** Supremo Tribunal Federal. */
