@@ -352,3 +352,29 @@ export function imagensDaCapaParaJsonLd(
   }
   return ok ? [{ "@type": "ImageObject", url: limpo, width: ok.largura, height: ok.altura }] : [limpo];
 }
+
+/**
+ * Onde a caixa de proporção fixa corta a foto (06/10/2026, "não cortar a cara").
+ *
+ * O dono abriu a matéria do Caiado e a capa mostrava da boca para baixo: o
+ * retrato oficial é em pé (1273x1516) e a caixa da matéria é 16:9, então o
+ * `object-cover` centralizado jogava fora o alto e o pé por igual, e o alto era
+ * a cabeça. Em foto de gente o rosto está no terço de cima; no retrato oficial,
+ * colado no topo.
+ *
+ * A regra: o excesso sai do PÉ, nunca do alto. Foto deitada perto de 16:9
+ * quase não perde nada, então a regra só muda alguma coisa onde o corte é
+ * grande, que é exatamente a foto em pé de uma pessoa.
+ *
+ * A exceção é o cartão do logotipo (`visual/cartao-da-marca.ts`): ele foi
+ * desenhado para o corte CENTRAL, com o logotipo entre 31% e 53% da altura.
+ *
+ * Toda foto de capa do portal e da newsletter passa por aqui; há teste que
+ * reprova `object-cover` de capa sem esta classe.
+ */
+export type RecorteDaFoto = { classe: "object-top" | "object-center"; css: string };
+
+export function recorteDaFoto(src: string | null | undefined): RecorteDaFoto {
+  if (/\/api\/visual\/cartao-da-marca/.test(src ?? "")) return { classe: "object-center", css: "object-position:center center;" };
+  return { classe: "object-top", css: "object-position:center top;" };
+}

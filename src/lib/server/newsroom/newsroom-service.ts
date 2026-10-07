@@ -35,6 +35,7 @@ import { horariosDaRedacaoNaFila } from "../aprovacao/fila";
 import { cadenciaDoProjeto } from "../cadencia";
 import { hashDaNewsletter, hashDoArtigo } from "../aprovacao/hash";
 import { MARCA } from "@/lib/marca";
+import { recorteDaFoto } from "@/lib/imagem-da-capa";
 import { blocoDoVisaMatch, configDoVisaMatch } from "./visamatch-na-edicao";
 import type { ConfigDoVisaMatch } from "./visamatch-na-edicao";
 import {
@@ -333,7 +334,7 @@ function fotoNaProporcao(url: string): string {
 
 const ESTILO_DA_FOTO =
   `width:100%;max-width:${FOTO_LARGURA}px;height:${FOTO_ALTURA}px;` +
-  `object-fit:cover;object-position:center;display:block;border-radius:10px;`;
+  `object-fit:cover;display:block;border-radius:10px;`;
 
 export function renderEditionToHtml(
   edition: EditionContent,
@@ -483,7 +484,7 @@ export function renderEditionToHtml(
         </h2>
         ${
           imagem
-            ? `<img src="${escapeHtml(fotoNaProporcao(imagem))}" alt="" width="${FOTO_LARGURA}" height="${FOTO_ALTURA}" style="${ESTILO_DA_FOTO}margin:0 0 14px 0;" />${creditoHtml}`
+            ? `<img src="${escapeHtml(fotoNaProporcao(imagem))}" alt="" width="${FOTO_LARGURA}" height="${FOTO_ALTURA}" style="${ESTILO_DA_FOTO}${recorteDaFoto(imagem).css}margin:0 0 14px 0;" />${creditoHtml}`
             : ""
         }
         ${corpoDoTexto(s.summary, `font-family:${fonte};font-size:16px;line-height:1.62;color:${TINTA_SUAVE};margin:0 0 12px 0;`)}
@@ -501,7 +502,7 @@ export function renderEditionToHtml(
 
         ${
           imagem
-            ? `<img src="${escapeHtml(fotoNaProporcao(imagem))}" alt="" width="${FOTO_LARGURA}" height="${FOTO_ALTURA}" style="${ESTILO_DA_FOTO}margin:0 0 18px 0;" />${creditoHtml}`
+            ? `<img src="${escapeHtml(fotoNaProporcao(imagem))}" alt="" width="${FOTO_LARGURA}" height="${FOTO_ALTURA}" style="${ESTILO_DA_FOTO}${recorteDaFoto(imagem).css}margin:0 0 18px 0;" />${creditoHtml}`
             : ""
         }
 

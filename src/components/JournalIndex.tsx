@@ -4,6 +4,7 @@ import { FooterBrandMark, SiteHeader } from "@/components/SiteHeader";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { articles as artigosDeBase, type Article } from "@/lib/editorial";
 import { logoDoSite, MARCA } from "@/lib/marca";
+import { recorteDaFoto } from "@/lib/imagem-da-capa";
 
 const faqs = [
   {
@@ -107,7 +108,7 @@ function RecentArticlesFeed({ listaDeArtigos }: { listaDeArtigos: Article[] }) {
                       alt={art.imageAlt || art.title}
                       width={400}
                       height={250}
-                      className="aspect-[16/10] h-auto w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      className={`aspect-[16/10] h-auto w-full object-cover ${recorteDaFoto(art.image).classe} transition-transform duration-300 group-hover:scale-105`}
                     />
                   </Link>
                 ) : null}

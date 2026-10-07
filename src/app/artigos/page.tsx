@@ -5,6 +5,7 @@ import { CaixaDeAssinatura, MolduraDoPortal } from "@/components/PortalChrome";
 import { MARCA } from "@/lib/marca";
 import { Article } from "@/lib/editorial";
 import { getPublishedArticles } from "@/lib/server/articles-service";
+import { recorteDaFoto } from "@/lib/imagem-da-capa";
 
 /**
  * A listagem sai do banco, e o banco muda depois do build.
@@ -57,7 +58,7 @@ function SubstackFeedCard({ article }: { article: Article }) {
           <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-xl bg-[#F4F4F5] md:aspect-auto md:h-40 md:w-56">
             <Image
               alt={article.imageAlt || article.title}
-              className="object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none"
+              className={`object-cover ${recorteDaFoto(article.image).classe} transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none`}
               fill
               sizes="(min-width: 768px) 224px, 100vw"
               src={article.image}
