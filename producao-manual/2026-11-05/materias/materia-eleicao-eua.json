@@ -1,0 +1,67 @@
+{
+  "data": "2026-11-05",
+  "publicarEm": "2026-11-05T15:00:00.000Z",
+  "categoria": "Política",
+  "fonte": { "nome": "CNBC", "url": "https://www.cnbc.com/2026/11/04/democrats-2026-midterm-election-results.html" },
+  "fontes": [
+    { "nome": "CNBC", "url": "https://www.cnbc.com/2026/11/04/democrats-2026-midterm-election-results.html" },
+    { "nome": "CBS News", "url": "https://www.cbsnews.com/live-updates/election-day-2026-midterms/" },
+    { "nome": "NBC News", "url": "https://www.nbcnews.com/politics/2026-elections/governor-results" },
+    { "nome": "Axios", "url": "https://www.axios.com/2026/11/04/mike-johnson-gop-leadership-midterms-dear-colleague-letter" }
+  ],
+  "capa": "https://upload.wikimedia.org/wikipedia/commons/1/1f/Capitol%2C_Washington%2C_D.C._USA8.jpg",
+  "credito": {
+    "autor": "Diego Delso",
+    "licenca": "CC BY-SA 3.0",
+    "origem": "Wikimedia Commons",
+    "href": "https://commons.wikimedia.org/wiki/File:Capitol,_Washington,_D.C._USA8.jpg"
+  },
+  "legenda": "A cúpula do Capitólio, em Washington, sede do Congresso dos EUA.",
+  "entidades": [
+    { "papel": "sobre", "tipo": "Organization", "nome": "Partido Democrata" },
+    { "papel": "sobre", "tipo": "Organization", "nome": "Congresso dos Estados Unidos" },
+    { "papel": "menciona", "tipo": "Person", "nome": "Donald Trump" },
+    { "papel": "menciona", "tipo": "Person", "nome": "JD Vance" },
+    { "papel": "menciona", "tipo": "Person", "nome": "Mike Johnson" }
+  ],
+  "artigo": {
+    "titulo": "Democratas levam Câmara e Senado dos EUA sem perder nenhuma cadeira",
+    "subtitulo": "Nas eleições de meio de mandato, o partido virou sete cadeiras no Senado, cinco governos estaduais e dezenas de distritos, e os republicanos não tomaram nenhuma.",
+    "titulo_seo": "Eleição nos EUA: democratas levam Câmara e Senado em 2026",
+    "descricao_seo": "Democratas venceram as eleições de meio de mandato de 2026, viraram sete cadeiras no Senado e cinco governos, e os republicanos não tomaram nenhuma.",
+    "abertura": [
+      "Os democratas venceram as eleições de meio de mandato nos Estados Unidos, na terça-feira, 3 de novembro, e vão controlar a Câmara e o Senado. Pelos dados da AP citados [[pela CNBC|F1]], os republicanos não tomaram nenhuma cadeira democrata no Congresso, nenhum governo estadual e nenhuma casa legislativa estadual.",
+      "No Senado, os democratas somam ao menos 54 cadeiras, [[segundo a CBS News|F2]]. Na Câmara, a emissora estima que o partido terá entre 251 e 268 das 435 cadeiras."
+    ],
+    "secoes": [
+      {
+        "intertitulo": "Quais cadeiras do Senado mudaram de lado?",
+        "paragrafos": [
+          "Os democratas viraram sete cadeiras: Texas, Kansas, Carolina do Sul, Ohio, Iowa, Carolina do Norte e Maine. O Kansas elegeu o primeiro senador democrata desde 1932, e o Texas, o primeiro desde 1988, segundo a CNBC.",
+          "Até a noite de quarta-feira, duas disputas no Senado ainda não tinham resultado, no Alasca e no Mississippi, além de nove na Câmara."
+        ]
+      },
+      {
+        "intertitulo": "O que aconteceu nos governos estaduais?",
+        "paragrafos": [
+          "Os democratas tiraram dos republicanos cinco governos estaduais e passam a governar a maioria dos estados pela primeira vez desde 2010, segundo a CNBC. Geórgia, Iowa, Ohio e Nevada estão entre as viradas, todos estados que Donald Trump venceu em 2024.",
+          "No Texas, a democrata Gina Hinojosa derrotou o governador Greg Abbott, que estava no terceiro mandato. Com 99% dos votos apurados, ela tinha 52,8% contra 45,7%, [[segundo a NBC News|F3]].",
+          "Na Geórgia, Keisha Lance Bottoms venceu o republicano Rick Jackson por 54,3% a 45,7%, também com 99% dos votos apurados, pela NBC News."
+        ]
+      },
+      {
+        "intertitulo": "Como os republicanos reagiram?",
+        "paragrafos": [
+          "O vice-presidente JD Vance disse que a guerra no Irã é \"a razão de termos perdido\", segundo a CBS News.",
+          "O presidente da Câmara, Mike Johnson, avisou os colegas republicanos na quarta-feira (4) que não vai disputar um cargo de liderança no próximo Congresso. Em carta [[obtida pelo Axios|F4]], ele citou o peso do cargo sobre a família. Johnson não renunciou: segue presidente da Câmara até a posse do novo Congresso.",
+          "Do lado democrata, o líder do partido no Senado, Chuck Schumer, disse que vai prender Trump em \"arame farpado legislativo\", segundo a CBS News."
+        ]
+      }
+    ],
+    "perguntas": [
+      { "pergunta": "Quem venceu as eleições de meio de mandato de 2026 nos EUA?", "resposta": "Os democratas, que ficaram com a maioria na Câmara e no Senado e viraram cinco governos estaduais." },
+      { "pergunta": "Quantas cadeiras os democratas têm no Senado?", "resposta": "Ao menos 54, segundo a CBS News, com duas disputas ainda sem resultado, no Alasca e no Mississippi." }
+    ],
+    "assuntos": ["eleições nos EUA", "Congresso dos EUA", "Partido Democrata", "Donald Trump"]
+  }
+}
