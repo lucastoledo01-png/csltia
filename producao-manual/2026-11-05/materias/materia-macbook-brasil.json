@@ -1,0 +1,60 @@
+{
+  "data": "2026-11-05",
+  "publicarEm": "2026-11-05T21:00:00.000Z",
+  "categoria": "Tecnologia",
+  "fonte": { "nome": "Tecnoblog", "url": "https://tecnoblog.net/noticias/apple-anuncia-macbook-pro-com-tela-oled-sensivel-a-toques/" },
+  "fontes": [
+    { "nome": "Tecnoblog", "url": "https://tecnoblog.net/noticias/apple-anuncia-macbook-pro-com-tela-oled-sensivel-a-toques/" },
+    { "nome": "Showmetech", "url": "https://www.showmetech.com.br/macbook-pro-tela-oled-touch-proled-xdr/" },
+    { "nome": "Reuters", "url": "https://br.investing.com/news/forex-news/dolar-a-vista-fecha-em-queda-de-064-a-r54511-na-venda-2115622" }
+  ],
+  "capa": "https://upload.wikimedia.org/wikipedia/commons/2/2e/New_Fifth_Ave_Apple_Cube.jpg",
+  "credito": {
+    "autor": "oinonio",
+    "licenca": "CC BY-SA 2.0",
+    "origem": "Wikimedia Commons",
+    "href": "https://commons.wikimedia.org/wiki/File:New_Fifth_Ave_Apple_Cube.jpg"
+  },
+  "legenda": "O cubo de vidro da loja da Apple na Quinta Avenida, em Nova York.",
+  "entidades": [
+    { "papel": "sobre", "tipo": "Organization", "nome": "Apple" },
+    { "papel": "sobre", "tipo": "Product", "nome": "MacBook Pro" }
+  ],
+  "artigo": {
+    "titulo": "Novo MacBook touchscreen deve chegar ao Brasil por R$ 34.999, mais de 21 salários mínimos",
+    "subtitulo": "O primeiro notebook da Apple com tela sensível ao toque custa US$ 2.899 nos EUA, onde a pré-venda já começou; aqui, a Apple ainda não deu data.",
+    "titulo_seo": "MacBook Pro touchscreen custa R$ 34.999 no Brasil",
+    "descricao_seo": "O MacBook Pro com tela OLED sensível ao toque sai a partir de R$ 34.999 no Brasil e US$ 2.899 nos EUA. Veja os preços e o que muda.",
+    "abertura": [
+      "O MacBook Pro com tela sensível ao toque, o primeiro notebook da Apple com esse recurso, sai no Brasil a partir de R$ 34.999 na versão de 14 polegadas e de R$ 41.999 na de 16 polegadas, [[segundo o Tecnoblog|F1]]. A Apple ainda não informou quando ele chega às lojas brasileiras.",
+      "O modelo de entrada equivale a mais de 21 salários mínimos de 2026, que é de R$ 1.621."
+    ],
+    "secoes": [
+      {
+        "intertitulo": "Quanto custa nos EUA?",
+        "paragrafos": [
+          "Nos Estados Unidos, o modelo de 14 polegadas custa a partir de US$ 2.899, e o de 16 polegadas, a partir de US$ 3.399. A pré-venda começou em 28 de outubro, e a chegada às lojas está marcada para sexta-feira (6), [[segundo o Showmetech|F2]].",
+          "Pelo dólar de R$ 5,45 do fechamento de quarta-feira (4), [[segundo a Reuters|F3]], o modelo de entrada americano sai por cerca de R$ 15,8 mil, antes do imposto sobre vendas dos EUA. É menos da metade do preço anunciado no Brasil."
+        ]
+      },
+      {
+        "intertitulo": "Quais são as versões mais caras?",
+        "paragrafos": [
+          "Com o chip M5 Max, o modelo de 14 polegadas começa em R$ 53.999 no Brasil, e o de 16 polegadas, em R$ 57.999, pela tabela do Showmetech."
+        ]
+      },
+      {
+        "intertitulo": "O que muda no notebook?",
+        "paragrafos": [
+          "A Apple apresentou os modelos em 28 de outubro, num evento em Los Angeles, com o nome MacBook Pro with ProLED XDR Display. O toque é opcional: os notebooks continuam rodando o macOS, e dá para usar só o trackpad e o teclado.",
+          "A tela usa uma nova tecnologia OLED em camadas, com revestimento contra marcas de dedo."
+        ]
+      }
+    ],
+    "perguntas": [
+      { "pergunta": "Quanto custa o MacBook Pro com tela touch no Brasil?", "resposta": "A partir de R$ 34.999 na versão de 14 polegadas e de R$ 41.999 na de 16 polegadas." },
+      { "pergunta": "Quando o MacBook Pro com tela touch chega ao Brasil?", "resposta": "A Apple ainda não informou a data. Nos EUA, a chegada às lojas está marcada para 6 de novembro." }
+    ],
+    "assuntos": ["Apple", "MacBook Pro", "preços", "dólar"]
+  }
+}

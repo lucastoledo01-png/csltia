@@ -1,0 +1,7 @@
+[
+ { "ordem": 1, "reel": "e1", "slug": "democratas-camara-senado-v3", "horaBrasilia": "10:30", "publicarEmUtc": "2026-11-05T13:30:00Z" },
+ { "ordem": 2, "reel": "e2", "slug": "hinojosa-texas-v3", "horaBrasilia": "12:30", "publicarEmUtc": "2026-11-05T15:30:00Z" },
+ { "ordem": 3, "reel": "e3", "slug": "vance-ira-derrota-v3", "horaBrasilia": "14:45", "publicarEmUtc": "2026-11-05T17:45:00Z" },
+ { "ordem": 4, "reel": "e4", "slug": "bottoms-georgia-v3", "horaBrasilia": "17:00", "publicarEmUtc": "2026-11-05T20:00:00Z" },
+ { "ordem": 5, "reel": "e5", "slug": "johnson-lider-v3", "horaBrasilia": "19:30", "publicarEmUtc": "2026-11-05T22:30:00Z" }
+]

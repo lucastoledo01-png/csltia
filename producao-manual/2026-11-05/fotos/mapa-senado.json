@@ -1,0 +1,14 @@
+{
+ "fonte": "Resultados do Senado de 2026, AP via Google, lidos em 05/11/2026 às 09:38 de Brasília",
+ "base": "#2b3a55",
+ "grupos": [
+  { "cor": "#3d7bff", "legenda": "Democratas venceram",
+    "estados": ["or","co","nm","tx","ks","ia","mn","il","mi","oh","va","nc","sc","ga","me","nh","ma","ri","nj","de"] },
+  { "cor": "#e0463c", "legenda": "Republicanos venceram",
+    "estados": ["mt","id","wy","sd","ne","ok","ar","la","ky","wv","tn","al","fl"] },
+  { "cor": "#a9c0f7", "legenda": "Democratas na frente",
+    "estados": ["ak","ms"] },
+  { "cor": "#2b3a55", "legenda": "Sem eleição",
+    "estados": ["wa","ca","nv","ut","az","nd","wi","mo","in","pa","ny","vt","ct","md","hi"] }
+ ]
+}

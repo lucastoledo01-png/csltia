@@ -3,13 +3,13 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { recorteDaFoto } from "./imagem-da-capa";
 
-describe("recorteDaFoto: o excesso sai do pé, nunca do alto (06/10/2026)", () => {
-  it("foto de gente, em pé ou deitada, corta pelo pé", () => {
+describe("recorteDaFoto: o corte sai a 25% da altura (05/11/2026)", () => {
+  it("foto de gente, em pé ou deitada, corta a 25% da altura", () => {
     const caiado =
       "https://upload.wikimedia.org/wikipedia/commons/f/f5/Foto_oficial_do_governador_de_Goi%C3%A1s%2C_Ronaldo_Caiado_em_2023_%28ombros%29.jpg";
-    expect(recorteDaFoto(caiado)).toEqual({ classe: "object-top", css: "object-position:center top;" });
-    expect(recorteDaFoto("https://images.pexels.com/photos/1/a.jpeg?w=600").classe).toBe("object-top");
-    expect(recorteDaFoto(null).classe).toBe("object-top");
+    expect(recorteDaFoto(caiado)).toEqual({ classe: "object-[50%_25%]", css: "object-position:50% 25%;" });
+    expect(recorteDaFoto("https://images.pexels.com/photos/1/a.jpeg?w=600").classe).toBe("object-[50%_25%]");
+    expect(recorteDaFoto(null).classe).toBe("object-[50%_25%]");
   });
 
   it("o cartão do logotipo, desenhado para o corte central, fica no centro", () => {

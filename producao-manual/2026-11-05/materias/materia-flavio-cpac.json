@@ -1,0 +1,57 @@
+{
+  "data": "2026-11-05",
+  "publicarEm": "2026-11-05T15:00:00.000Z",
+  "categoria": "Brasil",
+  "fonte": { "nome": "Exame", "url": "https://exame.com/mundo/flavio-bolsonaro-vai-dar-palestra-em-evento-na-casa-de-trump/" },
+  "capa": "https://upload.wikimedia.org/wikipedia/commons/8/81/Entrevistas_Diversas_-_Senador_Fl%C3%A1vio_Bolsonaro_%28PL-RJ%29_%2854611254764%29.jpg",
+  "credito": {
+    "autor": "Agência Senado",
+    "licenca": "CC BY 4.0",
+    "origem": "Wikimedia Commons",
+    "href": "https://commons.wikimedia.org/wiki/File:Entrevistas_Diversas_-_Senador_Fl%C3%A1vio_Bolsonaro_(PL-RJ)_(54611254764).jpg"
+  },
+  "legenda": "O senador Flávio Bolsonaro em entrevista no Senado, em junho de 2025.",
+  "entidades": [
+    { "papel": "sobre", "tipo": "Person", "nome": "Flávio Bolsonaro" },
+    { "papel": "menciona", "tipo": "Person", "nome": "Eduardo Bolsonaro" },
+    { "papel": "menciona", "tipo": "Person", "nome": "Donald Trump" },
+    { "papel": "menciona", "tipo": "Person", "nome": "Luiz Inácio Lula da Silva" }
+  ],
+  "artigo": {
+    "titulo": "Flávio Bolsonaro discursa em evento conservador na casa de Trump, na Flórida",
+    "subtitulo": "O senador e o irmão Eduardo estão na lista de palestrantes da CPAC em Mar-a-Lago, uma das primeiras aparições públicas de Flávio desde que deixou o Brasil.",
+    "titulo_seo": "Flávio Bolsonaro discursa na CPAC em Mar-a-Lago, casa de Trump",
+    "descricao_seo": "Flávio e Eduardo Bolsonaro estão entre os palestrantes da CPAC nesta quinta (5), em Mar-a-Lago, residência de Donald Trump na Flórida.",
+    "abertura": [
+      "O senador Flávio Bolsonaro (PL-RJ) está na lista oficial de palestrantes da CPAC, a Conferência de Ação Política Conservadora, nesta quinta-feira (5), em Mar-a-Lago, a residência do presidente americano Donald Trump em Palm Beach, na Flórida. A participação foi confirmada pela organização na quarta-feira (4), [[segundo a Exame]].",
+      "O irmão dele, o ex-deputado federal Eduardo Bolsonaro, também está entre os palestrantes. A organização não informou os assuntos dos discursos."
+    ],
+    "secoes": [
+      {
+        "intertitulo": "Por que Flávio está nos EUA?",
+        "paragrafos": [
+          "Flávio deixou o Brasil em 28 de outubro, três dias depois de perder o segundo turno da eleição presidencial para Luiz Inácio Lula da Silva (PT). Desde então, ele tem evitado aparições públicas, e a CPAC é uma das primeiras anunciadas.",
+          "Ao justificar a viagem, o senador disse que não saiu \"do\", mas \"pelo\" Brasil, e que nos EUA pode dar opiniões sem medo de represálias judiciais."
+        ]
+      },
+      {
+        "intertitulo": "O que Flávio diz sobre a eleição?",
+        "paragrafos": [
+          "Flávio não reconheceu a reeleição de Lula. Em comunicado no domingo (1º), afirmou ser alvo de perseguição política e judicial depois de medidas cautelares contra ele, entre elas a retenção dos passaportes. Segundo ele, as restrições vieram \"apenas sete minutos depois da divulgação do resultado eleitoral\". As acusações de perseguição são dele e não foram comprovadas.",
+          "No mesmo comunicado, o senador anunciou entrevistas a veículos brasileiros e estrangeiros nos próximos dias, sem dar datas."
+        ]
+      },
+      {
+        "intertitulo": "O que Trump disse sobre a viagem?",
+        "paragrafos": [
+          "Depois que Flávio chegou aos EUA, Trump disse que não pretendia se encontrar com ele, mas que o senador pode ficar no país \"quanto tempo quiser\"."
+        ]
+      }
+    ],
+    "perguntas": [
+      { "pergunta": "Onde Flávio Bolsonaro vai discursar?", "resposta": "Na CPAC, em Mar-a-Lago, a residência de Donald Trump em Palm Beach, na Flórida, nesta quinta-feira (5)." },
+      { "pergunta": "Quando Flávio Bolsonaro deixou o Brasil?", "resposta": "Em 28 de outubro, três dias depois de perder o segundo turno para Lula." }
+    ],
+    "assuntos": ["Flávio Bolsonaro", "Eduardo Bolsonaro", "Donald Trump", "eleições no Brasil"]
+  }
+}

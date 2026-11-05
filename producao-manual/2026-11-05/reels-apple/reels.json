@@ -1,0 +1,18 @@
+{
+ "fotos": "../fotos",
+ "trilha": "trilha.m4a",
+ "reels": {
+  "a1": {
+   "foto": "apple-cubo.jpg",
+   "crop": "1760:3129:310:0",
+   "cat": "TECNOLOGIA",
+   "bolha": {
+    "foto": "macbook-pro.jpg",
+    "crop": "2900:2900:680:100",
+    "x": 640,
+    "y": 300
+   },
+   "h": "Novo MacBook touchscreen deve chegar ao Brasil por R$ 34.999, <em>mais de 21 salários mínimos</em>"
+  }
+ }
+}

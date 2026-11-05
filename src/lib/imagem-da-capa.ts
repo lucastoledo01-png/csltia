@@ -363,7 +363,7 @@ export function imagensDaCapaParaJsonLd(
  * a cabeça. Em foto de gente o rosto está no terço de cima; no retrato oficial,
  * colado no topo.
  *
- * A regra: o excesso sai do PÉ, nunca do alto. Foto deitada perto de 16:9
+ * A regra (superada em 05/11, ver abaixo): o excesso sai do PÉ, nunca do alto. Foto deitada perto de 16:9
  * quase não perde nada, então a regra só muda alguma coisa onde o corte é
  * grande, que é exatamente a foto em pé de uma pessoa.
  *
@@ -373,9 +373,20 @@ export function imagensDaCapaParaJsonLd(
  * Toda foto de capa do portal e da newsletter passa por aqui; há teste que
  * reprova `object-cover` de capa sem esta classe.
  */
-export type RecorteDaFoto = { classe: "object-top" | "object-center"; css: string };
+/*
+ * ATUALIZADO em 05/11/2026: o corte sai a 25% da altura, e não do topo. O
+ * topo servia ao retrato oficial, com a cabeça colada na borda de cima, e
+ * errava toda foto com o rosto no meio: a capa do Flávio em 05/11 (foto em pé,
+ * 2:3, numa caixa 16:9) mostrava só a testa, e o retrato fechado do Trump, do
+ * cabelo ao olho. Medido numa folha com cinco fotos reais em caixas 16:9 e 4:3,
+ * nas posições 0, 20, 25 e 30%: em 25% o Caiado continua com o rosto inteiro, e
+ * Flávio, Trump (4:3) e o cubo da Apple passam a mostrar o assunto. O retrato
+ * fechado em 16:9 não tem corte bom em posição nenhuma; por isso a manchete da
+ * home mostra a foto inteira (`FotoDaPauta` com `inteira`).
+ */
+export type RecorteDaFoto = { classe: "object-[50%_25%]" | "object-center"; css: string };
 
 export function recorteDaFoto(src: string | null | undefined): RecorteDaFoto {
   if (/\/api\/visual\/cartao-da-marca/.test(src ?? "")) return { classe: "object-center", css: "object-position:center center;" };
-  return { classe: "object-top", css: "object-position:center top;" };
+  return { classe: "object-[50%_25%]", css: "object-position:50% 25%;" };
 }
