@@ -2251,3 +2251,23 @@ histórico da newsletter usam a função. A foto continua inteira em
 **Lição.** Fonte nova de asset é mais um escritor de toda coluna que guarda o
 id do asset. Chave estrangeira com nome genérico (`visual_asset_id`) parece
 aceitar qualquer asset, e só aceita os de uma tabela.
+
+### 05/11/2026: a capa do Flávio mostrava só a testa, e a regra de 06/10 era a causa
+
+**Sintoma.** A manchete da home, no computador, mostrava o alto da cabeça do
+Flávio Bolsonaro e mais nada. O card do Trump mostrava do cabelo ao olho. O dono
+leu como "o problema de enquadramento voltou".
+
+**Causa.** Não voltou: era a correção de 06/10 funcionando como escrita. Para o
+retrato oficial do Caiado, com a cabeça colada na borda, a regra passou a cortar
+tudo pelo pé (`object-top`). Foto com o rosto no meio (a do Flávio é 2:3, numa
+caixa 16:9 que mostra 37% da altura) perde o rosto inteiro com essa regra.
+
+**Corrigido.** O corte sai a 25% da altura, escolhido numa folha com cinco fotos
+reais, quatro posições e duas caixas (`producao-manual/_teste-recorte.mjs`). A
+manchete da home mostra a foto inteira sobre ela mesma desfocada, como a capa da
+matéria faz desde 14/10: retrato fechado em 16:9 não tem posição de corte boa.
+
+**Lição.** Regra de recorte escolhida olhando UMA foto conserta aquela foto. A
+conferência é uma folha com fotos de enquadramentos diferentes, e o
+`producao-manual/_fotos-portal.mjs` fotografa a home servida para ver o resultado.
