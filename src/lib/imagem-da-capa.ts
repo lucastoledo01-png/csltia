@@ -281,6 +281,13 @@ export function fotoNaLargura(src: string | null | undefined, largura: number): 
   } catch {
     return limpo;
   }
+  /*
+   * A rota própria gravada com o domínio antigo (05/11/2026). O cartão da
+   * marca era salvo como `https://casaloti.ia.br/api/visual/...`, e esse
+   * domínio responde 503 desde a troca de servidor: a capa da Anduril ficava
+   * em branco. Na página, a rota é do próprio site, pelo caminho relativo.
+   */
+  if (u.hostname === "casaloti.ia.br" && u.pathname.startsWith("/api/visual/")) return `${u.pathname}${u.search}`;
   if (u.hostname === "upload.wikimedia.org") return miniaturaDoCommons(limpo, largura);
   if (u.hostname === "images.pexels.com" || u.hostname === "images.unsplash.com") {
     for (const p of ["h", "fit", "dpr", "crop"]) u.searchParams.delete(p);

@@ -79,7 +79,8 @@ describe("Articles index", () => {
   it("mostra cards com imagem real, descrição e link para artigo completo", async () => {
     render(await ArticlesPage());
 
-    expect(screen.getAllByRole("img")[0]).toBeInTheDocument();
+    // A foto vem da FotoDaPauta, com `alt` vazio (o título está no mesmo link): procura a imagem, não o papel.
+    expect(document.querySelector("article img")).toBeInTheDocument();
     expect(screen.getByText(/O que mudou em modelos, produtos e benchmarks/i)).toBeInTheDocument();
   });
 
