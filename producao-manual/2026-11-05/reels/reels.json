@@ -3,10 +3,11 @@
  "trilha": "trilha.m4a",
  "reels": {
   "e1": {
-   "foto": "capitolio.jpg",
-   "crop": "1742:3097:353:0",
+   "foto": "mapa-senado.png",
+   "crop": "2160:3840:0:0",
    "cat": "ELEIÇÕES NOS EUA",
-   "h": "Democratas levam Câmara e Senado <em>sem perder nenhuma cadeira</em>"
+   "h": "Democratas levam Câmara e Senado <em>sem perder nenhuma cadeira</em>",
+   "zoom": 0.03
   },
   "e2": {
    "foto": "hinojosa2024.jpg",
@@ -30,7 +31,7 @@
    "foto": "trump-johnson.jpg",
    "crop": "871:1548:560:0",
    "cat": "ELEIÇÕES NOS EUA",
-   "h": "Mike Johnson <em>não vai tentar seguir</em> como líder republicano na Câmara"
+   "h": "Aliado de Trump, Mike Johnson <em>vai deixar a liderança</em> na Câmara"
   }
  }
 }

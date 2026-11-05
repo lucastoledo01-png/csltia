@@ -35,8 +35,14 @@ for(const id of (process.argv[3]?[process.argv[3]]:Object.keys(R))){
  console.log(id,"linhas ~",n);
  await p.screenshot({path:`${D}/o_${id}.png`,omitBackground:true});await p.close();
  const dur=10,fps=30,fr=dur*fps;
- execFileSync("ffmpeg",["-v","error","-y","-i",`${F}/${c.foto}`,"-i",`${D}/o_${id}.png`,"-i",TRILHA,
-  "-filter_complex",`[0:v]crop=${c.crop},scale=2160:3840:flags=lanczos,zoompan=z='1+${c.zoom??0.07}*on/${fr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${fr}:s=1080x1920:fps=${fps},format=yuv420p[v];[v][1:v]overlay=0:0,format=yuv420p[o];[2:a]volume=0.55,afade=t=in:d=0.4,afade=t=out:st=9:d=1[a]`,
+ // Zoom leve e sem tremida (05/11/2026). O zoompan arredonda o recorte para pixel inteiro a
+ // cada quadro, e a imagem tremia; reescalar a foto inteira por quadro tem o mesmo degrau no
+ // tamanho. O `perspective` recebe os quatro cantos em fração de pixel e interpola, então o
+ // recorte encolhe de forma contínua.
+ const z=c.zoom??0.04;
+ const P=`W/2*(1-1/(1+${z}*in/${fr}))`,Q=`H/2*(1-1/(1+${z}*in/${fr}))`;
+ execFileSync("ffmpeg",["-v","error","-y","-loop","1","-framerate",String(fps),"-t",String(dur),"-i",`${F}/${c.foto}`,"-i",`${D}/o_${id}.png`,"-i",TRILHA,
+  "-filter_complex",`[0:v]crop=${c.crop},scale=2160:3840:flags=lanczos,perspective=x0='${P}':y0='${Q}':x1='W-${P}':y1='${Q}':x2='${P}':y2='H-${Q}':x3='W-${P}':y3='H-${Q}':interpolation=cubic:eval=frame,scale=1080:1920:flags=area,format=yuv420p[v];[v][1:v]overlay=0:0,format=yuv420p[o];[2:a]volume=0.55,afade=t=in:d=0.4,afade=t=out:st=9:d=1[a]`,
   "-map","[o]","-map","[a]","-t",String(dur),"-c:v","libx264","-crf","18","-preset","medium","-c:a","aac","-b:a","160k","-movflags","+faststart",`${D}/reel_${id}.mp4`]);
  console.log("ok",id);
 }
