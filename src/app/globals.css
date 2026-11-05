@@ -411,7 +411,22 @@ body {
   }
 }
 
-button,
+/*
+ * Em camada desde 05/11/2026. Solta, depois do import do Tailwind, esta regra
+ * vencia toda utilidade de fonte em botão e campo: `font-semibold` e
+ * `text-[13px]` num botão computavam 400 e o tamanho do pai (a fila de
+ * aprovação saiu sem negrito). É o caso do `a { color: inherit }` de 16/09.
+ *
+ * Só o botão entrou na camada. Os campos continuam soltos de propósito: com a
+ * regra em camada, o campo de e-mail do portal cairia para o `text-sm` dele,
+ * 14px, e o Safari do iPhone dá zoom na página ao tocar campo menor que 16px.
+ */
+@layer base {
+  button {
+    font: inherit;
+  }
+}
+
 input,
 textarea,
 select {

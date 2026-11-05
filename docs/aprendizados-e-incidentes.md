@@ -2271,3 +2271,23 @@ matéria faz desde 14/10: retrato fechado em 16:9 não tem posição de corte bo
 **Lição.** Regra de recorte escolhida olhando UMA foto conserta aquela foto. A
 conferência é uma folha com fotos de enquadramentos diferentes, e o
 `producao-manual/_fotos-portal.mjs` fotografa a home servida para ver o resultado.
+
+### 05/11/2026: botão nenhum do site tinha negrito, pela mesma regra solta de 16/09
+
+**Sintoma.** Redesenhando a fila de aprovação, os filtros e as abas saíam sem
+negrito e no tamanho do pai, com `font-semibold` e `text-[14px]` na classe.
+
+**Causa.** `globals.css` tinha `button, input, textarea, select { font: inherit }`
+FORA de layer, depois do import do Tailwind. É o caso do `a { color: inherit }`
+de 16/09 com outra propriedade: estilo sem layer vence utilidade em layer, e
+nenhuma classe de fonte funcionava em botão nenhum do site. O "Assinar" do
+portal tinha `font-bold text-sm` e saía em 400 e 16px.
+
+**Corrigido.** `button` entrou em `@layer base`. Os campos ficaram de fora de
+propósito: o de e-mail do portal tem `text-sm`, e com a regra em camada cairia
+para 14px, o que faz o Safari do iPhone dar zoom ao tocar.
+
+**Lição.** A entrada de 16/09 consertou a regra que causou o sintoma e não
+procurou as irmãs. Ao achar uma regra solta que vence utilidade, ler o arquivo
+inteiro atrás das outras. Medir no navegador (`getComputedStyle`) achou em um
+minuto.

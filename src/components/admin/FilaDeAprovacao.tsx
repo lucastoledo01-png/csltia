@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ROTULO_DA_ETAPA, type Aprovacao, type Ramo } from "@/lib/server/aprovacao/contrato";
 import { FILTROS_DE_STATUS, filtroDaSituacao, situacaoDaPeca, type FiltroDeStatus } from "@/lib/server/aprovacao/situacao";
 import { CartaoDaPeca } from "./fila/CartaoDaPeca";
-import { chaveDoDia, NOME_DO_CANAL, ORDEM_DOS_CANAIS, rotuloDoDia, type Agir, type Visao } from "./fila/tipos";
+import { COR_DO_FILTRO, NOME_DO_CANAL, ORDEM_DOS_CANAIS, type Agir, type Visao } from "./fila/tipos";
 
 /**
  * A fila de aprovação, legível (06/10/2026).
@@ -213,13 +213,6 @@ export function FilaDeAprovacao({ slug }: { slug: string }) {
       // Publicadas: a mais recente primeiro. O resto: na ordem em que vai ao ar.
       return filtro === "publicadas" ? t(y) - t(x) : t(x) - t(y);
     });
-  const dias: Array<{ chave: string; itens: Aprovacao[] }> = [];
-  for (const a of doCanal) {
-    const chave = chaveDoDia(a.publicarEm ?? a.createdAt);
-    const grupo = dias.find((d) => d.chave === chave);
-    if (grupo) grupo.itens.push(a);
-    else dias.push({ chave, itens: [a] });
-  }
 
   /*
    * O lote é o mesmo do servidor (`aprovarEmLote`): só o que aguarda e não
@@ -233,32 +226,19 @@ export function FilaDeAprovacao({ slug }: { slug: string }) {
   const fixas = visao.regras.filter((r) => r.estado === "aprovada");
 
   return (
-    <main className="admin-shell min-h-screen pb-24">
-      <div className="mx-auto max-w-6xl px-4 pt-5 sm:px-6">
-        <header className="space-y-3">
-          <div>
-            <Link href={`/admin/${slug}`} className="text-[12px] text-slate-500">
-              {visao.projeto?.nome ?? slug}
-            </Link>
-            <h1 className="text-[22px] font-semibold text-slate-900">Fila de aprovação</h1>
-          </div>
-          <div
-            className={`rounded-xl p-4 ${modo.destaque ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-800"}`}
-            data-modo={visao.modo}
-          >
-            <p className="text-[15px] font-semibold">{modo.titulo}</p>
-            <p className={`mt-1 text-[13px] leading-snug ${modo.destaque ? "text-slate-200" : "text-slate-600"}`}>{modo.texto}</p>
-            <p className={`mt-2 text-[12px] ${modo.destaque ? "text-slate-300" : "text-slate-500"}`}>
-              Newsletter às {visao.horarios.envio}, com lembrete às {visao.horarios.aviso} se ainda não estiver aprovada.
-            </p>
-          </div>
-        </header>
-      </div>
-
-      {/* Abas por canal: fixas no topo enquanto a lista rola. */}
-      <nav className="sticky top-0 z-20 mt-4 border-b border-slate-200 bg-white/95 backdrop-blur" aria-label="Canais">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="grid grid-cols-3" role="tablist">
+    <main className="admin-shell min-h-screen bg-[#F6F6F7] pb-24">
+      {/*
+        Barra do topo (05/11/2026, desenho do dono): a marca, os canais como
+        abas com a contagem do que espera, e o projeto à direita. Fixa enquanto
+        a lista rola, porque é nela que se troca de canal.
+      */}
+      <nav className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur" aria-label="Canais">
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 sm:gap-8 sm:px-6">
+          <Link href={`/admin/${slug}`} className="hidden shrink-0 py-4 sm:block" aria-label={visao.projeto?.nome ?? slug}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/marca/eua-journal-fundo-claro.png" alt="eua.journal" className="h-6 w-auto" />
+          </Link>
+          <div className="-mx-4 flex flex-1 gap-1 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:gap-3 sm:px-0" role="tablist">
             {ORDEM_DOS_CANAIS.map((r) => {
               const n = contas[r].aguardando;
               const ativo = r === canal;
@@ -267,7 +247,7 @@ export function FilaDeAprovacao({ slug }: { slug: string }) {
                   key={r}
                   role="tab"
                   aria-selected={ativo}
-                  className={`relative flex items-center justify-center gap-1.5 py-3 text-[14px] ${ativo ? "font-semibold text-slate-900" : "text-slate-500"}`}
+                  className={`relative flex shrink-0 items-center gap-1.5 px-2 py-4 text-[14px] ${ativo ? "font-semibold text-slate-900" : "text-slate-600 hover:text-slate-900"}`}
                   onClick={() => {
                     setCanal(r);
                     setConfirmarLote(false);
@@ -280,39 +260,62 @@ export function FilaDeAprovacao({ slug }: { slug: string }) {
                 >
                   {NOME_DO_CANAL[r]}
                   <span
-                    className={`min-w-5 rounded-full px-1.5 text-[11px] font-semibold leading-5 ${n > 0 ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500"}`}
+                    className={`min-w-5 rounded-md px-1.5 text-center text-[11px] font-semibold leading-5 ${n > 0 && ativo ? "bg-slate-900 text-white" : n > 0 ? "bg-slate-200 text-slate-800" : "bg-slate-100 text-slate-500"}`}
                     aria-label={`${n} aguardando`}
                   >
                     {n}
                   </span>
-                  {ativo ? <span className="absolute inset-x-4 bottom-0 h-0.5 rounded bg-slate-900" /> : null}
+                  {ativo ? <span className="absolute inset-x-2 bottom-0 h-0.5 rounded bg-slate-900" /> : null}
                 </button>
               );
             })}
           </div>
+          <Link href={`/admin/${slug}`} className="hidden shrink-0 text-[12px] text-slate-500 hover:text-slate-900 md:block">
+            {visao.projeto?.nome ?? slug}
+          </Link>
         </div>
       </nav>
 
-      <div className="mx-auto max-w-6xl space-y-4 px-4 pt-4 sm:px-6">
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 [scrollbar-width:none]" role="group" aria-label="Situação">
+      <div className="mx-auto max-w-6xl space-y-5 px-4 pt-6 sm:px-6">
+        <header className="space-y-2" data-modo={visao.modo}>
+          <h1 className="text-[26px] tracking-tight text-slate-900 sm:text-[30px]" style={{ fontWeight: 700 }}>Fila de aprovação</h1>
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-slate-600">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${modo.destaque ? "bg-slate-900 text-white" : "bg-white text-slate-800 ring-1 ring-slate-200"}`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${modo.destaque ? "bg-[#22C55E]" : "bg-slate-400"}`} />
+              {modo.titulo}
+            </span>
+            <span>{modo.texto}</span>
+          </p>
+          <p className="text-[12px] text-slate-500">
+            Newsletter às {visao.horarios.envio}, com lembrete às {visao.horarios.aviso} se ainda não estiver aprovada.
+          </p>
+        </header>
+
+        <div className="-mx-4 flex gap-2.5 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:px-0 [scrollbar-width:none]" role="group" aria-label="Situação">
           {FILTROS_DE_STATUS.map((f) => {
             const n = contas[canal][f.id];
             const ativo = f.id === filtro;
+            const cor = COR_DO_FILTRO[f.id];
             return (
               <button
                 key={f.id}
                 aria-pressed={ativo}
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-[13px] ${ativo ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700"}`}
+                data-filtro={f.id}
+                className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-5 py-2.5 text-[14px] transition ${ativo ? `${cor.cheio} ${cor.sombra} font-semibold` : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"}`}
                 onClick={() => setFiltro(f.id)}
               >
-                {f.rotulo} <span className={ativo ? "text-slate-300" : "text-slate-400"}>{n}</span>
+                {ativo ? null : <span className={`h-2 w-2 rounded-full ${cor.ponto}`} aria-hidden />}
+                {f.rotulo}
+                <span className={`min-w-5 rounded-full px-1.5 text-center text-[11px] font-semibold leading-5 ${ativo ? cor.contagem : "text-slate-400"}`}>{n}</span>
               </button>
             );
           })}
         </div>
 
         {filtro === "aguardando" && canal !== "newsletter" && semAviso > 0 ? (
-          <div className="admin-glass space-y-2 p-3">
+          <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4">
             {!confirmarLote ? (
               <button className="admin-botao-secundario w-full" disabled={ocupado} onClick={() => setConfirmarLote(true)}>
                 {rotuloDoLote(canal, semAviso)}
@@ -347,8 +350,8 @@ export function FilaDeAprovacao({ slug }: { slug: string }) {
           </div>
         ) : null}
 
-        {dias.length === 0 ? (
-          <div className="admin-glass p-5 text-[14px] text-slate-600" data-vazio={canal}>
+        {doCanal.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-[14px] text-slate-600" data-vazio={canal}>
             {canal === "post" && visao.instagram && Object.values(contas.post).every((n) => n === 0) ? (
               <div className="space-y-2">
                 <p className="font-semibold text-slate-900">Nenhum post na fila.</p>
@@ -368,26 +371,24 @@ export function FilaDeAprovacao({ slug }: { slug: string }) {
             )}
           </div>
         ) : (
-          dias.map((d) => (
-            <section key={d.chave} className="space-y-3">
-              <h2 className="pt-2 text-[13px] font-semibold uppercase tracking-wide text-slate-500">{rotuloDoDia(d.chave, agoraIso)}</h2>
-              {d.itens.map((a) => (
-                <CartaoDaPeca
-                  key={`${a.id}:${a.hashArtefato}`}
-                  a={a}
-                  previa={visao.previas?.[a.id]}
-                  modo={visao.modo}
-                  slug={slug}
-                  agoraIso={agoraIso}
-                  ocupado={ocupado}
-                  agir={agir}
-                />
-              ))}
-            </section>
-          ))
+          // A data vai no próprio cartão, como no desenho de 05/11/2026; a ordem continua a de ir ao ar.
+          <div className="space-y-8">
+            {doCanal.map((a) => (
+              <CartaoDaPeca
+                key={`${a.id}:${a.hashArtefato}`}
+                a={a}
+                previa={visao.previas?.[a.id]}
+                modo={visao.modo}
+                slug={slug}
+                agoraIso={agoraIso}
+                ocupado={ocupado}
+                agir={agir}
+              />
+            ))}
+          </div>
         )}
 
-        <details className="admin-glass p-4">
+        <details className="rounded-2xl border border-slate-200 bg-white p-5">
           <summary className="cursor-pointer select-none text-[14px] font-semibold text-slate-900">Manual ou automático, por canal</summary>
           <div className="mt-3 space-y-3">
             {ORDEM_DOS_CANAIS.map((ramo) => {
@@ -428,7 +429,7 @@ export function FilaDeAprovacao({ slug }: { slug: string }) {
         </details>
 
         {propostas.length > 0 || fixas.length > 0 ? (
-          <section className="admin-glass space-y-3 p-4">
+          <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
             <h2 className="text-[14px] font-semibold text-slate-900">Memória de reprovação</h2>
             {propostas.map((r) => (
               <div key={r.id} className="space-y-2 border-t border-slate-100 pt-3 first:border-0 first:pt-0">

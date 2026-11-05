@@ -10,10 +10,10 @@ import {
   type Etapa,
 } from "@/lib/server/aprovacao/contrato";
 import { agruparAvisos, type AvisoLegivel } from "@/lib/server/aprovacao/avisos-legiveis";
-import { acoesDaPeca, ROTULO_DA_SITUACAO, situacaoDaPeca, type SituacaoDaPeca } from "@/lib/server/aprovacao/situacao";
+import { acoesDaPeca, filtroDaSituacao, ROTULO_DA_SITUACAO, situacaoDaPeca, type SituacaoDaPeca } from "@/lib/server/aprovacao/situacao";
 import type { PreviaDaPeca } from "@/lib/server/aprovacao/previa";
 import { CorpoDaNewsletter, CorpoDoArtigo, CorpoDoPlano, CorpoDoPost, type Edicao } from "./CorpoDaPeca";
-import { fraseDoHorario, horaCurta, NOME_DO_CANAL, type Agir } from "./tipos";
+import { chaveDoDia, COR_DO_FILTRO, fraseDoHorario, horaCurta, NOME_DO_CANAL, rotuloDoDia, type Agir } from "./tipos";
 
 /**
  * Um cartão por peça e por canal (06/10/2026).
@@ -22,15 +22,6 @@ import { fraseDoHorario, horaCurta, NOME_DO_CANAL, type Agir } from "./tipos";
  * precisa de atenção, a peça e as ações. No computador são duas: a peça à
  * esquerda, e à direita, fixos enquanto a peça rola, os avisos e as ações.
  */
-
-const COR_DA_SITUACAO: Record<SituacaoDaPeca, string> = {
-  aguardando: "bg-slate-900 text-white",
-  aprovada: "bg-slate-100 text-slate-800 ring-1 ring-slate-300",
-  refazendo: "bg-slate-100 text-slate-700",
-  reprovada: "bg-rose-50 text-rose-700",
-  publicada: "bg-slate-100 text-slate-700",
-  fora: "bg-slate-100 text-slate-500",
-};
 
 /** O que cada etapa quer dizer, para o dono escolher sem saber o nome interno. */
 const AJUDA_DA_ETAPA: Record<Etapa, string> = {
@@ -46,19 +37,26 @@ function Avisos({ confira, resolvidos }: { confira: AvisoLegivel[]; resolvidos: 
   return (
     <div className="space-y-2">
       {confira.length > 0 ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-[13px] text-rose-800" data-avisos="confira">
-          <p className="font-semibold">
+        <div className="rounded-2xl border border-[#FBD5D5] bg-[#FEF2F2] p-5 text-[13px] text-[#7F1D1D]" data-avisos="confira">
+          <p className="flex items-center gap-2 text-[14px] font-bold text-[#B91C1C]">
+            <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <circle cx="12" cy="12" r="9" />
+              <path d="m8.5 12 2.5 2.5 4.5-5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
             {confira.length === 1 ? "1 ponto para você conferir" : `${confira.length} pontos para você conferir`}
           </p>
-          <ul className="mt-1.5 list-disc space-y-1 pl-5">
+          <ul className="mt-3 space-y-3">
             {confira.map((v, i) => (
-              <li key={i}>{v.frase}</li>
+              <li key={i} className="flex gap-2.5 leading-relaxed">
+                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#EF4444]" aria-hidden />
+                <span>{v.frase}</span>
+              </li>
             ))}
           </ul>
         </div>
       ) : null}
       {resolvidos.length > 0 ? (
-        <details className="rounded-lg border border-slate-200 bg-white p-3 text-[13px] text-slate-700" data-avisos="resolvidos">
+        <details className="rounded-2xl border border-slate-200 bg-white p-4 text-[13px] text-slate-700" data-avisos="resolvidos">
           <summary className="cursor-pointer select-none">
             <span className="font-medium">
               {resolvidos.length === 1 ? "1 ajuste automático" : `${resolvidos.length} ajustes automáticos`}
@@ -225,22 +223,31 @@ function Acoes({
           {acoes.aprovar ? (
             <button
               type="button"
-              className="admin-botao col-span-2 py-3 text-[15px]"
+              className="col-span-2 inline-flex items-center justify-center gap-2 rounded-xl bg-[#0A0A0A] px-4 py-3.5 text-[13px] font-bold uppercase tracking-[0.04em] text-white shadow-[0_8px_20px_-8px_rgba(0,0,0,0.55)] transition hover:bg-black disabled:opacity-45"
               disabled={ocupado}
               onClick={() => (confira.length > 0 ? setPainel("confirmar") : aprovar())}
             >
-              Aprovar
+              <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <circle cx="12" cy="12" r="9" />
+                <path d="m8.5 12 2.5 2.5 4.5-5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Aprovar conteúdo
             </button>
           ) : null}
           {acoes.reprovar ? (
-            <button type="button" className="admin-botao-secundario" disabled={ocupado} onClick={() => setPainel(painel === "reprovar" ? "nenhum" : "reprovar")}>
+            <button
+              type="button"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-[13px] font-semibold text-[#B91C1C] transition hover:border-[#FBD5D5] hover:bg-[#FEF2F2] disabled:opacity-45"
+              disabled={ocupado}
+              onClick={() => setPainel(painel === "reprovar" ? "nenhum" : "reprovar")}
+            >
               Reprovar
             </button>
           ) : null}
           {acoes.cancelar ? (
             <button
               type="button"
-              className={`admin-botao-secundario ${acoes.reprovar ? "" : "col-span-2"}`}
+              className={`rounded-xl border border-slate-200 bg-white px-3 py-3 text-[13px] font-semibold text-slate-700 transition hover:border-slate-300 disabled:opacity-45 ${acoes.reprovar ? "" : "col-span-2"}`}
               disabled={ocupado}
               onClick={() => setPainel(painel === "cancelar" ? "nenhum" : "cancelar")}
             >
@@ -429,28 +436,68 @@ export function CartaoDaPeca({
   const detalhesDoPost =
     real?.ramo === "post" ? real.formato === "reel" ? "Reel" : real.formato === "carrossel" ? `Carrossel, ${real.telas.length} telas` : "Post único" : null;
 
+  const identidade = !real
+    ? { titulo: a.resumo.texto?.split("\n")[0] || NOME_DO_CANAL[a.ramo], linha: "" }
+    : real.ramo === "newsletter"
+      ? { titulo: real.assunto || "(sem assunto)", linha: real.preheader || "(sem pré-cabeçalho)" }
+      : real.ramo === "artigo"
+        ? {
+            titulo: real.titulo,
+            linha: [real.editoria, `${real.palavras} palavras`, `${real.perguntas} ${real.perguntas === 1 ? "pergunta" : "perguntas"} e respostas`]
+              .filter(Boolean)
+              .join(" · "),
+          }
+        : real.ramo === "plano"
+          ? {
+              titulo: "Plano do dia",
+              linha: real.canais.map((c) => `${c.itens.length} ${c.canal}`).join(" · "),
+            }
+          : { titulo: real.manchete, linha: detalhesDoPost ?? "" };
+  const cor = COR_DO_FILTRO[filtroDaSituacao(situacao)];
+  const dia = rotuloDoDia(chaveDoDia(a.publicarEm ?? a.createdAt), agoraIso);
+
   return (
     <article
-      className="admin-glass overflow-hidden"
+      className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]"
       data-ramo={a.ramo}
       data-situacao={situacao}
       data-com-aviso={confira.length > 0}
     >
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-3 p-4 lg:border-r lg:border-slate-100">
-          <header className="flex flex-wrap items-center gap-2 text-[12px] text-slate-600">
-            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${COR_DA_SITUACAO[situacao]}`}>{ROTULO_DA_SITUACAO[situacao]}</span>
-            <span className="font-medium text-slate-800">{NOME_DO_CANAL[a.ramo]}</span>
-            <span>{fraseDoHorario(a, previa, agoraIso)}</span>
-            {detalhesDoPost ? <span>{detalhesDoPost}</span> : null}
-            {a.refazimentos > 0 ? <span>{a.refazimentos} de {LIMITE_DE_REFAZIMENTOS} refações usadas</span> : null}
-            {a.automatica ? <span>aprovada pela máquina</span> : null}
-          </header>
-          {corpo}
-        </div>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <header className="space-y-4 p-5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span className={`rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] ${cor.selo}`}>{ROTULO_DA_SITUACAO[situacao]}</span>
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500">{dia}</span>
+            <span className="ml-auto inline-flex items-center gap-1.5 text-[12px] text-slate-600">
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" strokeLinecap="round" />
+              </svg>
+              {fraseDoHorario(a, previa, agoraIso)}
+            </span>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-slate-900 text-[12px] font-bold text-white">eua</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">eua.journal · {NOME_DO_CANAL[a.ramo]}</p>
+              <h3 className="mt-0.5 text-[19px] leading-snug text-slate-900 sm:text-[21px]" style={{ fontWeight: 700 }}>{identidade.titulo}</h3>
+              {identidade.linha ? <p className="mt-1 text-[13px] leading-snug text-slate-600">{identidade.linha}</p> : null}
+              {a.refazimentos > 0 || a.automatica ? (
+                <p className="mt-1.5 text-[12px] text-slate-500">
+                  {[a.refazimentos > 0 ? `${a.refazimentos} de ${LIMITE_DE_REFAZIMENTOS} refações usadas` : "", a.automatica ? "aprovada pela máquina" : ""]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              ) : null}
+            </div>
+            {a.publicarEm ? <span className="hidden shrink-0 font-mono text-[13px] text-slate-500 sm:block">{horaCurta(a.publicarEm)}</span> : null}
+          </div>
+        </header>
+        <div className="border-t border-slate-100 bg-[#FAFAFA] p-4 sm:p-6">{corpo}</div>
+      </div>
 
-        <aside className="space-y-3 border-t border-slate-100 p-4 lg:sticky lg:top-16 lg:self-start lg:border-t-0">
-          {resumo ? <p className="text-[13px] leading-snug text-slate-700" data-resumo>{resumo}</p> : null}
+      <aside className="space-y-3 lg:sticky lg:top-20">
+          {resumo ? <p className="px-1 text-[13px] leading-snug text-slate-600" data-resumo>{resumo}</p> : null}
           {mudou ? (
             <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-[13px] text-rose-800">
               Esta peça foi alterada depois de entrar na fila. O que aparece aqui é a versão de agora, e a aprovação vale para a
@@ -471,8 +518,7 @@ export function CartaoDaPeca({
             <p className="text-[12px] text-slate-500">Na linha do post: {real.mensagem}</p>
           ) : null}
           <Acoes a={a} situacao={situacao} modo={modo} confira={confira} mudou={mudou} ocupado={ocupado} agir={agir} />
-        </aside>
-      </div>
+      </aside>
     </article>
   );
 }

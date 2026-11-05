@@ -1,6 +1,7 @@
 import type { Aprovacao, Etapa, Ramo } from "@/lib/server/aprovacao/contrato";
 import type { PreviaDaPeca } from "@/lib/server/aprovacao/previa";
 import type { DiaDoInstagram } from "@/lib/server/aprovacao/dia-do-instagram";
+import type { FiltroDeStatus } from "@/lib/server/aprovacao/situacao";
 
 /**
  * O que a tela da fila recebe de `GET /api/admin/aprovacao`, e as contas de
@@ -32,6 +33,43 @@ export type Agir = (corpo: Record<string, unknown>, sucesso: string) => Promise<
 export const NOME_DO_CANAL: Record<Ramo, string> = { newsletter: "Newsletter", artigo: "Portal", post: "Instagram", plano: "Plano do dia" };
 // O plano vem primeiro: aprová-lo é o que libera a produção das outras peças.
 export const ORDEM_DOS_CANAIS: Ramo[] = ["plano", "newsletter", "artigo", "post"];
+
+/**
+ * A cor de cada situação (05/11/2026, pedido do dono): amarelo aguarda você,
+ * verde aprovada, vermelho reprovada, azul publicada. A mesma cor no filtro e
+ * no selo do cartão. Em hexadecimal de propósito: o `.admin-shell` remapeia
+ * amber, emerald e blue do Tailwind para cinza (`admin.css`).
+ */
+export const COR_DO_FILTRO: Record<FiltroDeStatus, { cheio: string; contagem: string; selo: string; ponto: string; sombra: string }> = {
+  aguardando: {
+    cheio: "bg-[#FACC15] text-[#3B2A02] border-[#FACC15]",
+    contagem: "bg-[#3B2A02]/15 text-[#3B2A02]",
+    selo: "bg-[#FACC15] text-[#3B2A02]",
+    ponto: "bg-[#EAB308]",
+    sombra: "shadow-[0_6px_18px_-6px_rgba(234,179,8,0.7)]",
+  },
+  aprovadas: {
+    cheio: "bg-[#16A34A] text-white border-[#16A34A]",
+    contagem: "bg-white/25 text-white",
+    selo: "bg-[#DCFCE7] text-[#14532D]",
+    ponto: "bg-[#16A34A]",
+    sombra: "shadow-[0_6px_18px_-6px_rgba(22,163,74,0.6)]",
+  },
+  reprovadas: {
+    cheio: "bg-[#DC2626] text-white border-[#DC2626]",
+    contagem: "bg-white/25 text-white",
+    selo: "bg-[#FEE2E2] text-[#7F1D1D]",
+    ponto: "bg-[#DC2626]",
+    sombra: "shadow-[0_6px_18px_-6px_rgba(220,38,38,0.6)]",
+  },
+  publicadas: {
+    cheio: "bg-[#2563EB] text-white border-[#2563EB]",
+    contagem: "bg-white/25 text-white",
+    selo: "bg-[#DBEAFE] text-[#1E3A8A]",
+    ponto: "bg-[#2563EB]",
+    sombra: "shadow-[0_6px_18px_-6px_rgba(37,99,235,0.6)]",
+  },
+};
 
 const FUSO = "America/Sao_Paulo";
 

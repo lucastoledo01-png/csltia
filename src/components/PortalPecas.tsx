@@ -103,13 +103,17 @@ export function FotoDaPauta({
       */}
       <SemFoto rotulo={rotulo} editoria={editoria} />
       {inteira && (otimizada || fonte) ? (
-        // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-        <img
-          {...(otimizada ?? { src: fonte, decoding: "async" as const })}
-          alt=""
-          aria-hidden="true"
-          className={`absolute inset-0 h-full w-full scale-110 object-cover ${recorteDaFoto(src).classe} blur-2xl brightness-90`}
-        />
+        // O desfoque deixa a borda da cópia translúcida, e por ela aparecia a
+        // peça tipográfica de baixo (o "BRASIL" e a faixa verde no celular,
+        // 05/11/2026). A camada opaca, da cor da peça, tampa a peça só aqui.
+        <div className="absolute inset-0 overflow-hidden bg-[#18181B]" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
+          <img
+            {...(otimizada ?? { src: fonte, decoding: "async" as const })}
+            alt=""
+            className={`absolute inset-0 h-full w-full scale-125 object-cover ${recorteDaFoto(src).classe} blur-2xl brightness-90`}
+          />
+        </div>
       ) : null}
       {otimizada ? (
         // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
