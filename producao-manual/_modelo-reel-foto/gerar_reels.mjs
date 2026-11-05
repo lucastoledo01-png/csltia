@@ -10,6 +10,10 @@ const D=path.resolve(process.argv[2]);const cfg=JSON.parse(readFileSync(path.joi
 const LOGO=path.join(RAIZ,"public/marca/eua-instagram-fundo-escuro.png");
 const TRILHA=path.resolve(D,cfg.trilha);const F=path.resolve(D,cfg.fotos);
 const R=cfg.reels;
+// Posição da máscara escura e do bloco de texto, em px do 1080x1920. Em 30/10/2026 era
+// máscara a partir de y 800 e texto com a base a 530 px do fim. Em 05/11/2026 o dono pediu os
+// dois 10% mais baixos (192 px): 15% punha a manchete debaixo da legenda e dos botões do Reels.
+const MASCARA=cfg.mascara??992, BASE_DO_TEXTO=cfg.baseDoTexto??338;
 const b=await chromium.launch();
 for(const id of (process.argv[3]?[process.argv[3]]:Object.keys(R))){
  const c=R[id];
@@ -17,10 +21,10 @@ for(const id of (process.argv[3]?[process.argv[3]]:Object.keys(R))){
  const html=`<!doctype html><meta charset=utf-8><link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;800&display=swap" rel="stylesheet"><style>
 *{box-sizing:border-box}html,body{margin:0;background:transparent}body{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:Inter}
 #top{position:absolute;left:0;right:0;top:0;height:560px;background:linear-gradient(180deg,rgba(0,0,0,.5),rgba(0,0,0,0))}
-#bot{position:absolute;left:0;right:0;top:800px;height:1120px;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.8) 38%,rgba(0,0,0,.6) 70%,rgba(0,0,0,.25))}
+#bot{position:absolute;left:0;right:0;top:${MASCARA}px;height:${1920-MASCARA}px;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.8) 38%,rgba(0,0,0,.6) 70%,rgba(0,0,0,.25))}
 #logo{position:absolute;left:100px;top:312px;width:210px}
 #bolha{position:absolute;width:300px;height:300px;border-radius:50%;border:7px solid #fff;object-fit:cover;box-shadow:0 6px 30px rgba(0,0,0,.35)}
-#blk{position:absolute;left:100px;width:840px;bottom:530px}
+#blk{position:absolute;left:100px;width:840px;bottom:${BASE_DO_TEXTO}px}
 #cat{display:inline-block;color:#fff;font-weight:800;font-size:24px;letter-spacing:.14em;margin-bottom:22px}
 #hd{color:#fff;font-weight:800;font-size:66px;line-height:1.1;text-transform:uppercase;letter-spacing:-.01em}
 #hd em{font-style:normal;color:#ff3b53}

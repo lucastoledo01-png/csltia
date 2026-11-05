@@ -9,7 +9,7 @@ lâminas do carrossel vai para a **descrição**. Aprovado pelo dono em 30/10/20
 - **Só três elementos:** logo `eua.` branco no topo, categoria (POLÍTICA, EUA, MUNDO…) e manchete em caixa alta
   com o trecho de destaque em vermelho (`#ff3b53`). Sem `@eua.journal`, sem "Imagens de arquivo" no vídeo.
 - **Texto na tela desde o primeiro quadro.** Sem animação de entrada.
-- **Margem de corte:** tudo dentro de x 100 a 940 e y 310 a 1390 (sobrevive ao corte 4:5 do feed e fica longe dos
+- **Margem de corte:** tudo dentro de x 100 a 940 e y 310 a 1582 (desde 05/11/2026 a sombra e a manchete ficam 10% mais baixas; 15% punha a manchete sob a legenda e os botões) (sobrevive ao corte 4:5 do feed e fica longe dos
   botões do Reels). Manchete em até 4 linhas; se passar disso, encurtar o texto.
 - Rosto nunca debaixo do texto: ajustar o recorte para o rosto ficar no terço de cima.
 
