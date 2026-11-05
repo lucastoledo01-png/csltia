@@ -1,0 +1,36 @@
+{
+ "fotos": "../fotos",
+ "trilha": "trilha.m4a",
+ "reels": {
+  "e1": {
+   "foto": "capitolio.jpg",
+   "crop": "1742:3097:353:0",
+   "cat": "ELEIÇÕES NOS EUA",
+   "h": "Democratas levam Câmara e Senado <em>sem perder nenhuma cadeira</em>"
+  },
+  "e2": {
+   "foto": "hinojosa2024.jpg",
+   "crop": "556:989:200:0",
+   "cat": "ELEIÇÕES NOS EUA",
+   "h": "Gina Hinojosa derruba Greg Abbott e <em>vira governadora do Texas</em>"
+  },
+  "e3": {
+   "foto": "vance2025.jpg",
+   "crop": "1125:2000:560:0",
+   "cat": "ELEIÇÕES NOS EUA",
+   "h": "JD Vance culpa a guerra no Irã: <em>“é a razão de termos perdido”</em>"
+  },
+  "e4": {
+   "foto": "bottoms2026.png",
+   "crop": "822:1461:113:0",
+   "cat": "ELEIÇÕES NOS EUA",
+   "h": "Keisha Lance Bottoms vence na Geórgia, <em>estado que Trump levou em 2024</em>"
+  },
+  "e5": {
+   "foto": "trump-johnson.jpg",
+   "crop": "871:1548:560:0",
+   "cat": "ELEIÇÕES NOS EUA",
+   "h": "Mike Johnson <em>não vai tentar seguir</em> como líder republicano na Câmara"
+  }
+ }
+}
