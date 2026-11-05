@@ -1,0 +1,13 @@
+{
+ "fotos": "../fotos",
+ "trilha": "trilha.m4a",
+ "reels": {
+  "f1": {
+   "foto": "flavio2025.jpg",
+   "crop": "1823:3241:200:0",
+   "cat": "POLÍTICA",
+   "bolha": { "foto": "mar-a-lago.jpg", "crop": "2400:2400:2107:160", "x": 720, "y": 690 },
+   "h": "Flávio Bolsonaro discursa hoje em evento conservador <em>na casa de Trump</em>"
+  }
+ }
+}
