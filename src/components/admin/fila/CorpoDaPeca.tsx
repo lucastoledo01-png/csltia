@@ -5,7 +5,6 @@ import { useState } from "react";
 import type { Aprovacao } from "@/lib/server/aprovacao/contrato";
 import type { PreviaDaNewsletter, PreviaDoArtigo, PreviaDoPlano, PreviaDoPost } from "@/lib/server/aprovacao/previa";
 import { MolduraDePrevia } from "./MolduraDePrevia";
-import { horaCurta } from "./tipos";
 
 /**
  * O corpo de cada cartão: a peça como vai ao ar, por canal (06/10/2026).
@@ -32,20 +31,22 @@ export function TextoEditavel({
   multilinha = false,
 }: {
   edicao: Edicao;
-  children: React.ReactNode;
+  /** Sem filhos, só o botão: o texto já aparece no cabeçalho do cartão (05/11/2026). */
+  children?: React.ReactNode;
   multilinha?: boolean;
 }) {
   const [editando, setEditando] = useState(false);
   const [texto, setTexto] = useState(edicao.valor);
 
   if (!editando) {
+    if (!children && !edicao.pode) return null;
     return (
       <div className="group relative">
         {children}
         {edicao.pode ? (
           <button
             type="button"
-            className="mt-1 text-[12px] font-medium text-slate-500 underline decoration-slate-300 underline-offset-2 hover:text-slate-900"
+            className={`${children ? "mt-1 " : ""}text-[12px] font-semibold text-slate-800 underline decoration-slate-400 underline-offset-4 hover:text-black`}
             onClick={() => {
               setTexto(edicao.valor);
               setEditando(true);
@@ -119,28 +120,14 @@ export function CorpoDaNewsletter({
 }) {
   const [celular, setCelular] = useState(true);
   return (
-    <div className="space-y-3">
-      {/* A linha da caixa de entrada: é o que decide se o e-mail é aberto. */}
-      <TextoEditavel edicao={edicao}>
-        <div className="rounded-lg border border-slate-200 bg-white p-3">
-          <div className="flex items-start gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-900 text-[11px] font-bold text-white">eua</span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-[13px] font-semibold text-slate-900">eua.journal</span>
-                <span className="shrink-0 text-[11px] text-slate-500">{horaCurta(a.publicarEm) || ""}</span>
-              </div>
-              <p className="text-[15px] font-semibold leading-snug text-slate-900">{previa.assunto || "(sem assunto)"}</p>
-              <p className="line-clamp-2 text-[13px] leading-snug text-slate-500">{previa.preheader || "(sem pré-cabeçalho)"}</p>
-            </div>
-          </div>
-        </div>
-      </TextoEditavel>
-
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[12px] text-slate-500">O e-mail exatamente como vai sair:</p>
+    <div className="space-y-4">
+      {/*
+        O assunto e o pré-cabeçalho estão no cabeçalho do cartão (05/11/2026).
+        Aqui ficam a largura da prévia e a edição do assunto, na mesma linha.
+      */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Ver no tamanho do celular, que é onde a maioria lê, ou na largura toda. */}
-        <div className="flex shrink-0 rounded-lg border border-slate-200 bg-white p-0.5 text-[12px]" role="group" aria-label="Largura da prévia">
+        <div className="flex shrink-0 gap-1.5 text-[12px]" role="group" aria-label="Largura da prévia">
           {[
             { rotulo: "Celular", valor: true },
             { rotulo: "Computador", valor: false },
@@ -149,12 +136,15 @@ export function CorpoDaNewsletter({
               key={o.rotulo}
               type="button"
               aria-pressed={celular === o.valor}
-              className={`rounded-md px-2.5 py-1 ${celular === o.valor ? "bg-slate-900 text-white" : "text-slate-600"}`}
+              className={`rounded-lg border px-3 py-1.5 font-medium ${celular === o.valor ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700"}`}
               onClick={() => setCelular(o.valor)}
             >
               {o.rotulo}
             </button>
           ))}
+        </div>
+        <div className="[&:has(textarea)]:basis-full">
+          <TextoEditavel edicao={edicao} />
         </div>
       </div>
       <MolduraDePrevia
@@ -182,28 +172,21 @@ export function CorpoDoArtigo({
 }) {
   const enderecoDaPrevia = `/admin/${encodeURIComponent(slug)}/aprovacao/previa/${encodeURIComponent(a.id)}`;
   return (
-    <div className="space-y-3">
-      <TextoEditavel edicao={edicao}>
-        <h3 className="text-[18px] font-semibold leading-snug text-slate-900">{previa.titulo}</h3>
-      </TextoEditavel>
-      <p className="flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-slate-500">
-        {previa.editoria ? <span>{previa.editoria}</span> : null}
-        <span>{previa.palavras} palavras</span>
-        <span>
-          {previa.perguntas} {previa.perguntas === 1 ? "pergunta" : "perguntas"} e respostas
-        </span>
-      </p>
+    <div className="space-y-4">
+      {/* O título e os números da matéria estão no cabeçalho do cartão (05/11/2026). */}
       {previa.assuntos.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {previa.assuntos.map((t) => (
-            <span key={t} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] text-slate-700">
+            <span key={t} className="rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] text-slate-700">
               {t}
             </span>
           ))}
         </div>
       ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[12px] text-slate-500">A matéria como o leitor vai ver no portal:</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="[&:has(textarea)]:basis-full">
+          <TextoEditavel edicao={edicao} />
+        </div>
         <div className="flex gap-3 text-[12px] font-medium">
           <a href={enderecoDaPrevia} target="_blank" rel="noreferrer" className="text-slate-700 underline underline-offset-2">
             Abrir prévia em tela cheia
