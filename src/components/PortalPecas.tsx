@@ -51,6 +51,7 @@ export function FotoDaPauta({
   prioridade = false,
   arredondado = "rounded-xl",
   tamanhos = "(min-width: 768px) 33vw, 100vw",
+  inteira = false,
 }: {
   src: string | null;
   proporcao: string;
@@ -61,8 +62,16 @@ export function FotoDaPauta({
   arredondado?: string;
   /** O `sizes` da foto: a largura que a caixa ocupa em cada tela. */
   tamanhos?: string;
+  /**
+   * A foto vai INTEIRA, contida, sobre uma cópia dela ampliada e desfocada
+   * (05/11/2026), como a capa da matéria faz desde 14/10. Para a manchete da
+   * home: retrato em pé numa caixa 16:9 não tem recorte que mostre o rosto
+   * inteiro, e a do Flávio em 05/11 mostrava só a testa.
+   */
+  inteira?: boolean;
 }) {
   const classe = `absolute inset-0 h-full w-full object-cover ${recorteDaFoto(src).classe} transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100`;
+  const classeInteira = "absolute inset-0 h-full w-full object-contain";
   const fonte = src ? fotoNaLargura(enderecoDaFoto(src), prioridade ? 1280 : 960) : "";
 
   /*
@@ -93,9 +102,18 @@ export function FotoDaPauta({
         não desenha ícone de imagem quebrada, e sobra a peça, não um buraco.
       */}
       <SemFoto rotulo={rotulo} editoria={editoria} />
+      {inteira && (otimizada || fonte) ? (
+        // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+        <img
+          {...(otimizada ?? { src: fonte, decoding: "async" as const })}
+          alt=""
+          aria-hidden="true"
+          className={`absolute inset-0 h-full w-full scale-110 object-cover ${recorteDaFoto(src).classe} blur-2xl brightness-90`}
+        />
+      ) : null}
       {otimizada ? (
         // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-        <img {...otimizada} className={classe} />
+        <img {...otimizada} className={inteira ? classeInteira : classe} />
       ) : fonte ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -104,7 +122,7 @@ export function FotoDaPauta({
           loading={prioridade ? "eager" : "lazy"}
           fetchPriority={prioridade ? "high" : undefined}
           decoding="async"
-          className={classe}
+          className={inteira ? classeInteira : classe}
         />
       ) : null}
     </div>

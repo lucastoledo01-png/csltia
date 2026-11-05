@@ -60,6 +60,7 @@ function Manchete({ pauta }: { pauta: PautaDoPortal }) {
           editoria={pauta.editoria}
           prioridade
           tamanhos="(min-width: 1280px) 830px, (min-width: 1024px) 66vw, 100vw"
+          inteira
         />
         <div className="absolute left-4 top-4 md:left-6 md:top-6">
           <Selo texto={pauta.rotulo} />
