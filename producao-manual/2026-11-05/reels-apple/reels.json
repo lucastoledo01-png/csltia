@@ -1,0 +1,18 @@
+{
+ "fotos": "../fotos",
+ "trilha": "trilha.m4a",
+ "reels": {
+  "a1": {
+   "foto": "apple-cubo.jpg",
+   "crop": "1760:3129:310:0",
+   "cat": "TECNOLOGIA",
+   "bolha": {
+    "foto": "macbook-pro.jpg",
+    "crop": "2900:2900:680:100",
+    "x": 640,
+    "y": 300
+   },
+   "h": "MacBook com tela de toque custa R$ 15,8 mil nos EUA, <em>quase 10 salários mínimos</em>"
+  }
+ }
+}

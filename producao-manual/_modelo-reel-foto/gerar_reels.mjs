@@ -39,7 +39,8 @@ for(const id of (process.argv[3]?[process.argv[3]]:Object.keys(R))){
  // cada quadro, e a imagem tremia; reescalar a foto inteira por quadro tem o mesmo degrau no
  // tamanho. O `perspective` recebe os quatro cantos em fração de pixel e interpola, então o
  // recorte encolhe de forma contínua.
- const z=c.zoom??0.04;
+ const z=c.zoom??0.07;
+ // Os cantos entram no quadro, e o recorte aproxima: 7% em 10 s, o mesmo zoom de antes.
  const P=`W/2*(1-1/(1+${z}*in/${fr}))`,Q=`H/2*(1-1/(1+${z}*in/${fr}))`;
  execFileSync("ffmpeg",["-v","error","-y","-loop","1","-framerate",String(fps),"-t",String(dur),"-i",`${F}/${c.foto}`,"-i",`${D}/o_${id}.png`,"-i",TRILHA,
   "-filter_complex",`[0:v]crop=${c.crop},scale=2160:3840:flags=lanczos,perspective=x0='${P}':y0='${Q}':x1='W-${P}':y1='${Q}':x2='${P}':y2='H-${Q}':x3='W-${P}':y3='H-${Q}':interpolation=cubic:eval=frame,scale=1080:1920:flags=area,format=yuv420p[v];[v][1:v]overlay=0:0,format=yuv420p[o];[2:a]volume=0.55,afade=t=in:d=0.4,afade=t=out:st=9:d=1[a]`,
