@@ -86,17 +86,10 @@ export function FilaDeAprovacao({ slug }: { slug: string }) {
       const json = (await r.json()) as Visao;
       if (!r.ok || !json.ok) throw new Error(json.error ?? `HTTP ${r.status}`);
       setVisao(json);
-      setCanal((atual) => {
-        if (atual) return atual;
-        const inicial = canalInicial(json);
-        // Sem nada aguardando em canal nenhum, abre no filtro que tem peça (o dia já publicado, por exemplo).
-        const doCanal = json.fila.filter((a) => a.ramo === inicial).map((a) => filtroDaSituacao(situacaoDe(a, json)));
-        if (!doCanal.includes("aguardando")) {
-          const comPeca = FILTROS_DE_STATUS.find((f) => doCanal.includes(f.id));
-          if (comPeca) setFiltro(comPeca.id);
-        }
-        return inicial;
-      });
+      // A tela abre sempre em "Aguardando" (05/11/2026, pedido do dono): é a
+      // pergunta de quem abre a fila. Antes, sem nada aguardando, ela pulava
+      // para o primeiro filtro com peça, e a lista vazia dizia mais que isso.
+      setCanal((atual) => atual ?? canalInicial(json));
       setErro("");
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Falha ao carregar a fila.");
@@ -251,11 +244,8 @@ export function FilaDeAprovacao({ slug }: { slug: string }) {
                   onClick={() => {
                     setCanal(r);
                     setConfirmarLote(false);
-                    // Aba nova abre no primeiro filtro que tem peça, para não abrir vazia por acaso.
-                    if (contas[r][filtro] === 0) {
-                      const comPeca = FILTROS_DE_STATUS.find((f) => contas[r][f.id] > 0);
-                      if (comPeca) setFiltro(comPeca.id);
-                    }
+                    // Toda aba abre em "Aguardando" (05/11/2026), como a tela.
+                    setFiltro("aguardando");
                   }}
                 >
                   {NOME_DO_CANAL[r]}
@@ -279,18 +269,18 @@ export function FilaDeAprovacao({ slug }: { slug: string }) {
       <div className="mx-auto max-w-6xl space-y-5 px-4 pt-6 sm:px-6">
         <header className="space-y-2" data-modo={visao.modo}>
           <h1 className="text-[26px] tracking-tight text-slate-900 sm:text-[30px]" style={{ fontWeight: 700 }}>Fila de aprovação</h1>
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-slate-600">
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${modo.destaque ? "bg-slate-900 text-white" : "bg-white text-slate-800 ring-1 ring-slate-200"}`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${modo.destaque ? "bg-[#22C55E]" : "bg-slate-400"}`} />
+          {/*
+            Só o título (05/11/2026, pedido do dono: o texto do modo e dos
+            horários poluía a tela). O aviso volta apenas quando a fila NÃO
+            está valendo, porque aí aprovar não segura nada e isso muda a
+            decisão de quem olha.
+          */}
+          {modo.destaque ? null : (
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-[12px] font-semibold text-slate-800 ring-1 ring-slate-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
               {modo.titulo}
-            </span>
-            <span>{modo.texto}</span>
-          </p>
-          <p className="text-[12px] text-slate-500">
-            Newsletter às {visao.horarios.envio}, com lembrete às {visao.horarios.aviso} se ainda não estiver aprovada.
-          </p>
+            </p>
+          )}
         </header>
 
         <div className="-mx-4 flex gap-2.5 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:px-0 [scrollbar-width:none]" role="group" aria-label="Situação">

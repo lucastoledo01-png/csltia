@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { MARCA } from "@/lib/marca";
 import { enderecoDaPaginaAtual, linkDoWhatsApp } from "@/lib/compartilhar";
-import { recorteDaFoto } from "@/lib/imagem-da-capa";
+import { fotoNaLargura, hostOtimizavel, recorteDaFoto } from "@/lib/imagem-da-capa";
 
 type SubstackArticleRendererProps = {
   title: string;
@@ -82,6 +82,15 @@ export function SubstackArticleRenderer({
   // troca pelo endereço que o navegador está mostrando (ver `compartilhar.ts`).
   const whatsappShareUrl = linkDoWhatsApp(MARCA.nome, title, shareUrl ?? MARCA.site);
   const legendaDaCapa = [coverDescription?.trim(), coverCredit?.trim()].filter(Boolean) as string[];
+  /*
+   * A capa na largura da página (miniatura do Commons, não o original), e só
+   * host conhecido passa pelo otimizador (05/11/2026). O endereço
+   * `Special:FilePath` do Commons voltava 400 do otimizador ("url parameter is
+   * not allowed"), e o original baixado pelo servidor levava 429 da
+   * Wikimedia: a capa da matéria não abria. Fora da lista, o navegador baixa
+   * direto, como a `FotoDaPauta` da home faz.
+   */
+  const fotoDaCapa = coverImage ? fotoNaLargura(coverImage, 1280) : "";
 
   /*
    * Sem data e sem tempo de leitura inventados. Até 05/10/2026 a página caía
@@ -184,14 +193,16 @@ export function SubstackArticleRenderer({
             <Image
               alt=""
               aria-hidden="true"
-              src={coverImage}
+              src={fotoDaCapa}
+              unoptimized={!hostOtimizavel(fotoDaCapa)}
               fill
               sizes="(min-width: 768px) 680px, 100vw"
               className={`scale-110 object-cover ${recorteDaFoto(coverImage).classe} blur-2xl brightness-90`}
             />
             <Image
               alt={coverAlt?.trim() || coverDescription?.trim() || title}
-              src={coverImage}
+              src={fotoDaCapa}
+              unoptimized={!hostOtimizavel(fotoDaCapa)}
               fill
               sizes="(min-width: 768px) 680px, 100vw"
               preload

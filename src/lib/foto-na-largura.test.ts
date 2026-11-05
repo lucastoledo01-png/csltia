@@ -48,4 +48,11 @@ describe("hosts do otimizador", () => {
     expect(hostOtimizavel("https://exemplo.com/a.jpeg")).toBe(false);
     expect(hostOtimizavel("/marca/logo.png")).toBe(false);
   });
+
+  it("a rota visual gravada com o domínio antigo vira caminho do próprio site (05/11/2026)", () => {
+    const antiga = "https://casaloti.ia.br/api/visual/cartao-da-marca?arquivo=Anduril%20Industries%20Logo.svg";
+    expect(fotoNaLargura(antiga, 960)).toBe("/api/visual/cartao-da-marca?arquivo=Anduril%20Industries%20Logo.svg");
+    // Outro caminho do domínio antigo não é reescrito: só a rota que existe no site novo.
+    expect(fotoNaLargura("https://casaloti.ia.br/outra/coisa.png", 960)).toBe("https://casaloti.ia.br/outra/coisa.png");
+  });
 });

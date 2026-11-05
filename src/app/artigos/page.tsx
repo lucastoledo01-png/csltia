@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { CaixaDeAssinatura, MolduraDoPortal } from "@/components/PortalChrome";
+import { FotoDaPauta } from "@/components/PortalPecas";
 import { MARCA } from "@/lib/marca";
 import { Article } from "@/lib/editorial";
 import { getPublishedArticles } from "@/lib/server/articles-service";
-import { recorteDaFoto } from "@/lib/imagem-da-capa";
 
 /**
  * A listagem sai do banco, e o banco muda depois do build.
@@ -54,16 +53,23 @@ function SubstackFeedCard({ article }: { article: Article }) {
   return (
     <article className="group py-8 first:pt-4">
       <Link href={`/artigos/${article.slug}`} className="flex flex-col gap-5 md:flex-row md:gap-6">
+        {/*
+          A foto pela mesma peça da home (05/11/2026). Com o `next/image` direto,
+          a capa ia inteira ao otimizador: endereço `Special:FilePath` do Commons
+          volta 400 ("url parameter is not allowed") e o original do Commons,
+          baixado pelo servidor, leva 429 da Wikimedia. O card ficava com o
+          texto alternativo no lugar da foto. A `FotoDaPauta` pede a miniatura,
+          manda ao otimizador só host conhecido e deixa a peça tipográfica por
+          baixo se o arquivo não abrir.
+        */}
         {article.image ? (
-          <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-xl bg-[#F4F4F5] md:aspect-auto md:h-40 md:w-56">
-            <Image
-              alt={article.imageAlt || article.title}
-              className={`object-cover ${recorteDaFoto(article.image).classe} transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none`}
-              fill
-              sizes="(min-width: 768px) 224px, 100vw"
-              src={article.image}
-            />
-          </div>
+          <FotoDaPauta
+            src={article.image}
+            rotulo={article.category}
+            proporcao="aspect-[16/9] md:aspect-auto md:h-40"
+            className="w-full shrink-0 bg-[#F4F4F5] md:w-56"
+            tamanhos="(min-width: 768px) 224px, 100vw"
+          />
         ) : null}
 
         <div className="min-w-0 flex-1">
