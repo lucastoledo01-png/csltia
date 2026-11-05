@@ -44,10 +44,29 @@ for(const id of (process.argv[3]?[process.argv[3]]:Object.keys(R))){
  // tamanho. O `perspective` recebe os quatro cantos em fração de pixel e interpola, então o
  // recorte encolhe de forma contínua.
  const z=c.zoom??0.07;
+ // A foto desce junto com a sombra e a manchete (05/11/2026), para o rosto continuar na mesma
+ // posição em relação ao texto. Primeiro sobe o recorte; se a foto não tem mais nada acima, o
+ // que falta no topo vira a própria foto desfocada e escurecida, por baixo da marca.
+ const DESCE=c.desceImagem??cfg.desceImagem??0.10;
+ const [cw,ch,cx,cy]=c.crop.split(":").map(Number);
+ const falta=Math.round(DESCE*ch);
+ const sobe=Math.min(cy,falta), resto=falta-sobe;
+ const crop=`${cw}:${ch}:${cx}:${cy-sobe}`;
+ const topo=Math.round(resto/ch*3840/2)*2;
+ // Com falta no topo, a foto composta é montada UMA vez (desfoque por baixo e a foto por cima,
+ // com a borda de cima esfumada em 160 px, para não ficar uma linha de corte).
+ let entrada=`${F}/${c.foto}`, base=`[0:v]crop=${crop},scale=2160:3840:flags=lanczos,`;
+ if(topo>0){
+  const comp=`${D}/fundo_${id}.png`;
+  execFileSync("ffmpeg",["-v","error","-y","-i",`${F}/${c.foto}`,"-filter_complex",
+   `[0:v]crop=${crop},scale=2160:3840:flags=lanczos,split[f][b];[b]boxblur=40:2,eq=brightness=-0.18[bb];[f]format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(Y,160),255*Y/160,255)'[fa];[bb][fa]overlay=0:${topo}`,
+   "-frames:v","1",comp]);
+  entrada=comp; base=`[0:v]`;
+ }
  // Os cantos entram no quadro, e o recorte aproxima: 7% em 10 s, o mesmo zoom de antes.
  const P=`W/2*(1-1/(1+${z}*in/${fr}))`,Q=`H/2*(1-1/(1+${z}*in/${fr}))`;
- execFileSync("ffmpeg",["-v","error","-y","-loop","1","-framerate",String(fps),"-t",String(dur),"-i",`${F}/${c.foto}`,"-i",`${D}/o_${id}.png`,"-i",TRILHA,
-  "-filter_complex",`[0:v]crop=${c.crop},scale=2160:3840:flags=lanczos,perspective=x0='${P}':y0='${Q}':x1='W-${P}':y1='${Q}':x2='${P}':y2='H-${Q}':x3='W-${P}':y3='H-${Q}':interpolation=cubic:eval=frame,scale=1080:1920:flags=area,format=yuv420p[v];[v][1:v]overlay=0:0,format=yuv420p[o];[2:a]volume=0.55,afade=t=in:d=0.4,afade=t=out:st=9:d=1[a]`,
+ execFileSync("ffmpeg",["-v","error","-y","-loop","1","-framerate",String(fps),"-t",String(dur),"-i",entrada,"-i",`${D}/o_${id}.png`,"-i",TRILHA,
+  "-filter_complex",`${base}perspective=x0='${P}':y0='${Q}':x1='W-${P}':y1='${Q}':x2='${P}':y2='H-${Q}':x3='W-${P}':y3='H-${Q}':interpolation=cubic:eval=frame,scale=1080:1920:flags=area,format=yuv420p[v];[v][1:v]overlay=0:0,format=yuv420p[o];[2:a]volume=0.55,afade=t=in:d=0.4,afade=t=out:st=9:d=1[a]`,
   "-map","[o]","-map","[a]","-t",String(dur),"-c:v","libx264","-crf","18","-preset","medium","-c:a","aac","-b:a","160k","-movflags","+faststart",`${D}/reel_${id}.mp4`]);
  console.log("ok",id);
 }
