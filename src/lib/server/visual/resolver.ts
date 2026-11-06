@@ -1648,7 +1648,7 @@ export function contextoDaEditoriaPara(eixo: string, pais?: string): string {
   return CONTEXTO_DA_EDITORIA[eixo] ?? "american flag waving blue sky";
 }
 
-function assetDoBanco(
+export function assetDoBanco(
   foto: Awaited<ReturnType<typeof buscarFotosDeBanco>>[number],
   entidade: EntidadeVisual,
   env: Record<string, string | undefined>,

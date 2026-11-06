@@ -274,4 +274,35 @@ describe("o diretor do dia", () => {
     expect(passo.tipo === "tarefa" && passo.tarefa.id).toBe(t.id);
     expect(passo.tipo === "tarefa" && passo.tarefa.estado).toBe("reparar");
   });
+
+  it("foto recusada volta ao Claude uma vez para achar na web, e depois vira aviso", async () => {
+    const { d, tarefas, planos, fotos } = deps();
+    const plano = await planos.doDia("p1", "2026-11-07");
+    await planos.atualizar(plano.id, { estado: "aprovado", etapa: "producao", itens: { ...PLANO_VAZIO, posts: ["s1"] } });
+    (candidata as { factualPackage: unknown }).factualPackage = { verified_facts: ["x"] };
+    fotos.set("s1", { status: "NO_VALID_IMAGE" });
+    const foto = await tarefas.abrir({ projectId: "p1", editionDate: "2026-11-07", tipo: "escolher_foto", chave: "s1", instrucao: {}, material: {}, esquema: {} });
+    await tarefas.entregar(foto.id, { escolha: null }, "claude");
+    let passo = await proximoPassoDoDia(projeto, "2026-11-07", d);
+    expect(passo.tipo === "tarefa" && passo.tarefa.id).toBe(foto.id);
+    expect(passo.tipo === "tarefa" && passo.tarefa.motivos.join(" ")).toContain("imagem_url");
+    await tarefas.entregar(foto.id, { escolha: null }, "claude");
+    passo = await proximoPassoDoDia(projeto, "2026-11-07", d);
+    expect(passo.tipo).toBe("pronto");
+    expect(passo.avisos?.join(" ")).toContain("sem foto aprovada");
+  });
+
+  it("a newsletter que falha não para o dia: vira aviso", async () => {
+    const { d, planos, fotos } = deps();
+    d.avancarNewsletter = async () => {
+      throw new Error("encontradas 1, mínimo 2");
+    };
+    const plano = await planos.doDia("p1", "2026-11-08");
+    await planos.atualizar(plano.id, { estado: "aprovado", etapa: "producao", itens: { ...PLANO_VAZIO, newsletter: ["s1"] } });
+    fotos.set("s1", { status: "SELECTED" });
+    (candidata as { factualPackage: unknown }).factualPackage = { verified_facts: ["x"] };
+    const passo = await proximoPassoDoDia(projeto, "2026-11-08", d);
+    expect(passo.tipo).toBe("pronto");
+    expect(passo.avisos?.join(" ")).toContain("mínimo 2");
+  });
 });

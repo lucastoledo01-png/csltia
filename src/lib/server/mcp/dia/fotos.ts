@@ -76,6 +76,16 @@ export const EscolhaDaFotoSchema = z.object({
   descricao: z.string().describe("O que se vê na foto escolhida (ou por que nenhuma serve)."),
   confianca: z.number().min(0).max(100),
   motivo: z.string().default(""),
+  /*
+   * Autonomia do Claude (06/11/2026): nenhuma candidata serve? Ele acha a foto
+   * na web pelo chat (imagem_url com autor e fonte) ou com buscar_imagens
+   * (imagem_id). Recusar todas derrubava o post da pauta.
+   */
+  imagem_url: z.string().optional().describe("Link DIRETO do arquivo de uma foto que você achou na web, quando nenhuma candidata serve."),
+  imagem_id: z.string().optional().describe("Ou o id de uma candidata de buscar_imagens."),
+  autor: z.string().optional().describe("Com imagem_url: quem fotografou, ou a instituição dona da foto."),
+  fonte: z.string().optional().describe("Com imagem_url: o site ou a agência de onde ela veio."),
+  pagina: z.string().optional().describe("Com imagem_url: a página onde a foto está publicada."),
 });
 
 const ESQUEMA = z.toJSONSchema(EscolhaDaFotoSchema, { io: "input" }) as Record<string, unknown>;
@@ -104,8 +114,13 @@ export async function abrirFoto(projeto: Project, data: string, material: Materi
       user:
         `MANCHETE: ${material.titulo}\nRESUMO: ${material.resumo}\nEDITORIA: ${material.categoria}\n\n` +
         `As fotos candidatas vêm como imagens, na ordem dos índices:\n${lista}\n\n` +
-        "Escolha UMA que sustenta a manchete pelo critério acima (foto de CONTEXTO só precisa ambientar o assunto), " +
-        `ou null se nenhuma serve. Confiança abaixo de ${PISO_DE_CONFIANCA} é recusa.`,
+        (material.candidatas.length
+          ? "Escolha UMA que sustenta a manchete pelo critério acima (foto de CONTEXTO só precisa ambientar o assunto). "
+          : "A busca automática não achou candidata. ") +
+        "Se nenhuma serve, NÃO deixe a pauta sem foto: procure você mesmo na web (site ou sala de imprensa da empresa, agência, Wikipedia, Flickr) " +
+        "ou com a ferramenta buscar_imagens, confira com ver_imagem, e entregue escolha null com imagem_url (link direto do arquivo), autor e fonte, " +
+        "ou com imagem_id de buscar_imagens. Pauta sem foto não vira post. " +
+        `Confiança abaixo de ${PISO_DE_CONFIANCA} é recusa.`,
       orientacao: "Olhe as imagens anexadas e responda SÓ com o JSON do esquema.",
     },
     material: material as unknown as Record<string, unknown>,
@@ -141,7 +156,37 @@ export function resultadoDaEscolha(material: MaterialDaFoto, bruto: unknown): { 
   };
 }
 
+/** A foto que o Claude achou fora das candidatas vira asset (Storage, crédito); string é o motivo da recusa. */
+export type FotoDaWeb = (escolha: { imagem_url?: string; imagem_id?: string; autor?: string; fonte?: string; pagina?: string }) => Promise<AssetVisual | string>;
+
+async function comFotoDaWeb(
+  material: MaterialDaFoto,
+  bruto: unknown,
+  fotoDaWeb: FotoDaWeb,
+): Promise<{ ok: true; resultado: ResultadoVisual } | { ok: false; motivo: string }> {
+  const lido = EscolhaDaFotoSchema.safeParse(bruto);
+  if (!lido.success || (!lido.data.imagem_url && !lido.data.imagem_id) || lido.data.escolha !== null) return resultadoDaEscolha(material, bruto);
+  const asset = await fotoDaWeb(lido.data);
+  if (typeof asset === "string") return { ok: false, motivo: `a foto indicada não serviu: ${asset}` };
+  return {
+    ok: true,
+    resultado: {
+      storyId: material.storyId,
+      entidade: null,
+      asset: { ...asset, conferenciaVisual: { descricao: lido.data.descricao, motivo: "escolhida pelo Claude fora das candidatas", paisAparente: null, confianca: lido.data.confianca } },
+      assetSecundario: null,
+      status: "SELECTED",
+      motivo: null,
+      fontesConsultadas: [{ fonte: "biblioteca_interna", encontrados: 1, nota: `foto achada pelo Claude: ${lido.data.descricao.slice(0, 200)}` }],
+      recusados: [],
+      legenda: "",
+      caminho: "entidade",
+    },
+  };
+}
+
 export type DepsDaFoto = {
+  fotoDaWeb?: FotoDaWeb;
   tarefas: TarefasStore;
   gravarFoto: (projectId: string, resultado: ResultadoVisual) => Promise<void>;
 };
@@ -153,7 +198,7 @@ export async function entregarFoto(
   deps: DepsDaFoto,
 ): Promise<{ ok: true; desfecho: "foto"; storyId: string; comFoto: boolean } | { ok: true; desfecho: "reparar"; tarefa: Tarefa; motivos: string[] }> {
   const material = tarefa.material as unknown as MaterialDaFoto;
-  const r = resultadoDaEscolha(material, resultado);
+  const r = deps.fotoDaWeb ? await comFotoDaWeb(material, resultado, deps.fotoDaWeb) : resultadoDaEscolha(material, resultado);
   if (!r.ok) {
     return { ok: true, desfecho: "reparar", motivos: [r.motivo], tarefa: await deps.tarefas.pedirReparo(tarefa.id, resultado, [r.motivo], quem) };
   }

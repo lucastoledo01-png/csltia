@@ -6,6 +6,7 @@ import { aguardar, fazerODia } from "./dia/servico";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import type { Resposta } from "./servico";
 import type { AcessoDoMcp } from "./tokens";
+import { buscarImagens, trocarImagem, verImagem } from "./imagem";
 
 /**
  * O MCP online (27/10/2026): o caminho do produto.
@@ -36,6 +37,9 @@ const CHAMADAS: Record<NomeDaFerramenta, (acesso: AcessoDoMcp, args: Record<stri
   ver_reel: (a, args) => verReel(a, args, depsDoReelNoMcp(getSupabaseAdminClient())),
   fazer_o_dia: (a, args) => fazerODia(a, args, getSupabaseAdminClient()),
   aguardar: (a, args) => aguardar(a, args, getSupabaseAdminClient()),
+  buscar_imagens: (a, args) => buscarImagens(a, args),
+  ver_imagem: (a, args) => verImagem(a, args),
+  trocar_imagem: (a, args) => trocarImagem(a, args),
 };
 
 export function backendDireto(acesso: AcessoDoMcp, chamadas = CHAMADAS): Backend {

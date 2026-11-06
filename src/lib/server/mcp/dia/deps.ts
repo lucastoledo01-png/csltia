@@ -177,20 +177,7 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
         { consulta: cena?.consulta ?? "", objeto: cena?.objeto ?? "", falhou: !cena, motivo: cena ? "cena do Claude, no plano" : "sem cena no plano", custoUsd: 0 },
         { env: process.env, client, bancosOficiais: true },
       );
-      if (lista.length === 0) {
-        await gravarImagemDaPauta(client, projeto.id, {
-          storyId: c.storyId,
-          entidade: null,
-          asset: null,
-          assetSecundario: null,
-          status: "NO_VALID_IMAGE",
-          motivo: "NO_ENTITY_IMAGE_FOUND",
-          fontesConsultadas: [],
-          recusados: [],
-          legenda: "",
-        });
-        return null;
-      }
+      // Sem candidata, a tarefa abre assim mesmo: o Claude acha a foto na web (06/11/2026).
       return abrirFoto(
         projeto,
         plano.data,
@@ -206,9 +193,9 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
       );
     },
     async abrirPacote(projeto, data, c) {
-      const texto = await buscarTextoDaFonte(c.canonicalUrl || c.url);
-      if (!texto?.texto) return null;
-      return abrirPacote(projeto, data, { storyId: c.storyId, titulo: c.title, url: c.canonicalUrl || c.url, texto: texto.texto }, tarefas);
+      // Sem leitura, o Claude lê pela web (06/11/2026): antes a pauta saía do plano em silêncio.
+      const texto = await buscarTextoDaFonte(c.canonicalUrl || c.url).catch(() => null);
+      return abrirPacote(projeto, data, { storyId: c.storyId, titulo: c.title, url: c.canonicalUrl || c.url, texto: texto?.texto ?? "" }, tarefas);
     },
     reels: async (_projeto, ids) => (await Promise.all(ids.map((id) => reels.porId(id)))).filter((r): r is NonNullable<typeof r> => r !== null),
     escolherReel: (id) => reels.escolher(id),

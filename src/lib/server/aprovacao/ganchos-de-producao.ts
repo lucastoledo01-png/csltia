@@ -297,7 +297,7 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     );
     // Só foto real da pauta; a bandeira não é publicada desde 05/10/2026 (`sem-foto.ts`).
     const nova = temFotoDaPauta(r) ? enderecoLimpoDaImagem(r.asset?.imageUrl) : "";
-    if (!fotoNovaServe(nova, [atual], evitar)) return falha("o resolvedor não achou outra foto para esta pauta");
+    if (!fotoNovaServe(nova, [atual], evitar)) return falha("o resolvedor não achou outra foto para esta pauta. No projeto do Claude, peça a foto no chat: ele busca na web e troca com trocar_imagem");
 
     /*
      * A legenda e o crédito eram da foto VELHA (06/10/2026): saem do corpo, e
@@ -393,7 +393,7 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     const r = await mundo.imagem(daPauta, { client, projeto, evitar, recusas });
     // Só foto real da pauta; a bandeira não é publicada desde 05/10/2026 (`sem-foto.ts`).
     const nova = temFotoDaPauta(r) ? (r.asset?.imageUrl ?? "") : "";
-    if (!fotoNovaServe(nova, [atual], evitar)) return falha("o resolvedor não achou outra foto para esta pauta");
+    if (!fotoNovaServe(nova, [atual], evitar)) return falha("o resolvedor não achou outra foto para esta pauta. No projeto do Claude, peça a foto no chat: ele busca na web e troca com trocar_imagem");
 
     /*
      * O crédito da legenda acompanha a foto (06/10/2026). A refação trocava a

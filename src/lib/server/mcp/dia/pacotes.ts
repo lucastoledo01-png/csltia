@@ -42,8 +42,13 @@ export async function abrirPacote(projeto: Project, data: string, material: Mate
     chave: material.storyId,
     instrucao: {
       system: montarSystemDoExtrator(),
-      user: userDoExtrator(material.titulo, material.texto),
-      orientacao: "Responda SÓ com o JSON do esquema, mais o campo citacoes descrito na instrução.",
+      user: material.texto
+        ? userDoExtrator(material.titulo, material.texto)
+        : `Título: ${material.titulo}\nURL: ${material.url}\n\nA plataforma NÃO conseguiu ler esta matéria (bloqueio ou paywall). ` +
+          "Leia-a você pela web, ou outra fonte confiável sobre o mesmo fato, e extraia dela.",
+      orientacao: material.texto
+        ? "Responda SÓ com o JSON do esquema, mais o campo citacoes descrito na instrução."
+        : "Responda com o JSON do esquema, mais citacoes, mais texto_lido (o texto da matéria que você leu, copiado) e url_lida (a URL que você leu).",
     },
     material: material as unknown as Record<string, unknown>,
     esquema: ESQUEMA,
@@ -56,10 +61,22 @@ export function pacoteDaEntrega(bruto: unknown, material: MaterialDoPacote): { o
   if (!lido.success) return { ok: false, motivo: `a resposta não cabe no esquema do pacote: ${lido.error.issues[0]?.message ?? ""}` };
   // Pacote sem fato faz toda afirmação do texto parecer sem lastro: melhor recusar aqui.
   if (lido.data.verified_facts.length === 0) return { ok: false, motivo: "nenhum fato verificado: liste o que a matéria afirma" };
-  const citacoes = citacoesLiterais((bruto as { citacoes?: unknown } | null)?.citacoes, material.texto);
+  /*
+   * Matéria que a plataforma não leu (06/11/2026): antes a pauta saía do
+   * plano em silêncio, e com ela o post e a matéria. Agora o Claude lê pela
+   * web e entrega o texto que leu, que vira o texto de origem da ancoragem.
+   */
+  const extra = (bruto ?? {}) as { texto_lido?: unknown; url_lida?: unknown };
+  const lidoPeloClaude = typeof extra.texto_lido === "string" ? extra.texto_lido.trim() : "";
+  const texto = material.texto || lidoPeloClaude;
+  if (!texto || (!material.texto && texto.length < 300)) {
+    return { ok: false, motivo: "a plataforma não leu a matéria: abra a URL pela web (ou outra fonte do mesmo fato) e entregue também texto_lido com o texto que você leu (300 caracteres ou mais)" };
+  }
+  const url = !material.texto && typeof extra.url_lida === "string" && /^https?:\/\//.test(extra.url_lida) ? extra.url_lida : material.url;
+  const citacoes = citacoesLiterais((bruto as { citacoes?: unknown } | null)?.citacoes, texto);
   return {
     ok: true,
-    pacote: { ...lido.data, source_urls: [material.url], texto_de_origem: material.texto, ...(citacoes.length ? { citacoes } : {}) },
+    pacote: { ...lido.data, source_urls: [url], texto_de_origem: texto, ...(citacoes.length ? { citacoes } : {}) },
   };
 }
 

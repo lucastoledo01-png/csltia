@@ -68,15 +68,20 @@ export async function tarefaParaOClaude(t: Tarefa): Promise<{ tarefa: Record<str
   };
 }
 
+/** O que ficou de fora do dia, com o motivo: nada some em silêncio (06/11/2026). */
+function avisosDo(passo: PassoDoDia): { avisos?: string[] } {
+  return passo.avisos?.length ? { avisos: passo.avisos } : {};
+}
+
 async function passoParaOClaude(passo: PassoDoDia, acesso: AcessoDoMcp): Promise<Record<string, unknown>> {
   if (passo.tipo === "tarefa") {
     const { tarefa, imagens } = await tarefaParaOClaude(passo.tarefa);
-    return { passo: "tarefa", etapa: passo.etapa, resumo: passo.resumo, tarefa, imagens };
+    return { passo: "tarefa", etapa: passo.etapa, resumo: passo.resumo, tarefa, imagens, ...avisosDo(passo) };
   }
   if (passo.tipo === "aguardar") {
-    return { passo: "aguardar", etapa: passo.etapa, motivo: passo.motivo, painel: linkDoPainel(acesso.projeto.slug) };
+    return { passo: "aguardar", etapa: passo.etapa, motivo: passo.motivo, painel: linkDoPainel(acesso.projeto.slug), ...avisosDo(passo) };
   }
-  return { passo: "pronto", resumo: passo.resumo, painel: linkDoPainel(acesso.projeto.slug) };
+  return { passo: "pronto", resumo: passo.resumo, painel: linkDoPainel(acesso.projeto.slug), ...avisosDo(passo) };
 }
 
 export async function fazerODia(acesso: AcessoDoMcp, args: { data?: unknown }, client: SupabaseClient): Promise<Resposta> {
@@ -155,8 +160,10 @@ export async function entregarDoDia(
       },
     });
   } else if (tarefa.tipo === TIPO_DA_FOTO) {
+    const { fotoIndicadaPeloClaude } = await import("../imagem");
     desfecho = await entregarFoto(tarefa, resultado, quem, {
       tarefas,
+      fotoDaWeb: fotoIndicadaPeloClaude(projeto.id),
       gravarFoto: (projectId, r) => gravarImagemDaPauta(client, projectId, r, true),
     });
   } else if (tarefa.tipo === "escrever_artigo" || tarefa.tipo === "auditar_artigo") {

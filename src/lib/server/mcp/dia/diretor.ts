@@ -17,10 +17,17 @@ import type { EtapaDoDia, PlanoDoDia, PlanosStore } from "./plano-store";
  * Nada aqui chama modelo: as etapas abrem tarefas, e quem pensa é o Claude.
  */
 
+/**
+ * `avisos` (06/11/2026): toda pauta do plano que ficou sem post, sem matéria
+ * ou fora da newsletter, com o motivo. Antes ela sumia em silêncio, e o Claude
+ * da Bruna não tinha como explicar nem destravar.
+ */
 export type PassoDoDia =
-  | { tipo: "tarefa"; etapa: EtapaDoDia; tarefa: Tarefa; resumo: string }
-  | { tipo: "aguardar"; etapa: EtapaDoDia; motivo: string }
-  | { tipo: "pronto"; etapa: "pronto"; resumo: string };
+  | { tipo: "tarefa"; etapa: EtapaDoDia; tarefa: Tarefa; resumo: string; avisos?: string[] }
+  | { tipo: "aguardar"; etapa: EtapaDoDia; motivo: string; avisos?: string[] }
+  | { tipo: "pronto"; etapa: "pronto"; resumo: string; avisos?: string[] };
+
+const erroEmTexto = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export type DepsDoDiretor = {
   tarefas: TarefasStore;
@@ -107,7 +114,7 @@ export async function proximoPassoDoDia(projeto: Project, data: string, deps: De
     const candidatas = await deps.candidatas(projeto, pautas);
     for (const id of pautas) {
       const c = candidatas.get(id);
-      if (!c) continue;
+      if (!c) continue; // vira aviso na produção
       const jaTemFoto = doDia.some((t) => t.tipo === "escolher_foto" && t.chave === id) || (await deps.foto(projeto, id)) !== null;
       if (!jaTemFoto) {
         const t = await deps.abrirFoto(projeto, plano, c);
@@ -124,51 +131,137 @@ export async function proximoPassoDoDia(projeto: Project, data: string, deps: De
   }
 
   if (plano.etapa === "producao") {
+    const avisos: string[] = [];
     const candidatas = await deps.candidatas(projeto, pautas);
+    const nome = (id: string) => candidatas.get(id)?.title.slice(0, 80) ?? id;
     const fotoOk = async (id: string) => (await deps.foto(projeto, id))?.status === "SELECTED";
     const pacoteOk = (id: string) => Boolean(candidatas.get(id)?.factualPackage);
+    const comAvisos = (p: PassoDoDia): PassoDoDia => (avisos.length ? { ...p, avisos } : p);
+
+    for (const id of pautas) if (!candidatas.get(id)) avisos.push(`${id}: a pauta não está mais entre as candidatas do projeto (sem post, matéria nem newsletter)`);
+
+    /*
+     * Pauta sem pacote: a matéria não foi lida, ou a tarefa nunca abriu. Abre
+     * de novo para o Claude ler pela web, uma vez (06/11/2026).
+     */
+    for (const id of pautas) {
+      const c = candidatas.get(id);
+      if (!c || pacoteOk(id)) continue;
+      const tarefasDoPacote = doDia.filter((t) => t.tipo === "extrair_pacote" && t.chave === id);
+      if (tarefasDoPacote.length === 0) {
+        try {
+          const t = await deps.abrirPacote(projeto, data, c);
+          if (t) return comAvisos(tarefa(t, `fatos da pauta: ${nome(id)}`));
+        } catch (e) {
+          avisos.push(`${nome(id)}: o pacote de fatos não abriu (${erroEmTexto(e)})`);
+          continue;
+        }
+      }
+      avisos.push(`${nome(id)}: sem pacote de fatos, então sem post e sem matéria`);
+    }
 
     for (const id of itens.posts) {
-      if (!pacoteOk(id) || !(await fotoOk(id)) || (await deps.postAgendado(projeto, data, id))) continue;
-      const escrita = doDia.find((t) => t.tipo === "escrever_post" && t.chave === id);
-      // O post descartado só por falta da verificação volta ao Claude, agora que o plano a gravou.
-      if (escrita?.estado === "cancelada" && escrita.motivos.some((m) => m.includes("SOCIAL_REJECT_UNVERIFIED"))) {
-        const devolvida = await deps.tarefas.pedirReparo(
-          escrita.id,
-          escrita.resultado,
-          ["A pauta foi verificada pela aprovação do plano. Entregue de novo a mesma copy (o JSON do esquema)."],
-          "plataforma",
-        );
-        return tarefa(devolvida, `post de volta: ${candidatas.get(id)?.title.slice(0, 80) ?? id}`);
+      try {
+        if (!candidatas.get(id) || !pacoteOk(id) || (await deps.postAgendado(projeto, data, id))) continue;
+        if (!(await fotoOk(id))) {
+          /*
+           * Recusar todas as candidatas derrubava o post (06/11/2026). A
+           * tarefa da foto volta ao Claude UMA vez, pedindo que ele ache a
+           * foto na web; recusada de novo, a pauta fica sem post, com aviso.
+           */
+          const daFoto = doDia
+            .filter((t) => t.tipo === "escolher_foto" && t.chave === id)
+            .sort((a, b) => b.criadaEm.localeCompare(a.criadaEm))[0];
+          if (daFoto && daFoto.estado === "entregue" && daFoto.tentativas <= 1) {
+            const devolvida = await deps.tarefas.pedirReparo(
+              daFoto.id,
+              daFoto.resultado,
+              [
+                "O post desta pauta precisa de foto. Procure na web (site ou sala de imprensa, agência, Wikipedia, Flickr) ou com buscar_imagens, " +
+                  "confira com ver_imagem e entregue escolha null com imagem_url, autor e fonte (ou imagem_id). Uma cena real aceitável é melhor que nenhuma.",
+              ],
+              "plataforma",
+            );
+            return comAvisos(tarefa(devolvida, `foto para o post: ${nome(id)}`));
+          }
+          if (!daFoto) {
+            const c = candidatas.get(id);
+            const t = c ? await deps.abrirFoto(projeto, plano, c) : null;
+            if (t) return comAvisos(tarefa(t, `foto para o post: ${nome(id)}`));
+          }
+          avisos.push(`${nome(id)}: sem foto aprovada, então sem post (use trocar_imagem ou peça de novo a foto)`);
+          continue;
+        }
+        const escrita = doDia.find((t) => t.tipo === "escrever_post" && t.chave === id);
+        // O post descartado só por falta da verificação volta ao Claude, agora que o plano a gravou.
+        if (escrita?.estado === "cancelada" && escrita.motivos.some((m) => m.includes("SOCIAL_REJECT_UNVERIFIED"))) {
+          const devolvida = await deps.tarefas.pedirReparo(
+            escrita.id,
+            escrita.resultado,
+            ["A pauta foi verificada pela aprovação do plano. Entregue de novo a mesma copy (o JSON do esquema)."],
+            "plataforma",
+          );
+          return comAvisos(tarefa(devolvida, `post de volta: ${nome(id)}`));
+        }
+        if (escrita?.estado === "cancelada") {
+          avisos.push(`${nome(id)}: o post foi descartado pela guarda (${escrita.motivos.slice(-2).join("; ") || "sem motivo"})`);
+          continue;
+        }
+        if (!escrita) {
+          const t = await deps.iniciarPost(projeto, data, id);
+          if ("erro" in t) {
+            avisos.push(`${nome(id)}: o post não abriu (${t.erro})`);
+            continue;
+          }
+          return comAvisos(tarefa(t, `post: ${nome(id)}`));
+        }
+        if (postPronto(escrita)) {
+          const r = await deps.agendarPost(projeto, data, id);
+          if (!r.ok) avisos.push(`${nome(id)}: o post ficou pronto mas não entrou na fila (${r.error})`);
+        }
+      } catch (e) {
+        avisos.push(`${nome(id)}: o post falhou (${erroEmTexto(e)})`);
       }
-      if (!escrita) {
-        const t = await deps.iniciarPost(projeto, data, id);
-        if ("erro" in t) continue;
-        return tarefa(t, `post: ${candidatas.get(id)?.title.slice(0, 80) ?? id}`);
-      }
-      if (postPronto(escrita)) await deps.agendarPost(projeto, data, id);
     }
 
     for (const id of itens.artigos) {
-      if (!pacoteOk(id) || (await deps.artigoGravado(projeto, data, id))) continue;
-      if (doDia.some((t) => t.tipo === "escrever_artigo" && t.chave === id)) continue;
-      const t = await deps.iniciarArtigo(projeto, plano, id);
-      if (!("erro" in t)) return tarefa(t, `matéria: ${candidatas.get(id)?.title.slice(0, 80) ?? id}`);
+      try {
+        if (!candidatas.get(id) || !pacoteOk(id) || (await deps.artigoGravado(projeto, data, id))) continue;
+        const escrita = doDia.find((t) => t.tipo === "escrever_artigo" && t.chave === id);
+        if (escrita) {
+          if (escrita.estado === "cancelada") avisos.push(`${nome(id)}: a matéria foi descartada (${escrita.motivos.slice(-2).join("; ") || "sem motivo"})`);
+          continue;
+        }
+        const t = await deps.iniciarArtigo(projeto, plano, id);
+        if ("erro" in t) avisos.push(`${nome(id)}: a matéria não abriu (${t.erro})`);
+        else return comAvisos(tarefa(t, `matéria: ${nome(id)}`));
+      } catch (e) {
+        avisos.push(`${nome(id)}: a matéria falhou (${erroEmTexto(e)})`);
+      }
     }
 
-    if (itens.newsletter.length && !(await deps.newsletterGravada(projeto, data))) {
-      const r = await deps.avancarNewsletter(projeto, data);
-      if (r.tarefa) return tarefa(r.tarefa, "newsletter");
+    // A newsletter que não fecha NÃO para o resto do dia (06/11/2026): vira aviso.
+    if (itens.newsletter.length) {
+      try {
+        if (!(await deps.newsletterGravada(projeto, data))) {
+          const r = await deps.avancarNewsletter(projeto, data);
+          if (r.tarefa) return comAvisos(tarefa(r.tarefa, "newsletter"));
+          if (r.motivo) avisos.push(`newsletter: ${r.motivo}`);
+        }
+      } catch (e) {
+        avisos.push(`newsletter não saiu: ${erroEmTexto(e)}`);
+      }
     }
 
     // Reels: o worker baixa e abre a tarefa de texto; aqui só se espera o que ainda está andando.
     const reels = await deps.reels(projeto, itens.reels);
     const andando = reels.filter((r) => r.estado === "escolhida" || r.estado === "renderizando");
     if (andando.length && !doDia.some((t) => t.tipo === "escrever_reel" && semPendencia(t) === false)) {
-      return { tipo: "aguardar", etapa: "producao", motivo: `${andando.length} Reel(s) com o worker (download, corte ou render): espere um minuto` };
+      return comAvisos({ tipo: "aguardar", etapa: "producao", motivo: `${andando.length} Reel(s) com o worker (download, corte ou render): espere um minuto` });
     }
 
     plano = await deps.planos.atualizar(plano.id, { etapa: "pronto" });
+    return comAvisos({ tipo: "pronto", etapa: "pronto", resumo: "o dia está produzido: tudo na fila de aprovação do painel" + (avisos.length ? "; veja os avisos do que ficou de fora e resolva o que der" : "") });
   }
 
   return { tipo: "pronto", etapa: "pronto", resumo: "o dia está produzido: tudo na fila de aprovação do painel" };
