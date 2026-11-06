@@ -297,28 +297,119 @@ async function assetDaWeb(
   } as AssetVisual;
 }
 
-/** O Claude olha uma imagem da web antes de escolher: o chat nem sempre mostra a imagem de um link. */
-export async function verImagem(_acesso: AcessoDoMcp, args: { url?: unknown; pagina?: unknown }): Promise<Resposta> {
-  const url = typeof args.url === "string" ? args.url.trim() : "";
-  const pagina = typeof args.pagina === "string" ? args.pagina.trim() : "";
-  if (!url) return recusa(400, "informe url, o link direto do arquivo da imagem");
+/** Baixa e reduz uma imagem para o Claude ver; string é o motivo de não servir. */
+async function previaDaWeb(url: string, pagina: string): Promise<{ largura: number; altura: number; imagem: Imagem } | string> {
   const baixada = await baixarDaWeb(url, pagina);
-  if (typeof baixada === "string") return recusa(422, baixada);
+  if (typeof baixada === "string") return baixada;
   const sharp = (await import("sharp")).default;
   try {
     const meta = await sharp(baixada.buffer).metadata();
-    const previa = await sharp(baixada.buffer).rotate().resize({ width: 900, withoutEnlargement: true }).jpeg({ quality: 75 }).toBuffer();
-    return {
-      ok: true,
-      url,
-      largura: meta.width ?? null,
-      altura: meta.height ?? null,
-      serve: (meta.width ?? 0) >= LARGURA_MINIMA_DA_WEB,
-      imagens: [{ mime: "image/jpeg", base64: previa.toString("base64") }],
-    };
+    const previa = await sharp(baixada.buffer).rotate().resize({ width: 700, withoutEnlargement: true }).jpeg({ quality: 72 }).toBuffer();
+    return { largura: meta.width ?? 0, altura: meta.height ?? 0, imagem: { mime: "image/jpeg", base64: previa.toString("base64") } };
   } catch (e) {
-    return recusa(422, `não consegui ler a imagem: ${e instanceof Error ? e.message : String(e)}`);
+    return `não consegui ler a imagem: ${e instanceof Error ? e.message : String(e)}`;
   }
+}
+
+/**
+ * O Claude olha imagens da web antes de escolher, uma ou várias lado a lado
+ * (06/11/2026): o chat nem sempre mostra a imagem de um link, e é assim que
+ * ele compara opções para quem pediu escolher.
+ */
+export async function verImagem(_acesso: AcessoDoMcp, args: { url?: unknown; urls?: unknown; pagina?: unknown }): Promise<Resposta> {
+  const pagina = typeof args.pagina === "string" ? args.pagina.trim() : "";
+  const lista = [
+    ...(typeof args.url === "string" && args.url.trim() ? [args.url.trim()] : []),
+    ...(Array.isArray(args.urls) ? args.urls.filter((u): u is string => typeof u === "string" && u.trim().length > 0).map((u) => u.trim()) : []),
+  ].slice(0, 8);
+  if (lista.length === 0) return recusa(400, "informe url (ou urls), o link direto do arquivo da imagem");
+  const imagens: Imagem[] = [];
+  const resultado: Array<Record<string, unknown>> = [];
+  for (const url of lista) {
+    const p = await previaDaWeb(url, pagina);
+    if (typeof p === "string") {
+      resultado.push({ url, erro: p });
+      continue;
+    }
+    resultado.push({ indice: imagens.length, url, largura: p.largura, altura: p.altura, serve: p.largura >= LARGURA_MINIMA_DA_WEB });
+    imagens.push(p.imagem);
+  }
+  if (imagens.length === 0) return recusa(422, resultado.map((r) => `${r.url}: ${r.erro}`).join("; "));
+  return { ok: true, imagens_vistas: resultado, imagens };
+}
+
+/**
+ * As fotos de uma página da web (06/11/2026). O Claude acha a página pelo
+ * chat (sala de imprensa, notícia, perfil, Wikipedia) e a plataforma tira
+ * dela as fotos grandes: a de compartilhamento (og:image), as do corpo e as
+ * do srcset. O Claude vê, escolhe, e troca com o link direto que volta aqui.
+ */
+export async function imagensDaPagina(_acesso: AcessoDoMcp, args: { url?: unknown; quantas?: unknown }): Promise<Resposta> {
+  const url = typeof args.url === "string" ? args.url.trim() : "";
+  if (!/^https?:\/\//.test(url)) return recusa(400, "informe url, o endereço da página");
+  const quantas = Math.min(8, Math.max(1, Number(args.quantas ?? 6) || 6));
+  let html = "";
+  let base: URL;
+  try {
+    base = new URL(url);
+    const r = await fetch(base, {
+      headers: { "User-Agent": "eua.journal/1.0 (+https://euajournal.com)", Accept: "text/html" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!r.ok) return recusa(422, `a página respondeu ${r.status}: tente outra página ou passe o link direto da foto para ver_imagem`);
+    html = (await r.text()).slice(0, 3_000_000);
+  } catch (e) {
+    return recusa(422, `não consegui abrir a página: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  const achados = new Set<string>();
+  const add = (bruto: string | undefined) => {
+    if (!bruto) return;
+    const limpo = bruto.replace(/&amp;/g, "&").trim();
+    if (!limpo || limpo.startsWith("data:")) return;
+    try {
+      const abs = new URL(limpo, base).toString();
+      if (/\.(svg|gif|ico)(\?|$)/i.test(abs) || /(logo|icon|sprite|avatar|favicon|pixel|tracking)/i.test(abs)) return;
+      achados.add(abs);
+    } catch {
+      /* endereço torto: ignora */
+    }
+  };
+  for (const m of html.matchAll(/<meta[^>]+(?:property|name)=["'](?:og:image(?::url)?|twitter:image(?::src)?)["'][^>]*>/gi)) add(m[0].match(/content=["']([^"']+)["']/i)?.[1]);
+  for (const m of html.matchAll(/<img\b[^>]*>/gi)) {
+    const tag = m[0];
+    const srcset = tag.match(/\b(?:data-)?srcset=["']([^"']+)["']/i)?.[1];
+    if (srcset) {
+      const maior = srcset
+        .split(",")
+        .map((p) => p.trim().split(/\s+/))
+        .sort((a, b) => (parseInt(b[1] ?? "0") || 0) - (parseInt(a[1] ?? "0") || 0))[0]?.[0];
+      add(maior);
+    }
+    add(tag.match(/\b(?:data-src|data-original|src)=["']([^"']+)["']/i)?.[1]);
+  }
+  const titulo = html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim() ?? "";
+  const site = html.match(/<meta[^>]+property=["']og:site_name["'][^>]*content=["']([^"']+)["']/i)?.[1] ?? base.hostname.replace(/^www\./, "");
+  const imagens: Imagem[] = [];
+  const lista: Array<Record<string, unknown>> = [];
+  for (const u of [...achados].slice(0, 30)) {
+    if (imagens.length >= quantas) break;
+    const p = await previaDaWeb(u, url);
+    if (typeof p === "string" || p.largura < LARGURA_MINIMA_DA_WEB) continue;
+    lista.push({ indice: imagens.length, imagem_url: u, largura: p.largura, altura: p.altura });
+    imagens.push(p.imagem);
+  }
+  return {
+    ok: true,
+    pagina: url,
+    titulo,
+    fonte_sugerida: site,
+    candidatas: lista,
+    orientacao: lista.length
+      ? "As imagens anexadas seguem a ordem dos índices. Para usar uma, chame trocar_imagem com imagem_url, pagina (esta), fonte e autor (o fotógrafo, se a página disser; senão a instituição ou o site)."
+      : "A página não tem foto grande legível pela plataforma. Tente outra página do mesmo assunto, ou passe o link direto do arquivo para ver_imagem.",
+    imagens,
+  };
 }
 
 /** A foto que o Claude indicou fora das candidatas, na tarefa `escolher_foto`. */
@@ -444,13 +535,24 @@ export async function trocarImagem(
     : await assetDaWeb(acesso.projeto.id, { url: imagemUrl, autor, fonte: fonteDaWeb, pagina: txt(args.pagina, 2000), licenca: txt(args.licenca, 120) });
   if (typeof asset === "string") return recusa(422, asset);
 
-  const desfecho = await gravarComAFila({
-    projeto,
-    ramo: a.ramo,
-    pecaId: a.pecaId,
-    deps,
-    gravar: () => (a.ramo === "artigo" ? trocarNoArtigo(client, a, asset, legenda) : trocarNoPost(a, asset, client)),
-  });
+  const gravar = () => (a.ramo === "artigo" ? trocarNoArtigo(client, a, asset, legenda) : trocarNoPost(a, asset, client));
+  /*
+   * Foto reprovada pelo dono no motor Claude (06/11/2026): a peça espera em
+   * `refazendo` com a refação `com_o_claude`. A troca é a versão nova que ela
+   * espera: grava e reentra pela fila, que a devolve a `aguardando`.
+   */
+  const esperaOClaude = a.estado === "refazendo" && a.resumo?.refacao?.estado === "com_o_claude";
+  const desfecho = esperaOClaude
+    ? await (async () => {
+        const erro = await gravar();
+        if (erro) return { gravou: false as const, motivo: `NÃO GRAVOU: ${erro}` };
+        const peca = await deps.pecas.ler(a.ramo, a.pecaId);
+        if (!peca) return { gravou: true as const, filaAtualizada: false, motivo: "gravou, mas a peça não foi relida para a fila" };
+        const { enfileirar } = await import("@/lib/server/aprovacao/fila");
+        const linha = await enfileirar(projeto, { ramo: a.ramo, pecaId: a.pecaId, hash: peca.hashAtual, publicarEm: a.publicarEm, avisos: a.avisos, resumo: {} }, deps);
+        return { gravou: true as const, filaAtualizada: Boolean(linha), motivo: linha ? `de volta à fila (${linha.estado})` : "gravou, mas a fila não devolveu a linha" };
+      })()
+    : await gravarComAFila({ projeto, ramo: a.ramo, pecaId: a.pecaId, deps, gravar });
   if (!desfecho.gravou) return recusa(422, desfecho.motivo);
 
   // O Claude confere o resultado vendo: a capa nova da matéria, ou a arte recongelada do post.

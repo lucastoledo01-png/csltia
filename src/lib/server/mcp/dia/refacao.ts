@@ -27,3 +27,36 @@ export function comPlano(ganchos: GanchosDeRefazer, client: () => SupabaseClient
     },
   };
 }
+
+type GanchoDaImagem = NonNullable<NonNullable<GanchosDeRefazer["artigo"]>["imagem"]>;
+
+/**
+ * A foto reprovada no motor Claude volta ao Claude (06/11/2026). Antes o
+ * servidor rodava o resolvedor, que respondia "não achou outra foto", e a
+ * peça voltava como estava; o Claude da Bruna, no chat, dizia não ter
+ * autonomia. Agora a peça espera em `com_o_claude` com o motivo do dono, e o
+ * Claude acha opções (na web, pelo chat, ou com as ferramentas de imagem),
+ * mostra a quem pediu e troca com `trocar_imagem`, que a devolve à fila.
+ * Projeto no motor da OpenAI segue com o resolvedor de sempre.
+ */
+export function comImagemDoClaude(ganchos: GanchosDeRefazer, ehClaude: (projectId: string) => Promise<boolean>): GanchosDeRefazer {
+  const pedido =
+    (ramo: "artigo" | "post"): GanchoDaImagem =>
+    async (ctx) => {
+      const original = ganchos[ramo]?.imagem;
+      if (!(await ehClaude(ctx.aprovacao.projectId))) {
+        return original ? original(ctx) : { ok: false, motivo: "sem refação de imagem" };
+      }
+      return {
+        ok: true,
+        assincrona:
+          `voltou ao Claude: no chat, peça "troque a foto ${ramo === "artigo" ? "da matéria" : "do post"}"; ` +
+          `ele busca opções, mostra e troca com trocar_imagem (motivo: ${ctx.motivo || "sem motivo"})`,
+      };
+    };
+  return {
+    ...ganchos,
+    artigo: { ...ganchos.artigo, imagem: pedido("artigo") },
+    post: { ...ganchos.post, imagem: pedido("post") },
+  };
+}

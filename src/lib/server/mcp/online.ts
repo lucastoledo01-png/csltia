@@ -6,7 +6,7 @@ import { aguardar, fazerODia } from "./dia/servico";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import type { Resposta } from "./servico";
 import type { AcessoDoMcp } from "./tokens";
-import { buscarImagens, trocarImagem, verImagem } from "./imagem";
+import { buscarImagens, imagensDaPagina, trocarImagem, verImagem } from "./imagem";
 
 /**
  * O MCP online (27/10/2026): o caminho do produto.
@@ -39,6 +39,7 @@ const CHAMADAS: Record<NomeDaFerramenta, (acesso: AcessoDoMcp, args: Record<stri
   aguardar: (a, args) => aguardar(a, args, getSupabaseAdminClient()),
   buscar_imagens: (a, args) => buscarImagens(a, args),
   ver_imagem: (a, args) => verImagem(a, args),
+  imagens_da_pagina: (a, args) => imagensDaPagina(a, args),
   trocar_imagem: (a, args) => trocarImagem(a, args),
 };
 
