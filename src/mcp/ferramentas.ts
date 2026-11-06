@@ -34,6 +34,7 @@ export const NOMES_DAS_FERRAMENTAS = [
   "aguardar",
   "buscar_imagens",
   "ver_imagem",
+  "imagens_da_pagina",
   "trocar_imagem",
 ] as const;
 
@@ -68,7 +69,11 @@ export const INSTRUCOES_DO_MCP = [
   "Quando a entrega volta com motivos, a tarefa está em reparo: peça a próxima tarefa e corrija só o apontado. Não invente para tapar buraco.",
   "Na auditoria, julgue só pelo pacote factual que vem na tarefa, como se não tivesse escrito o texto; se puder, audite numa conversa separada.",
   "Reels: reels_sugeridos, produzir_reel com o id escolhido, ver_reel para a folha de quadros com o corte, proxima_tarefa com tipo escrever_reel, entregar_tarefa, e ver_reel de novo para conferir o Reel pronto. O chat não toca vídeo: a folha de quadros é a sua prévia, e o vídeo fica no painel.",
-  "FOTO: você tem autonomia para trocar a foto de qualquer matéria ou post que esteja na fila. Quando o dono pedir outra foto, ou a peça estiver sem capa, ou a plataforma disser que não achou foto: (1) ver_fila para o id da peça; (2) procure a foto você mesmo, livremente: na web pelo chat (site da empresa, sala de imprensa, agência, Wikipedia, Flickr) ou com buscar_imagens (Commons, Pexels, Unsplash); (3) para foto da web, confira com ver_imagem usando o link DIRETO do arquivo; (4) trocar_imagem com imagem_id (de buscar_imagens) ou imagem_url mais autor e fonte. A foto mostra o assunto da manchete: a pessoa certa, a marca legível, o prédio ou produto citado. Nunca diga que não tem autonomia para isso.",
+  "FOTO: você tem autonomia total para achar e trocar a foto de qualquer matéria ou post na fila, e deve se esforçar ao máximo antes de desistir. Pauta sem foto não vira post.",
+  "Como achar: use a sua busca na web do chat livremente (site e sala de imprensa da empresa ou do órgão, notícias sobre o fato, agências, Wikipedia, Flickr, perfis oficiais). Achou uma página com a foto: imagens_da_pagina tira as fotos grandes dela. Achou o link direto do arquivo: ver_imagem (aceita vários links de uma vez, para comparar). buscar_imagens cobre Commons, Pexels e Unsplash. Tente várias consultas e fontes, em inglês e português.",
+  "A foto certa mostra o assunto da manchete: a pessoa certa, a marca ou o nome legível, o prédio ou o produto citado; sem logotipo de terceiro, sem marca d'água. Se não houver, uma cena real que ambiente o fato é melhor que nenhuma.",
+  "Quem pediu decide: quando houver mais de uma boa opção, ou dúvida, mostre de 2 a 4 opções no chat (numeradas, com fonte e o que se vê em cada) e pergunte qual prefere antes de trocar. Se o pedido já for claro, troque e mostre o resultado.",
+  "Quando o dono reprova a foto no painel, a peça espera por você (estado_do_dia e ver_fila mostram o motivo): busque alternativas que resolvam o motivo, mostre as opções e troque com trocar_imagem (aprovacao_id de ver_fila; imagem_id de buscar_imagens ou imagem_url com autor, fonte e pagina). Nunca diga que não tem autonomia para isso.",
   "Você não aprova nem publica. Tudo o que agendar espera aprovação manual do dono no painel.",
 ].join("\n");
 
@@ -351,14 +356,31 @@ export function criarServidorMcp(backend: Backend, versao = "0.4.0"): McpServer 
     {
       title: "Ver uma imagem da web",
       description:
-        "Baixa uma imagem da web pelo link DIRETO do arquivo e a mostra para você, com largura e altura. Use antes de trocar_imagem com imagem_url, para conferir o que a foto mostra.",
+        "Baixa imagens da web pelo link DIRETO do arquivo (uma ou até 8) e as mostra para você, com largura e altura. Use para conferir e comparar opções antes de trocar_imagem.",
       inputSchema: {
-        url: z.string().min(8).describe("Link direto do arquivo da imagem (jpg, png, webp)."),
+        url: z.string().optional().describe("Link direto do arquivo da imagem (jpg, png, webp)."),
+        urls: z.array(z.string()).max(8).optional().describe("Vários links diretos, para comparar opções lado a lado."),
         pagina: z.string().optional().describe("A página onde a foto está, se o site exigir (proteção de hotlink)."),
       },
       annotations: { readOnlyHint: true },
     },
-    ({ url, pagina }) => chamar("ver_imagem", { url, pagina }),
+    ({ url, urls, pagina }) => chamar("ver_imagem", { url, urls, pagina }),
+  );
+
+  servidor.registerTool(
+    "imagens_da_pagina",
+    {
+      title: "Fotos de uma página",
+      description:
+        "Abre uma página da web que você achou (notícia, sala de imprensa, perfil, Wikipedia) e devolve as fotos grandes dela como imagens, com o link direto de cada uma, " +
+        "pronto para trocar_imagem. Use quando a sua busca na web achar a página, mas não o arquivo da foto.",
+      inputSchema: {
+        url: z.string().min(8).describe("O endereço da página."),
+        quantas: z.number().int().min(1).max(8).optional(),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    ({ url, quantas }) => chamar("imagens_da_pagina", { url, quantas }),
   );
 
   servidor.registerTool(
