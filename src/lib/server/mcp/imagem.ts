@@ -265,9 +265,18 @@ async function assetDaWeb(
   }
   const { createHash } = await import("node:crypto");
   const nome = createHash("sha256").update(jpeg).digest("hex").slice(0, 20);
-  const { subirArquivoParaStorage } = await import("@/lib/server/social/instagram/armazenamento");
-  const publica = await subirArquivoParaStorage(jpeg, `mcp-imagens/${projectId}/${nome}.jpg`, "image/jpeg", "public_assets");
-  if (!publica) return "não consegui guardar a imagem no Storage";
+  // O motivo do Storage vai inteiro na resposta (06/11/2026): o "não consegui guardar" sem porquê não deixava ninguém agir.
+  const caminho = `mcp-imagens/${projectId}/${nome}.jpg`;
+  let publica = "";
+  try {
+    const storage = getSupabaseAdminClient().storage.from("public_assets");
+    const { error } = await storage.upload(caminho, jpeg, { contentType: "image/jpeg", upsert: true });
+    if (error) return `não consegui guardar a imagem no Storage (${jpeg.byteLength} bytes): ${error.message}`;
+    publica = storage.getPublicUrl(caminho).data.publicUrl;
+  } catch (e) {
+    return `não consegui guardar a imagem no Storage (${jpeg.byteLength} bytes): ${e instanceof Error ? e.message : String(e)}`;
+  }
+  if (!publica) return "o Storage não devolveu o endereço público da imagem";
   const agora = new Date().toISOString();
   const pagina = args.pagina || args.url;
   return {
@@ -412,10 +421,37 @@ export async function imagensDaPagina(_acesso: AcessoDoMcp, args: { url?: unknow
   };
 }
 
+/**
+ * O nome do arquivo do Commons num link do Commons (06/11/2026): o original,
+ * a miniatura (`/thumb/.../1280px-X`) ou a página `File:X`. Foto do Commons
+ * não passa pelo nosso Storage: o arquivo de lá serve, e o crédito e a
+ * licença são lidos da página dele, e não do que o Claude digitou. Foi o caso
+ * das três tentativas da Bruna, todas recusadas pelo Storage.
+ */
+export function arquivoDoCommonsNoLink(url: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  if (/(^|\.)wikimedia\.org$|(^|\.)wikipedia\.org$/.test(u.hostname)) {
+    const pagina = u.pathname.match(/\/wiki\/(?:File|Arquivo|Ficheiro):(.+)$/i);
+    if (pagina) return decodeURIComponent(pagina[1]).replace(/_/g, " ");
+  }
+  if (u.hostname !== "upload.wikimedia.org") return null;
+  const partes = u.pathname.split("/").filter(Boolean);
+  const i = partes.indexOf("thumb");
+  const nome = i >= 0 ? partes[i + 3] : partes[partes.length - 1];
+  return nome ? decodeURIComponent(nome).replace(/_/g, " ") : null;
+}
+
 /** A foto que o Claude indicou fora das candidatas, na tarefa `escolher_foto`. */
 export function fotoIndicadaPeloClaude(projectId: string) {
   return async (e: { imagem_url?: string; imagem_id?: string; autor?: string; fonte?: string; pagina?: string }): Promise<AssetVisual | string> => {
     if (e.imagem_id) return assetEscolhido(e.imagem_id.trim());
+    const doCommons = arquivoDoCommonsNoLink((e.imagem_url ?? "").trim()) ?? arquivoDoCommonsNoLink((e.pagina ?? "").trim());
+    if (doCommons) return assetEscolhido(`c:${doCommons}`);
     const url = (e.imagem_url ?? "").trim();
     const autor = (e.autor ?? "").trim();
     const fonte = (e.fonte ?? "").trim();
@@ -520,7 +556,8 @@ export async function trocarImagem(
   }
   const autor = txt(args.autor, 120);
   const fonteDaWeb = txt(args.fonte, 120);
-  if (imagemUrl && !imagemId && (!autor || !fonteDaWeb)) {
+  const doCommons = imagemId ? null : arquivoDoCommonsNoLink(imagemUrl) ?? arquivoDoCommonsNoLink(txt(args.pagina, 2000));
+  if (imagemUrl && !imagemId && !doCommons && (!autor || !fonteDaWeb)) {
     return recusa(400, "foto da web precisa de crédito: informe autor (quem fotografou, ou a instituição) e fonte (o site ou a agência)");
   }
 
@@ -532,7 +569,9 @@ export async function trocarImagem(
 
   const asset = imagemId
     ? await assetEscolhido(imagemId)
-    : await assetDaWeb(acesso.projeto.id, { url: imagemUrl, autor, fonte: fonteDaWeb, pagina: txt(args.pagina, 2000), licenca: txt(args.licenca, 120) });
+    : doCommons
+      ? await assetEscolhido(`c:${doCommons}`)
+      : await assetDaWeb(acesso.projeto.id, { url: imagemUrl, autor, fonte: fonteDaWeb, pagina: txt(args.pagina, 2000), licenca: txt(args.licenca, 120) });
   if (typeof asset === "string") return recusa(422, asset);
 
   const gravar = () => (a.ramo === "artigo" ? trocarNoArtigo(client, a, asset, legenda) : trocarNoPost(a, asset, client));
