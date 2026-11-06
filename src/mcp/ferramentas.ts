@@ -32,6 +32,9 @@ export const NOMES_DAS_FERRAMENTAS = [
   "ver_reel",
   "fazer_o_dia",
   "aguardar",
+  "buscar_imagens",
+  "ver_imagem",
+  "trocar_imagem",
 ] as const;
 
 export type NomeDaFerramenta = (typeof NOMES_DAS_FERRAMENTAS)[number];
@@ -65,6 +68,7 @@ export const INSTRUCOES_DO_MCP = [
   "Quando a entrega volta com motivos, a tarefa está em reparo: peça a próxima tarefa e corrija só o apontado. Não invente para tapar buraco.",
   "Na auditoria, julgue só pelo pacote factual que vem na tarefa, como se não tivesse escrito o texto; se puder, audite numa conversa separada.",
   "Reels: reels_sugeridos, produzir_reel com o id escolhido, ver_reel para a folha de quadros com o corte, proxima_tarefa com tipo escrever_reel, entregar_tarefa, e ver_reel de novo para conferir o Reel pronto. O chat não toca vídeo: a folha de quadros é a sua prévia, e o vídeo fica no painel.",
+  "FOTO: você tem autonomia para trocar a foto de qualquer matéria ou post que esteja na fila. Quando o dono pedir outra foto, ou a peça estiver sem capa, ou a plataforma disser que não achou foto: (1) ver_fila para o id da peça; (2) procure a foto você mesmo, livremente: na web pelo chat (site da empresa, sala de imprensa, agência, Wikipedia, Flickr) ou com buscar_imagens (Commons, Pexels, Unsplash); (3) para foto da web, confira com ver_imagem usando o link DIRETO do arquivo; (4) trocar_imagem com imagem_id (de buscar_imagens) ou imagem_url mais autor e fonte. A foto mostra o assunto da manchete: a pessoa certa, a marca legível, o prédio ou produto citado. Nunca diga que não tem autonomia para isso.",
   "Você não aprova nem publica. Tudo o que agendar espera aprovação manual do dono no painel.",
 ].join("\n");
 
@@ -323,6 +327,60 @@ export function criarServidorMcp(backend: Backend, versao = "0.4.0"): McpServer 
         return falha(erro);
       }
     },
+  );
+
+  servidor.registerTool(
+    "buscar_imagens",
+    {
+      title: "Buscar imagens",
+      description:
+        "Busca fotos com licença conferida no Wikimedia Commons, no Pexels e no Unsplash e devolve as candidatas como imagens, cada uma com um id. " +
+        "Use para escolher a foto de uma peça e depois chame trocar_imagem com o id. Você também pode achar a foto na web pelo chat e usar ver_imagem e trocar_imagem com imagem_url.",
+      inputSchema: {
+        consulta: z.string().min(2).describe("O que procurar: nome da pessoa, empresa, prédio, produto ou cena. Em inglês costuma render mais."),
+        fonte: z.enum(["todas", "commons", "banco"]).optional().describe("commons = Wikimedia Commons; banco = Pexels e Unsplash. Padrão: todas."),
+        quantas: z.number().int().min(1).max(8).optional(),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    ({ consulta, fonte, quantas }) => chamar("buscar_imagens", { consulta, fonte, quantas }),
+  );
+
+  servidor.registerTool(
+    "ver_imagem",
+    {
+      title: "Ver uma imagem da web",
+      description:
+        "Baixa uma imagem da web pelo link DIRETO do arquivo e a mostra para você, com largura e altura. Use antes de trocar_imagem com imagem_url, para conferir o que a foto mostra.",
+      inputSchema: {
+        url: z.string().min(8).describe("Link direto do arquivo da imagem (jpg, png, webp)."),
+        pagina: z.string().optional().describe("A página onde a foto está, se o site exigir (proteção de hotlink)."),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    ({ url, pagina }) => chamar("ver_imagem", { url, pagina }),
+  );
+
+  servidor.registerTool(
+    "trocar_imagem",
+    {
+      title: "Trocar a imagem de uma peça",
+      description:
+        "Troca a foto de uma matéria (capa, crédito e legenda) ou de um post (foto, crédito na legenda e arte recongelada) que está na fila. " +
+        "Passe imagem_id (de buscar_imagens) OU imagem_url (link direto achado na web) com autor e fonte para o crédito. " +
+        "A plataforma guarda a imagem no próprio Storage. A peça continua esperando a aprovação do dono no painel; devolve a prévia para você conferir.",
+      inputSchema: {
+        aprovacao_id: z.string().min(1).describe("O id da peça, como ver_fila devolve."),
+        imagem_id: z.string().optional().describe("O id de uma candidata de buscar_imagens."),
+        imagem_url: z.string().optional().describe("Link direto do arquivo da foto achada na web."),
+        autor: z.string().optional().describe("Foto da web: quem fotografou, ou a instituição dona da foto. Obrigatório com imagem_url."),
+        fonte: z.string().optional().describe("Foto da web: o site ou a agência de onde ela veio. Obrigatório com imagem_url."),
+        pagina: z.string().optional().describe("Foto da web: a página onde a foto está publicada."),
+        licenca: z.string().optional().describe("Foto da web: a licença, se a página informar."),
+        legenda: z.string().max(220).optional().describe("Matéria: o que a foto mostra, em uma frase, sem afirmar nada que você não viu."),
+      },
+    },
+    (args) => chamar("trocar_imagem", args as Record<string, unknown>),
   );
 
   return servidor;
