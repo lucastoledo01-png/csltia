@@ -108,6 +108,8 @@ export type PassoDaNewsletter =
   | { ok: true; desfecho: "descartado"; motivos: string[] };
 
 /** Roda o laço da redação com o que já foi entregue, e devolve o próximo passo. */
+export const TETO_DE_REDACOES = 4;
+
 export async function avancarNewsletter(projeto: Project, data: string, deps: DepsDaNewsletter): Promise<PassoDaNewsletter> {
   const lista = await deps.pautas(projeto, data);
   const semPacote = lista.filter((p) => !p.candidata.factualPackage).map((p) => p.candidata.storyId);
@@ -144,6 +146,20 @@ export async function avancarNewsletter(projeto: Project, data: string, deps: De
     return { ok: true, desfecho: "pronto", edicaoId: await deps.gravar(projeto, data, r, contexto) };
   } catch (erro) {
     if (!(erro instanceof PedidoAoClaude)) throw erro;
+    /*
+     * Teto de redações (06/11/2026). Cada redação reprovada pela guarda pede
+     * outra, com prompt novo e chave nova, e a newsletter de 07/11 do Claude
+     * da Bruna foi a cinco sem fechar: o dia ficava preso nela. Na quarta, a
+     * newsletter do dia sai como aviso e o resto segue.
+     */
+    const redacoes = feitas.filter((t) => t.tipo === "escrever_newsletter").length;
+    if (erro.etapa === "redacao" && redacoes >= TETO_DE_REDACOES) {
+      return {
+        ok: true,
+        desfecho: "descartado",
+        motivos: [`a newsletter não passou na guarda depois de ${redacoes} redações; o dia segue sem ela (o dono pode pedir uma redação nova à mão)`],
+      };
+    }
     const tarefa = await deps.tarefas.abrir({
       projectId: projeto.id,
       editionDate: data,
