@@ -91,3 +91,20 @@ Ensaio sem banco e sem publicar:
   depois do download, que só acontece no `produzir_reel`.
 - A terceira reprovação descarta a peça na fila, mas o candidato fica como
   estava.
+
+## Regra: todo Reel de vídeo sai no molde B (09/11/2026)
+
+Pedido do dono, depois de um Reel de entrevista montado à mão num desenho
+próprio (manchete num bloco preto no topo, vídeo quadrado no meio): Reel de
+VÍDEO, automático ou feito à mão, sai no molde B de `montar-reel.ts`. O vídeo
+fica em tela cheia, a marca no alto, a editoria na etiqueta vermelha e a
+manchete em caixas brancas. Nada de desenho avulso.
+
+- Legenda em português, quando o vídeo é fala em outra língua, vai em faixa
+  preta logo ACIMA da manchete (base em y 1290), fora da área dos botões do
+  Reels.
+- Legenda gravada no vídeo original (outra língua, outra marca) sai pelo
+  `--corte`, como o logotipo de quem publicou.
+- O Reel de FOTO continua no próprio formato (`social/reel-de-foto.ts`,
+  `docs/formato-reel-padrao.md`).
+- O bucket de vídeo aceita até 10 MB: Reel longo sai em 720x1280.
