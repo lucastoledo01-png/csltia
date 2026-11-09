@@ -598,5 +598,14 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 .ja-palavra{align-self:flex-start;margin-top:40px;padding:20px 38px;
   background:#E4344A;color:#fff;font-family:var(--s-font-display);
   font-size:32px;font-weight:800;letter-spacing:0.02em;text-transform:uppercase;}
+/* Convite para seguir o perfil (09/11/2026): o avatar grande, o nome e o arroba
+   no alto, e o texto apoiado na base como nos outros slides. */
+.js-perfil{position:absolute;z-index:2;left:9%;right:9%;top:19%;display:flex;
+  flex-direction:column;align-items:center;}
+.js-ava{width:300px;height:300px;border-radius:50%;object-fit:cover;display:block;
+  border:8px solid #E4344A;}
+.js-nome{margin-top:30px;font-family:var(--s-font-display);font-size:40px;font-weight:800;color:#fff;}
+.js-arroba{margin-top:6px;font-family:var(--s-font-display);font-size:30px;font-weight:500;
+  color:rgba(255,255,255,0.6);}
 
 `;

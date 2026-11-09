@@ -2950,3 +2950,28 @@ com a legenda auditada junto (índice 100 na tarefa). As fotos dos slides vêm d
 mesma tarefa da foto, em `extras`, todas diferentes da capa; slide sem foto sai
 (`podarMioloSemFoto`), e o carrossel que não fecha vira o Reel de foto da mesma
 pauta, com o motivo na resposta.
+
+## O carrossel de notícia fecha com "Siga", e conta uma história só (09/11/2026)
+
+O dono, no carrossel do caso Jensen Huang: "não precisa convidar para
+newsletter no carrossel, pode chamar para seguir o perfil". O último slide da
+notícia (`cta_assinatura`, a chave ficou para as linhas gravadas e a refação)
+passou a desenhar o avatar, "Siga @eua.journal", a tagline e o botão "Siga o
+perfil"; com palavra de comentário escutada, o botão vira "Comente PALAVRA e
+receba o link". Isto atualiza, para a ARTE do carrossel, "O último slide da
+notícia convida a assinar a newsletter" do método de 06/10/2026.
+
+No mesmo trabalho, duas regras que o carrossel feito à mão ensinou:
+
+- **O texto é uma história só.** Cada slide começa ligado ao anterior ("O caso
+  foi com...") e toda pessoa entra apresentada na primeira vez. O slide que
+  abria com "A outra mulher é Alice Huang" parecia um post novo. Mora em
+  `comoEscreverANoticia`, no código, para valer com qualquer versão editável.
+- **A foto do slide mostra quem o slide nomeia.** O cônjuge, a outra parte, o
+  líder que reagiu; os dois juntos quando o slide é sobre a relação. Prédio e
+  telhado no lugar de pessoa nomeada é recusa. O MCP pede 4 fotos de slide, e
+  não 3, porque o carrossel de notícia tem até 4 passos.
+
+A marca "eua." já sai em todo slide pela esteira. No ensaio local ela some
+quando `NEXT_PUBLIC_SITE_URL` não está no `.env`: o padrão do código ainda é
+`casaloti.ia.br`, que responde 503.

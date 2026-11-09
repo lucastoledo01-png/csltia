@@ -709,10 +709,16 @@ ${bolha ? bolhaDoMiolo(bolha, slide.inset_position) : ""}
  * A linha de como pedir o link só aparece quando há palavra de comentário
  * escutada pela automação. Sem ela o convite continua de pé, porque a
  * newsletter existe com ou sem listener.
+ *
+ * ATUALIZADO em 09/11/2026, por pedido do dono: o último slide da notícia
+ * convida a SEGUIR o perfil, e não mais a assinar a newsletter. A chave da
+ * variante continua `cta_assinatura` para as linhas já gravadas e a refação da
+ * arte acharem o mesmo desenho. A linha do comentário continua: quem comenta a
+ * palavra ainda recebe o link pelo Direct.
  */
 const ctaAssinatura: SlideVariant = {
   key: "cta_assinatura",
-  label: "Notícia: convite para assinar a newsletter",
+  label: "Notícia: convite para seguir o perfil",
   render: (slide): VariantOutput => {
     const palavra = (slide.highlight_text ?? "").trim().toUpperCase();
     return {
@@ -721,25 +727,15 @@ const ctaAssinatura: SlideVariant = {
       body: `
 <div class="ja-fundo"></div>
 <img class="j-marca" src="${esc(MARCA.logoInstagramEscuro)}" alt="" />
-<div class="ja-celular" aria-hidden="true">
-  <div class="ja-tela">
-    <div class="ja-topo"><span>Caixa de entrada</span></div>
-    <div class="ja-linha ja-nossa">
-      <img class="ja-ava" src="${esc(MARCA.avatar)}" alt="" />
-      <div class="ja-msg">
-        <div class="ja-de">${esc(MARCA.nome)}<span>hoje</span></div>
-        <div class="ja-assunto">a edição de hoje chegou</div>
-        <div class="ja-previa">${esc(MARCA.tagline)}</div>
-      </div>
-    </div>
-    <div class="ja-linha"><u></u><div class="ja-msg"><i></i><i></i></div></div>
-    <div class="ja-linha"><u></u><div class="ja-msg"><i></i><i></i></div></div>
-  </div>
+<div class="js-perfil" aria-hidden="true">
+  <img class="js-ava" src="${esc(MARCA.avatar)}" alt="" />
+  <div class="js-nome">${esc(MARCA.instagramNome)}</div>
+  <div class="js-arroba">${esc(MARCA.instagramHandle)}</div>
 </div>
 <div class="ja-texto">
-  <div class="ja-titulo">Assine a newsletter do <em>${esc(MARCA.nome)}</em>.</div>
-  <div class="ja-linha-sub">${esc(MARCA.tagline)} No seu <span class="ja-inteiro">e-mail</span>, de graça.</div>
-  ${palavra ? `<span class="ja-palavra">Comente ${esc(palavra)} e receba o link</span>` : ""}
+  <div class="ja-titulo">Siga <em>${esc(MARCA.instagramHandle)}</em></div>
+  <div class="ja-linha-sub">${esc(MARCA.tagline)}</div>
+  <span class="ja-palavra">${palavra ? `Comente ${esc(palavra)} e receba o link` : "Siga o perfil"}</span>
 </div>`,
     };
   },

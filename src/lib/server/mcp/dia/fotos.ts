@@ -155,7 +155,10 @@ export async function abrirFoto(projeto: Project, data: string, material: Materi
         "O post sai em Reel vertical (9:16): prefira foto em que o assunto caiba num recorte vertical, e diga em `foco` onde está o rosto ou o assunto (x e y de 0 a 1). " +
         (material.fotosDoCarrossel
           ? `ESTE POST É CARROSSEL: além da foto da capa, entregue em \`extras\` ${material.fotosDoCarrossel} fotos DIFERENTES para os slides, na ordem ` +
-            "(outro ângulo, outra pessoa citada, o lugar, o produto, o número em contexto), pelo índice de uma candidata ou com imagem_url, autor e fonte. Slide sem foto sai do carrossel. "
+            "(outro ângulo, outra pessoa citada, o lugar, o produto, o número em contexto), pelo índice de uma candidata ou com imagem_url, autor e fonte. Slide sem foto sai do carrossel. " +
+            "Cada foto mostra QUEM o slide nomeia: o protagonista de perto no slide da fala dele, a outra pessoa da história (o cônjuge, o sócio, o rival, quem acusa), " +
+            "os dois juntos quando o slide é sobre a relação, o líder do país ou do órgão no slide da reação dele. Foto de imprensa vale quando é a única da pessoa; diga a fonte. " +
+            "Nunca prédio, telhado ou fachada genérica no lugar de uma pessoa nomeada, e nunca a mesma pessoa no mesmo ângulo em dois slides. "
           : "") +
         `Confiança abaixo de ${PISO_DE_CONFIANCA} é recusa.`,
       orientacao: "Olhe as imagens anexadas e responda SÓ com o JSON do esquema.",
