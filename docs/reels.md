@@ -100,9 +100,11 @@ VÍDEO, automático ou feito à mão, sai no molde B de `montar-reel.ts`. O víd
 fica em tela cheia, a marca no alto, a editoria na etiqueta vermelha e a
 manchete em caixas brancas. Nada de desenho avulso.
 
+- A marca é a imagem "eua." e a manchete tem a base a 560 px do fim
+  (`BASE_DO_MOLDE_B`): a 250 px ela ficava debaixo da legenda e dos botões
+  que o Instagram desenha embaixo.
 - Legenda em português, quando o vídeo é fala em outra língua, vai em faixa
-  preta logo ACIMA da manchete (base em y 1290), fora da área dos botões do
-  Reels.
+  preta logo ABAIXO da manchete (topo em y 1395), ainda acima dessa faixa.
 - Legenda gravada no vídeo original (outra língua, outra marca) sai pelo
   `--corte`, como o logotipo de quem publicou.
 - O Reel de FOTO continua no próprio formato (`social/reel-de-foto.ts`,
