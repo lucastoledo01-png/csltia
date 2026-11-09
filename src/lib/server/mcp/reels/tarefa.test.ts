@@ -4,6 +4,7 @@ import { tarefasEmMemoria } from "../tarefas-store";
 import {
   abrirEscritaDoReel,
   conferirTextoDoReel,
+  conferirEtiqueta,
   conferirTrechosELegendas,
   entregarEscritaDoReel,
   materialDoCandidato,
@@ -190,7 +191,7 @@ describe("o vídeo de canal em inglês, com a fala legendada", () => {
   const TEXTO = {
     molde: "b",
     rotulo: "Juros",
-    categoria: "VÍDEO: BLOOMBERG",
+    categoria: "ECONOMIA",
     linhas: ["Powell descarta", "corte de juros"],
     destaque: 1,
     legenda: {

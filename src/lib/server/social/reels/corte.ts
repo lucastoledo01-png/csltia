@@ -315,3 +315,58 @@ export function folhaDeQuadros(arquivo: string, saida: string, corte: Corte | nu
   ]);
   return saida;
 }
+
+/*
+ * Os cortes de cena do vídeo (09/11/2026), em segundos.
+ *
+ * O dono reprovou dois Reels do Trump em que o trecho começava ainda na cena
+ * da apresentadora e terminava já na cena do entrevistador ou do deputado que
+ * respondia. A fala era do Trump, a imagem não. A transcrição diz QUANDO
+ * alguém fala; quem decide o que aparece é a troca de cena, medida aqui pelo
+ * ffmpeg (diferença entre quadros acima de 0,25).
+ */
+export function cortesDeCena(arquivo: string, limiar = 0.25): number[] {
+  let saida = "";
+  try {
+    saida = execFileSync(
+      "ffmpeg",
+      ["-hide_banner", "-i", arquivo, "-vf", `select='gt(scene,${limiar})',showinfo`, "-an", "-f", "null", "-"],
+      { maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] },
+    ).toString();
+  } catch (e) {
+    saida = String((e as { stderr?: Buffer }).stderr ?? "");
+  }
+  return tempoDosCortes(saida);
+}
+
+/** Pura: os tempos `pts_time` da saída do `showinfo`, em ordem e com 2 casas. */
+export function tempoDosCortes(saidaDoShowinfo: string): number[] {
+  const tempos = [...saidaDoShowinfo.matchAll(/pts_time:([0-9.]+)/g)].map((m) => Math.round(Number(m[1]) * 100) / 100);
+  return [...new Set(tempos.filter((t) => Number.isFinite(t) && t > 0))].sort((a, b) => a - b);
+}
+
+/**
+ * Pura: encosta cada trecho nos cortes de cena vizinhos (09/11/2026).
+ *
+ * Se uma troca de cena cai logo depois do início (até `janela` segundos), o
+ * trecho começa depois dela: o pedaço antes é a cena anterior, quase sempre o
+ * apresentador. Se cai logo antes do fim, o trecho termina antes dela. A folga
+ * de 0,04 s é um quadro, para não pegar o quadro da troca. Trecho que ficaria
+ * com menos de 1 s volta como veio.
+ */
+export function ajustarAosCortesDeCena(
+  trechos: Array<{ inicio: number; fim: number }>,
+  cortes: number[],
+  janela = 0.7,
+): Array<{ inicio: number; fim: number }> {
+  const QUADRO = 0.04;
+  return trechos.map((t) => {
+    let { inicio, fim } = t;
+    const aposInicio = cortes.filter((c) => c > inicio && c <= inicio + janela);
+    if (aposInicio.length) inicio = Math.max(...aposInicio) + QUADRO;
+    const antesDoFim = cortes.filter((c) => c < fim && c >= fim - janela);
+    if (antesDoFim.length) fim = Math.min(...antesDoFim) - QUADRO;
+    if (fim - inicio < 1) return t;
+    return { inicio: Math.round(inicio * 100) / 100, fim: Math.round(fim * 100) / 100 };
+  });
+}
