@@ -167,3 +167,53 @@ describe("o post do Claude", () => {
     expect(await entregarTarefaDoPost(PROJETO, { id: r.tarefa.id, resultado: COPY_BOA, quem: "x" }, d)).toMatchObject({ ok: false });
   });
 });
+
+describe("o carrossel do Claude", () => {
+  const SLIDE = {
+    titulo: "o detalhe",
+    corpo:
+      "A mudança vale para os pedidos protocolados a partir de outubro, e a fila de renovação da permissão de trabalho soma 1,2 milhão de pedidos.",
+    bullets: [],
+    lado_a: "",
+    lado_b: "",
+  };
+  type Papel = { papel: string; tipo: string };
+  const doModelo = (papeis: Papel[]) => papeis.filter((p) => p.tipo !== "cover" && p.tipo !== "cta");
+
+  it("abre a escrita no molde do carrossel, audita slide a slide e fica pronto", async () => {
+    const d = deps();
+    const r = await iniciarPost(PROJETO, { storyId: "s1", data: "2026-10-28", carrossel: true }, d);
+    if (!r.ok) throw new Error(r.error);
+    const material = r.tarefa.material as { carrossel?: { estrutura: string; papeis: Papel[] } };
+    expect(material.carrossel?.estrutura).toMatch(/^noticia/);
+    expect((r.tarefa.instrucao as { system: string }).system).toContain("CARROSSEL");
+    expect(JSON.stringify(r.tarefa.esquema)).toContain("slides");
+
+    const slides = doModelo(material.carrossel?.papeis ?? []).map((p) => ({ ...SLIDE, papel: p.papel }));
+    const escrita = await entregarTarefaDoPost(PROJETO, { id: r.tarefa.id, resultado: { ...COPY_BOA, slides }, quem: "dono:via-claude:t" }, d);
+    expect(escrita).toMatchObject({ ok: true, desfecho: "auditar" });
+    if (!escrita.ok || escrita.desfecho !== "auditar") return;
+    expect((escrita.tarefa.instrucao as { user: string }).user).toContain("slide 2");
+
+    const fim = await entregarTarefaDoPost(PROJETO, { id: escrita.tarefa.id, resultado: AUDITORIA_LIMPA, quem: "dono:via-claude:t" }, d);
+    expect(fim).toMatchObject({ ok: true, desfecho: "pronto" });
+    const gravada = (await d.tarefas.porId(r.tarefa.id))?.resultado as ResultadoDaEscrita & { copy: { slides: unknown[] } };
+    expect(gravada.copy.slides).toHaveLength(slides.length);
+  });
+
+  it("slide reprovado pela auditoria volta como reparo do carrossel", async () => {
+    const d = deps();
+    const r = await iniciarPost(PROJETO, { storyId: "s1", data: "2026-10-28", carrossel: true }, d);
+    if (!r.ok) throw new Error(r.error);
+    const papeis = (r.tarefa.material as { carrossel: { papeis: Papel[] } }).carrossel.papeis;
+    const slides = doModelo(papeis).map((p) => ({ ...SLIDE, papel: p.papel }));
+    const escrita = await entregarTarefaDoPost(PROJETO, { id: r.tarefa.id, resultado: { ...COPY_BOA, slides }, quem: "dono:via-claude:t" }, d);
+    if (!escrita.ok || escrita.desfecho !== "auditar") throw new Error("sem auditoria");
+    const furo = { claims: [{ trecho: "a fila vai acabar", tipo: "previsao", sustentada: false, motivo: "o pacote não prevê", pauta: 0 }] };
+    const fim = await entregarTarefaDoPost(PROJETO, { id: escrita.tarefa.id, resultado: furo, quem: "dono:via-claude:t" }, d);
+    expect(fim).toMatchObject({ ok: true, desfecho: "reparar" });
+    if (!fim.ok || fim.desfecho !== "reparar") return;
+    expect(fim.motivos.join(" ")).toMatch(/slide/);
+    expect((fim.tarefa.instrucao as { user: string }).user).toContain("O carrossel abaixo foi recusado");
+  });
+});

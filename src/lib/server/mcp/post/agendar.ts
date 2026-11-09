@@ -8,7 +8,13 @@ import type { CandidataPersistida } from "@/lib/server/editorial/candidatos-stor
 import { entidadesDaClassificacao } from "@/lib/server/editorial/classificador";
 import { impressaoDoAcontecimento } from "@/lib/server/editorial/fingerprint";
 import { chapeuDaPeca, gramaticaEfetiva, renderizarCapas, type EntradaDaCapa } from "@/lib/server/social/arte";
-import { congelarArtefato, sha256De, type ArtefatoCongelado } from "@/lib/server/social/artefato";
+import { congelarArtefato, congelarCarrossel, sha256De, type ArtefatoCongelado, type ArtefatoDeSlide } from "@/lib/server/social/artefato";
+import { entradasDoCarrossel } from "@/lib/server/social/carrossel/arte";
+import type { CopyDoCarrossel } from "@/lib/server/social/carrossel/copy";
+import { papeisDoModelo } from "@/lib/server/social/carrossel/estrutura";
+import { podarMioloSemFoto } from "@/lib/server/social/carrossel/fotos";
+import type { CarrosselGerado } from "@/lib/server/social/gerador";
+import type { FotoDoSlide } from "../dia/fotos";
 import { subirArquivoParaStorage } from "@/lib/server/social/instagram/armazenamento";
 import { renderizarReelDeFoto, type Foco, type ReelDeFoto, type RegistroDoReelDeFoto } from "@/lib/server/social/reel-de-foto";
 import { legendaDoInstagram, linhaDeCredito } from "@/lib/server/social/legenda-final";
@@ -52,12 +58,13 @@ export type DepsDoAgendamento = {
   renderizar?: typeof renderizarCapas;
   congelar?: typeof congelarArtefato;
   renderizarReel?: typeof renderizarReelDeFoto;
+  congelarCarrossel?: typeof congelarCarrossel;
   subir?: (buffer: Buffer, caminho: string, mime: string) => Promise<string | null>;
   fetcher?: typeof fetch;
 };
 
 /** O formato da peça do Claude: Reel de foto (o padrão desde 30/10/2026) ou estático. */
-export type FormatoDaPeca = "reel" | "estatico";
+export type FormatoDaPeca = "reel" | "estatico" | "carrossel";
 
 /** O bucket dos Reels (`social/reels/trabalho.ts`): o MP4 passa do teto do `public_assets`. */
 const BUCKET_DOS_REELS = "reels";
@@ -164,18 +171,94 @@ async function reelDoPost(
   }
 }
 
+/** As fotos dos slides que o Claude entregou junto com a da capa (`extras_resolvidas`). */
+async function fotosDosSlidesGravadas(projeto: Project, pedido: PedidoDoPost, deps: DepsDoAgendamento): Promise<FotoDoSlide[]> {
+  const tarefas = await deps.tarefas.doDia(projeto.id, pedido.data);
+  const foto = tarefas
+    .filter((t) => t.tipo === "escolher_foto" && t.chave === pedido.storyId && t.estado === "entregue")
+    .sort((a, b) => b.criadaEm.localeCompare(a.criadaEm))[0];
+  const lista = (foto?.resultado as { extras_resolvidas?: unknown } | null)?.extras_resolvidas;
+  return Array.isArray(lista)
+    ? (lista as FotoDoSlide[]).filter((f) => f && typeof f.imageUrl === "string" && f.imageUrl)
+    : [];
+}
+
+type PecasDoCarrossel = {
+  ok: true;
+  entradas: ReturnType<typeof entradasDoCarrossel>["entradas"];
+  fotos: FotoDoSlide[];
+  carrossel: CarrosselGerado;
+  copy: CopyDoCarrossel;
+};
+
+/**
+ * O carrossel de notícia da pauta (09/11/2026): a capa com a foto aprovada e
+ * um slide por passo, cada um com a foto que o Claude escolheu para ele. Slide
+ * sem foto sai (`podarMioloSemFoto`); abaixo do mínimo, não há carrossel, e
+ * quem chama faz o Reel de foto no lugar.
+ */
+async function pecasDoCarrossel(projeto: Project, pronto: Pronto, pedido: PedidoDoPost, deps: DepsDoAgendamento): Promise<PecasDoCarrossel | Falha> {
+  const forma = pronto.material.carrossel;
+  const copy = pronto.copy as CopyDoCarrossel;
+  if (!forma || !Array.isArray(copy.slides) || copy.slides.length === 0) {
+    return falha("a escrita desta pauta não foi feita como carrossel");
+  }
+  const fotos = await fotosDosSlidesGravadas(projeto, pedido, deps);
+  const podado = podarMioloSemFoto({
+    papeis: forma.papeis,
+    slides: copy.slides,
+    fotos: papeisDoModelo(forma.papeis).map((_, i) => fotos[i] ?? null),
+  });
+  if (podado.formato === "static") return falha(`sem foto para os slides: ${podado.motivo}`);
+  const capa = capaDo(pronto);
+  const comSlides: CopyDoCarrossel = { ...copy, slides: podado.slides };
+  const entradas = entradasDoCarrossel(comSlides, podado.papeis, {
+    eixo: capa.eixo ?? "",
+    ...(capa.chapeu ? { chapeu: capa.chapeu } : {}),
+    asset: capa.asset ?? null,
+    motivoSemFoto: "",
+    gramatica: capa.gramatica ?? "jornal",
+    fotosDoMiolo: podado.fotos,
+  }).entradas;
+  const fotosQueFicaram = podado.fotos.filter((f): f is FotoDoSlide => Boolean(f?.imageUrl)).map((f) => ({ imageUrl: f.imageUrl, attribution: f.attribution ?? "" }));
+  return {
+    ok: true,
+    entradas,
+    fotos: fotosQueFicaram,
+    copy: comSlides,
+    carrossel: { estrutura: forma.estrutura, papeis: podado.papeis, slides: podado.slides, claims: [], removidos: podado.tirados },
+  };
+}
+
 /** A prévia da peça, para o Claude olhar antes de agendar. Não grava nada. */
 export async function montarPost(
   projeto: Project,
   pedido: PedidoDoPost,
   deps: DepsDoAgendamento,
-): Promise<{ ok: true; png: Buffer; manchete: string; legenda: string; formato: FormatoDaPeca } | Falha> {
+): Promise<{ ok: true; png: Buffer; telas?: Buffer[]; manchete: string; legenda: string; formato: FormatoDaPeca; nota?: string } | Falha> {
   const pronto = await postPronto(projeto, pedido.storyId, pedido.data, deps);
   if (!pronto.ok) return pronto;
-  const credito = linhaDeCredito([visualDoMaterial(pronto.material).asset]);
-  const formato = pedido.formato ?? "estatico";
-  let png: Buffer;
-  if (formato === "reel") {
+  let credito = linhaDeCredito([visualDoMaterial(pronto.material).asset]);
+  let formato = pedido.formato ?? "estatico";
+  let nota: string | undefined;
+  let png: Buffer | undefined;
+  let telas: Buffer[] | undefined;
+  if (formato === "carrossel") {
+    const c = await pecasDoCarrossel(projeto, pronto, pedido, deps);
+    if (c.ok) {
+      const artes = await (deps.renderizar ?? renderizarCapas)(c.entradas);
+      if (artes.length === 0) return falha("o render do carrossel não devolveu as telas");
+      png = artes[0].jpeg;
+      telas = artes.slice(1).map((a) => a.jpeg);
+      credito = linhaDeCredito([visualDoMaterial(pronto.material).asset, ...c.fotos]);
+    } else {
+      nota = `o carrossel não fecha (${c.error}); vai como Reel de foto`;
+      formato = "reel";
+    }
+  }
+  if (png) {
+    // carrossel já desenhado
+  } else if (formato === "reel") {
     const reel = await reelDoPost(pronto, pedido, deps, projeto);
     if (!reel.ok) return reel;
     png = reel.reel.quadro;
@@ -185,10 +268,13 @@ export async function montarPost(
     // A prévia vai em JPEG: o PNG em 2x passa de 4 MB, e a peça congelada para a Meta é feita no agendamento.
     png = arte.jpeg;
   }
+  if (!png) return falha("o render não devolveu a peça");
   return {
     ok: true,
     formato,
     png,
+    ...(telas ? { telas } : {}),
+    ...(nota ? { nota } : {}),
     manchete: pronto.copy.headline,
     legenda: legendaDoInstagram(pronto.veredicto.legendaFinal, { hashtags: "manter", credito }),
   };
@@ -198,7 +284,7 @@ export async function agendarPost(
   projeto: Project,
   pedido: PedidoDoPost,
   deps: DepsDoAgendamento,
-): Promise<{ ok: true; postId: string | null; quando: string; legenda: string; formato: FormatoDaPeca; quadro?: Buffer } | Falha> {
+): Promise<{ ok: true; postId: string | null; quando: string; legenda: string; formato: FormatoDaPeca; quadro?: Buffer; nota?: string } | Falha> {
   const env = deps.env ?? process.env;
   if (modoDaFila(projeto) !== "enforce") {
     return falha("a fila de aprovação do projeto não está em enforce: nada do Claude é agendado sem aprovação no painel");
@@ -236,11 +322,27 @@ export async function agendarPost(
 
   const capa = capaDo(pronto);
   const chave = chaveDeIdempotencia(pedido.data, pedido.storyId);
-  const formato = pedido.formato ?? "estatico";
-  let artefato: ArtefatoCongelado;
+  let formato = pedido.formato ?? "estatico";
+  let artefatos: ArtefatoDeSlide[] = [];
   let quadro: Buffer | undefined;
   let registroDoReel: RegistroDoReelDeFoto | undefined;
-  if (formato === "reel") {
+  let carrossel: PecasDoCarrossel | undefined;
+  let nota: string | undefined;
+  if (formato === "carrossel") {
+    const c = await pecasDoCarrossel(projeto, pronto, pedido, deps);
+    const congelado = c.ok ? await (deps.congelarCarrossel ?? congelarCarrossel)({ slides: c.entradas, path: `${projeto.slug}/${pedido.data}/${chave}` }) : null;
+    if (c.ok && congelado?.ok) {
+      carrossel = c;
+      artefatos = congelado.artefatos;
+    } else {
+      // O carrossel que não fecha vira o Reel de foto da mesma pauta: a capa e a legenda já passaram por tudo.
+      nota = `o carrossel não fechou (${c.ok ? (congelado && !congelado.ok ? congelado.motivo : "sem artefato") : c.error}); saiu como Reel de foto`;
+      formato = "reel";
+    }
+  }
+  if (carrossel) {
+    // já congelado
+  } else if (formato === "reel") {
     const r = await reelDoPost(pronto, pedido, deps, projeto);
     if (!r.ok) return r;
     const sha = sha256De(r.reel.video);
@@ -249,7 +351,7 @@ export async function agendarPost(
     const caminho = `${projeto.slug}/${pedido.data}/${chave}/reel-${sha.slice(0, 12)}.mp4`;
     const url = await subir(r.reel.video, caminho, "video/mp4");
     if (!url) return falha(`o Storage recusou o Reel em ${caminho}`);
-    artefato = {
+    const artefato: ArtefatoCongelado = {
       url,
       path: caminho,
       filename: `reel-${sha.slice(0, 12)}.mp4`,
@@ -260,16 +362,18 @@ export async function agendarPost(
       altura: 1920,
       otimizado: false,
     };
+    artefatos = [{ ...artefato, index: 1 }];
     quadro = r.reel.quadro;
     registroDoReel = r.registro;
   } else {
     const congelado = await (deps.congelar ?? congelarArtefato)({ capa, path: `${projeto.slug}/${pedido.data}/${chave}` });
     if (!congelado.ok) return falha(`a arte não fechou: ${congelado.motivo}`);
-    artefato = congelado.artefato;
+    artefatos = [{ ...congelado.artefato, index: 1 }];
   }
 
   const visual = visualDoMaterial(pronto.material);
-  const credito = linhaDeCredito([visual.asset]);
+  const fotosQueForam = [visual.asset, ...(carrossel?.fotos ?? [])];
+  const credito = linhaDeCredito(fotosQueForam);
   const legendaFinal = legendaDoInstagram(pronto.veredicto.legendaFinal, { hashtags: "manter", credito });
   const p = projetoDaFila(projeto, projeto.id);
   const store = criarSocialPostsStore(deps.client, opcoesDaFilaParaOStore(p ? { ...p, slug: projeto.slug } : null, deps.client));
@@ -280,7 +384,8 @@ export async function agendarPost(
       editionDate: pedido.data,
       post: {
         pauta: pronto.pauta,
-        copy: pronto.copy,
+        copy: carrossel ? carrossel.copy : pronto.copy,
+        ...(carrossel ? { carrossel: carrossel.carrossel } : {}),
         veredicto: pronto.veredicto,
         tentativas: pronto.veredicto.attempts,
         tokens: 0,
@@ -295,13 +400,14 @@ export async function agendarPost(
       eventFingerprint:
         impressaoDoAcontecimento(entidadesDaClassificacao(pronto.pauta.classificacao)) || pedido.storyId,
       origem: resolverOrigem(pedido.storyId, []),
-      formato: formato === "reel" ? "reel" : "static",
+      formato: carrossel ? "carousel" : formato === "reel" ? "reel" : "static",
       ...(registroDoReel ? { reelDeFoto: registroDoReel } : {}),
-      artefatos: [{ ...artefato, index: 1 }],
+      ...(carrossel ? { fotosDoCarrossel: carrossel.fotos } : {}),
+      artefatos,
       bolha: false,
       gramatica: capa.gramatica ?? "jornal",
       creditoDaLegenda: credito,
-      creditosDasFotos: visual.asset?.attribution ? [visual.asset.attribution] : [],
+      creditosDasFotos: [...new Set(fotosQueForam.map((f) => (f?.attribution ?? "").trim()).filter(Boolean))],
       legendaFinal,
       contexto: montarContexto({
         data: pedido.data,
@@ -322,5 +428,5 @@ export async function agendarPost(
     .eq("project_id", projeto.id)
     .eq("idempotency_key", chave)
     .maybeSingle();
-  return { ok: true, postId: (gravado as { id?: string } | null)?.id ?? null, quando, legenda: legendaFinal, formato, ...(quadro ? { quadro } : {}) };
+  return { ok: true, postId: (gravado as { id?: string } | null)?.id ?? null, quando, legenda: legendaFinal, formato, ...(quadro ? { quadro } : {}), ...(nota ? { nota } : {}) };
 }

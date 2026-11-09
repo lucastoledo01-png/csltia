@@ -60,9 +60,9 @@ const DATA = z
 
 const PAUTA = z.string().min(1).describe("O story_id da pauta, como `pautas_disponiveis` devolve.");
 const FORMATO = z
-  .enum(["reel", "estatico"])
+  .enum(["reel", "estatico", "carrossel"])
   .optional()
-  .describe("reel: Reel de foto de 10 s (o padrão); estatico: peça de imagem única. Sem informar, vale o do plano do dia.");
+  .describe("reel: Reel de foto de 10 s (o padrão); carrossel: notícia em slides com foto; estatico: peça de imagem única. Sem informar, vale o do plano do dia.");
 const FOCO = z
   .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
   .optional()
@@ -76,7 +76,7 @@ export const INSTRUCOES_DO_MCP = [
   "Cada tarefa traz a instrução (system e user), o material e o esquema JSON da resposta. Siga a instrução ao pé da letra e entregue SÓ o JSON do esquema.",
   "Quando a entrega volta com motivos, a tarefa está em reparo: peça a próxima tarefa e corrija só o apontado. Não invente para tapar buraco.",
   "Na auditoria, julgue só pelo pacote factual que vem na tarefa, como se não tivesse escrito o texto; se puder, audite numa conversa separada.",
-  "POSTS EM REEL: o post do Instagram sai, por padrão, como Reel de foto de 10 segundos (a foto vertical com zoom lento, o chapéu e a manchete com o destaque em vermelho, trilha). No plano do dia, dê o formato de cada post em `formatos` (pelo menos metade em \"reel\"). Ao escolher a foto, prefira a que aguenta recorte vertical e diga em `foco` onde está o rosto. A manchete curta (até umas 12 palavras) com um `destaque` forte rende o melhor Reel.",
+  "POSTS EM REEL: o post do Instagram sai, por padrão, como Reel de foto de 10 segundos (a foto vertical com zoom lento, o chapéu e a manchete com o destaque em vermelho, trilha). No plano do dia, dê o formato de cada post em `formatos` (pelo menos metade em \"reel\", e um \"carrossel\" por dia na pauta com mais material). No carrossel, a tarefa da foto pede também as fotos dos slides em `extras`, todas diferentes da capa. Ao escolher a foto, prefira a que aguenta recorte vertical e diga em `foco` onde está o rosto. A manchete curta (até umas 12 palavras) com um `destaque` forte rende o melhor Reel.",
   "PAUTAS QUENTES: prefira o que está todo mundo contando (as marcadas QUENTE no plano) e NARRATIVAS que andam (personagem conhecido, conflito, virada, número que surpreende). Pode usar a sua busca na web do chat para conferir o que está quente agora. Comunicado frio e serviço só completam o dia.",
   "Reels de vídeo de terceiros: reels_sugeridos, produzir_reel com o id escolhido, ver_reel para a folha de quadros com o corte, proxima_tarefa com tipo escrever_reel, entregar_tarefa, e ver_reel de novo para conferir o Reel pronto. O chat não toca vídeo: a folha de quadros é a sua prévia, e o vídeo fica no painel.",
   "FOTO: você tem autonomia total para achar e trocar a foto de qualquer matéria ou post na fila, e deve se esforçar ao máximo antes de desistir. Pauta sem foto não vira post.",
@@ -247,10 +247,12 @@ export function criarServidorMcp(backend: Backend, versao = "0.4.0"): McpServer 
           manchete: string;
           legenda: string;
           imagem: { mime: string; base64: string };
+          telas?: Array<{ mime: string; base64: string }>;
         };
         return {
           content: [
             { type: "image" as const, data: r.imagem.base64, mimeType: r.imagem.mime },
+            ...(r.telas ?? []).map((t) => ({ type: "image" as const, data: t.base64, mimeType: t.mime })),
             {
               type: "text" as const,
               text: `FORMATO: ${r.formato ?? "estatico"}${r.nota ? `\n${r.nota}` : ""}\n\nMANCHETE: ${r.manchete}\n\nLEGENDA:\n${r.legenda}`,

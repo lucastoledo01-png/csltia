@@ -33,7 +33,7 @@ export const ItensDoPlanoSchema = z.object({
   formatos: z
     .record(z.string(), z.enum(FORMATOS_DO_POST))
     .default({})
-    .describe("Para cada storyId de `posts`: \"reel\" (Reel de foto de 10 s, o padrão) ou \"estatico\" (a peça de imagem única)."),
+    .describe("Para cada storyId de `posts`: \"reel\" (Reel de foto de 10 s, o padrão), \"carrossel\" (notícia em slides com fotos, no máximo um por dia) ou \"estatico\" (a peça de imagem única)."),
 });
 
 const ESQUEMA = z.toJSONSchema(ItensDoPlanoSchema, { io: "input" }) as Record<string, unknown>;
@@ -76,6 +76,7 @@ export function veiculosLexicos(titulo: string, doDia: Array<{ titulo: string; d
 }
 
 export const VEICULOS_DA_PAUTA_QUENTE = 3;
+export const MAXIMO_DE_CARROSSEIS = 1;
 
 /** Pura: quantos posts do plano precisam sair em Reel (a maioria, desde 09/11/2026). */
 export function minimoDeReels(posts: number): number {
@@ -148,10 +149,12 @@ export function conferirPlano(itens: ItensDoPlano, material: MaterialDoPlano): s
   for (const id of itens.reels) if (!reels.has(id)) motivos.push(`reels: ${id} não está entre os vídeos sugeridos`);
 
   const formatos = itens.formatos ?? {};
-  for (const id of itens.posts) if (!formatos[id]) motivos.push(`formatos: falta o formato do post ${id} ("reel" ou "estatico")`);
+  for (const id of itens.posts) if (!formatos[id]) motivos.push(`formatos: falta o formato do post ${id} ("reel", "carrossel" ou "estatico")`);
   for (const id of Object.keys(formatos)) if (!itens.posts.includes(id)) motivos.push(`formatos: ${id} não está em posts`);
   const emReel = itens.posts.filter((id) => formatos[id] === "reel").length;
   const minimo = minimoDeReels(itens.posts.length);
+  const emCarrossel = itens.posts.filter((id) => formatos[id] === "carrossel").length;
+  if (emCarrossel > MAXIMO_DE_CARROSSEIS) motivos.push(`formatos: no máximo ${MAXIMO_DE_CARROSSEIS} carrossel por dia, o plano tem ${emCarrossel}`);
   if (emReel < minimo) motivos.push(`formatos: a maioria dos posts sai em Reel de foto; com ${itens.posts.length} posts, pelo menos ${minimo} em "reel" (o plano tem ${emReel})`);
 
   const comFoto = new Set([...itens.newsletter, ...itens.artigos, ...itens.posts]);
@@ -168,7 +171,7 @@ const SYSTEM = [
   "Critérios: o que está mais QUENTE (mais veículos contando o mesmo fato; as marcadas QUENTE têm 3 ou mais), o que mais importa para o leitor, gente conhecida no centro, variedade de editorias, nada de imigração.",
   "Prefira NARRATIVAS: a história que está andando e rende capítulo (personagem conhecido, conflito, virada, número que surpreende, decisão com consequência), e não o comunicado frio ou a matéria de serviço. Pauta fria só completa o dia.",
   "Newsletter: as pautas mais fortes do dia, a mais forte primeiro. Matérias do portal: pautas com material para um texto completo e que alguém procuraria no Google. Posts: as mais quentes e visuais, com gente ou marca conhecida no centro. Reels sugeridos (vídeos de terceiros): só vídeo que conte uma notícia, sem humor.",
-  "Formato de cada post, em `formatos`: \"reel\" é o Reel de foto de 10 segundos (foto vertical com zoom lento, chapéu e manchete com destaque em vermelho, trilha) e é o padrão; \"estatico\" é a peça de imagem única, para quando a foto não aguenta um recorte vertical. Pelo menos metade dos posts em \"reel\".",
+  "Formato de cada post, em `formatos`: \"reel\" é o Reel de foto de 10 segundos (foto vertical com zoom lento, chapéu e manchete com destaque em vermelho, trilha) e é o padrão; \"estatico\" é a peça de imagem única, para quando a foto não aguenta um recorte vertical; \"carrossel\" é a notícia em slides (capa, de 1 a 4 passos com foto cada e o convite da newsletter), para UMA pauta do dia com mais material: números, quem disse o quê, desdobramento. Pelo menos metade dos posts em \"reel\", e no máximo um carrossel.",
   "A mesma pauta pode sair em mais de um canal. O Instagram tem um teto só para posts e Reels juntos.",
   "Para cada pauta, dê em `cenas` a busca em inglês de uma foto de contexto (o lugar, o objeto ou o ambiente do assunto, sem pessoa identificável e sem texto), e em `porque` uma frase dizendo por que ela entra.",
 ].join("\n");

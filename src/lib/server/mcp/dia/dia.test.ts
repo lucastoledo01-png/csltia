@@ -127,6 +127,9 @@ describe("o plano", () => {
     const poucoReel = conferirPlano({ ...tres, formatos: { p1: "reel", p2: "estatico", p4: "estatico" } }, m);
     expect(poucoReel.some((x) => x.includes("pelo menos 2"))).toBe(true);
     expect(conferirPlano({ ...tres, formatos: { p1: "reel", p2: "reel", p4: "estatico" } }, m)).toEqual([]);
+    const doisCarrosseis = conferirPlano({ ...tres, formatos: { p1: "reel", p2: "carrossel", p4: "carrossel" } }, m);
+    expect(doisCarrosseis.some((x) => x.includes("no máximo 1 carrossel"))).toBe(true);
+    expect(conferirPlano({ ...tres, formatos: { p1: "reel", p2: "reel", p4: "carrossel" } }, m)).toEqual([]);
     expect(minimoDeReels(1)).toBe(0);
     expect(minimoDeReels(5)).toBe(3);
   });

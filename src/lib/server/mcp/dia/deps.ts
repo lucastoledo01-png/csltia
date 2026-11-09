@@ -195,6 +195,8 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
           categoria: String(c.classificacao?.eixo ?? ""),
           candidatas: lista.map(({ asset: _a, ...resto }) => resto),
           assets: lista.map((x) => x.asset),
+          // O post em carrossel pede as fotos dos slides junto com a da capa (09/11/2026).
+          ...(plano.itens.posts.includes(c.storyId) && formatoDoPost(plano.itens, c.storyId) === "carrossel" ? { fotosDoCarrossel: 3 } : {}),
         },
         tarefas,
       );
@@ -231,7 +233,9 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
       return (linhas ?? []).length > 0;
     },
     async iniciarPost(projeto, data, storyId) {
-      const r = await iniciarPost(projeto, { storyId, data }, post);
+      const plano = await planos.doDia(projeto.id, data);
+      const carrossel = plano.itens.posts.includes(storyId) && formatoDoPost(plano.itens, storyId) === "carrossel";
+      const r = await iniciarPost(projeto, { storyId, data, carrossel }, post);
       return r.ok ? r.tarefa : { erro: r.error };
     },
     async agendarPost(projeto, data, storyId) {

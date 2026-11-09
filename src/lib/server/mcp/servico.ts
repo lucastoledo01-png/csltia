@@ -135,7 +135,7 @@ async function pedidoDeMontagem(args: Record<string, unknown>, acesso: AcessoDoM
   const focoBruto = (args.foco ?? null) as { x?: unknown; y?: unknown } | null;
   const foco = focoBruto && typeof focoBruto === "object" ? { x: num(focoBruto.x), y: num(focoBruto.y) } : undefined;
   let formato: FormatoDaPeca;
-  if (args.formato === "reel" || args.formato === "estatico") formato = args.formato;
+  if (args.formato === "reel" || args.formato === "estatico" || args.formato === "carrossel") formato = args.formato;
   else {
     const plano = await planosSupabase(client).doDia(acesso.projeto.id, base.data);
     formato = plano.itens.posts.includes(base.storyId) ? formatoDoPost(plano.itens, base.storyId) : "reel";
@@ -153,7 +153,12 @@ export async function montar(acesso: AcessoDoMcp, args: Record<string, unknown>,
     formato: r.formato,
     manchete: r.manchete,
     legenda: r.legenda,
-    ...(r.formato === "reel" ? { nota: "Reel de foto: a imagem é o primeiro quadro do vídeo de 10 s (zoom lento e trilha). Rosto cortado? Agende com foco {x, y} onde está o rosto." } : {}),
+    ...(r.formato === "reel"
+      ? { nota: `${r.nota ? `${r.nota}. ` : ""}Reel de foto: a imagem é o primeiro quadro do vídeo de 10 s (zoom lento e trilha). Rosto cortado? Agende com foco {x, y} onde está o rosto.` }
+      : r.nota
+        ? { nota: r.nota }
+        : {}),
+    ...(r.telas?.length ? { telas: r.telas.map((t) => ({ mime: "image/jpeg", base64: t.toString("base64") })) } : {}),
     imagem: { mime: "image/jpeg", base64: r.png.toString("base64") },
   };
 }

@@ -2939,3 +2939,14 @@ de mais veículos contando o mesmo fato (`veiculosLexicos`), e o plano lista as
 pautas nessa ordem, com a marca QUENTE a partir de 3 veículos. O prompt do plano
 pede narrativas (personagem conhecido, conflito, virada) e deixa o comunicado
 frio para completar o dia.
+
+**Um carrossel de notícia por dia** (formato `carrossel`, no máximo um no
+plano). É o carrossel da esteira, com o Claude no lugar do modelo: a estrutura
+sai de `determinarFormatoDaNoticia` (pacote fino ainda vira o curto: capa, um
+passo e o convite da newsletter, porque o plano aprovado pediu), a escrita usa
+`montarSystemDoCarrossel`, e a entrega passa pelas guardas de slide
+(`slidesSemLastro`, forma, linguagem, destaque) e pela auditoria slide a slide,
+com a legenda auditada junto (índice 100 na tarefa). As fotos dos slides vêm da
+mesma tarefa da foto, em `extras`, todas diferentes da capa; slide sem foto sai
+(`podarMioloSemFoto`), e o carrossel que não fecha vira o Reel de foto da mesma
+pauta, com o motivo na resposta.
