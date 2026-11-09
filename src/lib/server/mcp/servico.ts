@@ -6,7 +6,8 @@ import { comoProjetoDaFila } from "@/lib/server/aprovacao/rotas";
 import { projectToday } from "@/lib/server/projects";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import { linkDoPainel, pecasDaFila, resumoDoDia } from "./dia";
-import { agendarPost, montarPost } from "./post/agendar";
+import { agendarPost, montarPost, type FormatoDaPeca, type PedidoDoPost } from "./post/agendar";
+import { formatoDoPost, planosSupabase } from "./dia/plano-store";
 import { depsDoPost, projetoDaFonte } from "./post/deps";
 import { entregarTarefaDoPost, iniciarPost } from "./post/fluxo";
 import { pautasDisponiveis } from "./post/material";
@@ -123,18 +124,50 @@ export async function entregar(acesso: AcessoDoMcp, args: { id?: unknown; result
   return { ...r, ...(proximo ? { proximo } : {}) };
 }
 
+/**
+ * O formato e o foco do post avulso (09/11/2026). Sem `formato`, vale o do
+ * plano aprovado; fora do plano, o Reel de foto, que é o padrão desde 30/10.
+ */
+async function pedidoDeMontagem(args: Record<string, unknown>, acesso: AcessoDoMcp, client: SupabaseClient): Promise<PedidoDoPost | null> {
+  const base = pedidoDePost(args, acesso);
+  if (!base) return null;
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : undefined);
+  const focoBruto = (args.foco ?? null) as { x?: unknown; y?: unknown } | null;
+  const foco = focoBruto && typeof focoBruto === "object" ? { x: num(focoBruto.x), y: num(focoBruto.y) } : undefined;
+  let formato: FormatoDaPeca;
+  if (args.formato === "reel" || args.formato === "estatico") formato = args.formato;
+  else {
+    const plano = await planosSupabase(client).doDia(acesso.projeto.id, base.data);
+    formato = plano.itens.posts.includes(base.storyId) ? formatoDoPost(plano.itens, base.storyId) : "reel";
+  }
+  return { ...base, formato, ...(foco && (foco.x !== undefined || foco.y !== undefined) ? { foco } : {}) };
+}
+
 export async function montar(acesso: AcessoDoMcp, args: Record<string, unknown>, client: SupabaseClient = getSupabaseAdminClient()): Promise<Resposta> {
-  const pedido = pedidoDePost(args, acesso);
+  const pedido = await pedidoDeMontagem(args, acesso, client);
   if (!pedido) return recusa(400, POST_INVALIDO);
   const r = await montarPost(acesso.projeto, pedido, depsDoPost(client));
   if (!r.ok) return recusa(422, r.error);
-  return { ok: true, manchete: r.manchete, legenda: r.legenda, imagem: { mime: "image/jpeg", base64: r.png.toString("base64") } };
+  return {
+    ok: true,
+    formato: r.formato,
+    manchete: r.manchete,
+    legenda: r.legenda,
+    ...(r.formato === "reel" ? { nota: "Reel de foto: a imagem é o primeiro quadro do vídeo de 10 s (zoom lento e trilha). Rosto cortado? Agende com foco {x, y} onde está o rosto." } : {}),
+    imagem: { mime: "image/jpeg", base64: r.png.toString("base64") },
+  };
 }
 
 export async function agendar(acesso: AcessoDoMcp, args: Record<string, unknown>, client: SupabaseClient = getSupabaseAdminClient()): Promise<Resposta> {
-  const pedido = pedidoDePost(args, acesso);
+  const pedido = await pedidoDeMontagem(args, acesso, client);
   if (!pedido) return recusa(400, POST_INVALIDO);
   const r = await agendarPost(acesso.projeto, pedido, depsDoPost(client));
   if (!r.ok) return recusa(422, r.error);
-  return { ...r, painel: linkDoPainel(acesso.projeto.slug), aguardando: "aprovação no painel" };
+  const { quadro, ...resto } = r;
+  return {
+    ...resto,
+    painel: linkDoPainel(acesso.projeto.slug),
+    aguardando: "aprovação no painel",
+    ...(quadro ? { imagens: [{ mime: "image/jpeg", base64: quadro.toString("base64") }] } : {}),
+  };
 }

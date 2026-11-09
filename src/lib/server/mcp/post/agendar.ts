@@ -8,7 +8,9 @@ import type { CandidataPersistida } from "@/lib/server/editorial/candidatos-stor
 import { entidadesDaClassificacao } from "@/lib/server/editorial/classificador";
 import { impressaoDoAcontecimento } from "@/lib/server/editorial/fingerprint";
 import { chapeuDaPeca, gramaticaEfetiva, renderizarCapas, type EntradaDaCapa } from "@/lib/server/social/arte";
-import { congelarArtefato } from "@/lib/server/social/artefato";
+import { congelarArtefato, sha256De, type ArtefatoCongelado } from "@/lib/server/social/artefato";
+import { subirArquivoParaStorage } from "@/lib/server/social/instagram/armazenamento";
+import { renderizarReelDeFoto, type Foco, type ReelDeFoto, type RegistroDoReelDeFoto } from "@/lib/server/social/reel-de-foto";
 import { legendaDoInstagram, linhaDeCredito } from "@/lib/server/social/legenda-final";
 import { modoDoPipelineSocial, permiteEnforce } from "@/lib/server/social/modo";
 import { vagasDaTarde, type PostDoDia } from "@/lib/server/social/quente-da-tarde";
@@ -49,7 +51,18 @@ export type DepsDoAgendamento = {
   /** Só para teste: o render e o congelamento de verdade abrem o Chromium. */
   renderizar?: typeof renderizarCapas;
   congelar?: typeof congelarArtefato;
+  renderizarReel?: typeof renderizarReelDeFoto;
+  subir?: (buffer: Buffer, caminho: string, mime: string) => Promise<string | null>;
+  fetcher?: typeof fetch;
 };
+
+/** O formato da peça do Claude: Reel de foto (o padrão desde 30/10/2026) ou estático. */
+export type FormatoDaPeca = "reel" | "estatico";
+
+/** O bucket dos Reels (`social/reels/trabalho.ts`): o MP4 passa do teto do `public_assets`. */
+const BUCKET_DOS_REELS = "reels";
+
+export type PedidoDoPost = { storyId: string; data: string; formato?: FormatoDaPeca; foco?: Partial<Foco> };
 
 type Falha = { ok: false; error: string };
 
@@ -104,21 +117,78 @@ function capaDo(pronto: Exclude<Awaited<ReturnType<typeof postPronto>>, Falha>):
   };
 }
 
+type Pronto = Exclude<Awaited<ReturnType<typeof postPronto>>, Falha>;
+
+/** O foco que o Claude deu ao escolher a foto, quando o pedido não traz outro. */
+async function focoDaFoto(projeto: Project, pedido: PedidoDoPost, deps: DepsDoAgendamento): Promise<Partial<Foco> | undefined> {
+  if (pedido.foco && (pedido.foco.x !== undefined || pedido.foco.y !== undefined)) return pedido.foco;
+  const tarefas = await deps.tarefas.doDia(projeto.id, pedido.data);
+  const foto = tarefas
+    .filter((t) => t.tipo === "escolher_foto" && t.chave === pedido.storyId && t.estado === "entregue")
+    .sort((a, b) => b.criadaEm.localeCompare(a.criadaEm))[0];
+  const foco = (foto?.resultado as { foco?: Partial<Foco> } | null)?.foco;
+  return foco && typeof foco === "object" ? foco : undefined;
+}
+
+/** O Reel de foto da pauta (09/11/2026): a foto aprovada, o chapéu e a manchete com o destaque. */
+async function reelDoPost(
+  pronto: Pronto,
+  pedido: PedidoDoPost,
+  deps: DepsDoAgendamento,
+  projeto?: Project,
+): Promise<{ ok: true; reel: ReelDeFoto; registro: RegistroDoReelDeFoto } | Falha> {
+  const visual = visualDoMaterial(pronto.material);
+  const url = visual.asset?.imageUrl;
+  if (!url) return falha("a pauta não tem foto aprovada, e o Reel é feito da foto");
+  let foto: Buffer;
+  try {
+    const r = await (deps.fetcher ?? fetch)(url, {
+      headers: { "User-Agent": "eua.journal/1.0 (+https://euajournal.com)" },
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!r.ok) return falha(`a foto não baixou (${r.status}): ${url}`);
+    foto = Buffer.from(await r.arrayBuffer());
+  } catch (e) {
+    return falha(`a foto não baixou: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  const capa = capaDo(pronto);
+  const foco = projeto ? await focoDaFoto(projeto, pedido, deps) : pedido.foco;
+  try {
+    const chapeu = capa.chapeu ?? "";
+    const destaque = pronto.copy.destaque ?? "";
+    const reel = await (deps.renderizarReel ?? renderizarReelDeFoto)({ foto, chapeu, manchete: pronto.copy.headline, destaque, foco });
+    const focoGravado = foco && (foco.x !== undefined || foco.y !== undefined) ? { x: foco.x ?? 0.5, y: foco.y ?? 0.2 } : null;
+    return { ok: true, reel, registro: { destaque, foco: focoGravado, chapeu, recorte: reel.recorte, corpo: reel.corpo } };
+  } catch (e) {
+    return falha(`o Reel não fechou: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
 /** A prévia da peça, para o Claude olhar antes de agendar. Não grava nada. */
 export async function montarPost(
   projeto: Project,
-  pedido: { storyId: string; data: string },
+  pedido: PedidoDoPost,
   deps: DepsDoAgendamento,
-): Promise<{ ok: true; png: Buffer; manchete: string; legenda: string } | Falha> {
+): Promise<{ ok: true; png: Buffer; manchete: string; legenda: string; formato: FormatoDaPeca } | Falha> {
   const pronto = await postPronto(projeto, pedido.storyId, pedido.data, deps);
   if (!pronto.ok) return pronto;
-  const [arte] = await (deps.renderizar ?? renderizarCapas)([capaDo(pronto)]);
-  if (!arte) return falha("o render não devolveu a peça");
   const credito = linhaDeCredito([visualDoMaterial(pronto.material).asset]);
+  const formato = pedido.formato ?? "estatico";
+  let png: Buffer;
+  if (formato === "reel") {
+    const reel = await reelDoPost(pronto, pedido, deps, projeto);
+    if (!reel.ok) return reel;
+    png = reel.reel.quadro;
+  } else {
+    const [arte] = await (deps.renderizar ?? renderizarCapas)([capaDo(pronto)]);
+    if (!arte) return falha("o render não devolveu a peça");
+    // A prévia vai em JPEG: o PNG em 2x passa de 4 MB, e a peça congelada para a Meta é feita no agendamento.
+    png = arte.jpeg;
+  }
   return {
     ok: true,
-    // A prévia vai em JPEG: o PNG em 2x passa de 4 MB, e a peça congelada para a Meta é feita no agendamento.
-    png: arte.jpeg,
+    formato,
+    png,
     manchete: pronto.copy.headline,
     legenda: legendaDoInstagram(pronto.veredicto.legendaFinal, { hashtags: "manter", credito }),
   };
@@ -126,9 +196,9 @@ export async function montarPost(
 
 export async function agendarPost(
   projeto: Project,
-  pedido: { storyId: string; data: string },
+  pedido: PedidoDoPost,
   deps: DepsDoAgendamento,
-): Promise<{ ok: true; postId: string | null; quando: string; legenda: string } | Falha> {
+): Promise<{ ok: true; postId: string | null; quando: string; legenda: string; formato: FormatoDaPeca; quadro?: Buffer } | Falha> {
   const env = deps.env ?? process.env;
   if (modoDaFila(projeto) !== "enforce") {
     return falha("a fila de aprovação do projeto não está em enforce: nada do Claude é agendado sem aprovação no painel");
@@ -166,8 +236,37 @@ export async function agendarPost(
 
   const capa = capaDo(pronto);
   const chave = chaveDeIdempotencia(pedido.data, pedido.storyId);
-  const congelado = await (deps.congelar ?? congelarArtefato)({ capa, path: `${projeto.slug}/${pedido.data}/${chave}` });
-  if (!congelado.ok) return falha(`a arte não fechou: ${congelado.motivo}`);
+  const formato = pedido.formato ?? "estatico";
+  let artefato: ArtefatoCongelado;
+  let quadro: Buffer | undefined;
+  let registroDoReel: RegistroDoReelDeFoto | undefined;
+  if (formato === "reel") {
+    const r = await reelDoPost(pronto, pedido, deps, projeto);
+    if (!r.ok) return r;
+    const sha = sha256De(r.reel.video);
+    const subir = deps.subir ?? ((b: Buffer, c: string, m: string) => subirArquivoParaStorage(b, c, m, BUCKET_DOS_REELS));
+    // O hash no nome: a versão refeita é outro arquivo, nunca o mesmo sobrescrito.
+    const caminho = `${projeto.slug}/${pedido.data}/${chave}/reel-${sha.slice(0, 12)}.mp4`;
+    const url = await subir(r.reel.video, caminho, "video/mp4");
+    if (!url) return falha(`o Storage recusou o Reel em ${caminho}`);
+    artefato = {
+      url,
+      path: caminho,
+      filename: `reel-${sha.slice(0, 12)}.mp4`,
+      mime: "video/mp4",
+      sha256: sha,
+      bytes: r.reel.video.byteLength,
+      largura: 1080,
+      altura: 1920,
+      otimizado: false,
+    };
+    quadro = r.reel.quadro;
+    registroDoReel = r.registro;
+  } else {
+    const congelado = await (deps.congelar ?? congelarArtefato)({ capa, path: `${projeto.slug}/${pedido.data}/${chave}` });
+    if (!congelado.ok) return falha(`a arte não fechou: ${congelado.motivo}`);
+    artefato = congelado.artefato;
+  }
 
   const visual = visualDoMaterial(pronto.material);
   const credito = linhaDeCredito([visual.asset]);
@@ -196,8 +295,9 @@ export async function agendarPost(
       eventFingerprint:
         impressaoDoAcontecimento(entidadesDaClassificacao(pronto.pauta.classificacao)) || pedido.storyId,
       origem: resolverOrigem(pedido.storyId, []),
-      formato: "static",
-      artefatos: [{ ...congelado.artefato, index: 1 }],
+      formato: formato === "reel" ? "reel" : "static",
+      ...(registroDoReel ? { reelDeFoto: registroDoReel } : {}),
+      artefatos: [{ ...artefato, index: 1 }],
       bolha: false,
       gramatica: capa.gramatica ?? "jornal",
       creditoDaLegenda: credito,
@@ -222,5 +322,5 @@ export async function agendarPost(
     .eq("project_id", projeto.id)
     .eq("idempotency_key", chave)
     .maybeSingle();
-  return { ok: true, postId: (gravado as { id?: string } | null)?.id ?? null, quando, legenda: legendaFinal };
+  return { ok: true, postId: (gravado as { id?: string } | null)?.id ?? null, quando, legenda: legendaFinal, formato, ...(quadro ? { quadro } : {}) };
 }

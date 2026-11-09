@@ -59,6 +59,14 @@ const DATA = z
   .describe("Data da edição, AAAA-MM-DD, no fuso do projeto. Sem data, hoje.");
 
 const PAUTA = z.string().min(1).describe("O story_id da pauta, como `pautas_disponiveis` devolve.");
+const FORMATO = z
+  .enum(["reel", "estatico"])
+  .optional()
+  .describe("reel: Reel de foto de 10 s (o padrão); estatico: peça de imagem única. Sem informar, vale o do plano do dia.");
+const FOCO = z
+  .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
+  .optional()
+  .describe("Só no Reel: onde está o rosto ou o assunto na foto (0 a 1). O vídeo corta a foto em 9:16 em volta deste ponto.");
 
 export const INSTRUCOES_DO_MCP = [
   "PARA FAZER O DIA INTEIRO SOZINHO: chame fazer_o_dia. Ele devolve UM passo: uma tarefa (faça e entregue com entregar_tarefa; a resposta já traz o passo seguinte em `proximo`), \"aguardar\" (chame aguardar e repita até mudar; é o dono aprovando o plano no painel) ou \"pronto\". Siga até \"pronto\" sem esperar nova ordem. Se a conversa encher, abra outra e chame fazer_o_dia: o dia continua de onde parou.",
@@ -68,7 +76,9 @@ export const INSTRUCOES_DO_MCP = [
   "Cada tarefa traz a instrução (system e user), o material e o esquema JSON da resposta. Siga a instrução ao pé da letra e entregue SÓ o JSON do esquema.",
   "Quando a entrega volta com motivos, a tarefa está em reparo: peça a próxima tarefa e corrija só o apontado. Não invente para tapar buraco.",
   "Na auditoria, julgue só pelo pacote factual que vem na tarefa, como se não tivesse escrito o texto; se puder, audite numa conversa separada.",
-  "Reels: reels_sugeridos, produzir_reel com o id escolhido, ver_reel para a folha de quadros com o corte, proxima_tarefa com tipo escrever_reel, entregar_tarefa, e ver_reel de novo para conferir o Reel pronto. O chat não toca vídeo: a folha de quadros é a sua prévia, e o vídeo fica no painel.",
+  "POSTS EM REEL: o post do Instagram sai, por padrão, como Reel de foto de 10 segundos (a foto vertical com zoom lento, o chapéu e a manchete com o destaque em vermelho, trilha). No plano do dia, dê o formato de cada post em `formatos` (pelo menos metade em \"reel\"). Ao escolher a foto, prefira a que aguenta recorte vertical e diga em `foco` onde está o rosto. A manchete curta (até umas 12 palavras) com um `destaque` forte rende o melhor Reel.",
+  "PAUTAS QUENTES: prefira o que está todo mundo contando (as marcadas QUENTE no plano) e NARRATIVAS que andam (personagem conhecido, conflito, virada, número que surpreende). Pode usar a sua busca na web do chat para conferir o que está quente agora. Comunicado frio e serviço só completam o dia.",
+  "Reels de vídeo de terceiros: reels_sugeridos, produzir_reel com o id escolhido, ver_reel para a folha de quadros com o corte, proxima_tarefa com tipo escrever_reel, entregar_tarefa, e ver_reel de novo para conferir o Reel pronto. O chat não toca vídeo: a folha de quadros é a sua prévia, e o vídeo fica no painel.",
   "FOTO: você tem autonomia total para achar e trocar a foto de qualquer matéria ou post na fila, e deve se esforçar ao máximo antes de desistir. Pauta sem foto não vira post.",
   "Como achar: use a sua busca na web do chat livremente (site e sala de imprensa da empresa ou do órgão, notícias sobre o fato, agências, Wikipedia, Flickr, perfis oficiais). Achou uma página com a foto: imagens_da_pagina tira as fotos grandes dela. Achou o link direto do arquivo: ver_imagem (aceita vários links de uma vez, para comparar). buscar_imagens cobre Commons, Pexels e Unsplash. Tente várias consultas e fontes, em inglês e português.",
   "A foto certa mostra o assunto da manchete: a pessoa certa, a marca ou o nome legível, o prédio ou o produto citado; sem logotipo de terceiro, sem marca d'água. Se não houver, uma cena real que ambiente o fato é melhor que nenhuma.",
@@ -224,13 +234,16 @@ export function criarServidorMcp(backend: Backend, versao = "0.4.0"): McpServer 
     "montar_post",
     {
       title: "Montar o post",
-      description: "Renderiza a peça e a legenda de um post pronto, para você olhar antes de agendar. Não grava nada.",
-      inputSchema: { story_id: PAUTA, data: DATA },
+      description:
+        "Renderiza a peça e a legenda de um post pronto, para você olhar antes de agendar. Não grava nada. No Reel de foto, a imagem é o primeiro quadro do vídeo.",
+      inputSchema: { story_id: PAUTA, data: DATA, formato: FORMATO, foco: FOCO },
       annotations: { readOnlyHint: true },
     },
-    async ({ story_id, data }) => {
+    async ({ story_id, data, formato, foco }) => {
       try {
-        const r = (await backend("montar_post", { story_id, data })) as {
+        const r = (await backend("montar_post", { story_id, data, formato, foco })) as {
+          formato?: string;
+          nota?: string;
           manchete: string;
           legenda: string;
           imagem: { mime: string; base64: string };
@@ -238,7 +251,10 @@ export function criarServidorMcp(backend: Backend, versao = "0.4.0"): McpServer 
         return {
           content: [
             { type: "image" as const, data: r.imagem.base64, mimeType: r.imagem.mime },
-            { type: "text" as const, text: `MANCHETE: ${r.manchete}\n\nLEGENDA:\n${r.legenda}` },
+            {
+              type: "text" as const,
+              text: `FORMATO: ${r.formato ?? "estatico"}${r.nota ? `\n${r.nota}` : ""}\n\nMANCHETE: ${r.manchete}\n\nLEGENDA:\n${r.legenda}`,
+            },
           ],
         };
       } catch (erro) {
@@ -252,10 +268,10 @@ export function criarServidorMcp(backend: Backend, versao = "0.4.0"): McpServer 
     {
       title: "Agendar o post",
       description:
-        "Congela a arte, grava o post na próxima vaga livre do Instagram e o põe na fila de aprovação. Ele só vai ao ar depois de o dono aprovar no painel.",
-      inputSchema: { story_id: PAUTA, data: DATA },
+        "Congela a arte (ou monta o Reel de foto), grava o post na próxima vaga livre do Instagram e o põe na fila de aprovação. Ele só vai ao ar depois de o dono aprovar no painel.",
+      inputSchema: { story_id: PAUTA, data: DATA, formato: FORMATO, foco: FOCO },
     },
-    ({ story_id, data }) => chamar("agendar_post", { story_id, data }),
+    ({ story_id, data, formato, foco }) => chamar("agendar_post", { story_id, data, formato, foco }),
   );
 
   servidor.registerTool(

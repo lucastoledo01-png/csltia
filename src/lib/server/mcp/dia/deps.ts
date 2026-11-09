@@ -17,7 +17,8 @@ import { avancarNewsletter, gravarNewsletterDoClaude, type DepsDaNewsletter } fr
 import type { DepsDoDiretor } from "./diretor";
 import { abrirFoto, candidatasDaFoto } from "./fotos";
 import { abrirPacote } from "./pacotes";
-import { abrirPlano, pautaDoPlano, reelsDoPlano, volumesDoProjeto, type MaterialDoPlano } from "./plano";
+import { formatoDoPost } from "./plano-store";
+import { abrirPlano, pautaDoPlano, reelsDoPlano, veiculosLexicos, volumesDoProjeto, type MaterialDoPlano } from "./plano";
 import { planosSupabase, type PlanoDoDia } from "./plano-store";
 import { abrirTriagem, preFiltrar, type Coletada } from "./triagem";
 import { ehPrioritaria, fontesPrioritarias } from "./fontes-prioritarias";
@@ -131,7 +132,11 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
       const jaClassificadas = new Set([...janela].filter(([, c]) => c.classificationStatus === "done").map(([url]) => url));
       const prioritarias = fontesPrioritarias(projeto);
       const prioritaria = (d: string | null) => ehPrioritaria(d, prioritarias);
-      return abrirTriagem(projeto, data, preFiltrar(lista, jaClassificadas, { agoraMs: agora, prioritaria }), {
+      // A ordem é a do calor (09/11/2026): o fato que mais veículos contam entra primeiro.
+      const doDia = lista.map((c) => ({ titulo: c.title, dominio: c.sourceDomain ?? "" }));
+      const calores = new Map(lista.map((c) => [c.storyId, veiculosLexicos(c.title, doDia)]));
+      const calor = (c: { storyId: string }) => calores.get(c.storyId) ?? 0;
+      return abrirTriagem(projeto, data, preFiltrar(lista, jaClassificadas, { agoraMs: agora, prioritaria, calor }), {
         tarefas,
         candidatos,
         comInstrucoes: (p, fn) => comInstrucoesDoProjeto(p, fn),
@@ -148,17 +153,19 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
       const prioritarias = fontesPrioritarias(projeto);
       const desde = new Date(agora - 30 * 86_400_000).toISOString().slice(0, 10);
       const aprovados = (await planos.aprovadosDesde(projeto.id, desde)).filter((p) => p.id !== plano.id);
+      // As mais quentes primeiro (09/11/2026), e entre as de calor parecido a de nota maior.
       const material: MaterialDoPlano = {
         data: plano.data,
         volumes: volumesDoProjeto(projeto),
         pautas: janela
+          .map((c) => pautaDoPlano(c, doDia, null, ehPrioritaria(c.sourceDomain, prioritarias)))
           .sort(
             (a, b) =>
-              Number(ehPrioritaria(b.sourceDomain, prioritarias)) - Number(ehPrioritaria(a.sourceDomain, prioritarias)) ||
-              (b.editorialScore ?? 0) - (a.editorialScore ?? 0),
+              Number(Boolean(b.prioritaria)) - Number(Boolean(a.prioritaria)) ||
+              Math.min(b.veiculos, 6) - Math.min(a.veiculos, 6) ||
+              (b.relevancia ?? 0) - (a.relevancia ?? 0),
           )
-          .slice(0, 40)
-          .map((c) => pautaDoPlano(c, doDia, null, ehPrioritaria(c.sourceDomain, prioritarias))),
+          .slice(0, 40),
         reels: reelsDoPlano(await reels.sugeridos(projeto.id, 10)),
         jaUsadas: {
           newsletter: aprovados.flatMap((p) => p.itens.newsletter),
@@ -228,7 +235,10 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
       return r.ok ? r.tarefa : { erro: r.error };
     },
     async agendarPost(projeto, data, storyId) {
-      const r = await agendarPost(projeto, { storyId, data }, post);
+      // O formato que o plano aprovado deu ao post (09/11/2026): Reel de foto ou estático.
+      const plano = await planos.doDia(projeto.id, data);
+      const formato = formatoDoPost(plano.itens, storyId);
+      const r = await agendarPost(projeto, { storyId, data, formato }, post);
       return r.ok ? { ok: true } : { ok: false, error: r.error };
     },
     async artigoGravado(projeto, data, storyId) {

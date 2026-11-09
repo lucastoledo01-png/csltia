@@ -86,6 +86,14 @@ export const EscolhaDaFotoSchema = z.object({
   autor: z.string().optional().describe("Com imagem_url: quem fotografou, ou a instituição dona da foto."),
   fonte: z.string().optional().describe("Com imagem_url: o site ou a agência de onde ela veio."),
   pagina: z.string().optional().describe("Com imagem_url: a página onde a foto está publicada."),
+  /*
+   * O Reel corta a foto em 9:16 (09/11/2026). Sem detector de rosto no motor
+   * Claude, quem diz onde está o assunto é quem olhou a foto.
+   */
+  foco: z
+    .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
+    .optional()
+    .describe("Onde está o rosto ou o assunto na foto escolhida, em fração da largura (x) e da altura (y), 0 a 1. O Reel corta a foto em 9:16 em volta deste ponto."),
 });
 
 const ESQUEMA = z.toJSONSchema(EscolhaDaFotoSchema, { io: "input" }) as Record<string, unknown>;
@@ -120,6 +128,7 @@ export async function abrirFoto(projeto: Project, data: string, material: Materi
         "Se nenhuma serve, NÃO deixe a pauta sem foto: procure você mesmo na web (site ou sala de imprensa da empresa, agência, Wikipedia, Flickr) " +
         "ou com a ferramenta buscar_imagens, confira com ver_imagem, e entregue escolha null com imagem_url (link direto do arquivo), autor e fonte, " +
         "ou com imagem_id de buscar_imagens. Pauta sem foto não vira post. " +
+        "O post sai em Reel vertical (9:16): prefira foto em que o assunto caiba num recorte vertical, e diga em `foco` onde está o rosto ou o assunto (x e y de 0 a 1). " +
         `Confiança abaixo de ${PISO_DE_CONFIANCA} é recusa.`,
       orientacao: "Olhe as imagens anexadas e responda SÓ com o JSON do esquema.",
     },

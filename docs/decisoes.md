@@ -2908,3 +2908,34 @@ verificador, classificação e repetição, correções, cron. Carrossel, matér
 newsletter depois. O token é por usuário e por projeto, guardado só como
 resumo SHA-256, e o motor é conferido a cada chamada: voltar o projeto para
 `openai` corta o MCP na hora. Configuração em `docs/mcp.md`.
+
+## O motor Claude faz Reel de foto e procura o que está quente (09/11/2026)
+
+O dono: o MCP da Bruna fazia só estático, e o padrão desde 30/10 é o Reel de
+foto (`docs/formato-reel-padrao.md`), até aqui feito à mão.
+
+**Cada post do plano tem formato**, em `itens.formatos`: `reel` (o padrão) ou
+`estatico`. O plano é recusado sem o formato de cada post ou com menos da
+metade em Reel (`minimoDeReels`). Plano gravado antes disto não tem o campo e
+sai estático, para não mudar o dia que já estava aprovado.
+
+**O Reel é montado no agendamento, no contêiner web** (`social/reel-de-foto.ts`):
+as mesmas medidas do `gerar_reels.mjs` aprovado (máscara em y 992, texto a 338
+px do fim, entre x 100 e 940), o destaque da copy em vermelho, a manchete
+encolhendo de 66 até 50 px para caber em 4 linhas, zoom de 7% em 10 s e a
+trilha em `public/reels/trilha-noticia.m4a`. Por isso o `Dockerfile` do web
+ganhou o ffmpeg. O MP4 vai para o bucket `reels`, com o hash no nome.
+
+**O recorte 9:16 segue o `foco` que o Claude dá ao escolher a foto**: sem
+detector de rosto no motor Claude, quem olhou a foto diz onde está o rosto. Sem
+foco, o centro na largura e o terço de cima na altura; foto que daria recorte
+com menos de 700 px de largura vai inteira, sobre ela mesma desfocada.
+
+**Troca de foto e refação de arte refazem o vídeo**, nunca uma peça estática por
+cima: a linha guarda `content_json.reel_de_foto` (destaque, foco, chapéu).
+
+**Quente primeiro.** A triagem pegava as 80 coletadas mais NOVAS; agora pega as
+de mais veículos contando o mesmo fato (`veiculosLexicos`), e o plano lista as
+pautas nessa ordem, com a marca QUENTE a partir de 3 veículos. O prompt do plano
+pede narrativas (personagem conhecido, conflito, virada) e deixa o comunicado
+frio para completar o dia.

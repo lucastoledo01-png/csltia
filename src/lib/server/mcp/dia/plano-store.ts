@@ -21,7 +21,19 @@ export type ItensDoPlano = {
   porque: Record<string, string>;
   /** O que fotografar quando a pauta não tem pessoa nem órgão: a busca em inglês e o objeto em português. */
   cenas: Record<string, { consulta: string; objeto: string }>;
+  /**
+   * O formato de cada post (09/11/2026): Reel de foto, o padrão desde 30/10, ou
+   * a peça estática. Plano gravado antes disso não tem o campo e sai estático.
+   */
+  formatos?: Record<string, FormatoDoPostDoClaude>;
 };
+
+export const FORMATOS_DO_POST = ["reel", "estatico"] as const;
+export type FormatoDoPostDoClaude = (typeof FORMATOS_DO_POST)[number];
+
+export function formatoDoPost(itens: Pick<ItensDoPlano, "formatos">, storyId: string): FormatoDoPostDoClaude {
+  return itens.formatos?.[storyId] ?? "estatico";
+}
 
 export const PLANO_VAZIO: ItensDoPlano = { newsletter: [], artigos: [], posts: [], reels: [], porque: {}, cenas: {} };
 

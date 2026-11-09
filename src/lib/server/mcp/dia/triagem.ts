@@ -58,11 +58,22 @@ function chaveDoTitulo(t: string): string {
  * título por vez (o mesmo fato coletado de dois feeds), das mais novas para as
  * mais antigas, até o teto. A fonte prioritária vem antes de todas: entra
  * mesmo num dia cheio, e no título repetido é a versão dela que fica.
+ *
+ * Com `calor` (09/11/2026), a ordem é a do assunto mais quente: quantos
+ * veículos contam o mesmo fato. Antes o teto pegava as 80 mais NOVAS, e num
+ * dia de 600 coletadas a história que todo mundo contava desde cedo ficava de
+ * fora da triagem por ser de manhã.
  */
 export function preFiltrar(
   coletadas: Coletada[],
   jaClassificadas: Set<string>,
-  opcoes: { agoraMs: number; horas?: number; teto?: number; prioritaria?: (dominio: string | null) => boolean },
+  opcoes: {
+    agoraMs: number;
+    horas?: number;
+    teto?: number;
+    prioritaria?: (dominio: string | null) => boolean;
+    calor?: (c: Coletada) => number;
+  },
 ): Coletada[] {
   const desde = opcoes.agoraMs - (opcoes.horas ?? 24) * 3_600_000;
   const vistos = new Set<string>();
@@ -73,7 +84,8 @@ export function preFiltrar(
     .sort((a, b) => {
       const p = opcoes.prioritaria;
       const frente = p ? Number(p(b.sourceDomain ?? null)) - Number(p(a.sourceDomain ?? null)) : 0;
-      return frente || Date.parse(b.publishedAt) - Date.parse(a.publishedAt);
+      const calor = opcoes.calor ? opcoes.calor(b) - opcoes.calor(a) : 0;
+      return frente || calor || Date.parse(b.publishedAt) - Date.parse(a.publishedAt);
     })
     .filter((c) => {
       const k = chaveDoTitulo(c.title);

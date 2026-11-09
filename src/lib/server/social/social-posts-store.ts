@@ -117,8 +117,10 @@ export type PostParaGravar = {
    * deles envelhece sem ninguém notar.
    */
   artefatos: ArtefatoDeSlide[];
-  /** Imagem única ou carrossel. Gravado, nunca deduzido da contagem. */
-  formato: FormatoDoPost;
+  /** Imagem única, carrossel ou Reel de foto (09/11/2026). Gravado, nunca deduzido da contagem. */
+  formato: FormatoDoPost | "reel";
+  /** O Reel de foto: destaque, foco e chapéu, para a troca de foto e a refação refazerem o vídeo igual. */
+  reelDeFoto?: Record<string, unknown>;
   /**
    * Esta capa saiu com o círculo da segunda foto?
    *
@@ -428,6 +430,7 @@ export function criarSocialPostsStore(client: SupabaseClient, fila: OpcoesDaFila
              * publicação.
              */
             formato: p.formato,
+            ...(p.reelDeFoto ? { reel_de_foto: p.reelDeFoto } : {}),
             copy: p.post.copy,
             /*
              * A forma do carrossel, para a fila de aprovação refazer o texto

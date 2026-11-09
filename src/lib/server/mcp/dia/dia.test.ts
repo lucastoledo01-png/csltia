@@ -8,7 +8,7 @@ import { modeloDoClaude, PedidoAoClaude } from "../newsletter/fluxo";
 import { proximoPassoDoDia, type DepsDoDiretor } from "./diretor";
 import { conferenteQueAnota, resultadoDaEscolha, type MaterialDaFoto } from "./fotos";
 import { pacoteDaEntrega } from "./pacotes";
-import { conferirPlano, veiculosLexicos, type MaterialDoPlano } from "./plano";
+import { conferirPlano, minimoDeReels, veiculosLexicos, type MaterialDoPlano } from "./plano";
 import { itensEditados } from "./plano-na-fila";
 import { planosEmMemoria, PLANO_VAZIO } from "./plano-store";
 import { linhasDaTriagem, preFiltrar, type Coletada } from "./triagem";
@@ -49,6 +49,21 @@ describe("a triagem", () => {
     );
     expect(r.map((c) => c.storyId)).toEqual(["nj"]);
     expect(ehPrioritaria("notjournal.com", lista)).toBe(false);
+  });
+
+  it("com o calor, o fato que mais veículos contam entra no corte antes do mais novo", () => {
+    const lista = [
+      coletada({ storyId: "novo", url: "https://a.com/n", title: "Prefeitura troca lâmpadas da praça", publishedAt: "2026-10-29T14:30:00Z" }),
+      coletada({ storyId: "quente", url: "https://b.com/q", sourceDomain: "b.com", title: "Elon Musk processa a OpenAI de novo", publishedAt: "2026-10-29T08:00:00Z" }),
+    ];
+    const doDia = [
+      ...lista.map((c) => ({ titulo: c.title, dominio: c.sourceDomain ?? "" })),
+      { titulo: "Elon Musk volta a processar a empresa", dominio: "c.com" },
+      { titulo: "Empresa é processada por Elon Musk", dominio: "d.com" },
+    ];
+    const calor = (c: Coletada) => veiculosLexicos(c.title, doDia);
+    expect(preFiltrar(lista, new Set(), { agoraMs: AGORA, teto: 1 }).map((c) => c.storyId)).toEqual(["novo"]);
+    expect(preFiltrar(lista, new Set(), { agoraMs: AGORA, teto: 1, calor }).map((c) => c.storyId)).toEqual(["quente"]);
   });
 
   it("aplica a regra de decisão da esteira e aponta o que faltou classificar", () => {
@@ -92,10 +107,28 @@ describe("o plano", () => {
     reels: ["r1"],
     porque: { p1: "quente", p2: "visual", r1: "vídeo forte" },
     cenas: { p1: { consulta: "steel factory", objeto: "fábrica" }, p2: { consulta: "white house", objeto: "Casa Branca" } },
+    formatos: { p2: "reel" as const },
   };
 
   it("passa quando respeita volume, pool, cena e porquê", () => {
     expect(conferirPlano(bom, material)).toEqual([]);
+  });
+
+  it("exige o formato de cada post e a maioria em Reel de foto", () => {
+    const tres = {
+      ...bom,
+      posts: ["p1", "p2", "p4"],
+      porque: { ...bom.porque, p4: "x" },
+      cenas: { ...bom.cenas, p4: { consulta: "x y", objeto: "" } },
+    };
+    const m = { ...material, pautas: [...material.pautas, { ...material.pautas[0], storyId: "p4", titulo: "p4" }] };
+    const semFormato = conferirPlano({ ...tres, formatos: { p1: "reel" } }, m);
+    expect(semFormato.some((x) => x.includes("falta o formato do post p2"))).toBe(true);
+    const poucoReel = conferirPlano({ ...tres, formatos: { p1: "reel", p2: "estatico", p4: "estatico" } }, m);
+    expect(poucoReel.some((x) => x.includes("pelo menos 2"))).toBe(true);
+    expect(conferirPlano({ ...tres, formatos: { p1: "reel", p2: "reel", p4: "estatico" } }, m)).toEqual([]);
+    expect(minimoDeReels(1)).toBe(0);
+    expect(minimoDeReels(5)).toBe(3);
   });
 
   it("recusa volume, pauta de fora, repetida no canal e cena faltando", () => {
