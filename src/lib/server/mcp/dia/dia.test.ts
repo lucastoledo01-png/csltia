@@ -8,7 +8,7 @@ import { modeloDoClaude, PedidoAoClaude } from "../newsletter/fluxo";
 import { proximoPassoDoDia, type DepsDoDiretor } from "./diretor";
 import { conferenteQueAnota, resultadoDaEscolha, type MaterialDaFoto } from "./fotos";
 import { pacoteDaEntrega } from "./pacotes";
-import { conferirPlano, minimoDeReels, veiculosLexicos, type MaterialDoPlano } from "./plano";
+import { conferirPlano, minimoDeReels, minimoDeReelsDeVideo, veiculosLexicos, type MaterialDoPlano } from "./plano";
 import { itensEditados } from "./plano-na-fila";
 import { planosEmMemoria, PLANO_VAZIO } from "./plano-store";
 import { linhasDaTriagem, preFiltrar, type Coletada } from "./triagem";
@@ -111,6 +111,16 @@ describe("o plano", () => {
   };
 
   it("passa quando respeita volume, pool, cena e porquê", () => {
+    expect(conferirPlano(bom, material)).toEqual([]);
+  });
+
+  it("vídeo primeiro: com vídeo sugerido, o dia leva Reel de vídeo (09/11/2026)", () => {
+    expect(minimoDeReelsDeVideo(0, 5)).toBe(0);
+    expect(minimoDeReelsDeVideo(1, 5)).toBe(1);
+    expect(minimoDeReelsDeVideo(6, 5)).toBe(2);
+    expect(minimoDeReelsDeVideo(6, 2)).toBe(1);
+    const semVideo = conferirPlano({ ...bom, reels: [] }, material);
+    expect(semVideo.some((m) => m.startsWith("reels:") && m.includes("pelo menos 1"))).toBe(true);
     expect(conferirPlano(bom, material)).toEqual([]);
   });
 

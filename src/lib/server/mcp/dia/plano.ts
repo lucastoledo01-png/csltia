@@ -78,6 +78,18 @@ export function veiculosLexicos(titulo: string, doDia: Array<{ titulo: string; d
 export const VEICULOS_DA_PAUTA_QUENTE = 3;
 export const MAXIMO_DE_CARROSSEIS = 1;
 
+/*
+ * Vídeo primeiro (09/11/2026, pedido do dono): o Reel de vídeo, a fala da
+ * pessoa legendada, é o formato que mais rende. Com vídeo sugerido, o plano
+ * leva até 2 deles, sem passar dos vídeos que existem e deixando ao menos uma
+ * vaga do Instagram para os posts.
+ */
+export const REELS_DE_VIDEO_POR_DIA = 2;
+
+export function minimoDeReelsDeVideo(sugeridos: number, tetoDoInstagram: number): number {
+  return Math.max(0, Math.min(REELS_DE_VIDEO_POR_DIA, sugeridos, tetoDoInstagram - 1));
+}
+
 /** Pura: quantos posts do plano precisam sair em Reel (a maioria, desde 09/11/2026). */
 export function minimoDeReels(posts: number): number {
   return posts >= 2 ? Math.ceil(posts / 2) : 0;
@@ -147,6 +159,11 @@ export function conferirPlano(itens: ItensDoPlano, material: MaterialDoPlano): s
     }
   }
   for (const id of itens.reels) if (!reels.has(id)) motivos.push(`reels: ${id} não está entre os vídeos sugeridos`);
+  // Vídeo primeiro (09/11/2026): havendo vídeo sugerido, o dia leva Reel de vídeo.
+  const minimoDeVideos = minimoDeReelsDeVideo(material.reels.length, v.instagram);
+  if (itens.reels.length < minimoDeVideos) {
+    motivos.push(`reels: há ${material.reels.length} vídeo(s) sugerido(s); o dia leva pelo menos ${minimoDeVideos} Reel(s) de vídeo, o plano tem ${itens.reels.length}`);
+  }
 
   const formatos = itens.formatos ?? {};
   for (const id of itens.posts) if (!formatos[id]) motivos.push(`formatos: falta o formato do post ${id} ("reel", "carrossel" ou "estatico")`);
@@ -171,7 +188,9 @@ const SYSTEM = [
   "Critérios: o que está mais QUENTE (mais veículos contando o mesmo fato; as marcadas QUENTE têm 3 ou mais), o que mais importa para o leitor, gente conhecida no centro, variedade de editorias, nada de imigração.",
   "Prefira NARRATIVAS: a história que está andando e rende capítulo (personagem conhecido, conflito, virada, número que surpreende, decisão com consequência), e não o comunicado frio ou a matéria de serviço. Pauta fria só completa o dia.",
   "Newsletter: as pautas mais fortes do dia, a mais forte primeiro. Matérias do portal: pautas com material para um texto completo e que alguém procuraria no Google. Posts: as mais quentes e visuais, com gente ou marca conhecida no centro. Reels sugeridos (vídeos de terceiros): só vídeo que conte uma notícia, sem humor.",
-  "Formato de cada post, em `formatos`: \"reel\" é o Reel de foto de 10 segundos (foto vertical com zoom lento, chapéu e manchete com destaque em vermelho, trilha) e é o padrão; \"estatico\" é a peça de imagem única, para quando a foto não aguenta um recorte vertical; \"carrossel\" é a notícia em slides (capa, de 1 a 4 passos com foto cada e o convite da newsletter), para UMA pauta do dia com mais material: números, quem disse o quê, desdobramento. Pelo menos metade dos posts em \"reel\", e no máximo um carrossel.",
+  "Formato de cada post, em `formatos`: \"reel\" é o Reel de foto de 10 segundos (foto vertical com zoom lento, chapéu e manchete com destaque em vermelho, trilha) e é o padrão; \"estatico\" é a peça de imagem única, para quando a foto não aguenta um recorte vertical; \"carrossel\" é a notícia em slides (capa, de 1 a 4 passos com foto cada e o fechamento \"Siga @eua.journal\"), para UMA pauta do dia com mais material: números, quem disse o quê, desdobramento. Pelo menos metade dos posts em \"reel\", e no máximo um carrossel.",
+  "VÍDEO PRIMEIRO: os Reels de vídeo (a fala da pessoa, legendada em português) são o formato que mais rende. Havendo vídeo sugerido que conte notícia, ponha em `reels` até 2 por dia, os mais quentes primeiro (CEO, presidente, autoridade falando do assunto do dia).",
+  "A HISTÓRIA MAIS QUENTE DO DIA pode sair em dois formatos no Instagram: o carrossel dela em `posts` e um Reel de vídeo sobre ela em `reels` (a fala de quem está no centro da história). É variação, não repetição: cada peça conta um lado.",
   "A mesma pauta pode sair em mais de um canal. O Instagram tem um teto só para posts e Reels juntos.",
   "Para cada pauta, dê em `cenas` a busca em inglês de uma foto de contexto (o lugar, o objeto ou o ambiente do assunto, sem pessoa identificável e sem texto), e em `porque` uma frase dizendo por que ela entra.",
 ].join("\n");

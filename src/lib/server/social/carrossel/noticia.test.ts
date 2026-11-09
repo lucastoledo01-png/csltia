@@ -291,10 +291,14 @@ describe("os desenhos novos", () => {
 
   it("o convite chama para seguir o perfil, e não pede comentário sem palavra escutada", () => {
     const sem = SLIDE_VARIANTS.cta.cta_assinatura.render(slide({ type: "cta" }), ctx()).body;
-    expect(sem).toContain("Siga <em>@eua.journal</em>");
-    expect(sem).toContain("Siga o perfil");
+    expect(sem).toContain("Siga<em>@eua.journal</em>");
+    // Desenho aprovado pelo dono: chamada no centro, sem botão.
+    expect(sem).not.toContain("Siga o perfil");
+    expect(sem).not.toContain("js-fundo");
     expect(sem).not.toContain("newsletter");
     expect(sem).not.toContain("Comente");
+    const comFoto = SLIDE_VARIANTS.cta.cta_assinatura.render(slide({ type: "cta", bg_image_url: "data:image/png;base64,AAA" }), ctx()).body;
+    expect(comFoto).toContain('class="js-fundo"');
     const com = SLIDE_VARIANTS.cta.cta_assinatura.render(slide({ type: "cta", highlight_text: "news" }), ctx()).body;
     expect(com).toContain("Comente NEWS e receba o link");
     expect(com).not.toMatch(/\u2014/);
