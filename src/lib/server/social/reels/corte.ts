@@ -21,7 +21,17 @@ import { execFileSync } from "node:child_process";
 export type Corte = { x: number; y: number; largura: number; altura: number };
 
 /** Proporção do lugar do vídeo em cada molde: A é a moldura (992x537), B a tela cheia. */
-export const ASPECTO_DO_MOLDE = { a: 992 / 537, b: 1080 / 1920 } as const;
+export const ASPECTO_DO_MOLDE = { a: 992 / 537, b: 1080 / 1920, q: 1 } as const;
+
+/*
+ * A faixa limpa da transmissão (09/11/2026), para vídeo de canal de TV, que o
+ * dono não quer com marca de terceiro nenhuma: logotipo do canal, faixa de
+ * manchete, "LIVE", relógio, nome do programa. A TV põe o logotipo e o relógio
+ * nos cantos de cima (até 14% da altura) e a faixa de manchete e o "LIVE" no
+ * terço de baixo (a partir de 74%). O corte do canal (`corteDoCanalNaGrade`)
+ * fica sempre dentro dela, ache a máscara alguma coisa ou não.
+ */
+export const FAIXA_LIMPA_DA_TRANSMISSAO = { topo: 0.14, base: 0.74, lados: 0.06 } as const;
 
 /**
  * Pura: dos quadros (cinza, um byte por pixel) à máscara de sobreposição.
@@ -147,9 +157,12 @@ export function medidasDoVideo(arquivo: string): { largura: number; altura: numb
 }
 
 /** Mede o corte de um arquivo: 12 quadros de 64 px de largura, pelo ffmpeg. */
-export function medirCorte(arquivo: string, aspecto: number): { corte: Corte | null; original: { largura: number; altura: number } } {
+/** Os quadros pequenos, em cinza, que a máscara e a atividade leem. */
+type Grade = { quadros: Uint8Array[]; gw: number; gh: number; original: { largura: number; altura: number; segundos: number } };
+
+function gradeDoVideo(arquivo: string): Grade | null {
   const m = medidasDoVideo(arquivo);
-  if (!m.largura || !m.altura) return { corte: null, original: m };
+  if (!m.largura || !m.altura) return null;
   const gw = 64;
   const gh = Math.max(8, Math.round((m.altura / m.largura) * gw / 2) * 2);
   const fps = 12 / Math.max(1, m.segundos);
@@ -161,8 +174,129 @@ export function medirCorte(arquivo: string, aspecto: number): { corte: Corte | n
   const tamanho = gw * gh;
   const quadros: Uint8Array[] = [];
   for (let i = 0; i + tamanho <= bruto.length; i += tamanho) quadros.push(new Uint8Array(bruto.subarray(i, i + tamanho)));
-  if (quadros.length < 4) return { corte: null, original: m };
-  return { corte: corteDaMascara(mascaraDeSobreposicao(quadros, gw, gh), aspecto, m), original: m };
+  return quadros.length < 4 ? null : { quadros, gw, gh, original: m };
+}
+
+export function medirCorte(
+  arquivo: string,
+  aspecto: number,
+): { corte: Corte | null; original: { largura: number; altura: number } } {
+  const g = gradeDoVideo(arquivo);
+  if (!g) return { corte: null, original: medidasDoVideo(arquivo) };
+  return { corte: corteDaMascara(mascaraDeSobreposicao(g.quadros, g.gw, g.gh), aspecto, g.original), original: g.original };
+}
+
+/** Pura: o quanto cada pixel varia entre os quadros (o desvio padrão). É onde a cena mexe: a pessoa falando. */
+export function atividadeDosQuadros(quadros: Uint8Array[], largura: number, altura: number): Float64Array {
+  const n = quadros.length;
+  const saida = new Float64Array(largura * altura);
+  for (let i = 0; i < largura * altura; i++) {
+    let soma = 0;
+    for (const q of quadros) soma += q[i];
+    const m = soma / n;
+    let v = 0;
+    for (const q of quadros) v += (q[i] - m) ** 2;
+    saida[i] = Math.sqrt(v / n);
+  }
+  return saida;
+}
+
+/**
+ * Pura: o corte do vídeo de canal, na grade (09/11/2026).
+ *
+ * O maior retângulo livre (`maiorRetanguloLivre`) não olha o conteúdo: no
+ * primeiro teste real (Powell em Harvard, CNBC), ele escolheu a coluna escura
+ * à esquerda do palco, e o Reel saiu sem ninguém. Aqui o corte:
+ *
+ *   1. fica dentro da faixa limpa da transmissão (sem logotipo, relógio, "LIVE"
+ *      nem faixa de manchete, que moram nas bordas de cima e de baixo), mesmo
+ *      quando a máscara não acha nada: a legenda gravada que muda a cada frase
+ *      não é "parada", e a máscara não a vê;
+ *   2. não toca a máscara (o que é parado e tem borda);
+ *   3. é centrado, na horizontal, onde a cena mexe (o centro de massa da
+ *      atividade), e desliza para os lados só o quanto a máscara obrigar;
+ *   4. é o mais alto possível, e entre os de mesma altura, o mais de cima
+ *      (a cabeça fica no alto do quadro).
+ *
+ * Sem retângulo livre de pelo menos metade da faixa, vale a faixa inteira
+ * centrada na atividade, sem olhar a máscara.
+ */
+export function corteDoCanalNaGrade(
+  mascara: boolean[][],
+  atividade: Float64Array,
+  aspecto: number,
+  original: { largura: number; altura: number },
+): Corte {
+  const gh = mascara.length;
+  const gw = mascara[0]?.length ?? 0;
+  const f = FAIXA_LIMPA_DA_TRANSMISSAO;
+  const y0 = Math.ceil(gh * f.topo);
+  const y1 = Math.floor(gh * f.base);
+  const x0 = Math.ceil(gw * f.lados);
+  const x1 = Math.floor(gw * (1 - f.lados));
+  const ex = original.largura / gw;
+  const ey = original.altura / gh;
+
+  // O centro da cena: média das colunas pesada pela atividade acima do ruído, dentro da faixa e fora da máscara.
+  let peso = 0;
+  let somaX = 0;
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      if (mascara[y][x]) continue;
+      const a = Math.max(0, atividade[y * gw + x] - 8);
+      peso += a;
+      somaX += a * (x + 0.5);
+    }
+  }
+  const cx = peso > 0 ? somaX / peso : (x0 + x1) / 2;
+
+  // Soma acumulada da máscara, para saber em O(1) se um retângulo está livre.
+  const acum: number[][] = Array.from({ length: gh + 1 }, () => new Array<number>(gw + 1).fill(0));
+  for (let y = 0; y < gh; y++) {
+    for (let x = 0; x < gw; x++) {
+      acum[y + 1][x + 1] = acum[y][x + 1] + acum[y + 1][x] - acum[y][x] + (mascara[y][x] ? 1 : 0);
+    }
+  }
+  const livre = (x: number, y: number, w: number, h: number) => acum[y + h][x + w] - acum[y][x + w] - acum[y + h][x] + acum[y][x] === 0;
+
+  const paraPixels = (x: number, y: number, w: number, h: number): Corte => {
+    const par = (n: number) => Math.floor(n / 2) * 2;
+    const px = Math.ceil((x * ex) / 2) * 2;
+    const py = Math.ceil((y * ey) / 2) * 2;
+    // Largura e altura na proporção exata, em pixels, dentro do retângulo da grade.
+    let largura = par((x + w) * ex - px);
+    let altura = par((y + h) * ey - py);
+    if (largura / altura > aspecto) largura = par(altura * aspecto);
+    else altura = par(largura / aspecto);
+    return { x: px, y: py, largura, altura };
+  };
+
+  const alturaDaFaixa = y1 - y0;
+  for (let h = alturaDaFaixa; h >= Math.max(2, Math.ceil(alturaDaFaixa / 2)); h--) {
+    const w = Math.floor((aspecto * h * ey) / ex);
+    if (w < 2 || w > x1 - x0) continue;
+    const base = Math.round(cx - w / 2);
+    for (let d = 0; d <= x1 - x0; d++) {
+      for (const sinal of d === 0 ? [0] : [-1, 1]) {
+        const x = Math.min(x1 - w, Math.max(x0, base + sinal * d));
+        for (let y = y0; y + h <= y1; y++) if (livre(x, y, w, h)) return paraPixels(x, y, w, h);
+      }
+    }
+  }
+  // Nada livre: a faixa inteira, centrada na cena.
+  const h = alturaDaFaixa;
+  const w = Math.min(x1 - x0, Math.floor((aspecto * h * ey) / ex));
+  const hh = Math.min(h, Math.floor((w * ex) / (aspecto * ey)));
+  const x = Math.min(x1 - w, Math.max(x0, Math.round(cx - w / 2)));
+  return paraPixels(x, y0 + Math.floor((h - hh) / 2), w, hh);
+}
+
+/** Mede o corte de um vídeo de canal: a mesma grade de 12 quadros, com a atividade da cena. */
+export function medirCorteDoCanal(arquivo: string, aspecto: number): Corte | null {
+  const g = gradeDoVideo(arquivo);
+  if (!g) return null;
+  const mascara = mascaraDeSobreposicao(g.quadros, g.gw, g.gh);
+  return corteDoCanalNaGrade(mascara, atividadeDosQuadros(g.quadros, g.gw, g.gh), aspecto, g.original);
 }
 
 /**

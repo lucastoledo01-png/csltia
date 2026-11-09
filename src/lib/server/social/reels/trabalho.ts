@@ -9,8 +9,10 @@ import { abrirEscritaDoReel, materialDoCandidato } from "@/lib/server/mcp/reels/
 import type { TarefasStore } from "@/lib/server/mcp/tarefas-store";
 import { baixarVideo } from "./baixar";
 import type { CandidatoDeReel, CandidatosDeReel } from "./candidatos";
-import { ASPECTO_DO_MOLDE, folhaDeQuadros, medidasDoVideo, medirCorte } from "./corte";
+import { canalDoCandidato } from "./canais";
+import { ASPECTO_DO_MOLDE, folhaDeQuadros, medidasDoVideo, medirCorte, medirCorteDoCanal } from "./corte";
 import type { ReelParaGravar } from "./gravar";
+import { segmentosAte, transcreverDoYoutube, type Segmento } from "./transcricao";
 
 /**
  * O trabalho do worker nos Reels (28/10/2026), em dois passos, cada um pego
@@ -42,8 +44,13 @@ export type DepsDoTrabalho = {
     categoria: string;
     corte: { x: number; y: number; largura: number; altura: number } | null;
     saida: string;
+    trechos?: Array<{ inicio: number; fim: number }>;
+    legendas?: Array<{ inicio: number; fim: number; texto: string }>;
+    enquadramento?: "cheio" | "quadrado";
+    tetoDeBytes?: number;
   }) => Promise<string>;
   baixar?: typeof baixarVideo;
+  transcrever?: (url: string, idioma: "en" | "pt", pasta: string) => Segmento[];
   fetcher?: typeof fetch;
 };
 
@@ -57,14 +64,49 @@ async function subirArquivo(deps: DepsDoTrabalho, arquivo: string, caminho: stri
   return url;
 }
 
+/*
+ * O vídeo de canal (09/11/2026) é uma entrevista ou um trecho de programa, de
+ * alguns minutos, e o que interessa é a fala, que pode estar no meio. Então
+ * ele é guardado com mais tempo que os 60 s do vídeo de perfil, e um pouco
+ * mais comprimido, para caber no bucket.
+ */
+export const SEGUNDOS_DO_VIDEO_DE_CANAL = 240;
+
+/** Teto do MP4 final: o bucket de vídeo recusa acima de 10 MB, e a margem evita descobrir isso no upload. */
+export const TETO_DO_REEL_EM_BYTES = Math.floor(9.5 * 1024 * 1024);
+
 export async function prepararCandidato(c: CandidatoDeReel, deps: DepsDoTrabalho): Promise<void> {
   const projeto = await deps.projeto(c.projectId);
   if (!projeto) throw new Error(`o projeto ${c.projectId} não existe`);
   const dir = pasta();
   try {
-    const video = await (deps.baixar ?? baixarVideo)(c, dir, { fetcher: deps.fetcher });
-    const corte = { a: medirCorte(video.arquivo, ASPECTO_DO_MOLDE.a).corte, b: medirCorte(video.arquivo, ASPECTO_DO_MOLDE.b).corte };
-    const molde = video.largura >= video.altura ? "a" : "b";
+    const canal = c.fonte === "youtube" ? canalDoCandidato(c.metricas) : null;
+    /*
+     * A fala vem antes do vídeo: é barata (não baixa o vídeo), e o vídeo em
+     * inglês sem legenda não tem como virar Reel. Em português a legenda é
+     * ajuda para escolher o trecho; sem ela, o Reel sai como sempre.
+     */
+    let transcricao: Segmento[] | null = null;
+    if (canal && c.permalink) {
+      try {
+        transcricao = (deps.transcrever ?? transcreverDoYoutube)(c.permalink, canal.idioma, dir);
+      } catch (e) {
+        if (canal.idioma === "en") throw e;
+      }
+    }
+    const video = await (deps.baixar ?? baixarVideo)(c, dir, {
+      fetcher: deps.fetcher,
+      ...(canal ? { segundos: SEGUNDOS_DO_VIDEO_DE_CANAL, crf: 21 } : {}),
+    });
+    /*
+     * O vídeo deitado de canal (a transmissão de TV) tem o corte próprio: sempre
+     * dentro da faixa limpa, centrado em quem fala. O vertical do canal (Short)
+     * não tem faixa de TV e segue a máscara de sempre.
+     */
+    const transmissao = Boolean(canal) && video.largura > video.altura;
+    const medir = (aspecto: number) => (transmissao ? medirCorteDoCanal(video.arquivo, aspecto) : medirCorte(video.arquivo, aspecto).corte);
+    const corte = { a: medir(ASPECTO_DO_MOLDE.a), b: medir(ASPECTO_DO_MOLDE.b), ...(canal ? { q: medir(ASPECTO_DO_MOLDE.q) } : {}) };
+    const molde = canal || video.largura < video.altura ? "b" : "a";
     const folha = folhaDeQuadros(video.arquivo, path.join(dir, "folha.jpg"), corte[molde]);
     const base = `${projeto.slug}/${c.id}`;
     const videoUrl = await subirArquivo(deps, video.arquivo, `${base}/origem.mp4`, "video/mp4");
@@ -76,6 +118,7 @@ export async function prepararCandidato(c: CandidatoDeReel, deps: DepsDoTrabalho
       original: { largura: video.largura, altura: video.altura, segundos: video.segundos },
       corte,
       tarefaId: null as string | null,
+      ...(canal ? { idioma: canal.idioma, transcricao: transcricao ? segmentosAte(transcricao, video.segundos) : null } : {}),
     };
     const tarefa = await abrirEscritaDoReel(c.projectId, projectToday(projeto), materialDoCandidato(c, preparo), deps.tarefas);
     await deps.candidatos.preparado(c.id, { ...preparo, tarefaId: tarefa.id });
@@ -107,6 +150,10 @@ export async function renderizarCandidato(c: CandidatoDeReel, deps: DepsDoTrabal
       categoria: t.categoria,
       corte: t.corte,
       saida,
+      trechos: t.trechos,
+      legendas: t.legendas?.map((l) => ({ ...l, texto: disfarcarPalavrasPesadas(l.texto) })),
+      enquadramento: t.enquadramento,
+      tetoDeBytes: TETO_DO_REEL_EM_BYTES,
     });
 
     const bytes = readFileSync(saida);
@@ -131,11 +178,28 @@ export async function renderizarCandidato(c: CandidatoDeReel, deps: DepsDoTrabal
     };
     const r = await deps.gravar(projeto, {
       data: projectToday(projeto),
-      candidato: { id: c.id, fonte: c.fonte, origemId: c.origemId, autor: c.autor, permalink: c.permalink },
+      candidato: {
+        id: c.id,
+        fonte: c.fonte,
+        origemId: c.origemId,
+        autor: c.autor,
+        permalink: c.permalink,
+        credito: canalDoCandidato(c.metricas)?.credito ?? null,
+      },
       manchete: t.manchete,
       legenda: t.legenda,
       molde: t.molde,
-      desenho: { rotulo: t.rotulo, categoria: t.categoria, linhas: t.linhas, destaque: t.destaque, corte: t.corte, tarefa_id: t.tarefaId },
+      desenho: {
+        rotulo: t.rotulo,
+        categoria: t.categoria,
+        linhas: t.linhas,
+        destaque: t.destaque,
+        corte: t.corte,
+        tarefa_id: t.tarefaId,
+        ...(t.trechos ? { trechos: t.trechos } : {}),
+        ...(t.legendas ? { legendas: t.legendas } : {}),
+        ...(t.enquadramento ? { enquadramento: t.enquadramento } : {}),
+      },
       video,
       folhaUrl,
       postExistente: c.socialPostId,

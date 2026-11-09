@@ -4,6 +4,7 @@ import { horaLocal } from "@/lib/server/social/quente-da-tarde";
 import { videosDoPerfil, type LeituraDeVideos } from "./instagram";
 import { consultasDoYoutube, ordenarVideos, type LinhaDoRanking, type VideoOrdenado } from "./ordem";
 import type { VideoAchado } from "./tipos";
+import { lerCanais, videosDosCanais, type CanalDoYoutube, type LeituraDoCanal } from "./canais";
 import { videosDoYoutube, type LeituraDoYoutube } from "./youtube";
 
 /**
@@ -23,6 +24,12 @@ export type ConfigDosReels = {
   /** Perfis do Instagram além dos perfis de referência do projeto. */
   perfisInstagram: string[];
   termosYoutube: string[];
+  /** Canais de notícia lidos pela playlist de uploads (09/11/2026); o padrão é nenhum. */
+  canaisYoutube: CanalDoYoutube[];
+  /** Os canais tortos de `canais_youtube`, com o motivo, para o desfecho da rodada. */
+  avisosDosCanais: string[];
+  /** Vídeo de canal mais longo que isto (em segundos) não entra: é programa inteiro. */
+  duracaoMaximaDoCanal: number;
   inicio: string;
   fim: string;
   janelaHoras: number;
@@ -32,6 +39,9 @@ export type ConfigDosReels = {
 const PADRAO: ConfigDosReels = {
   perfisInstagram: [],
   termosYoutube: ["notícias Estados Unidos", "Trump hoje", "Casa Branca", "Wall Street hoje"],
+  canaisYoutube: [],
+  avisosDosCanais: [],
+  duracaoMaximaDoCanal: 1200,
   inicio: "09:00",
   fim: "17:00",
   janelaHoras: 48,
@@ -54,6 +64,11 @@ export function configDosReels(projeto?: { settings?: Record<string, unknown> | 
   return {
     perfisInstagram: (lista(o.perfis_ig) ?? PADRAO.perfisInstagram).map(normalizarHandle).filter((h): h is string => Boolean(h)),
     termosYoutube: lista(o.termos_youtube) ?? PADRAO.termosYoutube,
+    ...(() => {
+      const { canais, avisos } = lerCanais(o.canais_youtube);
+      return { canaisYoutube: canais, avisosDosCanais: avisos };
+    })(),
+    duracaoMaximaDoCanal: Math.floor(n(o.duracao_maxima_canal, PADRAO.duracaoMaximaDoCanal, 60, 3600)),
     inicio: horario(o.inicio, PADRAO.inicio),
     fim: horario(o.fim, PADRAO.fim),
     janelaHoras: n(o.janela_horas, PADRAO.janelaHoras, 6, 96),
@@ -92,6 +107,9 @@ export type DesfechoDaDescoberta = {
   topo: Array<{ fonte: string; autor: string; titulo: string; nota: number; historia: string | null; permalink: string }>;
   instagram: Array<Pick<LeituraDeVideos, "handle" | "status" | "mensagem"> & { videos: number }>;
   youtube: Array<Pick<LeituraDoYoutube, "consulta" | "ok" | "mensagem"> & { videos: number }>;
+  canais: Array<Pick<LeituraDoCanal, "canal" | "ok" | "mensagem"> & { videos: number }>;
+  /** Unidades da cota do YouTube que a rodada gastou: busca 101 cada, canais cerca de 1 por canal. */
+  unidadesDoYoutube: number;
   avisos: string[];
 };
 
@@ -101,9 +119,9 @@ export async function rodarDescoberta(
 ): Promise<DesfechoDaDescoberta> {
   const modo = modoDosReels(projeto);
   const config = configDosReels(projeto);
-  const avisos: string[] = [];
+  const avisos: string[] = [...config.avisosDosCanais];
   const desfecho: DesfechoDaDescoberta = {
-    modo, ok: true, achados: 0, foraDoNicho: 0, gravados: 0, topo: [], instagram: [], youtube: [], avisos,
+    modo, ok: true, achados: 0, foraDoNicho: 0, gravados: 0, topo: [], instagram: [], youtube: [], canais: [], unidadesDoYoutube: 0, avisos,
   };
   if (modo === "off") return desfecho;
 
@@ -127,8 +145,16 @@ export async function rodarDescoberta(
     for (const consulta of consultasDoYoutube(config.termosYoutube, ranking)) {
       const leitura = await videosDoYoutube(consulta, deps.chaveDoYoutube, opcoes);
       desfecho.youtube.push({ consulta, ok: leitura.ok, mensagem: leitura.mensagem, videos: leitura.videos.length });
+      desfecho.unidadesDoYoutube += 101;
       achados.push(...leitura.videos);
     }
+    const canais = await videosDosCanais(config.canaisYoutube, deps.chaveDoYoutube, {
+      ...opcoes,
+      duracaoMaxima: config.duracaoMaximaDoCanal,
+    });
+    desfecho.unidadesDoYoutube += canais.unidades;
+    desfecho.canais = canais.leituras.map((l) => ({ canal: l.canal, ok: l.ok, mensagem: l.mensagem, videos: l.videos.length }));
+    achados.push(...canais.videos);
   } else {
     avisos.push("YOUTUBE_API_KEY ausente: o YouTube ficou de fora");
   }

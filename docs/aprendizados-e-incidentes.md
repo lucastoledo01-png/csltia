@@ -2291,3 +2291,50 @@ para 14px, o que faz o Safari do iPhone dar zoom ao tocar.
 procurou as irmãs. Ao achar uma regra solta que vence utilidade, ler o arquivo
 inteiro atrás das outras. Medir no navegador (`getComputedStyle`) achou em um
 minuto.
+
+### 09/11/2026: carrossel aprovado e liberado, recusado pelo publicador
+
+**Sintoma.** O carrossel do caso Jensen Huang foi aprovado às 17:17, liberado,
+e não saiu. Às 17:31 o worker o marcou `failed` com
+`SOCIAL_V2_PAYLOAD_INCOMPLETE: content_json.visual`.
+
+**Causa.** O script do chat que gravava o carrossel manual não escrevia
+`content_json.visual`, e o worker exige o registro da foto da capa para
+conferir a variante. O hash da fila não cobre esse campo, então a aprovação
+continuou valendo depois do conserto, e bastou devolver a linha a `scheduled`.
+
+**Corrigido.** `_agendar-carrossel-manual.ts` exige `--foto-capa` e grava o
+campo. **Lição:** caminho manual que grava `social_posts` precisa do contrato
+inteiro do worker (`carga-v2.ts`), e o ensaio só prova o que ele confere.
+
+### 09/11/2026: o Direct do comentário NEWS mandava um link morto
+
+O funil de comentário (OpenReply, automação da palavra NEWS) mandava
+`https://casaloti.ia.br/newsletter?...`, e o domínio já respondia 503 depois da
+mudança para `euajournal.com`. A mensagem mora no OpenReply, não no código
+(ver `decisoes.md`), e o texto ainda falava de "regras de visto". A troca é no
+painel do OpenReply. O padrão de `ENDERECO_DO_SITE` em `marca.ts` ainda é
+`casaloti.ia.br`, e só não pesa porque a produção define `NEXT_PUBLIC_SITE_URL`.
+
+### O maior retângulo sem marca era uma coluna escura vazia (09/11/2026)
+
+**Sintoma.** Achado antes de ir ao ar, no primeiro Reel de canal montado com
+vídeo real (Powell em Harvard, CNBC Television). O corte do molde B, medido
+pela máscara de sobreposição, saiu na coluna escura à esquerda do palco, e o
+Reel mostrava um canto preto com uma luz, sem ninguém falando.
+
+**Causa.** `maiorRetanguloLivre` escolhe o MAIOR retângulo na proporção que não
+toca a máscara. A régua é de área, não de conteúdo: o palco com logotipo,
+"LIVE" e legenda gravada embaixo deixava livre mais área do lado escuro e
+parado que do lado de quem fala. E a legenda gravada que muda a cada frase não
+é "parada", então a máscara nem a via.
+
+**Corrigido.** O vídeo deitado de canal tem corte próprio,
+`corteDoCanalNaGrade`: sempre dentro da faixa limpa da transmissão (14% a 74%
+da altura), fora da máscara, e centrado no centro de massa da ATIVIDADE (o
+desvio entre os quadros), que é quem fala. O teste usa a mesma cena: coluna
+parada de um lado, atividade do outro.
+
+**Lição.** Corte "sem marca" não é corte bom: tirar o que não pode aparecer é
+metade da régua, a outra é mostrar o que tem de aparecer. E a folha de quadros
+com o corte desenhado mostrou em um olhar o que nenhum número mostrava.

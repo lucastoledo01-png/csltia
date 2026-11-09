@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Corte } from "./corte";
 import type { FonteDoReel } from "./gravar";
+import type { Segmento } from "./transcricao";
 
 /**
  * Os candidatos a Reel e o caminho de cada um (28/10/2026):
@@ -23,8 +24,17 @@ export type PreparoDoReel = {
   videoPath: string;
   folhaUrl: string | null;
   original: { largura: number; altura: number; segundos: number };
-  corte: { a: Corte | null; b: Corte | null };
+  /**
+   * O corte que tira a marca de quem publicou, por molde. `q` é o quadrado do
+   * enquadramento "quadrado" (o vídeo 1:1 sobre ele mesmo desfocado), medido
+   * desde 09/11/2026; preparo anterior não tem.
+   */
+  corte: { a: Corte | null; b: Corte | null; q?: Corte | null };
   tarefaId: string | null;
+  /** A fala do vídeo com tempo (legenda do YouTube), em segundos do vídeo preparado. Só de canal (09/11/2026). */
+  transcricao?: Segmento[] | null;
+  /** O idioma da fala, quando o vídeo veio de canal: "en" pede legenda em português. */
+  idioma?: "en" | "pt" | null;
   /** A folha do Reel pronto, depois do render: é o que o Claude vê em `ver_reel`. */
   folhaFinalUrl?: string | null;
 };
@@ -39,6 +49,12 @@ export type TextoDoReel = {
   legenda: string;
   corte: Corte | null;
   tarefaId: string;
+  /** Os trechos da fala, em segundos do vídeo preparado, colados nesta ordem (09/11/2026). Sem eles, o vídeo inteiro. */
+  trechos?: Array<{ inicio: number; fim: number }>;
+  /** A legenda em português, em segundos do Reel montado (o 0 é o começo do primeiro trecho). */
+  legendas?: Array<{ inicio: number; fim: number; texto: string }>;
+  /** "quadrado": o vídeo 1:1 no meio, sobre ele mesmo desfocado; "cheio" (o padrão): tela cheia. */
+  enquadramento?: "cheio" | "quadrado";
 };
 
 export type CandidatoDeReel = {

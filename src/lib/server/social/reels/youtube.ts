@@ -23,8 +23,18 @@ export type LeituraDoYoutube = { consulta: string; ok: boolean; mensagem: string
 const MARCAS_DO_PORTUGUES = /(ção|ções|ões|ã|õ|\b(não|você|são|está|também|após|até)\b)/i;
 const NAO_E_NOTICIA = /(#ai\b|#ia\b|prank|pegadinha|com[eé]dia|comedy|humor|meme|par[oó]dia|parody|funny|engra[cç]ad|\*\*|#fun)/i;
 
+/** Humor, pegadinha e vídeo feito com IA: vale para qualquer idioma. */
+export function naoENoticia(titulo: string, legenda: string): boolean {
+  return NAO_E_NOTICIA.test(`${titulo} ${legenda.slice(0, 300)}`);
+}
+
+/**
+ * A busca por termo fica só com português. O canal de notícia em inglês entra
+ * por outro caminho (`canais.ts`), que declara o idioma e passa a fala pela
+ * legenda em português; esta régua não vale para ele.
+ */
 export function serveParaOReel(v: { titulo: string; legenda: string; idioma: string | null }): boolean {
-  if (NAO_E_NOTICIA.test(`${v.titulo} ${v.legenda.slice(0, 300)}`)) return false;
+  if (naoENoticia(v.titulo, v.legenda)) return false;
   if (v.idioma) return v.idioma.toLowerCase().startsWith("pt");
   return MARCAS_DO_PORTUGUES.test(v.titulo);
 }

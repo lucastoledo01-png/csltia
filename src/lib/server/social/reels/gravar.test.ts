@@ -68,6 +68,13 @@ describe("o Reel gravado", () => {
     expect(creditoDoReel("youtube", "Canal X")).toBe("Vídeo: Canal X (YouTube)");
     expect(creditoDoReel("instagram", "@fulano")).toBe("Vídeo: @fulano (Instagram)");
   });
+
+  it("o canal de notícia declara o crédito curto, que vai para a legenda", () => {
+    expect(creditoDoReel("youtube", "Bloomberg Television", "Bloomberg")).toBe("Vídeo: Bloomberg");
+    const linha = linhaDoReel({ id: "p1" }, reel({ candidato: { ...reel().candidato, credito: "Bloomberg" } }), VAGA, "draft");
+    expect(String(linha.caption)).toContain("Vídeo: Bloomberg");
+    expect(String(linha.caption)).not.toContain("(YouTube)");
+  });
 });
 
 describe("o container do Reel", () => {

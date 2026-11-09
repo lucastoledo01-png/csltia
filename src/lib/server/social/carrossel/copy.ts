@@ -198,6 +198,7 @@ function comoEscreverOPermanente(): string {
 function comoEscreverANoticia(): string {
   return `COMO ESCREVER CADA SLIDE DE NOTÍCIA:
 - Cada slide dá UM passo à frente. Nenhum repete a capa nem o slide anterior com outras palavras.
+- O carrossel é UMA história: cada slide começa ligado ao anterior ("O caso foi com...", "A reação veio de...", "No mercado, ..."), nunca como se fosse um post novo. Toda pessoa entra apresentada na primeira vez que aparece: o nome e quem ela é ("Alice Huang, ex-executiva da MegaSpeed").
 - corpo: um ou dois blocos de ${PALAVRAS_POR_BLOCO.minimo} a ${PALAVRAS_POR_BLOCO.maximo} palavras cada, separados por UMA linha em branco. Frases completas, sem lista, em caixa normal: quem põe em caixa alta é a arte. É o único texto que vai para a arte.
 - titulo: o nome do passo em até três palavras (escala, detalhe, explicação ou consequência). Ele NÃO vai para a arte; serve para a conferência saber o que o slide faz.
 - bullets, lado_a e lado_b: vazios.

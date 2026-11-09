@@ -2950,3 +2950,98 @@ com a legenda auditada junto (índice 100 na tarefa). As fotos dos slides vêm d
 mesma tarefa da foto, em `extras`, todas diferentes da capa; slide sem foto sai
 (`podarMioloSemFoto`), e o carrossel que não fecha vira o Reel de foto da mesma
 pauta, com o motivo na resposta.
+
+## O carrossel de notícia fecha com "Siga", e conta uma história só (09/11/2026)
+
+O dono, no carrossel do caso Jensen Huang: "não precisa convidar para
+newsletter no carrossel, pode chamar para seguir o perfil". O último slide da
+notícia (`cta_assinatura`, a chave ficou para as linhas gravadas e a refação)
+passou a desenhar o avatar, "Siga @eua.journal", a tagline e o botão "Siga o
+perfil"; com palavra de comentário escutada, o botão vira "Comente PALAVRA e
+receba o link". Isto atualiza, para a ARTE do carrossel, "O último slide da
+notícia convida a assinar a newsletter" do método de 06/10/2026.
+
+No mesmo trabalho, duas regras que o carrossel feito à mão ensinou:
+
+- **O texto é uma história só.** Cada slide começa ligado ao anterior ("O caso
+  foi com...") e toda pessoa entra apresentada na primeira vez. O slide que
+  abria com "A outra mulher é Alice Huang" parecia um post novo. Mora em
+  `comoEscreverANoticia`, no código, para valer com qualquer versão editável.
+- **A foto do slide mostra quem o slide nomeia.** O cônjuge, a outra parte, o
+  líder que reagiu; os dois juntos quando o slide é sobre a relação. Prédio e
+  telhado no lugar de pessoa nomeada é recusa. O MCP pede 4 fotos de slide, e
+  não 3, porque o carrossel de notícia tem até 4 passos.
+
+A marca "eua." já sai em todo slide pela esteira. No ensaio local ela some
+quando `NEXT_PUBLIC_SITE_URL` não está no `.env`: o padrão do código ainda é
+`casaloti.ia.br`, que responde 503.
+
+## Carrossel e Reel feitos à mão: as regras do dono (09/11/2026)
+
+Saíram da produção do caso Jensen Huang (dois carrosséis e dois Reels), revisada
+peça a peça pelo dono. Valem para o que o Claude produz no chat e são a régua do
+que a esteira deve alcançar.
+
+**Texto**
+- O carrossel é uma história: cada slide começa ligado ao anterior e toda pessoa
+  entra apresentada. "A outra mulher é Alice Huang" abria como post novo; "O caso
+  foi com Alice Huang, ex-executiva da MegaSpeed..." continua a história.
+- Moeda em "US$ 81 bilhões". Trocar por "81 bilhões de dólares" foi pedido e
+  desfeito no mesmo dia: o US$ fica.
+- Manchete condicional quando o fato é hipotético ("pode ter direito a até US$ 81
+  bilhões com divórcio"), e a legenda diz que não há pedido de divórcio.
+- Na fonte da capa, o til de "ÃO" em caixa alta quase some no celular. Até isso
+  ser corrigido no CSS, prefira uma palavra sem til na primeira linha.
+
+**Foto**
+- Cada slide mostra quem ele nomeia: o protagonista de perto na fala dele, o
+  cônjuge, a outra parte, os dois juntos quando o slide é a relação, o líder do
+  país no slide da reação. Prédio, telhado e foto de palco com a pessoa
+  minúscula foram recusados.
+- Foto de imprensa (AFP, AP, Mothership) entra quando é a única da pessoa,
+  por decisão do dono, com o crédito na última linha da legenda.
+- **Nunca escalar foto de forma não proporcional.** Uma "correção" de proporção
+  numa foto da AP achatou Bezos e MacKenzie e foi ao painel assim. Foto que não
+  cabe no 3:4 entra inteira, enquadrada sobre preto, com escala uniforme.
+- Foto do casal na capa fica no centro do espaço acima da manchete, e não colada
+  no topo.
+- A bolha sobre a capa foi testada e recusada pelo dono neste formato.
+
+**Arte**
+- A marca "eua." sai em todo slide. Num render local ela some se o fetcher só
+  servir as fotos: a marca vem do site (`NEXT_PUBLIC_SITE_URL`).
+- O fechamento manual que o dono aprovou: a foto do carrossel desfocada ao
+  fundo, "Siga @eua.journal" e uma linha de apoio no centro, **sem botão**. O
+  desenho da esteira (`cta_assinatura`) ainda é fundo preto com avatar e botão.
+- Até 5 hashtags, num bloco logo antes do "Siga @eua.journal".
+
+**Reel de vídeo:** ver "Regra: todo Reel de vídeo sai no molde B" em
+`docs/reels.md` (marca em imagem, manchete por 4 segundos, legenda em português).
+
+**Agendar à mão:** `src/scripts/_agendar-carrossel-manual.ts` (carrossel) e
+`src/scripts/_agendar-reels-manual.ts` (Reel). O vídeo vai a no máximo 9,5 MB.
+
+## Reels de canais de notícia do YouTube, em inglês inclusive (09/11/2026)
+
+O dono pediu Reel do que os canais de notícia publicam (Bloomberg, CNBC, Fox,
+Casa Branca, CNN Brasil...), com o trecho da fala legendado em português e sem
+marca de terceiro no vídeo. Detalhe em "Canais de notícia do YouTube" em
+`docs/reels.md`.
+
+- **Inglês entra só pelo canal declarado.** O canal diz o idioma em
+  `settings.reels.canais_youtube`; a busca por termo continua só em português.
+  Imigração como notícia política dos EUA entra NOS REELS; orientação de visto
+  fica fora em qualquer idioma. A esteira de notícias não mudou.
+- **A fala vem da legenda do YouTube, sem modelo.** Vídeo em inglês sem legenda
+  não vira Reel: sem a fala com tempo, não há o que traduzir.
+- **Quem escolhe o trecho e traduz é o Claude**, na tarefa `escrever_reel`; a
+  plataforma confere os tempos (15 a 45 s de fala, legenda dentro do trecho,
+  sem sobreposição, pedaço curto, sem travessão).
+- **Marca de terceiro nunca aparece no vídeo.** O vídeo de TV é cortado sempre
+  dentro da faixa limpa (14% a 74% da altura), centrado em quem fala; close
+  fechado demais vai no enquadramento quadrado sobre ele mesmo desfocado. O
+  crédito vai na legenda do post, "Vídeo: Bloomberg", do campo `credito`.
+- **Defaults vazios no código.** A lista dos 19 canais mora no banco
+  (`supabase/2026-11-09-reels-canais-youtube.sql`). Squawk Box e Meet the
+  Press não têm canal próprio com vídeo: saem pelo CNBC Television e pelo NBC
+  News. O canal do Pentágono é o do Department of War.

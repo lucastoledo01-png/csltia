@@ -13,6 +13,8 @@ export type VideoAchado = {
   legenda: string;
   publicadoEm: string;
   metricas: Record<string, unknown>;
+  /** O idioma declarado pelo canal de onde veio (09/11/2026); a busca por termo não declara e é sempre português. */
+  idioma?: "en" | "pt";
   /** De 0 a 100: o quanto o vídeo rende na própria fonte. */
   notaDaFonte: number;
 };

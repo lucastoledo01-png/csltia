@@ -289,9 +289,11 @@ describe("os desenhos novos", () => {
     expect(html).toContain('data-ajuste="encolher"');
   });
 
-  it("o convite diz o que é, e não pede comentário sem palavra escutada", () => {
+  it("o convite chama para seguir o perfil, e não pede comentário sem palavra escutada", () => {
     const sem = SLIDE_VARIANTS.cta.cta_assinatura.render(slide({ type: "cta" }), ctx()).body;
-    expect(sem).toContain("Assine a newsletter do");
+    expect(sem).toContain("Siga <em>@eua.journal</em>");
+    expect(sem).toContain("Siga o perfil");
+    expect(sem).not.toContain("newsletter");
     expect(sem).not.toContain("Comente");
     const com = SLIDE_VARIANTS.cta.cta_assinatura.render(slide({ type: "cta", highlight_text: "news" }), ctx()).body;
     expect(com).toContain("Comente NEWS e receba o link");

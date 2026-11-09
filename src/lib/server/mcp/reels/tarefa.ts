@@ -5,7 +5,9 @@ import { REGRA_DO_DOLAR } from "@/lib/server/editorial/dolar-em-portugues";
 import { limparVicios } from "@/lib/server/newsroom/anti-vicios";
 import { conferirFormaDaLegenda } from "@/lib/server/social/forma-da-legenda";
 import { maximoDeReparos } from "@/lib/server/social/gerador";
+import { canalDoCandidato } from "@/lib/server/social/reels/canais";
 import type { CandidatoDeReel, CandidatosDeReel, PreparoDoReel, TextoDoReel } from "@/lib/server/social/reels/candidatos";
+import type { Segmento } from "@/lib/server/social/reels/transcricao";
 import type { Tarefa, TarefasStore } from "../tarefas-store";
 
 /**
@@ -35,7 +37,11 @@ const CorteSchema = z.object({
 export const TextoDoReelSchema = z.object({
   molde: z.enum(["a", "b"]).describe("a: o vídeo na moldura do template; b: tela cheia com caixas brancas."),
   rotulo: z.string().min(1).max(24).describe("Molde A: a palavra da faixa vermelha, em caixa alta (ex.: TARIFAS)."),
-  categoria: z.string().min(1).max(16).describe("Molde B: a editoria da etiqueta (ex.: ECONOMIA)."),
+  categoria: z
+    .string()
+    .min(1)
+    .max(24)
+    .describe('Molde B: a editoria da etiqueta (ex.: ECONOMIA). No vídeo de canal pode ser o crédito ("VÍDEO: BLOOMBERG").'),
   linhas: z.array(z.string().min(1).max(30)).min(2).max(3).describe("A manchete em 2 ou 3 linhas curtas, em caixa alta no molde A."),
   destaque: z.number().int().min(0).max(2).default(1).describe("Qual linha sai em vermelho no molde A (0, 1 ou 2)."),
   legenda: z.object({
@@ -43,6 +49,20 @@ export const TextoDoReelSchema = z.object({
     paragrafos: z.array(z.string().min(1)).max(4).default([]),
   }),
   corte: CorteSchema.nullable().optional().describe("Só se quiser trocar o corte proposto: em pixels do vídeo original."),
+  trechos: z
+    .array(z.object({ inicio: z.number().min(0), fim: z.number().positive() }))
+    .max(4)
+    .optional()
+    .describe("Os trechos da FALA que entram no Reel, em segundos do vídeo, em ordem e sem sobreposição; somados, de 15 a 45 s."),
+  legendas: z
+    .array(z.object({ inicio: z.number().min(0), fim: z.number().positive(), texto: z.string() }))
+    .max(80)
+    .optional()
+    .describe("A fala traduzida para o português, em pedaços curtos (até 7 palavras), em segundos do Reel montado: o 0 é o começo do primeiro trecho, e os trechos ficam colados."),
+  enquadramento: z
+    .enum(["cheio", "quadrado"])
+    .optional()
+    .describe('"cheio" (o padrão): o vídeo cortado em 9:16 na tela toda. "quadrado": o vídeo 1:1 no meio, sobre ele mesmo desfocado, para o close fechado demais no 9:16.'),
 });
 
 export type TextoEntregue = z.infer<typeof TextoDoReelSchema>;
@@ -61,6 +81,12 @@ export type MaterialDoReel = {
   folhaUrl: string | null;
   original: PreparoDoReel["original"];
   corteProposto: PreparoDoReel["corte"];
+  /** A fala do vídeo com tempo, quando o vídeo veio de canal (09/11/2026). */
+  transcricao?: Segmento[] | null;
+  /** O idioma da fala do canal: "en" exige trechos e legenda em português. */
+  idioma?: "en" | "pt" | null;
+  /** O crédito curto do canal ("Bloomberg"), que vai na legenda do post, nunca no vídeo. */
+  credito?: string | null;
   /** Da reprovação no painel, quando é uma reescrita. */
   reprovacao?: string;
 };
@@ -82,6 +108,47 @@ const SYSTEM = [
   REGRA_DO_DOLAR,
 ].join("\n");
 
+/*
+ * O vídeo de canal com a fala transcrita (09/11/2026). Sempre o molde B, com a
+ * manchete por 4 segundos e a legenda em português embaixo dela.
+ */
+const SYSTEM_DA_FALA = [
+  "ESTE VÍDEO VEM DE UM CANAL DE NOTÍCIA, COM A FALA TRANSCRITA COM TEMPO (abaixo, em TRANSCRIÇÃO).",
+  "Molde: sempre B.",
+  "trechos: escolha o pedaço da FALA da pessoa que conta a notícia, 15 a 45 segundos somados; pode ser mais de um trecho (até 4), em ordem e sem sobreposição. Corte no começo e no fim de frase, pelos tempos da transcrição. Nada de vinheta, apresentador chamando o intervalo, ou plano sem ninguém falando.",
+  "legendas: a fala dos trechos traduzida para o português do Brasil, fiel ao que a pessoa disse (não resuma, não acrescente, não melhore), em pedaços de até 7 palavras, cada um com início e fim em segundos do Reel MONTADO: o 0 é o começo do primeiro trecho, e o segundo trecho começa onde o primeiro acaba. Sem sobreposição entre pedaços, sem travessão.",
+  "A manchete e a legenda do post se apoiam na transcrição: nome, número e data que não estão nela, no título ou na descrição não entram.",
+  'Marca de terceiro não aparece no vídeo: o corte proposto tira logotipo do canal, faixa de manchete, "LIVE" e relógio. Se o corte em 9:16 ficar fechado demais (só um pedaço do rosto), use enquadramento "quadrado". O crédito do canal vai na legenda do post, que a plataforma escreve sozinha; não escreva crédito na legenda.',
+].join("\n");
+
+const SEGUNDOS_MINIMOS_DO_TRECHO = 15;
+const SEGUNDOS_MAXIMOS_DO_TRECHO = 45;
+const PALAVRAS_POR_LEGENDA = 8;
+
+function linhaDaTranscricao(s: Segmento): string {
+  return `[${s.inicio.toFixed(1)}-${s.fim.toFixed(1)}] ${s.texto}`;
+}
+
+/** A transcrição para o prompt, com teto de tamanho: o vídeo de canal tem até 4 minutos. */
+function transcricaoDoPrompt(segmentos: Segmento[], teto = 14_000): string {
+  const linhas: string[] = [];
+  let total = 0;
+  for (const s of segmentos) {
+    const l = linhaDaTranscricao(s);
+    if (total + l.length > teto) {
+      linhas.push("[...]");
+      break;
+    }
+    linhas.push(l);
+    total += l.length + 1;
+  }
+  return linhas.join("\n");
+}
+
+function systemDoMaterial(m: MaterialDoReel): string {
+  return m.transcricao?.length ? `${SYSTEM}\n\n${SYSTEM_DA_FALA}` : SYSTEM;
+}
+
 function userDoReel(m: MaterialDoReel): string {
   return [
     `VÍDEO (${m.fonte}, de ${m.autor ?? "autor desconhecido"}): ${m.permalink ?? ""}`,
@@ -90,7 +157,12 @@ function userDoReel(m: MaterialDoReel): string {
     m.historia ? `A HISTÓRIA DO DIA COM QUE ELE CASOU (termômetro): ${m.historia}` : "",
     `VÍDEO ORIGINAL: ${m.original.largura}x${m.original.altura}, ${Math.round(m.original.segundos)} s.`,
     `CORTE PROPOSTO (tira logotipo e legenda gravada de quem publicou): molde A ${JSON.stringify(m.corteProposto.a)}, molde B ${JSON.stringify(m.corteProposto.b)}.`,
+    m.corteProposto.q ? `CORTE QUADRADO PROPOSTO (enquadramento "quadrado"): ${JSON.stringify(m.corteProposto.q)}.` : "",
     m.folhaUrl ? `A folha de quadros com o corte desenhado em amarelo está em ver_reel(${m.candidatoId}).` : "",
+    m.credito ? `CANAL: ${m.credito} (o crédito "Vídeo: ${m.credito}" entra sozinho na legenda do post).` : "",
+    m.transcricao?.length
+      ? `TRANSCRIÇÃO (${m.idioma === "en" ? "inglês" : "português"}, legenda do YouTube, [início-fim] em segundos do vídeo):\n${transcricaoDoPrompt(m.transcricao)}`
+      : "",
     m.reprovacao ? `\nO DONO REPROVOU A VERSÃO ANTERIOR NO PAINEL. Corrija isto: ${m.reprovacao}` : "",
   ]
     .filter(Boolean)
@@ -98,6 +170,7 @@ function userDoReel(m: MaterialDoReel): string {
 }
 
 export function materialDoCandidato(c: CandidatoDeReel, preparo: PreparoDoReel): MaterialDoReel {
+  const canal = canalDoCandidato(c.metricas);
   return {
     candidatoId: c.id,
     fonte: c.fonte,
@@ -110,6 +183,9 @@ export function materialDoCandidato(c: CandidatoDeReel, preparo: PreparoDoReel):
     folhaUrl: preparo.folhaUrl,
     original: preparo.original,
     corteProposto: preparo.corte,
+    ...(preparo.transcricao?.length ? { transcricao: preparo.transcricao } : {}),
+    ...(preparo.idioma ? { idioma: preparo.idioma } : {}),
+    ...(canal ? { credito: canal.credito } : {}),
   };
 }
 
@@ -124,7 +200,8 @@ export function pacoteDoMaterial(m: MaterialDoReel): PacoteFactual {
     numbers: [],
     gaps: [],
     source_urls: m.permalink ? [m.permalink] : [],
-    texto_de_origem: [m.titulo, m.legendaDeOrigem, m.historia ?? ""].join("\n"),
+    // A fala transcrita entra: no vídeo de canal, é ela que diz o fato.
+    texto_de_origem: [m.titulo, m.legendaDeOrigem, m.historia ?? "", ...(m.transcricao ?? []).map((s) => s.texto)].join("\n"),
   };
 }
 
@@ -139,10 +216,73 @@ export async function abrirEscritaDoReel(
     editionDate: data,
     tipo: TIPO_DA_ESCRITA_DO_REEL,
     chave: material.candidatoId,
-    instrucao: { system: SYSTEM, user: userDoReel(material), orientacao: "Responda SÓ com o JSON do esquema." },
+    instrucao: { system: systemDoMaterial(material), user: userDoReel(material), orientacao: "Responda SÓ com o JSON do esquema." },
     material: material as unknown as Record<string, unknown>,
     esquema: ESQUEMA_DO_REEL,
   });
+}
+
+const arred = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Pura: os trechos e as legendas da fala (09/11/2026). Devolve os motivos do
+ * reparo, vazio quando está tudo certo. O vídeo em inglês exige os dois: sem
+ * legenda, o leitor brasileiro não entende a fala.
+ */
+export function conferirTrechosELegendas(
+  t: { trechos?: Array<{ inicio: number; fim: number }>; legendas?: Array<{ inicio: number; fim: number; texto: string }> },
+  material: Pick<MaterialDoReel, "original" | "transcricao" | "idioma">,
+): string[] {
+  const motivos: string[] = [];
+  const trechos = t.trechos ?? [];
+  const legendas = t.legendas ?? [];
+  const duracao = material.original.segundos;
+
+  if (material.idioma === "en") {
+    if (!trechos.length) motivos.push("[TRECHO] o vídeo é em inglês: escolha os trechos da fala (trechos), de 15 a 45 s somados");
+    if (!legendas.length) motivos.push("[LEGENDA_PT] o vídeo é em inglês: a fala precisa da legenda em português (legendas)");
+  }
+
+  let total = duracao;
+  if (trechos.length) {
+    total = 0;
+    trechos.forEach((x, i) => {
+      if (x.fim <= x.inicio) motivos.push(`[TRECHO] o trecho ${i + 1} termina antes de começar (${x.inicio} a ${x.fim})`);
+      if (x.fim > duracao + 0.05) motivos.push(`[TRECHO] o trecho ${i + 1} passa do fim do vídeo (${Math.round(duracao)} s)`);
+      if (x.fim - x.inicio < 1.5) motivos.push(`[TRECHO] o trecho ${i + 1} tem menos de 1,5 s`);
+      const anterior = trechos[i - 1];
+      if (anterior && x.inicio < anterior.fim - 0.01) motivos.push(`[TRECHO] o trecho ${i + 1} começa antes do fim do anterior: em ordem e sem sobreposição`);
+      total += Math.max(0, Math.min(x.fim, duracao) - x.inicio);
+    });
+    if (total < SEGUNDOS_MINIMOS_DO_TRECHO - 0.5 || total > SEGUNDOS_MAXIMOS_DO_TRECHO + 0.5) {
+      motivos.push(`[TRECHO] os trechos somam ${total.toFixed(1)} s; o Reel da fala tem de ${SEGUNDOS_MINIMOS_DO_TRECHO} a ${SEGUNDOS_MAXIMOS_DO_TRECHO} s`);
+    }
+    // Só a FALA: pelo menos metade de cada trecho tem de cair em segmento da transcrição.
+    const falas = material.transcricao ?? [];
+    if (falas.length) {
+      trechos.forEach((x, i) => {
+        const coberto = falas.reduce((s, f) => s + Math.max(0, Math.min(f.fim, x.fim) - Math.max(f.inicio, x.inicio)), 0);
+        if (x.fim > x.inicio && coberto / (x.fim - x.inicio) < 0.5) {
+          motivos.push(`[TRECHO] o trecho ${i + 1} (${x.inicio} a ${x.fim}) quase não tem fala na transcrição`);
+        }
+      });
+    }
+  }
+
+  legendas.forEach((l, i) => {
+    const n = i + 1;
+    const texto = l.texto.trim();
+    if (!texto) motivos.push(`[LEGENDA_PT] a legenda ${n} está vazia`);
+    if (/[\u2014\u2013]/.test(texto)) motivos.push(`[TRAVESSAO] a legenda ${n} tem travessão`);
+    if (texto.split(/\s+/).filter(Boolean).length > PALAVRAS_POR_LEGENDA) {
+      motivos.push(`[LEGENDA_PT] a legenda ${n} passa de ${PALAVRAS_POR_LEGENDA - 1} palavras: divida em pedaços menores`);
+    }
+    if (l.fim <= l.inicio) motivos.push(`[LEGENDA_PT] a legenda ${n} termina antes de começar`);
+    if (l.fim > total + 0.25) motivos.push(`[LEGENDA_PT] a legenda ${n} termina em ${l.fim} s, depois do fim do Reel (${total.toFixed(1)} s): os tempos são do Reel montado`);
+    const anterior = legendas[i - 1];
+    if (anterior && l.inicio < anterior.fim - 0.05) motivos.push(`[LEGENDA_PT] a legenda ${n} começa antes de a ${n - 1} terminar`);
+  });
+  return motivos;
 }
 
 /** Pura: as guardas do texto. Devolve o texto pronto ou os motivos do reparo. */
@@ -167,7 +307,10 @@ export function conferirTextoDoReel(
   const vertical = material.original.altura > material.original.largura;
   const a = material.corteProposto.a;
   const embrulhaHorizontal = Boolean(a && a.largura > a.altura);
-  const t = vertical && !embrulhaHorizontal && lidoLimpo.molde === "a" ? { ...lidoLimpo, molde: "b" as const, corte: null } : lidoLimpo;
+  // O vídeo de canal é sempre o molde B (09/11/2026): a regra do Reel de vídeo, e a legenda da fala é desenhada nele.
+  const deCanal = Boolean(material.idioma);
+  const t =
+    (deCanal || (vertical && !embrulhaHorizontal)) && lidoLimpo.molde === "a" ? { ...lidoLimpo, molde: "b" as const, corte: null } : lidoLimpo;
 
   const manchete = t.linhas.join(" ").replace(/\s+/g, " ").trim();
   const corpo = [t.legenda.gancho, ...t.legenda.paragrafos].map((p) => p.trim()).filter(Boolean).join("\n\n");
@@ -181,6 +324,7 @@ export function conferirTextoDoReel(
     motivos.push(`[SEM_LASTRO] "${c.valor}" (${c.onde}) não está no material do vídeo`);
   }
   for (const p of conferirFormaDaLegenda(corpo, manchete)) motivos.push(`[LEGENDA] ${p.detalhe}`);
+  motivos.push(...conferirTrechosELegendas(t, material));
 
   if (t.corte) {
     const o = material.original;
@@ -200,7 +344,12 @@ export function conferirTextoDoReel(
       categoria: t.categoria.toUpperCase(),
       manchete,
       legenda: corpo,
-      corte: t.corte ?? material.corteProposto[t.molde],
+      corte: t.corte ?? (t.enquadramento === "quadrado" ? (material.corteProposto.q ?? null) : material.corteProposto[t.molde]),
+      ...(t.trechos?.length ? { trechos: t.trechos.map((x) => ({ inicio: arred(x.inicio), fim: arred(x.fim) })) } : {}),
+      ...(t.legendas?.length
+        ? { legendas: t.legendas.map((l) => ({ inicio: arred(l.inicio), fim: arred(l.fim), texto: l.texto.trim() })) }
+        : {}),
+      ...(t.enquadramento ? { enquadramento: t.enquadramento } : {}),
     },
   };
 }
@@ -263,7 +412,7 @@ export async function reabrirEscritaDoReel(
   const material: MaterialDoReel = { ...materialDoCandidato(candidato, candidato.preparo), reprovacao: motivo };
   await deps.candidatos.reabrir(candidato.id, `reprovado no painel: ${motivo}`);
   return deps.tarefas.pedirReparo(tarefa.id, tarefa.resultado, [`[PAINEL] ${motivo}`], "painel", {
-    system: SYSTEM,
+    system: systemDoMaterial(material),
     user: userDoReel(material),
     orientacao: "Responda SÓ com o JSON do esquema.",
     reparos: 0,

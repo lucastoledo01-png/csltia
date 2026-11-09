@@ -31,11 +31,43 @@ export function calorDoAssunto(video: Pick<VideoAchado, "titulo" | "legenda">, r
   return melhor;
 }
 
+/*
+ * O nicho em inglês (09/11/2026), para os canais americanos: o vídeo tem de
+ * falar dos EUA (governo, Congresso, mercado, empresas americanas) e não pode
+ * ser esporte nem fofoca. `casaComNicho` lê português e quase nunca acha
+ * "EUA" num título da CNBC. Imigração como NOTÍCIA política entra (Trump
+ * falando de deportação, o Congresso votando): é a política dos EUA. O que
+ * fica fora é a ORIENTAÇÃO de visto, em qualquer idioma (`orientacaoDeVisto`).
+ */
+const SINAIS_DOS_EUA_EM_INGLES =
+  /\b(u\.s|usa|america|american|americans|trump|biden|vance|rubio|bessent|powell|white house|congress|senate|house speaker|capitol|supreme court|pentagon|federal reserve|the fed|fed chair|wall street|nasdaq|dow|s&p|treasury|tariffs?|washington|new york|california|texas|florida|irs|sec|ftc|doj|fbi|elon musk|tesla|nvidia|apple|microsoft|google|amazon|meta|openai|jobs report|inflation|cpi|gdp|mortgage|shutdown|election|governor|mayor)\b/i;
+const FORA_DO_NICHO_EM_INGLES =
+  /\b(nfl|nba|mlb|nhl|super bowl|touchdown|playoffs?|world series|game \d|score[sd]?|highlights|celebrity|red carpet|oscars?|grammys?|kardashian|horoscope|recipe|weather forecast)\b/i;
+
+export function casaComNichoEmIngles(texto: string): boolean {
+  // "US" só em maiúsculas: "us" minúsculo é pronome ("join us").
+  return (SINAIS_DOS_EUA_EM_INGLES.test(texto) || /\bUS\b/.test(texto)) && !FORA_DO_NICHO_EM_INGLES.test(texto);
+}
+
+/** Vídeo que ensina a tirar visto, green card ou cidadania: fora do eua.journal, em qualquer idioma. */
+const ORIENTACAO_DE_VISTO =
+  /\b(how to (get|apply|obtain|renew)[^.]{0,40}(visa|green card|citizenship|h-?1b|asylum)|(visa|green card|citizenship|naturali[sz]ation|h-?1b|uscis) (interview|tips|process|application|requirements|checklist|lawyer|attorney|fees)|immigration (lawyer|attorney)|como (tirar|conseguir|renovar|pedir)[^.]{0,30}(visto|green card|cidadania)|entrevista (do|de|no) (visto|consulado)|(dicas|passo a passo)[^.]{0,30}(visto|green card|cidadania)|advogad[oa] de imigra[cç][aã]o)\b/i;
+
+export function orientacaoDeVisto(texto: string): boolean {
+  return ORIENTACAO_DE_VISTO.test(texto);
+}
+
+function dentroDoNicho(v: VideoAchado): boolean {
+  const texto = `${v.titulo}\n${v.legenda.slice(0, 500)}`;
+  if (orientacaoDeVisto(texto)) return false;
+  return v.idioma === "en" ? casaComNichoEmIngles(texto) : casaComNicho(texto);
+}
+
 export function ordenarVideos(videos: VideoAchado[], ranking: LinhaDoRanking[]): { ordenados: VideoOrdenado[]; foraDoNicho: VideoAchado[] } {
   const foraDoNicho: VideoAchado[] = [];
   const ordenados: VideoOrdenado[] = [];
   for (const v of videos) {
-    if (!casaComNicho(`${v.titulo}\n${v.legenda.slice(0, 500)}`)) {
+    if (!dentroDoNicho(v)) {
       foraDoNicho.push(v);
       continue;
     }

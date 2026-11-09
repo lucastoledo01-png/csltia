@@ -196,7 +196,7 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
           candidatas: lista.map(({ asset: _a, ...resto }) => resto),
           assets: lista.map((x) => x.asset),
           // O post em carrossel pede as fotos dos slides junto com a da capa (09/11/2026).
-          ...(plano.itens.posts.includes(c.storyId) && formatoDoPost(plano.itens, c.storyId) === "carrossel" ? { fotosDoCarrossel: 3 } : {}),
+          ...(plano.itens.posts.includes(c.storyId) && formatoDoPost(plano.itens, c.storyId) === "carrossel" ? { fotosDoCarrossel: 4 } : {}),
         },
         tarefas,
       );
