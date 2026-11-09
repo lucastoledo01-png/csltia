@@ -35,6 +35,8 @@ export type PreparoDoReel = {
   transcricao?: Segmento[] | null;
   /** O idioma da fala, quando o vídeo veio de canal: "en" pede legenda em português. */
   idioma?: "en" | "pt" | null;
+  /** Os cortes de cena do vídeo preparado, em segundos (09/11/2026). Só de canal. */
+  cenas?: number[] | null;
   /** A folha do Reel pronto, depois do render: é o que o Claude vê em `ver_reel`. */
   folhaFinalUrl?: string | null;
 };

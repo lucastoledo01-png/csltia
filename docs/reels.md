@@ -194,3 +194,20 @@ fechar com Cmd+Q e abrir de novo para ler a versão nova.
 termo continua podendo sair no molde A (a regra do molde B para todo Reel de
 vídeo só é aplicada em código no vídeo de canal); a fala em português não
 exige legenda.
+
+## Regra: etiqueta com a editoria e o corte dentro da cena de quem fala (09/11/2026)
+
+Duas reprovações do dono nos Reels do Trump, transformadas em conferência:
+
+- **A etiqueta vermelha é a editoria ou o tema** (POLÍTICA, ECONOMIA,
+  TECNOLOGIA), nunca "VÍDEO: CBS NEWS", "ENTREVISTA À BLOOMBERG" nem o nome do
+  veículo. Crédito de vídeo e de imagem vai SÓ na legenda do post.
+  `conferirEtiqueta` (em `mcp/reels/tarefa.ts`) devolve `[ETIQUETA]` ao Claude.
+- **Só a pessoa da fala aparece.** A transcrição diz quando alguém fala; quem
+  aparece é decidido pela troca de cena. O preparo mede os cortes de cena
+  (`cortesDeCena`, ffmpeg, diferença acima de 0,25) e os entrega à tarefa. Trecho
+  com borda a menos de 0,7 s de uma troca de cena volta ao Claude com o tempo
+  certo (`[CENA]`): o pedaço era a apresentadora antes da fala, ou o
+  entrevistador e quem responde depois. Não é ajustado sozinho porque mexer na
+  borda desloca as legendas.
+- Pergunta de repórter fora de quadro pode ficar, legendada com "Repórter:".

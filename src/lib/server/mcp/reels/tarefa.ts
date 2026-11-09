@@ -8,6 +8,7 @@ import { maximoDeReparos } from "@/lib/server/social/gerador";
 import { canalDoCandidato } from "@/lib/server/social/reels/canais";
 import type { CandidatoDeReel, CandidatosDeReel, PreparoDoReel, TextoDoReel } from "@/lib/server/social/reels/candidatos";
 import type { Segmento } from "@/lib/server/social/reels/transcricao";
+import { ajustarAosCortesDeCena } from "@/lib/server/social/reels/corte";
 import type { Tarefa, TarefasStore } from "../tarefas-store";
 
 /**
@@ -41,7 +42,7 @@ export const TextoDoReelSchema = z.object({
     .string()
     .min(1)
     .max(24)
-    .describe('Molde B: a editoria da etiqueta (ex.: ECONOMIA). No vídeo de canal pode ser o crédito ("VÍDEO: BLOOMBERG").'),
+    .describe("Molde B: a editoria ou o tema da etiqueta (ex.: POLÍTICA, ECONOMIA, TECNOLOGIA). Nunca o crédito nem o nome do veículo: o crédito vai na legenda do post."),
   linhas: z.array(z.string().min(1).max(30)).min(2).max(3).describe("A manchete em 2 ou 3 linhas curtas, em caixa alta no molde A."),
   destaque: z.number().int().min(0).max(2).default(1).describe("Qual linha sai em vermelho no molde A (0, 1 ou 2)."),
   legenda: z.object({
@@ -87,6 +88,8 @@ export type MaterialDoReel = {
   idioma?: "en" | "pt" | null;
   /** O crédito curto do canal ("Bloomberg"), que vai na legenda do post, nunca no vídeo. */
   credito?: string | null;
+  /** Os cortes de cena do vídeo, em segundos (09/11/2026): o trecho começa e termina dentro da cena de quem fala. */
+  cenas?: number[] | null;
   /** Da reprovação no painel, quando é uma reescrita. */
   reprovacao?: string;
 };
@@ -116,6 +119,8 @@ const SYSTEM_DA_FALA = [
   "ESTE VÍDEO VEM DE UM CANAL DE NOTÍCIA, COM A FALA TRANSCRITA COM TEMPO (abaixo, em TRANSCRIÇÃO).",
   "Molde: sempre B.",
   "trechos: escolha o pedaço da FALA da pessoa que conta a notícia, 15 a 45 segundos somados; pode ser mais de um trecho (até 4), em ordem e sem sobreposição. Corte no começo e no fim de frase, pelos tempos da transcrição. Nada de vinheta, apresentador chamando o intervalo, ou plano sem ninguém falando.",
+  "Só a pessoa da fala aparece: nada de apresentador, repórter, entrevistador, quem responde depois, nem imagem de apoio com narração por cima. Use os CORTES DE CENA: cada trecho começa depois de um corte e termina antes do corte seguinte quando a próxima cena mostra outra coisa; confira na folha de quadros quem aparece em cada cena. Pergunta do repórter fora de quadro pode ficar, legendada com \"Repórter:\".",
+  "categoria (a etiqueta vermelha): a editoria ou o tema (POLÍTICA, ECONOMIA, TECNOLOGIA...). Nunca \"VÍDEO: BLOOMBERG\" nem o nome do veículo: crédito de vídeo e de imagem vai SÓ na legenda do post.",
   "legendas: a fala dos trechos traduzida para o português do Brasil, fiel ao que a pessoa disse (não resuma, não acrescente, não melhore), em pedaços de até 7 palavras, cada um com início e fim em segundos do Reel MONTADO: o 0 é o começo do primeiro trecho, e o segundo trecho começa onde o primeiro acaba. Sem sobreposição entre pedaços, sem travessão.",
   "A manchete e a legenda do post se apoiam na transcrição: nome, número e data que não estão nela, no título ou na descrição não entram.",
   'Marca de terceiro não aparece no vídeo: o corte proposto tira logotipo do canal, faixa de manchete, "LIVE" e relógio. Se o corte em 9:16 ficar fechado demais (só um pedaço do rosto), use enquadramento "quadrado". O crédito do canal vai na legenda do post, que a plataforma escreve sozinha; não escreva crédito na legenda.',
@@ -160,6 +165,7 @@ function userDoReel(m: MaterialDoReel): string {
     m.corteProposto.q ? `CORTE QUADRADO PROPOSTO (enquadramento "quadrado"): ${JSON.stringify(m.corteProposto.q)}.` : "",
     m.folhaUrl ? `A folha de quadros com o corte desenhado em amarelo está em ver_reel(${m.candidatoId}).` : "",
     m.credito ? `CANAL: ${m.credito} (o crédito "Vídeo: ${m.credito}" entra sozinho na legenda do post).` : "",
+    m.cenas?.length ? `CORTES DE CENA (segundos do vídeo): ${m.cenas.map((c) => c.toFixed(2)).join(", ")}.` : "",
     m.transcricao?.length
       ? `TRANSCRIÇÃO (${m.idioma === "en" ? "inglês" : "português"}, legenda do YouTube, [início-fim] em segundos do vídeo):\n${transcricaoDoPrompt(m.transcricao)}`
       : "",
@@ -186,6 +192,7 @@ export function materialDoCandidato(c: CandidatoDeReel, preparo: PreparoDoReel):
     ...(preparo.transcricao?.length ? { transcricao: preparo.transcricao } : {}),
     ...(preparo.idioma ? { idioma: preparo.idioma } : {}),
     ...(canal ? { credito: canal.credito } : {}),
+    ...(preparo.cenas?.length ? { cenas: preparo.cenas } : {}),
   };
 }
 
@@ -231,7 +238,7 @@ const arred = (n: number) => Math.round(n * 100) / 100;
  */
 export function conferirTrechosELegendas(
   t: { trechos?: Array<{ inicio: number; fim: number }>; legendas?: Array<{ inicio: number; fim: number; texto: string }> },
-  material: Pick<MaterialDoReel, "original" | "transcricao" | "idioma">,
+  material: Pick<MaterialDoReel, "original" | "transcricao" | "idioma"> & Partial<Pick<MaterialDoReel, "cenas">>,
 ): string[] {
   const motivos: string[] = [];
   const trechos = t.trechos ?? [];
@@ -256,6 +263,25 @@ export function conferirTrechosELegendas(
     });
     if (total < SEGUNDOS_MINIMOS_DO_TRECHO - 0.5 || total > SEGUNDOS_MAXIMOS_DO_TRECHO + 0.5) {
       motivos.push(`[TRECHO] os trechos somam ${total.toFixed(1)} s; o Reel da fala tem de ${SEGUNDOS_MINIMOS_DO_TRECHO} a ${SEGUNDOS_MAXIMOS_DO_TRECHO} s`);
+    }
+    /*
+     * Só a cena de quem fala (09/11/2026): troca de cena a menos de 0,7 s da
+     * borda do trecho quer dizer um pedaço da cena vizinha (apresentador,
+     * entrevistador, quem responde). Volta ao Claude com o tempo certo, em vez
+     * de ajustar sozinho, porque mexer na borda desloca as legendas.
+     */
+    const cenas = material.cenas ?? [];
+    if (cenas.length) {
+      const ajustados = ajustarAosCortesDeCena(trechos, cenas);
+      trechos.forEach((x, i) => {
+        const a = ajustados[i];
+        if (a.inicio !== x.inicio) {
+          motivos.push(`[CENA] o trecho ${i + 1} começa em ${x.inicio} s, e a cena muda em ${(a.inicio - 0.04).toFixed(2)} s: comece em ${a.inicio} s e refaça os tempos das legendas`);
+        }
+        if (a.fim !== x.fim) {
+          motivos.push(`[CENA] o trecho ${i + 1} termina em ${x.fim} s, e a cena muda em ${(a.fim + 0.04).toFixed(2)} s: termine em ${a.fim} s`);
+        }
+      });
     }
     // Só a FALA: pelo menos metade de cada trecho tem de cair em segmento da transcrição.
     const falas = material.transcricao ?? [];
@@ -283,6 +309,23 @@ export function conferirTrechosELegendas(
     if (anterior && l.inicio < anterior.fim - 0.05) motivos.push(`[LEGENDA_PT] a legenda ${n} começa antes de a ${n - 1} terminar`);
   });
   return motivos;
+}
+
+/*
+ * A etiqueta vermelha é a editoria ou o tema, nunca o crédito (09/11/2026,
+ * regra do dono depois de dois Reels do Trump com "VÍDEO: CBS NEWS" e "VÍDEO:
+ * BLOOMBERG" na etiqueta). Crédito de vídeo e de imagem mora só na legenda.
+ */
+const VEICULOS_NA_ETIQUETA =
+  /\b(v[ií]deo|foto|imagem|cr[eé]dito|bloomberg|cbs|cnbc|cnn|fox|nbc|abc|c-span|reuters|ap|afp|getty|youtube|globonews|jovem pan|60 minutes)\b/i;
+
+export function conferirEtiqueta(categoria: string, credito?: string | null): string[] {
+  const c = categoria.trim();
+  const temCredito = Boolean(credito?.trim()) && c.toLowerCase().includes(credito!.trim().toLowerCase());
+  if (VEICULOS_NA_ETIQUETA.test(c) || temCredito) {
+    return [`[ETIQUETA] "${c}" é crédito ou nome de veículo: a etiqueta é a editoria ou o tema (POLÍTICA, ECONOMIA, TECNOLOGIA); o crédito vai só na legenda do post`];
+  }
+  return [];
 }
 
 /** Pura: as guardas do texto. Devolve o texto pronto ou os motivos do reparo. */
@@ -325,6 +368,7 @@ export function conferirTextoDoReel(
   }
   for (const p of conferirFormaDaLegenda(corpo, manchete)) motivos.push(`[LEGENDA] ${p.detalhe}`);
   motivos.push(...conferirTrechosELegendas(t, material));
+  motivos.push(...conferirEtiqueta(t.categoria, material.credito));
 
   if (t.corte) {
     const o = material.original;

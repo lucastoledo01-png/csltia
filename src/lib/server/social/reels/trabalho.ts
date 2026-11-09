@@ -10,7 +10,7 @@ import type { TarefasStore } from "@/lib/server/mcp/tarefas-store";
 import { baixarVideo } from "./baixar";
 import type { CandidatoDeReel, CandidatosDeReel } from "./candidatos";
 import { canalDoCandidato } from "./canais";
-import { ASPECTO_DO_MOLDE, folhaDeQuadros, medidasDoVideo, medirCorte, medirCorteDoCanal } from "./corte";
+import { ASPECTO_DO_MOLDE, cortesDeCena, folhaDeQuadros, medidasDoVideo, medirCorte, medirCorteDoCanal } from "./corte";
 import type { ReelParaGravar } from "./gravar";
 import { segmentosAte, transcreverDoYoutube, type Segmento } from "./transcricao";
 
@@ -51,6 +51,8 @@ export type DepsDoTrabalho = {
   }) => Promise<string>;
   baixar?: typeof baixarVideo;
   transcrever?: (url: string, idioma: "en" | "pt", pasta: string) => Segmento[];
+  /** Os cortes de cena do vídeo baixado (ffmpeg); o teste injeta. */
+  cenas?: (arquivo: string) => number[];
   fetcher?: typeof fetch;
 };
 
@@ -118,7 +120,13 @@ export async function prepararCandidato(c: CandidatoDeReel, deps: DepsDoTrabalho
       original: { largura: video.largura, altura: video.altura, segundos: video.segundos },
       corte,
       tarefaId: null as string | null,
-      ...(canal ? { idioma: canal.idioma, transcricao: transcricao ? segmentosAte(transcricao, video.segundos) : null } : {}),
+      ...(canal
+        ? {
+            idioma: canal.idioma,
+            transcricao: transcricao ? segmentosAte(transcricao, video.segundos) : null,
+            cenas: (deps.cenas ?? cortesDeCena)(video.arquivo),
+          }
+        : {}),
     };
     const tarefa = await abrirEscritaDoReel(c.projectId, projectToday(projeto), materialDoCandidato(c, preparo), deps.tarefas);
     await deps.candidatos.preparado(c.id, { ...preparo, tarefaId: tarefa.id });
