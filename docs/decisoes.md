@@ -2975,3 +2975,48 @@ No mesmo trabalho, duas regras que o carrossel feito à mão ensinou:
 A marca "eua." já sai em todo slide pela esteira. No ensaio local ela some
 quando `NEXT_PUBLIC_SITE_URL` não está no `.env`: o padrão do código ainda é
 `casaloti.ia.br`, que responde 503.
+
+## Carrossel e Reel feitos à mão: as regras do dono (09/11/2026)
+
+Saíram da produção do caso Jensen Huang (dois carrosséis e dois Reels), revisada
+peça a peça pelo dono. Valem para o que o Claude produz no chat e são a régua do
+que a esteira deve alcançar.
+
+**Texto**
+- O carrossel é uma história: cada slide começa ligado ao anterior e toda pessoa
+  entra apresentada. "A outra mulher é Alice Huang" abria como post novo; "O caso
+  foi com Alice Huang, ex-executiva da MegaSpeed..." continua a história.
+- Moeda em "US$ 81 bilhões". Trocar por "81 bilhões de dólares" foi pedido e
+  desfeito no mesmo dia: o US$ fica.
+- Manchete condicional quando o fato é hipotético ("pode ter direito a até US$ 81
+  bilhões com divórcio"), e a legenda diz que não há pedido de divórcio.
+- Na fonte da capa, o til de "ÃO" em caixa alta quase some no celular. Até isso
+  ser corrigido no CSS, prefira uma palavra sem til na primeira linha.
+
+**Foto**
+- Cada slide mostra quem ele nomeia: o protagonista de perto na fala dele, o
+  cônjuge, a outra parte, os dois juntos quando o slide é a relação, o líder do
+  país no slide da reação. Prédio, telhado e foto de palco com a pessoa
+  minúscula foram recusados.
+- Foto de imprensa (AFP, AP, Mothership) entra quando é a única da pessoa,
+  por decisão do dono, com o crédito na última linha da legenda.
+- **Nunca escalar foto de forma não proporcional.** Uma "correção" de proporção
+  numa foto da AP achatou Bezos e MacKenzie e foi ao painel assim. Foto que não
+  cabe no 3:4 entra inteira, enquadrada sobre preto, com escala uniforme.
+- Foto do casal na capa fica no centro do espaço acima da manchete, e não colada
+  no topo.
+- A bolha sobre a capa foi testada e recusada pelo dono neste formato.
+
+**Arte**
+- A marca "eua." sai em todo slide. Num render local ela some se o fetcher só
+  servir as fotos: a marca vem do site (`NEXT_PUBLIC_SITE_URL`).
+- O fechamento manual que o dono aprovou: a foto do carrossel desfocada ao
+  fundo, "Siga @eua.journal" e uma linha de apoio no centro, **sem botão**. O
+  desenho da esteira (`cta_assinatura`) ainda é fundo preto com avatar e botão.
+- Até 5 hashtags, num bloco logo antes do "Siga @eua.journal".
+
+**Reel de vídeo:** ver "Regra: todo Reel de vídeo sai no molde B" em
+`docs/reels.md` (marca em imagem, manchete por 4 segundos, legenda em português).
+
+**Agendar à mão:** `src/scripts/_agendar-carrossel-manual.ts` (carrossel) e
+`src/scripts/_agendar-reels-manual.ts` (Reel). O vídeo vai a no máximo 9,5 MB.

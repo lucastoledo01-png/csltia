@@ -2291,3 +2291,27 @@ para 14px, o que faz o Safari do iPhone dar zoom ao tocar.
 procurou as irmãs. Ao achar uma regra solta que vence utilidade, ler o arquivo
 inteiro atrás das outras. Medir no navegador (`getComputedStyle`) achou em um
 minuto.
+
+### 09/11/2026: carrossel aprovado e liberado, recusado pelo publicador
+
+**Sintoma.** O carrossel do caso Jensen Huang foi aprovado às 17:17, liberado,
+e não saiu. Às 17:31 o worker o marcou `failed` com
+`SOCIAL_V2_PAYLOAD_INCOMPLETE: content_json.visual`.
+
+**Causa.** O script do chat que gravava o carrossel manual não escrevia
+`content_json.visual`, e o worker exige o registro da foto da capa para
+conferir a variante. O hash da fila não cobre esse campo, então a aprovação
+continuou valendo depois do conserto, e bastou devolver a linha a `scheduled`.
+
+**Corrigido.** `_agendar-carrossel-manual.ts` exige `--foto-capa` e grava o
+campo. **Lição:** caminho manual que grava `social_posts` precisa do contrato
+inteiro do worker (`carga-v2.ts`), e o ensaio só prova o que ele confere.
+
+### 09/11/2026: o Direct do comentário NEWS mandava um link morto
+
+O funil de comentário (OpenReply, automação da palavra NEWS) mandava
+`https://casaloti.ia.br/newsletter?...`, e o domínio já respondia 503 depois da
+mudança para `euajournal.com`. A mensagem mora no OpenReply, não no código
+(ver `decisoes.md`), e o texto ainda falava de "regras de visto". A troca é no
+painel do OpenReply. O padrão de `ENDERECO_DO_SITE` em `marca.ts` ainda é
+`casaloti.ia.br`, e só não pesa porque a produção define `NEXT_PUBLIC_SITE_URL`.
