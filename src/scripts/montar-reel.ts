@@ -39,6 +39,8 @@ type Pedido = {
   categoria: string;
   corte: { x: number; y: number; largura: number; altura: number } | null;
   saida: string;
+  /** Molde B: por quantos segundos a manchete fica na tela (padrão `SEGUNDOS_DA_MANCHETE`). */
+  segundosDaManchete?: number;
 };
 
 /** Onde o vídeo entra no molde A, em pixels do 1080x1920 (medido no template de 28/10/2026). */
@@ -111,13 +113,20 @@ document.fonts.ready.then(()=>{caber(document.getElementById('btt'),760,176,90);
  */
 export const BASE_DO_MOLDE_B = 560;
 
+/*
+ * A manchete do molde B fica na tela só no começo (09/11/2026, pedido do dono):
+ * depois de 4 segundos ela some num fade de meio segundo e sobra o vídeo com a
+ * marca. Manchete parada o Reel inteiro cobre a cena e briga com a legenda.
+ */
+export const SEGUNDOS_DA_MANCHETE = 4;
+
 function logoDoMoldeB(): string {
   const arquivo = path.join(PASTA, "..", "..", "public", "marca", "eua-instagram-fundo-escuro.png");
   return `data:image/png;base64,${readFileSync(arquivo).toString("base64")}`;
 }
 
-function htmlDoMoldeB(p: Pedido): string {
-  const linhas = linhasDoTexto(p.linhas.join("|"));
+function htmlDoMoldeB(p: Pedido, comManchete = true): string {
+  const linhas = comManchete ? linhasDoTexto(p.linhas.join("|")) : [];
   return `<!doctype html><meta charset=utf-8>${FONTES}<style>
 *{box-sizing:border-box}html,body{margin:0;background:transparent}body{width:1080px;height:1920px;position:relative;overflow:hidden}
 .abs{position:absolute}
@@ -130,7 +139,7 @@ function htmlDoMoldeB(p: Pedido): string {
 </style>
 <div id=topo class=abs></div><div id=sc class=abs></div>
 <img id=tab class=abs src="${logoDoMoldeB()}" alt="" />
-<div id=base class=abs>${p.categoria ? `<div id=cat>${escapar(p.categoria.toUpperCase())}</div>` : ""}${linhas.map((l) => `<div class=ln>${escapar(l.texto)}</div>`).join("")}</div>
+<div id=base class=abs>${comManchete && p.categoria ? `<div id=cat>${escapar(p.categoria.toUpperCase())}</div>` : ""}${linhas.map((l) => `<div class=ln>${escapar(l.texto)}</div>`).join("")}</div>
 <script>
 function caber(el,max,de,ate){let t=de;el.style.fontSize=t+'px';el.style.lineHeight=Math.round(t*1.29)+'px';while(el.scrollWidth>max&&t>ate){t-=2;el.style.fontSize=t+'px';el.style.lineHeight=Math.round(t*1.29)+'px'}}
 document.fonts.ready.then(()=>{for(const l of document.querySelectorAll('.ln'))caber(l,930,62,40);document.body.dataset.pronto='1'});
@@ -181,10 +190,16 @@ export async function montarReel(p: Pedido): Promise<string> {
         "-map", "[s]", "-map", "1:a?", ...codificacao, p.saida,
       ]);
     } else {
+      // Duas camadas: a de baixo (marca e escurecido) fica o Reel inteiro; a da manchete some em fade.
+      const semManchete = path.join(pasta, "camada-sem-manchete.png");
       await renderizar(htmlDoMoldeB(p), camada, true);
+      await renderizar(htmlDoMoldeB(p, false), semManchete, true);
+      const s = Math.max(1, p.segundosDaManchete ?? SEGUNDOS_DA_MANCHETE);
       ffmpeg([
-        "-i", p.video, "-loop", "1", "-i", camada,
-        "-filter_complex", `[0:v]${filtroDoVideo(p.corte, 1080, 1920)}[v];[v][1:v]overlay=0:0:shortest=1[s]`,
+        "-i", p.video, "-loop", "1", "-i", semManchete, "-loop", "1", "-i", camada,
+        "-filter_complex",
+        `[0:v]${filtroDoVideo(p.corte, 1080, 1920)}[v];[v][1:v]overlay=0:0:shortest=1[b];` +
+          `[2:v]format=rgba,fade=t=out:st=${s - 0.5}:d=0.5:alpha=1[m];[b][m]overlay=0:0:shortest=1[s]`,
         "-map", "[s]", "-map", "0:a?", ...codificacao, p.saida,
       ]);
     }
