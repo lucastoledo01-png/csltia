@@ -103,6 +103,19 @@ document.fonts.ready.then(()=>{caber(document.getElementById('btt'),760,176,90);
 }
 
 /** Molde B: só a camada de cima, transparente, sobre o vídeo em tela cheia. */
+/*
+ * O molde B do Reel de vídeo (09/11/2026, pedido do dono): a marca é a imagem
+ * "eua." do Instagram, e não "eua.journal" escrito em texto, e o bloco da
+ * manchete sobe para fora da faixa de baixo, onde o Instagram desenha legenda,
+ * nome do perfil e botões. Com a base a 250 px a manchete ficava coberta.
+ */
+export const BASE_DO_MOLDE_B = 560;
+
+function logoDoMoldeB(): string {
+  const arquivo = path.join(PASTA, "..", "..", "public", "marca", "eua-instagram-fundo-escuro.png");
+  return `data:image/png;base64,${readFileSync(arquivo).toString("base64")}`;
+}
+
 function htmlDoMoldeB(p: Pedido): string {
   const linhas = linhasDoTexto(p.linhas.join("|"));
   return `<!doctype html><meta charset=utf-8>${FONTES}<style>
@@ -110,13 +123,13 @@ function htmlDoMoldeB(p: Pedido): string {
 .abs{position:absolute}
 #topo{left:0;right:0;top:0;height:320px;background:linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,0))}
 #sc{left:0;right:0;bottom:0;height:900px;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.6) 45%,rgba(0,0,0,.72))}
-#tab{left:70px;top:110px;color:#fff;font-family:Epilogue;font-weight:800;font-size:54px;letter-spacing:-.01em;text-shadow:0 2px 14px rgba(0,0,0,.55)}#tab b{color:#e5334b}#tab i{font-style:normal;font-weight:300}
-#base{left:91px;right:60px;bottom:250px}
+#tab{left:91px;top:250px;width:210px;filter:drop-shadow(0 2px 10px rgba(0,0,0,.45))}
+#base{left:91px;right:60px;bottom:${BASE_DO_MOLDE_B}px}
 #cat{display:inline-block;margin:0 0 18px 16px;background:#e5334b;color:#fff;font-family:"Source Serif 4";font-weight:700;font-size:28px;letter-spacing:.06em;padding:7px 18px 5px}
 .ln{display:block;width:max-content;max-width:930px;margin-bottom:8px;background:#fff;color:#111;font-family:"Source Serif 4";font-weight:700;font-size:62px;line-height:80px;padding:2px 18px 0;white-space:nowrap}
 </style>
 <div id=topo class=abs></div><div id=sc class=abs></div>
-<div id=tab class=abs>eua<b>.</b><i>journal</i></div>
+<img id=tab class=abs src="${logoDoMoldeB()}" alt="" />
 <div id=base class=abs>${p.categoria ? `<div id=cat>${escapar(p.categoria.toUpperCase())}</div>` : ""}${linhas.map((l) => `<div class=ln>${escapar(l.texto)}</div>`).join("")}</div>
 <script>
 function caber(el,max,de,ate){let t=de;el.style.fontSize=t+'px';el.style.lineHeight=Math.round(t*1.29)+'px';while(el.scrollWidth>max&&t>ate){t-=2;el.style.fontSize=t+'px';el.style.lineHeight=Math.round(t*1.29)+'px'}}
