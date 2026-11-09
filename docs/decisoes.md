@@ -3020,3 +3020,28 @@ que a esteira deve alcançar.
 
 **Agendar à mão:** `src/scripts/_agendar-carrossel-manual.ts` (carrossel) e
 `src/scripts/_agendar-reels-manual.ts` (Reel). O vídeo vai a no máximo 9,5 MB.
+
+## Reels de canais de notícia do YouTube, em inglês inclusive (09/11/2026)
+
+O dono pediu Reel do que os canais de notícia publicam (Bloomberg, CNBC, Fox,
+Casa Branca, CNN Brasil...), com o trecho da fala legendado em português e sem
+marca de terceiro no vídeo. Detalhe em "Canais de notícia do YouTube" em
+`docs/reels.md`.
+
+- **Inglês entra só pelo canal declarado.** O canal diz o idioma em
+  `settings.reels.canais_youtube`; a busca por termo continua só em português.
+  Imigração como notícia política dos EUA entra NOS REELS; orientação de visto
+  fica fora em qualquer idioma. A esteira de notícias não mudou.
+- **A fala vem da legenda do YouTube, sem modelo.** Vídeo em inglês sem legenda
+  não vira Reel: sem a fala com tempo, não há o que traduzir.
+- **Quem escolhe o trecho e traduz é o Claude**, na tarefa `escrever_reel`; a
+  plataforma confere os tempos (15 a 45 s de fala, legenda dentro do trecho,
+  sem sobreposição, pedaço curto, sem travessão).
+- **Marca de terceiro nunca aparece no vídeo.** O vídeo de TV é cortado sempre
+  dentro da faixa limpa (14% a 74% da altura), centrado em quem fala; close
+  fechado demais vai no enquadramento quadrado sobre ele mesmo desfocado. O
+  crédito vai na legenda do post, "Vídeo: Bloomberg", do campo `credito`.
+- **Defaults vazios no código.** A lista dos 19 canais mora no banco
+  (`supabase/2026-11-09-reels-canais-youtube.sql`). Squawk Box e Meet the
+  Press não têm canal próprio com vídeo: saem pelo CNBC Television e pelo NBC
+  News. O canal do Pentágono é o do Department of War.

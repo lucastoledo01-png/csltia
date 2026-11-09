@@ -2315,3 +2315,26 @@ mudança para `euajournal.com`. A mensagem mora no OpenReply, não no código
 (ver `decisoes.md`), e o texto ainda falava de "regras de visto". A troca é no
 painel do OpenReply. O padrão de `ENDERECO_DO_SITE` em `marca.ts` ainda é
 `casaloti.ia.br`, e só não pesa porque a produção define `NEXT_PUBLIC_SITE_URL`.
+
+### O maior retângulo sem marca era uma coluna escura vazia (09/11/2026)
+
+**Sintoma.** Achado antes de ir ao ar, no primeiro Reel de canal montado com
+vídeo real (Powell em Harvard, CNBC Television). O corte do molde B, medido
+pela máscara de sobreposição, saiu na coluna escura à esquerda do palco, e o
+Reel mostrava um canto preto com uma luz, sem ninguém falando.
+
+**Causa.** `maiorRetanguloLivre` escolhe o MAIOR retângulo na proporção que não
+toca a máscara. A régua é de área, não de conteúdo: o palco com logotipo,
+"LIVE" e legenda gravada embaixo deixava livre mais área do lado escuro e
+parado que do lado de quem fala. E a legenda gravada que muda a cada frase não
+é "parada", então a máscara nem a via.
+
+**Corrigido.** O vídeo deitado de canal tem corte próprio,
+`corteDoCanalNaGrade`: sempre dentro da faixa limpa da transmissão (14% a 74%
+da altura), fora da máscara, e centrado no centro de massa da ATIVIDADE (o
+desvio entre os quadros), que é quem fala. O teste usa a mesma cena: coluna
+parada de um lado, atividade do outro.
+
+**Lição.** Corte "sem marca" não é corte bom: tirar o que não pode aparecer é
+metade da régua, a outra é mostrar o que tem de aparecer. E a folha de quadros
+com o corte desenhado mostrou em um olhar o que nenhum número mostrava.

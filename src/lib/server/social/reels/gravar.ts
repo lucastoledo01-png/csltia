@@ -28,7 +28,15 @@ export type FonteDoReel = "instagram" | "youtube" | "link";
 
 export type ReelParaGravar = {
   data: string;
-  candidato: { id: string; fonte: FonteDoReel; origemId: string; autor: string | null; permalink: string | null };
+  candidato: {
+    id: string;
+    fonte: FonteDoReel;
+    origemId: string;
+    autor: string | null;
+    permalink: string | null;
+    /** O nome curto do canal de notícia ("Bloomberg"), quando o vídeo veio de um canal declarado. */
+    credito?: string | null;
+  };
   /** A manchete do molde, que vira o `title` da linha e o título na fila. */
   manchete: string;
   /** A legenda ainda sem fecho; o fecho e o crédito do vídeo são postos aqui. */
@@ -57,7 +65,9 @@ type Falha = { ok: false; error: string };
  * A linha do crédito do vídeo, a última da legenda. Sem autor conhecido, sem
  * linha, pela mesma regra da foto.
  */
-export function creditoDoReel(fonte: FonteDoReel, autor: string | null): string {
+export function creditoDoReel(fonte: FonteDoReel, autor: string | null, credito?: string | null): string {
+  // O canal de notícia declara o crédito curto (09/11/2026): "Vídeo: Bloomberg", sem "(YouTube)".
+  if (credito?.trim()) return `Vídeo: ${credito.trim()}`;
   const nome = (autor ?? "").trim();
   if (!nome) return "";
   if (fonte === "instagram") return `Vídeo: @${nome.replace(/^@/, "")} (Instagram)`;
@@ -90,7 +100,7 @@ export function linhaDoReel(
     altura: reel.video.altura,
     otimizado: reel.video.otimizado,
   };
-  const credito = creditoDoReel(reel.candidato.fonte, reel.candidato.autor);
+  const credito = creditoDoReel(reel.candidato.fonte, reel.candidato.autor, reel.candidato.credito);
   return {
     project_id: projeto.id,
     edition_date: reel.data,

@@ -110,3 +110,87 @@ manchete em caixas brancas. Nada de desenho avulso.
 - O Reel de FOTO continua no próprio formato (`social/reel-de-foto.ts`,
   `docs/formato-reel-padrao.md`).
 - O bucket de vídeo aceita até 10 MB: Reel longo sai em 720x1280.
+
+## Canais de notícia do YouTube, com a fala legendada (09/11/2026)
+
+Pedido do dono: Reel a partir do que os canais de notícia publicam, inclusive
+em inglês, com o trecho da fala legendado em português e sem marca nenhuma de
+terceiro no vídeo.
+
+**Os canais** ficam em `settings.reels.canais_youtube`, uma lista de
+`{ id, handle, nome, idioma: "en" | "pt", credito }`. O padrão do código é
+nenhum; a lista real está em `supabase/2026-11-09-reels-canais-youtube.sql`
+(19 canais, cada id conferido). Canal torto (sem id "UC..." nem handle, sem
+idioma) sai da lista com aviso no `reels_rodada`. `termos_youtube` continua
+funcionando como antes.
+
+**Leitura barata** (`social/reels/canais.ts`): a playlist de uploads do canal é
+"UU" mais o resto do id, então o canal com id custa 1 unidade
+(`playlistItems.list`); com handle, mais 1 do `channels.list`. Os detalhes de
+todos os vídeos novos vêm de um `videos.list` só (1 unidade a cada 50). Ficam
+os vídeos da janela (`janela_horas`), de 20 s a `duracao_maxima_canal`
+(padrão 1.200 s), fora transmissão ao vivo ou agendada. O desfecho da rodada
+grava `canais` e `unidadesDoYoutube`.
+
+**Custo de cota**, com a frequência atual (de hora em hora, das 9h às 17h, 9
+rodadas): as quatro buscas por termo custam 101 cada, 404 por rodada e 3.636
+por dia; os 19 canais custam de 20 a 23 por rodada, uns 200 por dia. Total
+perto de 3.850 das 10.000 diárias.
+
+**Inglês entra**, só pelo canal. A busca por termo continua só com português
+(`serveParaOReel`). O nicho do vídeo em inglês é `casaComNichoEmIngles`
+(`ordem.ts`): tem de falar dos EUA, e esporte e fofoca ficam fora. Imigração
+como notícia política entra nos Reels (Trump, o Congresso); a ORIENTAÇÃO de
+visto (como tirar, entrevista, advogado) fica fora em qualquer idioma
+(`orientacaoDeVisto`). O classificador e o verificador da esteira de notícias
+não mudaram.
+
+**A fala, sem modelo** (`social/reels/transcricao.ts`): no preparo, o yt-dlp
+baixa a legenda do YouTube (a manual, senão a automática) sem baixar o vídeo,
+e o VTT vira segmentos com início e fim. A legenda automática vem "rolando",
+com o tempo de cada palavra; cada palavra entra uma vez. Vídeo em inglês sem
+legenda falha no preparo com o motivo; em português, a legenda é ajuda e a
+falta dela não impede o Reel. O vídeo de canal é guardado com até 240 s
+(`SEGUNDOS_DO_VIDEO_DE_CANAL`), e a transcrição vai até esse ponto.
+
+**A tarefa `escrever_reel`** recebe a transcrição com tempos e o crédito do
+canal, e pede, além do de sempre:
+
+- `trechos`: só a FALA, de 15 a 45 s somados, até 4 trechos, em ordem e sem
+  sobreposição; cada trecho precisa ter fala em pelo menos metade do tempo;
+- `legendas`: a tradução fiel para o português, em pedaços de até 7 palavras
+  (o teto conferido é 8), com o tempo do Reel MONTADO (o 0 é o começo do
+  primeiro trecho, os trechos colados); sem sobreposição, sem travessão, sem
+  passar do fim;
+- `enquadramento`: "cheio" (9:16 na tela toda) ou "quadrado".
+
+Vídeo em inglês sem trechos ou sem legendas volta para reparo. O vídeo de canal
+é sempre o molde B. A transcrição entra no material da ancoragem: o número que
+a pessoa disse sustenta a manchete.
+
+**Sem marca de terceiro.** O vídeo deitado de canal tem corte próprio
+(`corteDoCanalNaGrade`, em `corte.ts`): fica sempre dentro da faixa limpa da
+transmissão (de 14% a 74% da altura, longe dos cantos de logotipo e relógio e
+da faixa de manchete e do "LIVE"), não toca o que a máscara achou parado, e é
+centrado onde a cena mexe, que é quem está falando. O preparo mede também o
+corte quadrado (`corte.q`): com `enquadramento: "quadrado"` o vídeo entra 1:1,
+de 1080, em y 300, sobre ele mesmo esticado e desfocado. O crédito vai na
+legenda do post ("Vídeo: Bloomberg", do campo `credito`), nunca no vídeo; a
+etiqueta do molde pode dizer "VÍDEO: BLOOMBERG". O Short vertical do canal não
+tem faixa de TV e segue a máscara de sempre.
+
+**O render** (`montar-reel.ts`): `trechos` corta e cola antes do molde;
+`legendas` vira uma imagem por pedaço (faixa preta translúcida, Inter 800 de
+42 px, centralizada), com o topo em y 1395 enquanto a manchete está na tela e
+em y 1300 depois que ela some. Acima de 9,5 MB, o Reel sai de novo em
+720x1280, mais comprimido (`tetoDeBytes`). Na linha de comando:
+`--trechos "12.5-30,41-55" --legendas legendas.json --quadrado`.
+
+**Ligar**: rodar o SQL; `YOUTUBE_API_KEY` no EasyPanel (web e worker); deploy
+dos dois. A ferramenta MCP mudou só no texto da instrução: no Claude Desktop,
+fechar com Cmd+Q e abrir de novo para ler a versão nova.
+
+**O que fica de fora por ora**: o vídeo de perfil do Instagram e da busca por
+termo continua podendo sair no molde A (a regra do molde B para todo Reel de
+vídeo só é aplicada em código no vídeo de canal); a fala em português não
+exige legenda.

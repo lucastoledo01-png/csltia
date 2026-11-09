@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { candidatosEmMemoria, type CandidatoDeReel, type PreparoDoReel } from "@/lib/server/social/reels/candidatos";
 import { tarefasEmMemoria } from "../tarefas-store";
-import { abrirEscritaDoReel, conferirTextoDoReel, entregarEscritaDoReel, materialDoCandidato, reabrirEscritaDoReel } from "./tarefa";
+import {
+  abrirEscritaDoReel,
+  conferirTextoDoReel,
+  conferirTrechosELegendas,
+  entregarEscritaDoReel,
+  materialDoCandidato,
+  reabrirEscritaDoReel,
+} from "./tarefa";
 
 const PREPARO: PreparoDoReel = {
   videoUrl: "https://x/origem.mp4",
@@ -149,5 +156,123 @@ describe("o molde do vídeo vertical", () => {
   it("vídeo horizontal pode ficar no A", () => {
     const r = conferirTextoDoReel(BOM, materialDoCandidato(candidato(), PREPARO));
     expect(r.ok && r.texto.molde).toBe("a");
+  });
+});
+
+describe("o vídeo de canal em inglês, com a fala legendada", () => {
+  const FALA = [
+    { inicio: 10, fim: 14.5, texto: "We are not going to cut rates this year," },
+    { inicio: 14.5, fim: 19, texto: "and inflation is still at 3%." },
+    { inicio: 19, fim: 26, texto: "The labor market remains solid, President Trump said." },
+    { inicio: 40, fim: 52, texto: "We will watch the data in December." },
+  ];
+  const PREPARO_DO_CANAL: PreparoDoReel = {
+    ...PREPARO,
+    original: { largura: 1920, altura: 1080, segundos: 240 },
+    corte: { a: null, b: { x: 860, y: 150, largura: 360, altura: 640 }, q: { x: 700, y: 150, largura: 640, altura: 640 } },
+    transcricao: FALA,
+    idioma: "en",
+  };
+  function doCanal(): CandidatoDeReel {
+    return {
+      ...candidato(),
+      fonte: "youtube",
+      origemId: "abc",
+      permalink: "https://www.youtube.com/watch?v=abc",
+      autor: "Bloomberg Television",
+      titulo: "Powell: no rate cut this year",
+      legenda: "",
+      metricas: { canal: { nome: "Bloomberg Television", idioma: "en", credito: "Bloomberg", id: null } },
+      preparo: { ...PREPARO_DO_CANAL },
+    };
+  }
+  const material = materialDoCandidato(doCanal(), PREPARO_DO_CANAL);
+  const TEXTO = {
+    molde: "b",
+    rotulo: "Juros",
+    categoria: "VÍDEO: BLOOMBERG",
+    linhas: ["Powell descarta", "corte de juros"],
+    destaque: 1,
+    legenda: {
+      gancho: "Powell disse que o Fed não vai cortar os juros neste ano e que a inflação ainda está em 3%.",
+      paragrafos: [],
+    },
+    trechos: [
+      { inicio: 10, fim: 26 },
+      { inicio: 40, fim: 50 },
+    ],
+    legendas: [
+      { inicio: 0, fim: 4.5, texto: "Não vamos cortar os juros este ano," },
+      { inicio: 4.5, fim: 9, texto: "e a inflação ainda está em 3%." },
+      { inicio: 16, fim: 26, texto: "Vamos olhar os dados em dezembro." },
+    ],
+  };
+
+  it("o material leva a fala com tempo e o crédito do canal, e o prompt mostra os dois", async () => {
+    expect(material.idioma).toBe("en");
+    expect(material.credito).toBe("Bloomberg");
+    const t = await abrirEscritaDoReel("p1", "2026-11-09", material, tarefasEmMemoria());
+    expect(String(t.instrucao.user)).toContain("[10.0-14.5] We are not going to cut rates this year,");
+    expect(String(t.instrucao.user)).toContain("Vídeo: Bloomberg");
+    expect(String(t.instrucao.system)).toContain("trechos");
+  });
+
+  it("aceita trechos e legendas certos, no molde B, com o corte do quadrado quando pedido", () => {
+    const r = conferirTextoDoReel({ ...TEXTO, enquadramento: "quadrado" }, material);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.texto.molde).toBe("b");
+    expect(r.texto.trechos).toEqual(TEXTO.trechos);
+    expect(r.texto.legendas).toHaveLength(3);
+    expect(r.texto.enquadramento).toBe("quadrado");
+    expect(r.texto.corte).toEqual(PREPARO_DO_CANAL.corte.q);
+    // O número da manchete se ancora na fala transcrita.
+    expect(r.texto.legenda).toContain("3%");
+  });
+
+  it("vídeo de canal pedido no molde A vai para o B", () => {
+    const r = conferirTextoDoReel({ ...TEXTO, molde: "a" }, material);
+    expect(r.ok && r.texto.molde).toBe("b");
+    expect(r.ok && r.texto.corte).toEqual(PREPARO_DO_CANAL.corte.b);
+  });
+
+  it("em inglês, sem trechos ou sem legenda, pede reparo", () => {
+    const r = conferirTextoDoReel({ ...TEXTO, trechos: undefined, legendas: undefined }, material);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.motivos.some((m) => m.startsWith("[TRECHO]"))).toBe(true);
+    expect(r.motivos.some((m) => m.startsWith("[LEGENDA_PT]"))).toBe(true);
+  });
+
+  it("recusa trecho curto, longo, sobreposto, fora do vídeo ou sem fala", () => {
+    const m = { original: material.original, transcricao: FALA, idioma: "en" as const };
+    const legendas = TEXTO.legendas;
+    expect(conferirTrechosELegendas({ trechos: [{ inicio: 10, fim: 19 }], legendas }, m).join(" ")).toContain("somam 9.0 s");
+    expect(conferirTrechosELegendas({ trechos: [{ inicio: 10, fim: 60 }], legendas }, m).join(" ")).toContain("somam 50.0 s");
+    expect(conferirTrechosELegendas({ trechos: [{ inicio: 10, fim: 26 }, { inicio: 20, fim: 30 }], legendas }, m).join(" ")).toContain("sem sobreposição");
+    expect(conferirTrechosELegendas({ trechos: [{ inicio: 230, fim: 250 }], legendas }, m).join(" ")).toContain("passa do fim");
+    expect(conferirTrechosELegendas({ trechos: [{ inicio: 26, fim: 40 }, { inicio: 40, fim: 46 }], legendas }, m).join(" ")).toContain("quase não tem fala");
+    expect(conferirTrechosELegendas({ trechos: TEXTO.trechos, legendas }, m)).toEqual([]);
+  });
+
+  it("recusa legenda vazia, longa, sobreposta, com travessão ou depois do fim do Reel", () => {
+    const m = { original: material.original, transcricao: FALA, idioma: "en" as const };
+    const trechos = TEXTO.trechos;
+    const motivos = (legendas: Array<{ inicio: number; fim: number; texto: string }>) => conferirTrechosELegendas({ trechos, legendas }, m).join(" ");
+    expect(motivos([{ inicio: 0, fim: 2, texto: "  " }])).toContain("está vazia");
+    expect(motivos([{ inicio: 0, fim: 2, texto: "um dois três quatro cinco seis sete oito nove" }])).toContain("palavras");
+    expect(motivos([{ inicio: 0, fim: 3, texto: "um" }, { inicio: 2, fim: 4, texto: "dois" }])).toContain("antes de a 1 terminar");
+    expect(motivos([{ inicio: 0, fim: 2, texto: "juros \u2014 inflação" }])).toContain("travessão");
+    expect(motivos([{ inicio: 20, fim: 30, texto: "fim" }])).toContain("depois do fim do Reel");
+  });
+
+  it("o laço grava trechos e legendas no candidato", async () => {
+    const tarefas = tarefasEmMemoria();
+    const candidatos = candidatosEmMemoria([doCanal()]);
+    const t = await abrirEscritaDoReel("p1", "2026-11-09", material, tarefas);
+    const r = await entregarEscritaDoReel(t, TEXTO, "claude", { tarefas, candidatos });
+    expect(r.desfecho).toBe("pronto");
+    expect(candidatos.todos[0].texto?.trechos).toEqual(TEXTO.trechos);
+    expect(candidatos.todos[0].texto?.legendas?.[0].texto).toBe("Não vamos cortar os juros este ano,");
   });
 });

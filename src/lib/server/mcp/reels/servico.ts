@@ -114,7 +114,18 @@ export async function verReel(
     ...resumo(c),
     estado: c.estado,
     etapa,
-    texto: c.texto ? { molde: c.texto.molde, manchete: c.texto.manchete, legenda: c.texto.legenda, corte: c.texto.corte } : null,
+    texto: c.texto
+      ? {
+          molde: c.texto.molde,
+          manchete: c.texto.manchete,
+          legenda: c.texto.legenda,
+          corte: c.texto.corte,
+          ...(c.texto.trechos ? { trechos: c.texto.trechos } : {}),
+          ...(c.texto.legendas ? { legendas_da_fala: c.texto.legendas } : {}),
+          ...(c.texto.enquadramento ? { enquadramento: c.texto.enquadramento } : {}),
+        }
+      : null,
+    idioma_da_fala: c.preparo?.idioma ?? null,
     corte_proposto: c.preparo?.corte ?? null,
     tarefa: tarefa ? { id: tarefa.id, estado: tarefa.estado, motivos: tarefa.motivos } : null,
     painel: c.estado === "pronta" ? linkDoPainel(acesso.projeto.slug) : null,

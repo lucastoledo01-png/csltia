@@ -20,7 +20,7 @@ export type VideoBaixado = { arquivo: string; largura: number; altura: number; s
 export async function baixarVideo(
   origem: { fonte: FonteDoReel; urlVideo: string | null; permalink: string | null },
   pasta: string,
-  opcoes: { segundos?: number; fetcher?: typeof fetch } = {},
+  opcoes: { segundos?: number; fetcher?: typeof fetch; crf?: number } = {},
 ): Promise<VideoBaixado> {
   const bruto = path.join(pasta, "origem.mp4");
   const url = origem.urlVideo || origem.permalink || "";
@@ -60,7 +60,7 @@ export async function baixarVideo(
   const cortado = path.join(pasta, "video.mp4");
   execFileSync("ffmpeg", [
     "-v", "error", "-y", "-i", bruto, "-t", String(opcoes.segundos ?? 60),
-    "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k", cortado,
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", String(opcoes.crf ?? 18), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k", cortado,
   ]);
   return { arquivo: cortado, ...medidasDoVideo(cortado) };
 }
