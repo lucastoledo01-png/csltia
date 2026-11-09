@@ -253,7 +253,7 @@ Devolva JSON:
 `;
 }
 
-function montarUserDoCarrossel(pauta: PautaAvaliada, pacote: PacoteFactual | null): string {
+export function montarUserDoCarrossel(pauta: PautaAvaliada, pacote: PacoteFactual | null): string {
   const p = pauta.grupo.primary;
 
   const partes = [
@@ -387,24 +387,11 @@ export async function gerarCopyDoCarrossel(
  * afirma 540 dias e o pacote não tem esse número" produz correção, e "melhore
  * o carrossel" produz outro texto com outros defeitos.
  */
-export async function repararCopyDoCarrossel(
-  copy: CopyDoCarrossel,
-  problemas: Array<{ motivo: string; detalhe: string }>,
-  pauta: PautaAvaliada,
-  pacote: PacoteFactual | null,
-  marca: MarcaSocial,
-  opcoes: OpcoesDoCarrossel,
-): Promise<ResultadoDoCarrossel> {
-  const env = opcoes.env ?? process.env;
-  const fetcher = opcoes.fetcher ?? fetch;
-  const config = getAIProviderConfig(env);
-  const posicao = opcoes.posicao ?? 0;
-  const comCta = levaCta(posicao) && Boolean(marca.keyword.trim());
-  const papeis = papeisPara(opcoes.estrutura, opcoes.slides, comCta);
-
+/** O pedido de correção do carrossel, o mesmo da esteira, para o Claude no MCP também. */
+export function instrucaoDeReparoDoCarrossel(copy: CopyDoCarrossel, problemas: Array<{ motivo: string; detalhe: string }>): string {
   const lista = problemas.map((p, i) => `${i + 1}. [${p.motivo}] ${p.detalhe}`).join("\n");
 
-  const instrucao = `
+  return `
 O carrossel abaixo foi recusado. Corrija APENAS os problemas listados e devolva o JSON inteiro.
 
 PROBLEMAS A CORRIGIR:
@@ -421,6 +408,33 @@ REGRAS DA CORREÇÃO:
 CARROSSEL RECUSADO:
 ${JSON.stringify(copy, null, 2)}
 `;
+}
+
+/** A resposta do carrossel limpa e ajustada à estrutura, como a esteira faz depois do modelo. */
+export function aceitarCopyDoCarrossel(data: unknown, papeis: PapelDeSlide[], posicao: number, keyword: string): CopyDoCarrossel {
+  const copy = CopyDoCarrosselSchema.parse(semMarcacaoDeNegrito(limparVicios(data)));
+  copy.slides = ajustarSlides(copy.slides, papeis);
+  encurtarLegenda(copy);
+  copy.cta = levaCta(posicao) && keyword.trim() ? ctaDaPosicao(posicao, keyword) : "";
+  return copy;
+}
+
+export async function repararCopyDoCarrossel(
+  copy: CopyDoCarrossel,
+  problemas: Array<{ motivo: string; detalhe: string }>,
+  pauta: PautaAvaliada,
+  pacote: PacoteFactual | null,
+  marca: MarcaSocial,
+  opcoes: OpcoesDoCarrossel,
+): Promise<ResultadoDoCarrossel> {
+  const env = opcoes.env ?? process.env;
+  const fetcher = opcoes.fetcher ?? fetch;
+  const config = getAIProviderConfig(env);
+  const posicao = opcoes.posicao ?? 0;
+  const comCta = levaCta(posicao) && Boolean(marca.keyword.trim());
+  const papeis = papeisPara(opcoes.estrutura, opcoes.slides, comCta);
+
+  const instrucao = instrucaoDeReparoDoCarrossel(copy, problemas);
 
   const { data, usage } = await callOpenAIJSON<unknown>(
     [

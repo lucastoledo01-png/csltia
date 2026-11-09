@@ -58,6 +58,12 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN npx -y playwright@1.62.1 install --with-deps chromium \
   && rm -rf /var/lib/apt/lists/*
 
+# O Reel de foto do motor Claude (09/11/2026) é montado aqui, no agendamento
+# pelo MCP: o ffmpeg faz o zoom, sobrepõe o quadro do Chromium e põe a trilha.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs nextjs
 

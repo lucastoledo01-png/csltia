@@ -5,7 +5,7 @@ import { nomesDoTitulo } from "@/lib/server/editorial/termometro";
 import type { CandidataPersistida } from "@/lib/server/editorial/candidatos-store";
 import type { CandidatoDeReel } from "@/lib/server/social/reels/candidatos";
 import type { Tarefa, TarefasStore } from "../tarefas-store";
-import type { ItensDoPlano, PlanoDoDia, PlanosStore } from "./plano-store";
+import { FORMATOS_DO_POST, type ItensDoPlano, type PlanoDoDia, type PlanosStore } from "./plano-store";
 
 /**
  * O plano do dia (29/10/2026): o Claude propõe quais pautas viram newsletter,
@@ -30,6 +30,10 @@ export const ItensDoPlanoSchema = z.object({
     .record(z.string(), z.object({ consulta: z.string().min(2), objeto: z.string().default("") }))
     .default({})
     .describe("Para cada storyId do plano: a busca em inglês de uma foto de contexto (sem pessoa identificável nem texto) e o objeto em português."),
+  formatos: z
+    .record(z.string(), z.enum(FORMATOS_DO_POST))
+    .default({})
+    .describe("Para cada storyId de `posts`: \"reel\" (Reel de foto de 10 s, o padrão), \"carrossel\" (notícia em slides com fotos, no máximo um por dia) ou \"estatico\" (a peça de imagem única)."),
 });
 
 const ESQUEMA = z.toJSONSchema(ItensDoPlanoSchema, { io: "input" }) as Record<string, unknown>;
@@ -43,6 +47,8 @@ export type PautaDoPlano = {
   pais: string | null;
   relevancia: number | null;
   veiculos: number;
+  /** Três veículos ou mais contando o mesmo fato: a pauta que está todo mundo falando. */
+  quente?: boolean;
   resumo: string;
   /** De uma fonte que o dono pôs na frente (`settings.fontes_prioritarias`). */
   prioritaria?: boolean;
@@ -69,12 +75,21 @@ export function veiculosLexicos(titulo: string, doDia: Array<{ titulo: string; d
   return dominios.size;
 }
 
+export const VEICULOS_DA_PAUTA_QUENTE = 3;
+export const MAXIMO_DE_CARROSSEIS = 1;
+
+/** Pura: quantos posts do plano precisam sair em Reel (a maioria, desde 09/11/2026). */
+export function minimoDeReels(posts: number): number {
+  return posts >= 2 ? Math.ceil(posts / 2) : 0;
+}
+
 export function pautaDoPlano(
   c: CandidataPersistida,
   doDia: Array<{ titulo: string; dominio: string }>,
   publicadoEm: string | null,
   prioritaria = false,
 ): PautaDoPlano {
+  const v = veiculosLexicos(c.title, doDia);
   return {
     storyId: c.storyId,
     titulo: c.title,
@@ -83,7 +98,8 @@ export function pautaDoPlano(
     eixo: c.classificacao?.eixo ?? null,
     pais: c.classificacao?.pais ?? null,
     relevancia: c.classificacao?.relevancia ?? null,
-    veiculos: veiculosLexicos(c.title, doDia),
+    veiculos: v,
+    ...(v >= VEICULOS_DA_PAUTA_QUENTE ? { quente: true } : {}),
     resumo: (c.summary ?? "").slice(0, 400),
     ...(prioritaria ? { prioritaria: true } : {}),
   };
@@ -132,6 +148,15 @@ export function conferirPlano(itens: ItensDoPlano, material: MaterialDoPlano): s
   }
   for (const id of itens.reels) if (!reels.has(id)) motivos.push(`reels: ${id} não está entre os vídeos sugeridos`);
 
+  const formatos = itens.formatos ?? {};
+  for (const id of itens.posts) if (!formatos[id]) motivos.push(`formatos: falta o formato do post ${id} ("reel", "carrossel" ou "estatico")`);
+  for (const id of Object.keys(formatos)) if (!itens.posts.includes(id)) motivos.push(`formatos: ${id} não está em posts`);
+  const emReel = itens.posts.filter((id) => formatos[id] === "reel").length;
+  const minimo = minimoDeReels(itens.posts.length);
+  const emCarrossel = itens.posts.filter((id) => formatos[id] === "carrossel").length;
+  if (emCarrossel > MAXIMO_DE_CARROSSEIS) motivos.push(`formatos: no máximo ${MAXIMO_DE_CARROSSEIS} carrossel por dia, o plano tem ${emCarrossel}`);
+  if (emReel < minimo) motivos.push(`formatos: a maioria dos posts sai em Reel de foto; com ${itens.posts.length} posts, pelo menos ${minimo} em "reel" (o plano tem ${emReel})`);
+
   const comFoto = new Set([...itens.newsletter, ...itens.artigos, ...itens.posts]);
   for (const id of comFoto) if (!itens.cenas[id]?.consulta) motivos.push(`cenas: falta a busca da foto de contexto de ${id}`);
   for (const id of [...comFoto, ...itens.reels]) if (!itens.porque[id]) motivos.push(`porque: falta a frase de ${id}`);
@@ -143,15 +168,17 @@ export function conferirPlano(itens: ItensDoPlano, material: MaterialDoPlano): s
 const SYSTEM = [
   "Você é o editor-chefe do eua.journal: notícias dos Estados Unidos para brasileiros que sonham em morar, trabalhar ou investir lá.",
   "Monte o plano de produção do dia a partir das pautas que a triagem aprovou e dos vídeos sugeridos para Reel.",
-  "Critérios: o que está mais quente (mais veículos contando o mesmo fato), o que mais importa para o leitor, gente conhecida no centro, variedade de editorias, nada de imigração.",
-  "Newsletter: as pautas mais fortes do dia, a mais forte primeiro. Matérias do portal: pautas com material para um texto completo e que alguém procuraria no Google. Posts: as mais visuais e quentes. Reels: só vídeo que conte uma notícia, sem humor.",
+  "Critérios: o que está mais QUENTE (mais veículos contando o mesmo fato; as marcadas QUENTE têm 3 ou mais), o que mais importa para o leitor, gente conhecida no centro, variedade de editorias, nada de imigração.",
+  "Prefira NARRATIVAS: a história que está andando e rende capítulo (personagem conhecido, conflito, virada, número que surpreende, decisão com consequência), e não o comunicado frio ou a matéria de serviço. Pauta fria só completa o dia.",
+  "Newsletter: as pautas mais fortes do dia, a mais forte primeiro. Matérias do portal: pautas com material para um texto completo e que alguém procuraria no Google. Posts: as mais quentes e visuais, com gente ou marca conhecida no centro. Reels sugeridos (vídeos de terceiros): só vídeo que conte uma notícia, sem humor.",
+  "Formato de cada post, em `formatos`: \"reel\" é o Reel de foto de 10 segundos (foto vertical com zoom lento, chapéu e manchete com destaque em vermelho, trilha) e é o padrão; \"estatico\" é a peça de imagem única, para quando a foto não aguenta um recorte vertical; \"carrossel\" é a notícia em slides (capa, de 1 a 4 passos com foto cada e o convite da newsletter), para UMA pauta do dia com mais material: números, quem disse o quê, desdobramento. Pelo menos metade dos posts em \"reel\", e no máximo um carrossel.",
   "A mesma pauta pode sair em mais de um canal. O Instagram tem um teto só para posts e Reels juntos.",
   "Para cada pauta, dê em `cenas` a busca em inglês de uma foto de contexto (o lugar, o objeto ou o ambiente do assunto, sem pessoa identificável e sem texto), e em `porque` uma frase dizendo por que ela entra.",
 ].join("\n");
 
 function userDoPlano(m: MaterialDoPlano): string {
   const pautas = m.pautas
-    .map((p) => `- ${p.storyId} | ${p.titulo} | ${p.fonte ?? "?"} | ${p.eixo ?? "?"}/${p.pais ?? "?"} | relevância ${p.relevancia ?? "?"} | ${p.veiculos} veículo(s)${p.prioritaria ? " | FONTE PRIORITÁRIA" : ""}\n  ${p.resumo}`)
+    .map((p) => `- ${p.storyId} | ${p.titulo} | ${p.fonte ?? "?"} | ${p.eixo ?? "?"}/${p.pais ?? "?"} | relevância ${p.relevancia ?? "?"} | ${p.veiculos} veículo(s)${p.quente ? " | QUENTE" : ""}${p.prioritaria ? " | FONTE PRIORITÁRIA" : ""}\n  ${p.resumo}`)
     .join("\n");
   const reels = m.reels.map((r) => `- ${r.id} | ${r.fonte} @${r.autor ?? "?"} | nota ${r.nota} | ${r.titulo ?? ""} | ${r.link ?? ""}`).join("\n");
   return [

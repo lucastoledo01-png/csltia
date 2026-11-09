@@ -514,6 +514,48 @@ export function criarGanchosDeProducao(mundo: MundoDosGanchos): GanchosDeRefazer
     const agora = mundo.agora ? mundo.agora() : Date.now();
     const caminho = `${projeto.slug}/${String(l.edition_date ?? "")}/refeito-${String(l.id).slice(0, 8)}-${agora}`;
 
+    /*
+     * O Reel de foto do motor Claude (09/11/2026): a arte é o vídeo. Refazer
+     * a arte (ou trocar a foto) monta o Reel de novo com a foto gravada e o
+     * mesmo destaque, foco e chapéu, e nunca recongela uma peça estática por
+     * cima de um Reel.
+     */
+    const doReel = (cj.reel_de_foto ?? null) as Linha | null;
+    if (cj.formato === "reel" && doReel) {
+      if (!foto) return falha("o Reel de foto não tem foto gravada");
+      const { congelarReelDeFoto } = await import("../social/reel-de-foto");
+      const { subirArquivoParaStorage } = await import("../social/instagram/armazenamento");
+      const focoBruto = (doReel.foco ?? null) as { x?: unknown; y?: unknown } | null;
+      const foco =
+        focoBruto && typeof focoBruto.x === "number" && typeof focoBruto.y === "number" ? { x: focoBruto.x, y: focoBruto.y } : null;
+      const r = await congelarReelDeFoto({
+        fotoUrl: foto,
+        chapeu: typeof doReel.chapeu === "string" ? doReel.chapeu : (chapeu ?? ""),
+        manchete: headline,
+        destaque: typeof doReel.destaque === "string" ? doReel.destaque : String(copy.destaque ?? ""),
+        foco,
+        pasta: `${projeto.slug}/${String(l.edition_date ?? "")}/refeito-${String(l.id).slice(0, 8)}-${agora}`,
+        subir: (b, c, m) => subirArquivoParaStorage(b, c, m, "reels"),
+      });
+      if (!r.ok) return falha(r.motivo);
+      const { error } = await client
+        .from("social_posts")
+        .update({
+          content_json: { ...cj, reel_de_foto: { ...doReel, ...r.registro }, arte: { ...arte, artefato: { ...r.artefato, index: 1 }, artefatos: [{ ...r.artefato, index: 1 }], ...registroDoAprendizado } },
+          asset_paths: [r.artefato.url],
+          slides_manifest: [
+            { index: 1, url: r.artefato.url, filename: r.artefato.filename, sha256: r.artefato.sha256, bytes: r.artefato.bytes, provider_child_id: null },
+          ],
+          updated_at: new Date(agora).toISOString(),
+        })
+        .eq("id", ctx.aprovacao.pecaId)
+        .eq("project_id", projeto.id)
+        .is("provider_creation_id", null)
+        .neq("status", "published");
+      if (error) return falha(`o Reel novo não foi gravado: ${error.message}`);
+      return { ok: true, resumo: { imagens: [r.artefato.url] } };
+    }
+
     if (ehCarrossel(l)) {
       /*
        * O carrossel recongela TODAS as telas: a capa leva a manchete e a foto,
