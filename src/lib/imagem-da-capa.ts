@@ -250,9 +250,24 @@ export const HOSTS_OTIMIZAVEIS = [
   "images-assets.nasa.gov",
 ] as const;
 
+/*
+ * Hosts aceitos pelo `next/image` que o otimizador NÃO busca (10/11/2026).
+ *
+ * O Wikimedia limita o servidor do site: medido no otimizador em produção,
+ * 9 de 12 capas do Commons sem cache voltaram 429 ("upstream response is
+ * invalid"), e a capa da home saiu quebrada. O pedido do servidor sai de um IP
+ * só, para todos os leitores e todos os tamanhos; o do navegador sai do IP de
+ * cada leitor, e é o uso que o Wikimedia aceita. Então a foto do Commons vai
+ * direto ao navegador, já na miniatura (960 ou 1280), sem passar pelo
+ * otimizador. O host continua em `remotePatterns`, para o `next/image` com
+ * `unoptimized` não recusar o endereço.
+ */
+export const HOSTS_SEM_OTIMIZADOR = ["upload.wikimedia.org"] as const;
+
 export function hostOtimizavel(src: string | null | undefined): boolean {
   try {
     const u = new URL(src ?? "");
+    if ((HOSTS_SEM_OTIMIZADOR as readonly string[]).includes(u.hostname)) return false;
     return u.protocol === "https:" && (HOSTS_OTIMIZAVEIS as readonly string[]).includes(u.hostname);
   } catch {
     return false;

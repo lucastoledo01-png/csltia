@@ -49,6 +49,11 @@ describe("hosts do otimizador", () => {
     expect(hostOtimizavel("/marca/logo.png")).toBe(false);
   });
 
+  it("a foto do Commons vai direto ao navegador: o Wikimedia devolve 429 ao otimizador do servidor (10/11/2026)", () => {
+    expect(hostOtimizavel("https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/X.jpg/1280px-X.jpg")).toBe(false);
+    expect(HOSTS_OTIMIZAVEIS).toContain("upload.wikimedia.org");
+  });
+
   it("a rota visual gravada com o domínio antigo vira caminho do próprio site (05/11/2026)", () => {
     const antiga = "https://casaloti.ia.br/api/visual/cartao-da-marca?arquivo=Anduril%20Industries%20Logo.svg";
     expect(fotoNaLargura(antiga, 960)).toBe("/api/visual/cartao-da-marca?arquivo=Anduril%20Industries%20Logo.svg");
