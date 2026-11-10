@@ -81,9 +81,22 @@ export type CandidatoDeReel = {
   atualizadaEm: string;
 };
 
+/**
+ * Só vídeo de hoje ou de ontem vira sugestão (10/11/2026). A descoberta deixa a
+ * linha `nova` para sempre, e sem esta janela o plano de 10/11 propôs dois
+ * vídeos de 28/10 (Flávio Bolsonaro chegando aos EUA), com a nota empatada
+ * com os de hoje. Vídeo sem data de publicação fica de fora: idade desconhecida.
+ */
+export const JANELA_DOS_SUGERIDOS_HORAS = 36;
+
+export function inicioDosSugeridos(agora = Date.now()): string {
+  return new Date(agora - JANELA_DOS_SUGERIDOS_HORAS * 3_600_000).toISOString();
+}
+
 export type CandidatosDeReel = {
   porId(id: string): Promise<CandidatoDeReel | null>;
-  sugeridos(projectId: string, limite: number): Promise<CandidatoDeReel[]>;
+  /** Os `nova` publicados a partir de `desde` (padrão: as últimas 36 horas), nota maior primeiro. */
+  sugeridos(projectId: string, limite: number, desde?: string): Promise<CandidatoDeReel[]>;
   /** Marca `escolhida` só se estava `nova`; devolve se conseguiu. */
   escolher(id: string): Promise<boolean>;
   /** O que falhou volta a `escolhida`, com o preparo e o texto que já tinha: o worker tenta de novo. */
@@ -173,8 +186,17 @@ export function candidatosSupabase(client: SupabaseClient): CandidatosDeReel {
       if (error) throw new Error(`reels_candidatos, leitura falhou: ${error.message}`);
       return data ? daLinha(data as Linha) : null;
     },
-    sugeridos: (projectId, limite) =>
-      lista(tabela().select("*").eq("project_id", projectId).eq("estado", "nova").order("nota", { ascending: false }).limit(limite)),
+    sugeridos: (projectId, limite, desde = inicioDosSugeridos()) =>
+      lista(
+        tabela()
+          .select("*")
+          .eq("project_id", projectId)
+          .eq("estado", "nova")
+          .gte("publicado_em", desde)
+          .order("nota", { ascending: false })
+          .order("publicado_em", { ascending: false })
+          .limit(limite),
+      ),
     escolher: (id) => mudar(id, { estado: "escolhida", motivo: null }, "nova"),
     tentarDeNovo: (id) => mudar(id, { estado: "escolhida", motivo: null }, "falhou"),
     filaDePreparo: (limite) =>
@@ -223,8 +245,11 @@ export function candidatosEmMemoria(iniciais: CandidatoDeReel[] = []): Candidato
   return {
     todos,
     porId: async (id) => achar(id),
-    sugeridos: async (projectId, limite) =>
-      todos.filter((c) => c.projectId === projectId && c.estado === "nova").sort((a, b) => b.nota - a.nota).slice(0, limite),
+    sugeridos: async (projectId, limite, desde = inicioDosSugeridos()) =>
+      todos
+        .filter((c) => c.projectId === projectId && c.estado === "nova" && c.publicadoEm !== null && c.publicadoEm >= desde)
+        .sort((a, b) => b.nota - a.nota || (b.publicadoEm ?? "").localeCompare(a.publicadoEm ?? ""))
+        .slice(0, limite),
     escolher: async (id) => mudar(id, { estado: "escolhida", motivo: null }, "nova"),
     tentarDeNovo: async (id) => mudar(id, { estado: "escolhida", motivo: null }, "falhou"),
     filaDePreparo: async (limite) => todos.filter((c) => c.estado === "escolhida" && !c.preparo).slice(0, limite),

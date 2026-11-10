@@ -2365,3 +2365,30 @@ há `reels_rodada` no banco, não quando o código está no ar.
 **Corrigido sem cron**, por escolha do dono: o `fazer_o_dia` roda a busca de
 vídeos junto com a coleta de notícias. Ver `decisoes.md`.
 
+
+### 10/11/2026: o plano propôs vídeo de 28/10, e a Bruna reprovou o dia inteiro
+
+**Sintoma.** O plano de 10/11 levou dois Reels de vídeo do Flávio Bolsonaro
+chegando aos EUA, publicados em 28/10 e já transformados em Reel no perfil. O
+próprio Claude escreveu no `porque`: "só entra porque a plataforma exige 2
+Reels de vídeo".
+
+**Causa, em três partes.** (1) `reels_candidatos.sugeridos` não tinha janela de
+data: a descoberta deixa a linha `nova` para sempre, e dos 70 vídeos `nova`, 50
+eram de antes de 09/11, com a nota empatada com os de hoje. (2) A regra "vídeo
+primeiro" de 09/11 obrigava 2 Reels de vídeo sempre que havia sugestão, então
+o plano completava com o que tinha. (3) O plano só conhecia os `storyId` dos
+planos aprovados: a mesma história chegando por outro perfil ou outro veículo
+não era reconhecida como repetida.
+
+**Corrigido.** Vídeo sugerido só das últimas 36 horas, e sem data fica de
+fora (`inicioDosSugeridos`). Pauta do plano e do complemento também em 36
+horas, pela data da fonte (era 48). O plano e o complemento recebem as
+manchetes dos últimos 7 dias do feed (`manchetesDoPerfil`) com a proibição de
+repetir o fato, e veem a data de cada vídeo. O mínimo de vídeo continua, mas o
+plano pode levar menos quando diz em `porque.reels` por que nenhum serve.
+
+**Lição.** A regra "só fato de hoje ou de ontem" estava na triagem de notícias
+e não na fonte nova (vídeo), que chegou depois. Fonte nova de pauta precisa da
+mesma janela de data. E regra que OBRIGA uma cota sem saída faz o modelo
+completar a cota com o que tiver, mesmo sabendo que está errado.

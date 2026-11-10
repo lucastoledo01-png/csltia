@@ -58,8 +58,10 @@ export type MaterialDoPlano = {
   data: string;
   volumes: { newsletter: { minimo: number; maximo: number }; artigos: number; instagram: number };
   pautas: PautaDoPlano[];
-  reels: Array<{ id: string; fonte: string; autor: string | null; titulo: string | null; nota: number; link: string | null }>;
+  reels: Array<{ id: string; fonte: string; autor: string | null; titulo: string | null; nota: number; link: string | null; publicado?: string | null }>;
   jaUsadas: { newsletter: string[]; artigos: string[]; instagram: string[] };
+  /** O que já foi ao feed nos últimos dias (manchete ou primeira linha da legenda): nem pauta nem vídeo repete. */
+  noPerfil?: string[];
   reprovacao?: string;
 };
 
@@ -161,8 +163,12 @@ export function conferirPlano(itens: ItensDoPlano, material: MaterialDoPlano): s
   for (const id of itens.reels) if (!reels.has(id)) motivos.push(`reels: ${id} não está entre os vídeos sugeridos`);
   // Vídeo primeiro (09/11/2026): havendo vídeo sugerido, o dia leva Reel de vídeo.
   const minimoDeVideos = minimoDeReelsDeVideo(material.reels.length, v.instagram);
-  if (itens.reels.length < minimoDeVideos) {
-    motivos.push(`reels: há ${material.reels.length} vídeo(s) sugerido(s); o dia leva pelo menos ${minimoDeVideos} Reel(s) de vídeo, o plano tem ${itens.reels.length}`);
+  // 10/11/2026: obrigar o vídeo fez o plano levar vídeo de 28/10 "porque a plataforma exige".
+  // Menos vídeo vale quando o plano diz em `porque.reels` por que os sugeridos não servem.
+  if (itens.reels.length < minimoDeVideos && (itens.porque?.reels ?? "").trim().length < 15) {
+    motivos.push(
+      `reels: há ${material.reels.length} vídeo(s) sugerido(s); o dia leva pelo menos ${minimoDeVideos} Reel(s) de vídeo, o plano tem ${itens.reels.length}. Se nenhum serve (velho, repetido, sem notícia), diga por quê em porque.reels`,
+    );
   }
 
   const formatos = itens.formatos ?? {};
@@ -189,19 +195,33 @@ const SYSTEM = [
   "Prefira NARRATIVAS: a história que está andando e rende capítulo (personagem conhecido, conflito, virada, número que surpreende, decisão com consequência), e não o comunicado frio ou a matéria de serviço. Pauta fria só completa o dia.",
   "Newsletter: as pautas mais fortes do dia, a mais forte primeiro. Matérias do portal: pautas com material para um texto completo e que alguém procuraria no Google. Posts: as mais quentes e visuais, com gente ou marca conhecida no centro. Reels sugeridos (vídeos de terceiros): só vídeo que conte uma notícia, sem humor.",
   "Formato de cada post, em `formatos`: \"reel\" é o Reel de foto de 10 segundos (foto vertical com zoom lento, chapéu e manchete com destaque em vermelho, trilha) e é o padrão; \"estatico\" é a peça de imagem única, para quando a foto não aguenta um recorte vertical; \"carrossel\" é a notícia em slides (capa, de 1 a 4 passos com foto cada e o fechamento \"Siga @eua.journal\"), para UMA pauta do dia com mais material: números, quem disse o quê, desdobramento. Pelo menos metade dos posts em \"reel\", e no máximo um carrossel.",
-  "VÍDEO PRIMEIRO: os Reels de vídeo (a fala da pessoa, legendada em português) são o formato que mais rende. Havendo vídeo sugerido que conte notícia, ponha em `reels` até 2 por dia, os mais quentes primeiro (CEO, presidente, autoridade falando do assunto do dia).",
+  "SÓ O QUE ESTÁ QUENTE AGORA, de hoje ou de ontem: notícia que requenta fato de dias atrás (mesmo publicada hoje por outro veículo) não entra, vídeo publicado antes de ontem não entra, e nada que já saiu no perfil volta, nem como pauta nem como vídeo. Desdobramento só com fato NOVO de hoje. Sem vídeo novo que sirva, deixe `reels` vazio: não complete com vídeo velho.",
+  "VÍDEO PRIMEIRO: os Reels de vídeo (a fala da pessoa, legendada em português) são o formato que mais rende. Havendo vídeo sugerido que conte notícia, ponha em `reels` até 2 por dia, os mais quentes primeiro (CEO, presidente, autoridade falando do assunto do dia). Se nenhum sugerido serve (velho, já saiu no perfil, não conta notícia), leve menos ou nenhum e diga por quê em `porque.reels`.",
   "A HISTÓRIA MAIS QUENTE DO DIA pode sair em dois formatos no Instagram: o carrossel dela em `posts` e um Reel de vídeo sobre ela em `reels` (a fala de quem está no centro da história). É variação, não repetição: cada peça conta um lado.",
   "A mesma pauta pode sair em mais de um canal. O Instagram tem um teto só para posts e Reels juntos.",
   "Para cada pauta, dê em `cenas` a busca em inglês de uma foto de contexto (o lugar, o objeto ou o ambiente do assunto, sem pessoa identificável e sem texto), e em `porque` uma frase dizendo por que ela entra.",
 ].join("\n");
 
+/** Pura: a linha de um vídeo sugerido, com a data de publicação, para o Claude ver a idade. */
+export function linhaDoReel(r: MaterialDoPlano["reels"][number]): string {
+  const quando = r.publicado ? ` | publicado ${r.publicado.slice(0, 16).replace("T", " ")} UTC` : "";
+  return `- ${r.id} | ${r.fonte} @${r.autor ?? "?"} | nota ${r.nota}${quando} | ${r.titulo ?? ""} | ${r.link ?? ""}`;
+}
+
+/** Pura: o bloco do que já saiu no perfil (10/11/2026: o plano repetia fato publicado). */
+export function blocoDoPerfil(noPerfil: string[] | undefined): string {
+  if (!noPerfil?.length) return "";
+  return `JÁ SAIU NO PERFIL NOS ÚLTIMOS DIAS (nenhuma pauta nem vídeo pode repetir estes FATOS, nem com outra manchete ou outro ângulo; só entra desdobramento com fato NOVO de hoje):\n${noPerfil.map((t) => `- ${t}`).join("\n")}`;
+}
+
 function userDoPlano(m: MaterialDoPlano): string {
   const pautas = m.pautas
     .map((p) => `- ${p.storyId} | ${p.titulo} | ${p.fonte ?? "?"} | ${p.eixo ?? "?"}/${p.pais ?? "?"} | relevância ${p.relevancia ?? "?"} | ${p.veiculos} veículo(s)${p.quente ? " | QUENTE" : ""}${p.prioritaria ? " | FONTE PRIORITÁRIA" : ""}\n  ${p.resumo}`)
     .join("\n");
-  const reels = m.reels.map((r) => `- ${r.id} | ${r.fonte} @${r.autor ?? "?"} | nota ${r.nota} | ${r.titulo ?? ""} | ${r.link ?? ""}`).join("\n");
+  const reels = m.reels.map(linhaDoReel).join("\n");
   return [
     `DATA: ${m.data}`,
+    blocoDoPerfil(m.noPerfil),
     `VOLUMES: newsletter ${m.volumes.newsletter.minimo} a ${m.volumes.newsletter.maximo}; portal até ${m.volumes.artigos}; Instagram até ${m.volumes.instagram} (posts e Reels juntos).`,
     `PAUTAS APROVADAS NA TRIAGEM (${m.pautas.length}):\n${pautas || "(nenhuma)"}`,
     m.pautas.some((p) => p.prioritaria)
@@ -287,5 +307,5 @@ export async function reabrirPlano(plano: PlanoDoDia, motivo: string, deps: Pick
 }
 
 export function reelsDoPlano(lista: CandidatoDeReel[]): MaterialDoPlano["reels"] {
-  return lista.map((r) => ({ id: r.id, fonte: r.fonte, autor: r.autor, titulo: r.titulo, nota: r.nota, link: r.permalink }));
+  return lista.map((r) => ({ id: r.id, fonte: r.fonte, autor: r.autor, titulo: r.titulo, nota: r.nota, link: r.permalink, publicado: r.publicadoEm }));
 }

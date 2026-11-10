@@ -169,7 +169,7 @@ export async function reelsSugeridos(acesso: AcessoDoMcp, args: { limite?: unkno
     reels: lista.map(resumo),
     proximo_passo: lista.length
       ? "Escolha um e chame produzir_reel com o id. Abra o link para ver o vídeo de origem."
-      : "Nenhum candidato novo. A descoberta roda de hora em hora, das 9h às 17h.",
+      : "Nenhum vídeo das últimas 36 horas. A busca roda no começo do fazer_o_dia; vídeo mais velho não vira Reel.",
   };
 }
 

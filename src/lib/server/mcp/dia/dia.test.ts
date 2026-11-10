@@ -124,6 +124,13 @@ describe("o plano", () => {
     expect(conferirPlano(bom, material)).toEqual([]);
   });
 
+  it("sem vídeo que sirva, o plano diz por quê e passa (10/11/2026: não completa com vídeo velho)", () => {
+    const comMotivo = { ...bom, reels: [], porque: { ...bom.porque, reels: "o único vídeo é de 28/10 e o fato já saiu no perfil" } };
+    expect(conferirPlano(comMotivo, material)).toEqual([]);
+    const motivoVazio = { ...bom, reels: [], porque: { ...bom.porque, reels: "não" } };
+    expect(conferirPlano(motivoVazio, material).some((m) => m.startsWith("reels:"))).toBe(true);
+  });
+
   it("exige o formato de cada post e a maioria em Reel de foto", () => {
     const tres = {
       ...bom,
