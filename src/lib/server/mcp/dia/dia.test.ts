@@ -183,6 +183,17 @@ describe("o plano", () => {
     expect(tirado.cenas).toEqual(bom.cenas);
     expect(() => itensEditados(bom, JSON.stringify({ ...bom, posts: ["p2", "novo"] }))).toThrow(/só dá para tirar/);
   });
+
+  it("tirar um vídeo no painel não apaga os extras (10/11/2026: sumiram Anthropic e Ring)", () => {
+    const comExtras = { ...bom, extras: ["link1", "link2"], formatos: { ...bom.formatos, link1: "reel" as const, link2: "estatico" as const } };
+    const semExtrasNoTexto = { ...bom, reels: [] } as Record<string, unknown>;
+    const tirado = itensEditados(comExtras, JSON.stringify(semExtrasNoTexto));
+    expect(tirado.reels).toEqual([]);
+    expect(tirado.extras).toEqual(["link1", "link2"]);
+    expect(tirado.formatos?.link2).toBe("estatico");
+    const tiraUm = itensEditados(comExtras, JSON.stringify({ ...comExtras, extras: ["link2", "inventado"] }));
+    expect(tiraUm.extras).toEqual(["link2"]);
+  });
 });
 
 describe("a foto e o pacote", () => {

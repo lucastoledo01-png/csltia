@@ -12,15 +12,27 @@ export function comPlano(ganchos: GanchosDeRefazer, client: () => SupabaseClient
     ...ganchos,
     plano: {
       selecao: async (ctx) => {
-        const [{ planosSupabase }, { tarefasSupabase }, { reabrirPlano }] = await Promise.all([
-          import("./plano-store"),
-          import("../tarefas-store"),
-          import("./plano"),
-        ]);
+        const [{ planosSupabase }, { tarefasSupabase }, { reabrirPlano, reelsDoPlano }, { candidatosSupabase }, { manchetesDoPerfil, DIAS_DO_PERFIL_NO_PLANO }] =
+          await Promise.all([
+            import("./plano-store"),
+            import("../tarefas-store"),
+            import("./plano"),
+            import("@/lib/server/social/reels/candidatos"),
+            import("./deps"),
+          ]);
         const planos = planosSupabase(client());
         const plano = await planos.porId(ctx.aprovacao.pecaId);
         if (!plano) return { ok: false, motivo: "o plano não existe mais" };
-        const tarefa = await reabrirPlano(plano, ctx.motivo, { planos, tarefas: tarefasSupabase(client()) });
+        // Os vídeos e o feed de agora, não os de quando o plano foi proposto (10/11/2026).
+        const renovar = async () => ({
+          reels: reelsDoPlano(await candidatosSupabase(client()).sugeridos(plano.projectId, 10)),
+          noPerfil: await manchetesDoPerfil(
+            client(),
+            plano.projectId,
+            new Date(Date.now() - DIAS_DO_PERFIL_NO_PLANO * 86_400_000).toISOString().slice(0, 10),
+          ),
+        });
+        const tarefa = await reabrirPlano(plano, ctx.motivo, { planos, tarefas: tarefasSupabase(client()), renovar });
         if (!tarefa) return { ok: false, motivo: "a tarefa do plano não existe mais: peça ao Claude um plano novo" };
         return { ok: true, assincrona: `voltou ao Claude (tarefa ${tarefa.id}): o plano novo entra aqui quando ele refizer` };
       },

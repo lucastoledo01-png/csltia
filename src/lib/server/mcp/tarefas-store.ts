@@ -76,7 +76,8 @@ export type TarefasStore = {
    * substitui a gravada: o reparo da copy é o mesmo pedido com a lista do que
    * corrigir no fim, como o reparo da esteira.
    */
-  pedirReparo(id: string, resultado: unknown, motivos: string[], quem: string, instrucao?: Record<string, unknown>): Promise<Tarefa>;
+  /** `material`, quando vem, substitui o da tarefa (o plano reprovado volta com vídeos e feed relidos). */
+  pedirReparo(id: string, resultado: unknown, motivos: string[], quem: string, instrucao?: Record<string, unknown>, material?: Record<string, unknown>): Promise<Tarefa>;
   /** Acrescenta ao resultado de uma tarefa entregue o que a plataforma concluiu depois (a guarda passou). */
   anotar(id: string, resultado: unknown): Promise<Tarefa>;
   /** Encerra sem publicar, com o motivo: pauta que nenhuma reescrita resolve. */
@@ -141,10 +142,11 @@ export function tarefasEmMemoria(agora: () => Date = () => new Date()): TarefasS
       Object.assign(t, { estado: "entregue", resultado, motivos: [], tentativas: t.tentativas + 1, entregueEm: agora().toISOString(), entreguePor: quem });
       return t;
     },
-    async pedirReparo(id, resultado, motivos, quem, instrucao) {
+    async pedirReparo(id, resultado, motivos, quem, instrucao, material) {
       const t = achar(id);
       Object.assign(t, { estado: "reparar", resultado, motivos, tentativas: t.tentativas + 1, entreguePor: quem });
       if (instrucao) t.instrucao = instrucao;
+      if (material) t.material = material;
       return t;
     },
     async anotar(id, resultado) {
@@ -270,7 +272,7 @@ export function tarefasSupabase(client: SupabaseClient): TarefasStore {
         entregue_por: quem,
       });
     },
-    async pedirReparo(id, resultado, motivos, quem, instrucao) {
+    async pedirReparo(id, resultado, motivos, quem, instrucao, material) {
       const atual = await porId(id);
       if (!atual) throw new Error(`tarefa ${id} não existe`);
       return atualizar(id, {
@@ -280,6 +282,7 @@ export function tarefasSupabase(client: SupabaseClient): TarefasStore {
         tentativas: atual.tentativas + 1,
         entregue_por: quem,
         ...(instrucao ? { instrucao } : {}),
+        ...(material ? { material } : {}),
       });
     },
     async anotar(id, resultado) {

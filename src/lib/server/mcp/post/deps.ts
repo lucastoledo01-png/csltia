@@ -7,7 +7,7 @@ import { resolverKeywordCanonica } from "@/lib/server/social/keyword-canonica";
 import { hashtagsLigadasNoProjeto } from "@/lib/server/social/legenda-final";
 import type { MarcaSocial } from "@/lib/server/social/copy";
 import { tarefasSupabase } from "../tarefas-store";
-import { planosSupabase } from "../dia/plano-store";
+import { planosSupabase, postsDoPlano } from "../dia/plano-store";
 import { materialDaPauta } from "../dia/material";
 import { lerImagemDaPauta } from "@/lib/server/visual/acervo/imagem-da-pauta";
 import type { DepsDoAgendamento } from "./agendar";
@@ -55,11 +55,15 @@ export function depsDoPost(client: SupabaseClient): DepsDoPost & DepsDoAgendamen
        * antigo, que reaproveita os posts que a esteira produziu.
        */
       const plano = await planosSupabase(client).doDia(projeto.id, data);
-      if (plano.estado === "aprovado" && plano.itens.posts.includes(storyId)) {
+      // O extra (link ou complemento) sai antes de o plano ser aprovado (10/11/2026):
+      // sem isto as quatro pautas por link da Bruna caíam no caminho antigo e travavam.
+      const posts = postsDoPlano(plano.itens);
+      const doPlano = plano.estado === "aprovado" ? posts.includes(storyId) : (plano.itens.extras ?? []).includes(storyId);
+      if (doPlano) {
         const candidata = (await candidatos.buscarPorStoryIds(projeto.id, [storyId])).get(storyId);
         if (!candidata) return { ok: false, motivo: `a pauta ${storyId} não está na triagem do projeto` };
         const foto = await lerImagemDaPauta(client, projeto.id, storyId);
-        return materialDaPauta(candidata, foto, data, plano.itens.posts.indexOf(storyId) + 1);
+        return materialDaPauta(candidata, foto, data, posts.indexOf(storyId) + 1);
       }
       const fonte = await projetoDaFonte(projeto);
       if (!fonte) return { ok: false, motivo: `o projeto de pautas "${slugDaFonteDasPautas(projeto)}" não existe` };

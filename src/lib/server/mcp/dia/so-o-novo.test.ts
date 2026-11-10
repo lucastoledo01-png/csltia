@@ -68,3 +68,37 @@ describe("o plano sabe o que já saiu no perfil", () => {
     expect(blocoDoPerfil(undefined)).toBe("");
   });
 });
+
+describe("o plano reprovado volta com os vídeos e o feed de agora", () => {
+  it("troca os vídeos velhos da tarefa pelos relidos", async () => {
+    const { tarefasEmMemoria } = await import("../tarefas-store");
+    const { planosEmMemoria } = await import("./plano-store");
+    const { reabrirPlano } = await import("./plano");
+    const tarefas = tarefasEmMemoria();
+    const planos = planosEmMemoria();
+    const plano = await planos.doDia("p1", "2026-11-10");
+    const velho = reelsDoPlano([candidato("flavio-28-10", "2026-10-28T14:21:03Z")]);
+    const tarefa = await tarefas.abrir({
+      projectId: "p1",
+      editionDate: "2026-11-10",
+      tipo: "propor_plano",
+      chave: "plano-2026-11-10",
+      instrucao: {},
+      material: { data: "2026-11-10", volumes: { newsletter: { minimo: 2, maximo: 4 }, artigos: 3, instagram: 5 }, reels: velho, pautas: [], jaUsadas: { newsletter: [], artigos: [], instagram: [] } },
+      esquema: {},
+    });
+    await planos.atualizar(plano.id, { tarefaId: tarefa.id });
+    const comTarefa = (await planos.porId(plano.id))!;
+    const novos = reelsDoPlano([candidato("hegseth-hoje", "2026-11-10T15:27:33Z")]);
+    const reaberta = await reabrirPlano(comTarefa, "vídeos velhos", {
+      tarefas,
+      planos,
+      renovar: async () => ({ reels: novos, noPerfil: ["2026-11-06 | Flávio ao NYT"] }),
+    });
+    const material = reaberta!.material as { reels: Array<{ id: string }>; noPerfil: string[]; reprovacao: string };
+    expect(material.reels.map((r) => r.id)).toEqual(["hegseth-hoje"]);
+    expect(material.noPerfil).toEqual(["2026-11-06 | Flávio ao NYT"]);
+    expect(material.reprovacao).toBe("vídeos velhos");
+    expect(String(reaberta!.instrucao.user)).not.toContain("flavio-28-10");
+  });
+});

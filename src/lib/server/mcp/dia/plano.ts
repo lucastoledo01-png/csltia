@@ -293,17 +293,29 @@ export async function entregarPlano(
   return { ok: true, desfecho: "plano_na_fila", planoId: plano.id };
 }
 
-/** A reprovação do plano no painel: a mesma tarefa volta ao Claude com o motivo. */
-export async function reabrirPlano(plano: PlanoDoDia, motivo: string, deps: Pick<DepsDoPlano, "tarefas" | "planos">): Promise<Tarefa | null> {
+/**
+ * A reprovação do plano no painel: a mesma tarefa volta ao Claude com o motivo.
+ * `renovar` relê os vídeos sugeridos e o feed (10/11/2026): sem isso o plano
+ * refeito voltava com os mesmos vídeos de 28/10 que motivaram a reprovação.
+ */
+export async function reabrirPlano(
+  plano: PlanoDoDia,
+  motivo: string,
+  deps: Pick<DepsDoPlano, "tarefas" | "planos"> & { renovar?: () => Promise<Pick<MaterialDoPlano, "reels" | "noPerfil">> },
+): Promise<Tarefa | null> {
   const tarefa = plano.tarefaId ? await deps.tarefas.porId(plano.tarefaId) : null;
   if (!tarefa) return null;
-  const material = { ...(tarefa.material as unknown as MaterialDoPlano), reprovacao: motivo };
+  const novos = deps.renovar ? await deps.renovar() : {};
+  const material = { ...(tarefa.material as unknown as MaterialDoPlano), ...novos, reprovacao: motivo };
   await deps.planos.atualizar(plano.id, { estado: "reprovado", etapa: "plano", motivo });
-  return deps.tarefas.pedirReparo(tarefa.id, tarefa.resultado, [`[PAINEL] ${motivo}`], "painel", {
-    system: SYSTEM,
-    user: userDoPlano(material),
-    orientacao: "Responda SÓ com o JSON do esquema.",
-  });
+  return deps.tarefas.pedirReparo(
+    tarefa.id,
+    tarefa.resultado,
+    [`[PAINEL] ${motivo}`],
+    "painel",
+    { system: SYSTEM, user: userDoPlano(material), orientacao: "Responda SÓ com o JSON do esquema." },
+    deps.renovar ? (material as unknown as Record<string, unknown>) : undefined,
+  );
 }
 
 export function reelsDoPlano(lista: CandidatoDeReel[]): MaterialDoPlano["reels"] {

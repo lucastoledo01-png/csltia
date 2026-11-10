@@ -30,6 +30,9 @@ RUN apt-get update \
 
 COPY tsconfig.json ./
 COPY src ./src
+# A montagem do Reel de vídeo lê a marca de public/marca (10/11/2026: sem esta
+# linha os dois primeiros Reels do MCP falharam com o arquivo ausente).
+COPY public ./public
 
 ENV NODE_ENV=production
 # Sem intervalo o script faz uma passada e encerra; com intervalo ele repete.
