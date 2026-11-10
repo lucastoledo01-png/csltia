@@ -27,7 +27,44 @@ export type ItensDoPlano = {
    * disso não tem o campo e sai estático.
    */
   formatos?: Record<string, FormatoDoPostDoClaude>;
+  /**
+   * As pautas que entraram FORA do plano proposto (10/11/2026): o complemento
+   * do dia, pedido quando a aprovação deixou menos posts que o alvo, e o link
+   * que o dono mandou ao Claude. Cada uma vira post, matéria e, se couber,
+   * newsletter, e não passa de novo pela aprovação do plano: cada peça já
+   * espera aprovação no painel.
+   */
+  extras?: string[];
 };
+
+const unicos = (lista: string[]) => [...new Set(lista)];
+
+/** Os posts do dia: os do plano e os extras. */
+export function postsDoPlano(itens: Pick<ItensDoPlano, "posts" | "extras">): string[] {
+  return unicos([...itens.posts, ...(itens.extras ?? [])]);
+}
+
+/**
+ * As matérias do dia (10/11/2026, regra do dono): todo post gerado pelo MCP
+ * vira matéria do blog também, além das que o plano escolheu.
+ */
+export function artigosDoPlano(itens: Pick<ItensDoPlano, "artigos" | "posts" | "extras">): string[] {
+  return unicos([...itens.artigos, ...postsDoPlano(itens)]);
+}
+
+/**
+ * As pautas da newsletter (10/11/2026, regra do dono): as do plano primeiro,
+ * depois todo post do dia, até o teto da cadência. O que passa do teto fica de
+ * fora, por decisão do dono.
+ */
+export function newsletterDoPlano(itens: Pick<ItensDoPlano, "newsletter" | "posts" | "extras">, maximo: number): string[] {
+  return unicos([...itens.newsletter, ...postsDoPlano(itens)]).slice(0, Math.max(0, maximo));
+}
+
+/** Toda pauta que o dia produz, em qualquer canal. */
+export function pautasDoPlano(itens: ItensDoPlano): string[] {
+  return unicos([...itens.newsletter, ...artigosDoPlano(itens)]);
+}
 
 export const FORMATOS_DO_POST = ["reel", "estatico", "carrossel"] as const;
 export type FormatoDoPostDoClaude = (typeof FORMATOS_DO_POST)[number];
@@ -55,7 +92,7 @@ export type PlanosStore = {
   doDia(projectId: string, data: string): Promise<PlanoDoDia>;
   porId(id: string): Promise<PlanoDoDia | null>;
   atualizar(id: string, campos: Partial<Pick<PlanoDoDia, "etapa" | "estado" | "itens" | "motivo" | "tarefaId">>): Promise<PlanoDoDia>;
-  /** Os planos aprovados da janela, para não repetir pauta no mesmo canal. */
+  /** Os planos aprovados da janela, para não repetir pauta no mesmo canal (os extras contam como posts). */
   aprovadosDesde(projectId: string, desde: string): Promise<PlanoDoDia[]>;
 };
 

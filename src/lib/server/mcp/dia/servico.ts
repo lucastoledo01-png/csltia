@@ -13,7 +13,9 @@ import type { AcessoDoMcp } from "../tokens";
 import { entregarTarefaDoArtigo } from "../artigo/fluxo";
 import { entregarTarefaDaNewsletter, TIPOS_DA_NEWSLETTER } from "../newsletter/fluxo";
 import { depsDaNewsletter, depsDoArtigo, depsDoDiretor } from "./deps";
-import { proximoPassoDoDia, type PassoDoDia } from "./diretor";
+import { pedirComplemento, proximoPassoDoDia, type PassoDoDia } from "./diretor";
+import { entregarComplemento, TIPO_DO_COMPLEMENTO } from "./complemento";
+import { adicionarLinkAoDia, candidataDoLinkSupabase, lerPedidoDoLink } from "./link";
 import { entregarFoto, TIPO_DA_FOTO, type MaterialDaFoto } from "./fotos";
 import { entregarPacote, TIPO_DO_PACOTE } from "./pacotes";
 import { entregarPlano, TIPO_DO_PLANO } from "./plano";
@@ -147,6 +149,8 @@ export async function entregarDoDia(
         if (!linha) throw new Error("a fila de aprovação está desligada: o plano precisa dela em enforce");
       },
     });
+  } else if (tarefa.tipo === TIPO_DO_COMPLEMENTO) {
+    desfecho = await entregarComplemento(tarefa, resultado, quem, { tarefas, planos: planosSupabase(client) });
   } else if (tarefa.tipo === TIPO_DO_PACOTE) {
     desfecho = await entregarPacote(tarefa, resultado, quem, {
       tarefas,
@@ -178,13 +182,61 @@ export async function entregarDoDia(
 
   // A tarefa de reparo volta com as fotos, quando é foto; o resto, como o diretor mandar.
   const { tarefa: _t, ...semTarefa } = desfecho as { tarefa?: Tarefa };
-  const proximo = await proximoPassoDoDia(projeto, tarefa.editionDate, depsDoDiretor(client));
+  // A entrega não começa um dia que não começou: o post do link termina em "pronto" (10/11/2026).
+  const proximo = await proximoPassoDoDia(projeto, tarefa.editionDate, depsDoDiretor(client), { comecarODia: false });
   return { ok: true, ...semTarefa, proximo: await passoParaOClaude(proximo, acesso) };
 }
 
-/** O próximo passo do dia, só quando há um dia em produção (plano aprovado): a entrega do post manual não puxa a triagem. */
+/**
+ * O próximo passo do dia, só quando há um dia em produção (plano aprovado) ou
+ * pauta avulsa andando: a entrega do post manual não puxa a triagem.
+ */
 export async function proximoSeHouverDia(acesso: AcessoDoMcp, data: string, client: SupabaseClient): Promise<Record<string, unknown> | null> {
   const plano = await planosSupabase(client).doDia(acesso.projeto.id, data);
-  if (plano.estado !== "aprovado") return null;
-  return passoParaOClaude(await proximoPassoDoDia(acesso.projeto, data, depsDoDiretor(client)), acesso);
+  if (plano.estado !== "aprovado" && !(plano.itens.extras ?? []).length) return null;
+  return passoParaOClaude(await proximoPassoDoDia(acesso.projeto, data, depsDoDiretor(client), { comecarODia: false }), acesso);
+}
+
+/**
+ * `complementar_o_dia` (10/11/2026): mais pautas para um dia já aprovado, em
+ * qualquer etapa, inclusive o que estava pronto. Sem nova aprovação de plano.
+ */
+export async function complementarODia(
+  acesso: AcessoDoMcp,
+  args: { data?: unknown; quantas?: unknown; pedido?: unknown },
+  client: SupabaseClient,
+): Promise<Resposta> {
+  const data = dataOuHoje(args.data, acesso);
+  if (!data) return { ok: false, status: 400, error: "data inválida: use AAAA-MM-DD" };
+  const quantas = Number(args.quantas);
+  const r = await pedirComplemento(acesso.projeto, data, depsDoDiretor(client), {
+    ...(Number.isFinite(quantas) && quantas > 0 ? { quantas: Math.round(quantas) } : {}),
+    ...(typeof args.pedido === "string" && args.pedido.trim() ? { texto: args.pedido.trim().slice(0, 500) } : {}),
+  });
+  if ("erro" in r) return { ok: false, status: 409, error: r.erro };
+  return { ok: true, data, ...(await passoParaOClaude(r, acesso)) };
+}
+
+/**
+ * `pauta_do_link` (10/11/2026): a notícia que o dono mandou, ou que o Claude
+ * achou na web a pedido dele, vira post, matéria e newsletter do dia, fora do
+ * plano. Devolve o primeiro passo da produção dela.
+ */
+export async function pautaDoLink(acesso: AcessoDoMcp, args: Record<string, unknown>, client: SupabaseClient): Promise<Resposta> {
+  const data = dataOuHoje(args.data, acesso);
+  if (!data) return { ok: false, status: 400, error: "data inválida: use AAAA-MM-DD" };
+  const pedido = lerPedidoDoLink(args);
+  if ("erro" in pedido) return { ok: false, status: 400, error: pedido.erro };
+  const r = await adicionarLinkAoDia(acesso.projeto, data, pedido, { planos: planosSupabase(client), candidataDoLink: candidataDoLinkSupabase(client) });
+  const passo = await proximoPassoDoDia(acesso.projeto, data, depsDoDiretor(client), { comecarODia: false });
+  return {
+    ok: true,
+    data,
+    story_id: r.storyId,
+    formato: pedido.formato,
+    nota: r.jaEstava
+      ? "a pauta já estava nos posts do dia: segue a produção dela"
+      : "a pauta entrou no dia como extra: vira post, matéria e, se couber, newsletter. Siga o passo abaixo até \"pronto\"",
+    ...(await passoParaOClaude(passo, acesso)),
+  };
 }

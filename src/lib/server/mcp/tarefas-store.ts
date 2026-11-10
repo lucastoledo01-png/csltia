@@ -29,6 +29,8 @@ export const TIPOS_DE_TAREFA = [
   "escrever_reel",
   // O dia pelo Claude (29/10/2026): `mcp/dia/`, `mcp/artigo/`, `mcp/newsletter/`.
   "propor_plano",
+  // O complemento do dia (10/11/2026): `mcp/dia/complemento.ts`.
+  "propor_complemento",
   "escrever_artigo",
   "auditar_artigo",
   "escrever_newsletter",

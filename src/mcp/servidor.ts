@@ -26,6 +26,8 @@ const ROTAS: Record<NomeDaFerramenta, { caminho: string; metodo: "GET" | "POST" 
   ver_reel: { caminho: "reels/ver", metodo: "GET" },
   fazer_o_dia: { caminho: "dia/fazer", metodo: "POST" },
   aguardar: { caminho: "dia/aguardar", metodo: "POST" },
+  complementar_o_dia: { caminho: "dia/complementar", metodo: "POST" },
+  pauta_do_link: { caminho: "dia/link", metodo: "POST" },
   buscar_imagens: { caminho: "imagem/buscar", metodo: "POST" },
   ver_imagem: { caminho: "imagem/ver", metodo: "POST" },
   imagens_da_pagina: { caminho: "imagem/pagina", metodo: "POST" },
