@@ -95,10 +95,21 @@ describe("montar e agendar o post do Claude", () => {
     expect(r).toMatchObject({ ok: false });
   });
 
-  it("a prévia traz a peça e a legenda com o crédito curto da foto", async () => {
-    const r = await montarPost(projeto({}), { storyId: "s1", data: "2026-10-28" }, await deps(true));
+  it("a prévia traz a peça e a legenda com o crédito curto da foto; sem formato, e até \"estatico\", sai Reel de foto (10/11/2026)", async () => {
+    const d = await deps(true);
+    const comReel = {
+      ...d,
+      fetcher: (async () => new Response(Buffer.from("FOTO"))) as unknown as typeof fetch,
+      renderizarReel: (async () => ({ video: Buffer.from("MP4"), quadro: Buffer.from("QUADRO"), linhas: 3, corpo: 60, recorte: "corte" })) as never,
+    };
+    for (const formato of [undefined, "estatico" as const]) {
+      const r = await montarPost(projeto({}), { storyId: "s1", data: "2026-10-28", ...(formato ? { formato } : {}) }, comReel);
+      if (!r.ok) throw new Error(r.error);
+      expect(r.formato).toBe("reel");
+      expect(r.png.toString()).toBe("QUADRO");
+    }
+    const r = await montarPost(projeto({}), { storyId: "s1", data: "2026-10-28" }, comReel);
     if (!r.ok) throw new Error(r.error);
-    expect(r.png.toString()).toBe("JPEG");
     expect(r.manchete).toBe(COPY.headline);
     expect(r.legenda).toContain("Fulano de Tal");
   });

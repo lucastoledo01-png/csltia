@@ -33,7 +33,7 @@ export const ItensDoPlanoSchema = z.object({
   formatos: z
     .record(z.string(), z.enum(FORMATOS_DO_POST))
     .default({})
-    .describe("Para cada storyId de `posts`: \"reel\" (Reel de foto de 10 s, o padrão), \"carrossel\" (notícia em slides com fotos, no máximo um por dia) ou \"estatico\" (a peça de imagem única)."),
+    .describe("Para cada storyId de `posts`: \"reel\" (Reel de foto de 10 s) ou \"carrossel\" (notícia em slides com fotos, de 1 a 2 por dia). Imagem estática não sai mais."),
 });
 
 const ESQUEMA = z.toJSONSchema(ItensDoPlanoSchema, { io: "input" }) as Record<string, unknown>;
@@ -78,7 +78,14 @@ export function veiculosLexicos(titulo: string, doDia: Array<{ titulo: string; d
 }
 
 export const VEICULOS_DA_PAUTA_QUENTE = 3;
-export const MAXIMO_DE_CARROSSEIS = 1;
+/*
+ * O feed é vídeo e carrossel (10/11/2026, decisão do dono): a imagem estática
+ * saiu, e o dia leva de 1 a 2 carrosséis quando há pauta com material para
+ * eles. Sem pauta que renda carrossel, o plano diz por quê em
+ * `porque.carrossel` e o dia sai só em vídeo.
+ */
+export const MAXIMO_DE_CARROSSEIS = 2;
+export const MINIMO_DE_CARROSSEIS = 1;
 
 /*
  * Vídeo primeiro (09/11/2026, pedido do dono): o Reel de vídeo, a fala da
@@ -92,9 +99,16 @@ export function minimoDeReelsDeVideo(sugeridos: number, tetoDoInstagram: number)
   return Math.max(0, Math.min(REELS_DE_VIDEO_POR_DIA, sugeridos, tetoDoInstagram - 1));
 }
 
-/** Pura: quantos posts do plano precisam sair em Reel (a maioria, desde 09/11/2026). */
-export function minimoDeReels(posts: number): number {
-  return posts >= 2 ? Math.ceil(posts / 2) : 0;
+/**
+ * Pura: quantas peças o Instagram do dia leva (10/11/2026, "pelo menos 5"): o
+ * teto da cadência, ou menos quando não há pauta nova nem vídeo para tanto.
+ */
+export function minimoDoInstagram(
+  material: Pick<MaterialDoPlano, "volumes" | "pautas" | "reels" | "jaUsadas">,
+  videosQueServem = material.reels.length,
+): number {
+  const novas = material.pautas.filter((p) => !material.jaUsadas.instagram.includes(p.storyId)).length;
+  return Math.min(material.volumes.instagram, novas + Math.min(videosQueServem, REELS_DE_VIDEO_POR_DIA));
 }
 
 export function pautaDoPlano(
@@ -172,13 +186,27 @@ export function conferirPlano(itens: ItensDoPlano, material: MaterialDoPlano): s
   }
 
   const formatos = itens.formatos ?? {};
-  for (const id of itens.posts) if (!formatos[id]) motivos.push(`formatos: falta o formato do post ${id} ("reel", "carrossel" ou "estatico")`);
+  for (const id of itens.posts) if (!formatos[id]) motivos.push(`formatos: falta o formato do post ${id} ("reel" ou "carrossel")`);
   for (const id of Object.keys(formatos)) if (!itens.posts.includes(id)) motivos.push(`formatos: ${id} não está em posts`);
-  const emReel = itens.posts.filter((id) => formatos[id] === "reel").length;
-  const minimo = minimoDeReels(itens.posts.length);
+  for (const id of itens.posts) {
+    if (formatos[id] === "estatico") motivos.push(`formatos: ${id} está em "estatico"; o perfil não publica mais imagem estática, use "reel" ou "carrossel"`);
+  }
   const emCarrossel = itens.posts.filter((id) => formatos[id] === "carrossel").length;
-  if (emCarrossel > MAXIMO_DE_CARROSSEIS) motivos.push(`formatos: no máximo ${MAXIMO_DE_CARROSSEIS} carrossel por dia, o plano tem ${emCarrossel}`);
-  if (emReel < minimo) motivos.push(`formatos: a maioria dos posts sai em Reel de foto; com ${itens.posts.length} posts, pelo menos ${minimo} em "reel" (o plano tem ${emReel})`);
+  if (emCarrossel > MAXIMO_DE_CARROSSEIS) motivos.push(`formatos: no máximo ${MAXIMO_DE_CARROSSEIS} carrosséis por dia, o plano tem ${emCarrossel}`);
+  if (itens.posts.length && emCarrossel < MINIMO_DE_CARROSSEIS && (itens.porque?.carrossel ?? "").trim().length < 15) {
+    motivos.push(
+      `formatos: o dia leva de ${MINIMO_DE_CARROSSEIS} a ${MAXIMO_DE_CARROSSEIS} carrosséis, na pauta com mais material (números, quem disse o quê, desdobramento). Se nenhuma pauta rende carrossel, diga por quê em porque.carrossel`,
+    );
+  }
+  // O vídeo que o plano recusou com motivo (velho, repetido) não conta para o mínimo do dia.
+  const videosRecusados = (itens.porque?.reels ?? "").trim().length >= 15;
+  const minimoDoDia = minimoDoInstagram(material, videosRecusados ? itens.reels.length : material.reels.length);
+  const noInstagram = itens.posts.length + itens.reels.length;
+  if (noInstagram < minimoDoDia && (itens.porque?.instagram ?? "").trim().length < 15) {
+    motivos.push(
+      `o Instagram leva ${minimoDoDia} peças hoje (posts e Reels juntos), o plano tem ${noInstagram}. Complete com pauta quente; se não há pauta que sirva, diga por quê em porque.instagram`,
+    );
+  }
 
   const comFoto = new Set([...itens.newsletter, ...itens.artigos, ...itens.posts]);
   for (const id of comFoto) if (!itens.cenas[id]?.consulta) motivos.push(`cenas: falta a busca da foto de contexto de ${id}`);
@@ -194,7 +222,8 @@ const SYSTEM = [
   "Critérios: o que está mais QUENTE (mais veículos contando o mesmo fato; as marcadas QUENTE têm 3 ou mais), o que mais importa para o leitor, gente conhecida no centro, variedade de editorias, nada de imigração.",
   "Prefira NARRATIVAS: a história que está andando e rende capítulo (personagem conhecido, conflito, virada, número que surpreende, decisão com consequência), e não o comunicado frio ou a matéria de serviço. Pauta fria só completa o dia.",
   "Newsletter: as pautas mais fortes do dia, a mais forte primeiro. Matérias do portal: pautas com material para um texto completo e que alguém procuraria no Google. Posts: as mais quentes e visuais, com gente ou marca conhecida no centro. Reels sugeridos (vídeos de terceiros): só vídeo que conte uma notícia, sem humor.",
-  "Formato de cada post, em `formatos`: \"reel\" é o Reel de foto de 10 segundos (foto vertical com zoom lento, chapéu e manchete com destaque em vermelho, trilha) e é o padrão; \"estatico\" é a peça de imagem única, para quando a foto não aguenta um recorte vertical; \"carrossel\" é a notícia em slides (capa, de 1 a 4 passos com foto cada e o fechamento \"Siga @eua.journal\"), para UMA pauta do dia com mais material: números, quem disse o quê, desdobramento. Pelo menos metade dos posts em \"reel\", e no máximo um carrossel.",
+  "O INSTAGRAM É VÍDEO E CARROSSEL: imagem estática não sai mais. O dia leva todas as peças da cadência (posts e Reels de vídeo juntos), de 1 a 2 delas em carrossel e o resto em vídeo.",
+  "Formato de cada post, em `formatos`: \"carrossel\" é a notícia em slides (capa, de 1 a 4 passos com foto cada e o fechamento \"Siga @eua.journal\"), para as 1 ou 2 pautas do dia com mais material: números, quem disse o quê, desdobramento, gente conhecida com foto; \"reel\" é o Reel de foto de 10 segundos (foto vertical com zoom lento, chapéu e manchete com destaque em vermelho, trilha), para todo o resto. Sem pauta que renda carrossel, todos em \"reel\" e o motivo em `porque.carrossel`.",
   "SÓ O QUE ESTÁ QUENTE AGORA, de hoje ou de ontem: notícia que requenta fato de dias atrás (mesmo publicada hoje por outro veículo) não entra, vídeo publicado antes de ontem não entra, e nada que já saiu no perfil volta, nem como pauta nem como vídeo. Desdobramento só com fato NOVO de hoje. Sem vídeo novo que sirva, deixe `reels` vazio: não complete com vídeo velho.",
   "VÍDEO PRIMEIRO: os Reels de vídeo (a fala da pessoa, legendada em português) são o formato que mais rende. Havendo vídeo sugerido que conte notícia, ponha em `reels` até 2 por dia, os mais quentes primeiro (CEO, presidente, autoridade falando do assunto do dia). Se nenhum sugerido serve (velho, já saiu no perfil, não conta notícia), leve menos ou nenhum e diga por quê em `porque.reels`.",
   "A HISTÓRIA MAIS QUENTE DO DIA pode sair em dois formatos no Instagram: o carrossel dela em `posts` e um Reel de vídeo sobre ela em `reels` (a fala de quem está no centro da história). É variação, não repetição: cada peça conta um lado.",

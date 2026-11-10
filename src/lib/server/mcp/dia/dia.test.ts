@@ -8,7 +8,7 @@ import { modeloDoClaude, PedidoAoClaude } from "../newsletter/fluxo";
 import { proximoPassoDoDia, type DepsDoDiretor } from "./diretor";
 import { conferenteQueAnota, resultadoDaEscolha, type MaterialDaFoto } from "./fotos";
 import { pacoteDaEntrega } from "./pacotes";
-import { conferirPlano, minimoDeReels, minimoDeReelsDeVideo, veiculosLexicos, type MaterialDoPlano } from "./plano";
+import { conferirPlano, minimoDeReelsDeVideo, minimoDoInstagram, veiculosLexicos, type MaterialDoPlano } from "./plano";
 import { itensEditados } from "./plano-na-fila";
 import { planosEmMemoria, PLANO_VAZIO } from "./plano-store";
 import { linhasDaTriagem, preFiltrar, type Coletada } from "./triagem";
@@ -103,11 +103,11 @@ describe("o plano", () => {
     ...PLANO_VAZIO,
     newsletter: ["p1", "p2"],
     artigos: ["p1"],
-    posts: ["p2"],
+    posts: ["p1", "p2"],
     reels: ["r1"],
     porque: { p1: "quente", p2: "visual", r1: "vídeo forte" },
     cenas: { p1: { consulta: "steel factory", objeto: "fábrica" }, p2: { consulta: "white house", objeto: "Casa Branca" } },
-    formatos: { p2: "reel" as const },
+    formatos: { p1: "carrossel" as const, p2: "reel" as const },
   };
 
   it("passa quando respeita volume, pool, cena e porquê", () => {
@@ -131,7 +131,7 @@ describe("o plano", () => {
     expect(conferirPlano(motivoVazio, material).some((m) => m.startsWith("reels:"))).toBe(true);
   });
 
-  it("exige o formato de cada post e a maioria em Reel de foto", () => {
+  it("vídeo e carrossel: estático não sai, e o dia leva de 1 a 2 carrosséis (10/11/2026)", () => {
     const tres = {
       ...bom,
       posts: ["p1", "p2", "p4"],
@@ -141,14 +141,23 @@ describe("o plano", () => {
     const m = { ...material, pautas: [...material.pautas, { ...material.pautas[0], storyId: "p4", titulo: "p4" }] };
     const semFormato = conferirPlano({ ...tres, formatos: { p1: "reel" } }, m);
     expect(semFormato.some((x) => x.includes("falta o formato do post p2"))).toBe(true);
-    const poucoReel = conferirPlano({ ...tres, formatos: { p1: "reel", p2: "estatico", p4: "estatico" } }, m);
-    expect(poucoReel.some((x) => x.includes("pelo menos 2"))).toBe(true);
-    expect(conferirPlano({ ...tres, formatos: { p1: "reel", p2: "reel", p4: "estatico" } }, m)).toEqual([]);
-    const doisCarrosseis = conferirPlano({ ...tres, formatos: { p1: "reel", p2: "carrossel", p4: "carrossel" } }, m);
-    expect(doisCarrosseis.some((x) => x.includes("no máximo 1 carrossel"))).toBe(true);
-    expect(conferirPlano({ ...tres, formatos: { p1: "reel", p2: "reel", p4: "carrossel" } }, m)).toEqual([]);
-    expect(minimoDeReels(1)).toBe(0);
-    expect(minimoDeReels(5)).toBe(3);
+    const comEstatico = conferirPlano({ ...tres, formatos: { p1: "carrossel", p2: "reel", p4: "estatico" } }, m);
+    expect(comEstatico.some((x) => x.includes("p4 está em \"estatico\""))).toBe(true);
+    const tresCarrosseis = conferirPlano({ ...tres, formatos: { p1: "carrossel", p2: "carrossel", p4: "carrossel" } }, m);
+    expect(tresCarrosseis.some((x) => x.includes("no máximo 2 carrosséis"))).toBe(true);
+    const semCarrossel = conferirPlano({ ...tres, formatos: { p1: "reel", p2: "reel", p4: "reel" } }, m);
+    expect(semCarrossel.some((x) => x.includes("porque.carrossel"))).toBe(true);
+    const semCarrosselComMotivo = { ...tres, formatos: { p1: "reel" as const, p2: "reel" as const, p4: "reel" as const }, porque: { ...tres.porque, carrossel: "nenhuma pauta tem material para slides hoje" } };
+    expect(conferirPlano(semCarrosselComMotivo, m)).toEqual([]);
+    expect(conferirPlano({ ...tres, formatos: { p1: "carrossel", p2: "reel", p4: "carrossel" } }, m)).toEqual([]);
+  });
+
+  it("o Instagram leva o dia inteiro da cadência quando há pauta e vídeo para isso (10/11/2026)", () => {
+    expect(minimoDoInstagram(material)).toBe(3);
+    const curto = conferirPlano({ ...bom, posts: ["p1"] }, material);
+    expect(curto.some((x) => x.includes("o Instagram leva 3 peças hoje"))).toBe(true);
+    const comMotivo = { ...bom, posts: ["p1"], formatos: { p1: "carrossel" as const }, porque: { ...bom.porque, instagram: "a outra pauta já saiu no perfil por outro veículo" } };
+    expect(conferirPlano(comMotivo, material)).toEqual([]);
   });
 
   it("recusa volume, pauta de fora, repetida no canal e cena faltando", () => {

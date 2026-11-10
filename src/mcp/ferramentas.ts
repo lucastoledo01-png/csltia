@@ -64,7 +64,7 @@ const PAUTA = z.string().min(1).describe("O story_id da pauta, como `pautas_disp
 const FORMATO = z
   .enum(["reel", "estatico", "carrossel"])
   .optional()
-  .describe("reel: Reel de foto de 10 s (o padrão); carrossel: notícia em slides com foto; estatico: peça de imagem única. Sem informar, vale o do plano do dia.");
+  .describe("reel: Reel de foto de 10 s (o padrão); carrossel: notícia em slides com foto. Imagem estática não sai mais: \"estatico\" vira reel. Sem informar, vale o do plano do dia.");
 const FOCO = z
   .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
   .optional()
@@ -262,7 +262,7 @@ export function criarServidorMcp(backend: Backend, versao = "0.4.0"): McpServer 
             ...(r.telas ?? []).map((t) => ({ type: "image" as const, data: t.base64, mimeType: t.mime })),
             {
               type: "text" as const,
-              text: `FORMATO: ${r.formato ?? "estatico"}${r.nota ? `\n${r.nota}` : ""}\n\nMANCHETE: ${r.manchete}\n\nLEGENDA:\n${r.legenda}`,
+              text: `FORMATO: ${r.formato ?? "reel"}${r.nota ? `\n${r.nota}` : ""}\n\nMANCHETE: ${r.manchete}\n\nLEGENDA:\n${r.legenda}`,
             },
           ],
         };
