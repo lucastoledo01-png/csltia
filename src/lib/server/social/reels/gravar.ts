@@ -3,12 +3,10 @@ import type { Project } from "@/lib/server/projects";
 import { modoDaFila } from "@/lib/server/aprovacao/modo";
 import { opcoesDaFilaParaOStore, projetoDaFila } from "@/lib/server/aprovacao/integracao";
 import { statusDeEntradaDoPost } from "@/lib/server/aprovacao/portao";
-import { cadenciaDoProjeto } from "@/lib/server/cadencia";
 import type { ArtefatoCongelado } from "@/lib/server/social/artefato";
 import { legendaDoInstagram } from "@/lib/server/social/legenda-final";
-import { vagasDaTarde, type PostDoDia } from "@/lib/server/social/quente-da-tarde";
+import { proximaVagaDoInstagram } from "@/lib/server/social/proxima-vaga";
 import { chaveDeIdempotencia } from "@/lib/server/social/social-posts-store";
-import { zonedTimeToUtc } from "@/lib/server/time";
 
 /**
  * Gravar o Reel pronto como post do Instagram (28/10/2026).
@@ -147,14 +145,6 @@ export function linhaDoReel(
   };
 }
 
-const DIAS_PARA_ACHAR_VAGA = 4;
-
-function somarDias(dataIso: string, dias: number): string {
-  const d = new Date(`${dataIso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + dias);
-  return d.toISOString().slice(0, 10);
-}
-
 export async function gravarReel(
   projeto: Project,
   reel: ReelParaGravar,
@@ -172,34 +162,9 @@ export async function gravarReel(
    * Antes o Reel que chegava depois da última vaga do dia falhava, e o texto
    * que o Claude escreveu se perdia.
    */
-  const cadencia = cadenciaDoProjeto(projeto);
-  const agora = deps.agora ? deps.agora() : new Date();
-  let dataDaVaga = reel.data;
-  let horaLocal: string | null = null;
-  let motivo = "";
-  for (let dia = 0; dia < DIAS_PARA_ACHAR_VAGA && !horaLocal; dia++) {
-    dataDaVaga = somarDias(reel.data, dia);
-    const { data: linhas, error } = await deps.client
-      .from("social_posts")
-      .select("status, scheduled_at, error_message, dry_run")
-      .eq("project_id", projeto.id)
-      .eq("edition_date", dataDaVaga)
-      .eq("platform", "instagram");
-    if (error) return { ok: false, error: `os posts de ${dataDaVaga} não puderam ser lidos: ${error.message}` };
-    const vagas = vagasDaTarde({
-      horarios: cadencia.instagram.horarios,
-      dataIso: dataDaVaga,
-      timezone: projeto.timezone,
-      agoraMs: agora.getTime(),
-      postsDoDia: (linhas ?? []) as PostDoDia[],
-      maximoDoDia: cadencia.instagram.volume.maximo,
-      maximoDoCiclo: 1,
-    });
-    horaLocal = vagas.teto > 0 ? vagas.horarios[0] : null;
-    motivo = vagas.motivo;
-  }
-  if (!horaLocal) return { ok: false, error: `sem vaga no Instagram de ${reel.data} a ${dataDaVaga}: ${motivo}` };
-  const quando = zonedTimeToUtc(dataDaVaga, horaLocal, projeto.timezone).toISOString();
+  const achada = await proximaVagaDoInstagram(projeto, reel.data, deps);
+  if (!achada.ok) return achada;
+  const { data: dataDaVaga, quandoIso: quando, horaLocal } = achada.vaga;
   reel = { ...reel, data: dataDaVaga };
 
   const p = projetoDaFila(projeto, projeto.id);

@@ -370,3 +370,92 @@ export function ajustarAosCortesDeCena(
     return { inicio: Math.round(inicio * 100) / 100, fim: Math.round(fim * 100) / 100 };
   });
 }
+
+/*
+ * O vídeo que já chega em pé (10/11/2026).
+ *
+ * O Reel do Trump que a ABC postou no X chegou em 480x852, bem enquadrado,
+ * com o logotipo "abc NEWS" no canto de cima. Para tirar o logotipo, o corte
+ * começou abaixo dele, e a cabeça do Trump saiu junto. Vídeo em pé não é
+ * cortado: entra inteiro no molde B, e a marca de terceiro é apagada no
+ * próprio quadro (o `delogo` do ffmpeg), caixa por caixa.
+ */
+export const PROPORCAO_EM_PE = 1.6;
+
+/** Pura: o vídeo já está em pé (9:16 ou perto disso), e qualquer corte só tiraria cabeça ou pé. */
+export function videoEmPe(original: { largura: number; altura: number }): boolean {
+  return original.largura > 0 && original.altura / original.largura >= PROPORCAO_EM_PE;
+}
+
+/**
+ * Pura: as caixas da marca de terceiro a apagar, em pixels do vídeo original.
+ *
+ * Cada mancha conectada da máscara vira uma caixa, com uma célula de folga.
+ * Só sai a caixa que mora inteira num CANTO do quadro (até 28% da largura a
+ * partir da borda e até 22% da altura), onde canal e perfil põem o logotipo.
+ * Medido no vídeo da ABC: a máscara também acha o cenário parado (o painel da
+ * Casa Branca, a borda do púlpito), e apagar aquilo borraria o vídeo inteiro.
+ * Mancha de uma célula é ruído. No máximo quatro caixas, as maiores.
+ */
+export function caixasParaApagar(mascara: boolean[][], original: { largura: number; altura: number }): Corte[] {
+  const gh = mascara.length;
+  const gw = mascara[0]?.length ?? 0;
+  if (!gh || !gw) return [];
+  const visto = mascara.map((l) => l.map(() => false));
+  const manchas: Array<{ x0: number; y0: number; x1: number; y1: number; n: number }> = [];
+  for (let y = 0; y < gh; y++) {
+    for (let x = 0; x < gw; x++) {
+      if (!mascara[y][x] || visto[y][x]) continue;
+      const pilha: Array<[number, number]> = [[x, y]];
+      visto[y][x] = true;
+      const m = { x0: x, y0: y, x1: x, y1: y, n: 0 };
+      while (pilha.length) {
+        const [cx, cy] = pilha.pop()!;
+        m.n += 1;
+        m.x0 = Math.min(m.x0, cx);
+        m.y0 = Math.min(m.y0, cy);
+        m.x1 = Math.max(m.x1, cx);
+        m.y1 = Math.max(m.y1, cy);
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = cx + dx;
+            const ny = cy + dy;
+            if (nx < 0 || ny < 0 || nx >= gw || ny >= gh || visto[ny][nx] || !mascara[ny][nx]) continue;
+            visto[ny][nx] = true;
+            pilha.push([nx, ny]);
+          }
+        }
+      }
+      manchas.push(m);
+    }
+  }
+  const ex = original.largura / gw;
+  const ey = original.altura / gh;
+  const area = (c: { x0: number; y0: number; x1: number; y1: number }) => (c.x1 - c.x0 + 1) * (c.y1 - c.y0 + 1);
+  return manchas
+    .filter((m) => m.n >= 2)
+    .map((m) => ({ x0: Math.max(0, m.x0 - 1), y0: Math.max(0, m.y0 - 1), x1: Math.min(gw - 1, m.x1 + 1), y1: Math.min(gh - 1, m.y1 + 1) }))
+    .filter((c) => {
+      const nasLaterais = (c.x1 + 1) / gw <= 0.28 || c.x0 / gw >= 0.72;
+      const noAltoOuEmbaixo = (c.y1 + 1) / gh <= 0.22 || c.y0 / gh >= 0.78;
+      return nasLaterais && noAltoOuEmbaixo;
+    })
+    .sort((a, b) => area(b) - area(a))
+    .slice(0, 4)
+    .map((c) => {
+      // O delogo recusa caixa que encosta na borda do quadro: um pixel de margem.
+      const x = Math.max(1, Math.floor(c.x0 * ex));
+      const y = Math.max(1, Math.floor(c.y0 * ey));
+      const largura = Math.min(original.largura - 2 - x, Math.ceil((c.x1 + 1) * ex) - x);
+      const altura = Math.min(original.altura - 2 - y, Math.ceil((c.y1 + 1) * ey) - y);
+      return { x, y, largura, altura };
+    })
+    .filter((c) => c.largura >= 4 && c.altura >= 4);
+}
+
+/** Mede as caixas a apagar de um arquivo, pela mesma grade de 12 quadros. */
+export function medirCaixasParaApagar(arquivo: string): Corte[] {
+  const g = gradeDoVideo(arquivo);
+  if (!g) return [];
+  return caixasParaApagar(mascaraDeSobreposicao(g.quadros, g.gw, g.gh), g.original);
+}

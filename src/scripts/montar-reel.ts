@@ -54,6 +54,11 @@ type Pedido = {
   legendas?: Legenda[];
   /** Molde B: "quadrado" põe o vídeo 1:1 no meio, sobre ele mesmo desfocado. */
   enquadramento?: "cheio" | "quadrado";
+  /**
+   * Molde B: as caixas da marca de terceiro apagadas no quadro (`delogo`), em
+   * pixels do vídeo original, antes do corte (10/11/2026, o vídeo em pé).
+   */
+  apagar?: Array<{ x: number; y: number; largura: number; altura: number }>;
   /** Teto do MP4 em bytes: acima dele, o Reel sai de novo em 720x1280, mais comprimido. */
   tetoDeBytes?: number;
 };
@@ -269,11 +274,21 @@ export function filtroDosTrechos(trechos: Trecho[], comAudio: boolean): string {
  * vídeo 1:1 de 1080 em y 300, sobre ele mesmo esticado, desfocado e um pouco
  * escurecido: é o enquadramento do close fechado demais para o 9:16.
  */
-export function cadeiaDoVideoB(corte: Pedido["corte"], enquadramento: Pedido["enquadramento"] = "cheio"): string {
-  if (enquadramento !== "quadrado") return `[0:v]${filtroDoVideo(corte, 1080, 1920)}[v]`;
+/** Pura: o `delogo` de cada caixa, encadeado, terminando em vírgula (ou vazio). */
+export function filtroDoApagar(apagar: Pedido["apagar"]): string {
+  return (apagar ?? []).map((c) => `delogo=x=${c.x}:y=${c.y}:w=${c.largura}:h=${c.altura},`).join("");
+}
+
+export function cadeiaDoVideoB(
+  corte: Pedido["corte"],
+  enquadramento: Pedido["enquadramento"] = "cheio",
+  apagar?: Pedido["apagar"],
+): string {
+  const limpo = filtroDoApagar(apagar);
+  if (enquadramento !== "quadrado") return `[0:v]${limpo}${filtroDoVideo(corte, 1080, 1920)}[v]`;
   const recorte = corte ? `crop=${corte.largura}:${corte.altura}:${corte.x}:${corte.y},` : "";
   return (
-    `[0:v]${recorte}split=2[f0][q0];` +
+    `[0:v]${limpo}${recorte}split=2[f0][q0];` +
     `[f0]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=40,eq=brightness=-0.08,setsar=1[f];` +
     `[q0]scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080,setsar=1[q];` +
     `[f][q]overlay=0:300[v]`
@@ -289,13 +304,14 @@ export function cadeiaDoVideoB(corte: Pedido["corte"], enquadramento: Pedido["en
 export function filtroDoMoldeB(opcoes: {
   corte: Pedido["corte"];
   enquadramento?: Pedido["enquadramento"];
+  apagar?: Pedido["apagar"];
   segundosDaManchete: number;
   legendas?: Legenda[];
 }): string {
   const s = opcoes.segundosDaManchete;
   const n = (x: number) => Number(x.toFixed(3));
   const partes = [
-    cadeiaDoVideoB(opcoes.corte, opcoes.enquadramento),
+    cadeiaDoVideoB(opcoes.corte, opcoes.enquadramento, opcoes.apagar),
     `[v][1:v]overlay=0:0:shortest=1[b]`,
     `[2:v]format=rgba,fade=t=out:st=${s - 0.5}:d=0.5:alpha=1[m]`,
     `[b][m]overlay=0:0:shortest=1[s0]`,
@@ -374,7 +390,7 @@ export async function montarReel(p: Pedido): Promise<string> {
         "-i", p.video, "-loop", "1", "-i", semManchete, "-loop", "1", "-i", camada,
         ...imagens.flatMap((img) => ["-loop", "1", "-i", img]),
         "-filter_complex",
-        filtroDoMoldeB({ corte: p.corte, enquadramento: p.enquadramento, segundosDaManchete: s, legendas }),
+        filtroDoMoldeB({ corte: p.corte, enquadramento: p.enquadramento, apagar: p.apagar, segundosDaManchete: s, legendas }),
         "-map", "[s]", "-map", "0:a?", ...codificacao, p.saida,
       ]);
     }

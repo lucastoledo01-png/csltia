@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { cadeiaDoVideoB, filtroDoMoldeB, filtroDosTrechos, filtroDoVideo, lerCorte, lerTrechos, linhasDoTexto, TOPO_DA_LEGENDA } from "./montar-reel";
+import { cadeiaDoVideoB, filtroDoApagar, filtroDoMoldeB, filtroDosTrechos, filtroDoVideo, lerCorte, lerTrechos, linhasDoTexto, TOPO_DA_LEGENDA } from "./montar-reel";
+
+describe("o vídeo em pé (10/11/2026)", () => {
+  it("a marca de terceiro é apagada no quadro antes do encaixe", () => {
+    const apagar = [{ x: 367, y: 22, largura: 106, altura: 143 }];
+    expect(filtroDoApagar(apagar)).toBe("delogo=x=367:y=22:w=106:h=143,");
+    expect(filtroDoApagar(undefined)).toBe("");
+    expect(cadeiaDoVideoB(null, "cheio", apagar)).toBe(`[0:v]delogo=x=367:y=22:w=106:h=143,${filtroDoVideo(null, 1080, 1920)}[v]`);
+    expect(cadeiaDoVideoB(null, "cheio")).toBe(`[0:v]${filtroDoVideo(null, 1080, 1920)}[v]`);
+  });
+});
 
 describe("montar-reel", () => {
   it("o corte é x:y:largura:altura, e torto é recusado", () => {

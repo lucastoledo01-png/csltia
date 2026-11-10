@@ -2392,3 +2392,37 @@ plano pode levar menos quando diz em `porque.reels` por que nenhum serve.
 e não na fonte nova (vídeo), que chegou depois. Fonte nova de pauta precisa da
 mesma janela de data. E regra que OBRIGA uma cota sem saída faz o modelo
 completar a cota com o que tiver, mesmo sabendo que está errado.
+
+### 10/11/2026: o Reel cortou a cabeça do Trump, e dois posts prontos não entraram na fila
+
+**Sintoma 1.** O Reel do Trump defendendo Hegseth, de um vídeo da ABC no X,
+saiu com a testa cortada no alto do quadro.
+
+**Causa.** O vídeo já chegava em pé (480x852), bem enquadrado, com o logotipo
+"abc NEWS" no canto de cima. Para cumprir "marca de terceiro não aparece", o
+Claude escolheu um corte que começava em y 130, abaixo do logotipo, e a cabeça
+foi junto. Nenhuma régua conferia o que o corte tirava, só o que ele evitava.
+
+**Corrigido.** Vídeo em pé no molde B entra inteiro: o corte proposto e o do
+Claude são ignorados (`videoEmPe`, na conferência e no render), e o logotipo é
+apagado no próprio quadro com o `delogo` do ffmpeg (`caixasParaApagar`). Só
+sai a caixa que mora num canto: no vídeo da ABC a máscara também achou o
+painel da Casa Branca e a borda do púlpito, e apagar aquilo borraria o vídeo.
+A faixa de manchete da ABC dos primeiros segundos continua, porque não é
+parada o vídeo inteiro e a máscara não a vê.
+
+**Sintoma 2.** Anthropic e Ring viraram matéria do portal e não viraram post.
+
+**Causa.** Os dois ficaram prontos às 15:27 de Brasília, quando o dia só tinha
+mais dois horários, e os dois foram para Rubio e Massie. O Reel de vídeo já
+procurava o dia seguinte desde 29/10; o post do MCP, não, e o aviso "sem vaga"
+ficava só na resposta ao Claude.
+
+**Corrigido.** `proximaVagaDoInstagram` (`social/proxima-vaga.ts`) é a regra
+dos dois: o dia pedido e, sem vaga, até três dias à frente. O diretor conta o
+post que foi para outro dia como agendado.
+
+**Lição.** Regra que proíbe uma coisa (a marca) precisa dizer o que não pode
+ser sacrificado por ela (a cabeça). E a mesma regra de vaga em dois caminhos é
+a "mesma regra em três cópias" outra vez: quando uma ganhou a saída para o dia
+seguinte, a outra ficou sem.
