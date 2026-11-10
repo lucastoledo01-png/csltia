@@ -254,6 +254,8 @@ describe("o diretor do dia", () => {
       planos,
       abrirTriagem: async (p, data) => [await tarefas.abrir({ projectId: p.id, editionDate: data, tipo: "classificar", chave: "triagem-1", instrucao: {}, material: {}, esquema: {} })],
       abrirPlano: async (p, plano) => tarefas.abrir({ projectId: p.id, editionDate: plano.data, tipo: "propor_plano", chave: `plano-${plano.data}`, instrucao: {}, material: { planoId: plano.id }, esquema: {} }),
+      abrirComplemento: async () => null,
+      pecasDoInstagram: async () => 5,
       candidatas: async () => new Map([["s1", candidata]]),
       foto: async (_p, id) => (fotos.get(id) as never) ?? null,
       abrirFoto: async (p, plano, c) => tarefas.abrir({ projectId: p.id, editionDate: plano.data, tipo: "escolher_foto", chave: c.storyId, instrucao: {}, material: {}, esquema: {} }),

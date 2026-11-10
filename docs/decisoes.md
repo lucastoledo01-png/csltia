@@ -3045,3 +3045,37 @@ marca de terceiro no vídeo. Detalhe em "Canais de notícia do YouTube" em
   (`supabase/2026-11-09-reels-canais-youtube.sql`). Squawk Box e Meet the
   Press não têm canal próprio com vídeo: saem pelo CNBC Television e pelo NBC
   News. O canal do Pentágono é o do Department of War.
+
+## O dia do MCP não fecha, e todo post vira matéria e newsletter (10/11/2026)
+
+O relato da Bruna: o plano do dia rodava uma vez, o dono aprovava e reprovava
+peça a peça, e quando sobravam 2 ou 3 posts não havia como pedir mais. O alvo
+é 5 peças no Instagram por dia. Na sexta 06/11 ela quis completar o sábado e o
+domingo, os planos de 07 e 08 estavam fechados, e o único caminho foi
+planejar 09/11: as peças saíram na segunda.
+
+- **O dia não fecha.** `pronto` é relido a cada `fazer_o_dia`. Abaixo do alvo
+  (`volume.maximo` do Instagram na cadência; contam os posts do dia não
+  cancelados e os Reels do plano ainda com o worker), o diretor abre sozinho
+  `propor_complemento`, até duas rodadas por dia; com o pool da triagem seco,
+  abre antes uma triagem nova (chaves `triagem-c1-1`...). `complementar_o_dia`
+  pede mais, com quantas e o pedido do dono, até seis rodadas, em qualquer data
+  com plano aprovado, inclusive sábado e domingo.
+- **O complemento não passa de novo pela aprovação do plano**, por decisão do
+  dono: cada peça já espera aprovação no painel.
+- **Fora do plano, com autonomia.** `pauta_do_link` grava a notícia como
+  candidata aprovada (`APPROVED_BY_OWNER_LINK`, aproveitando a coleta quando a
+  URL já existe) e a põe no dia como extra. O link é produzido mesmo antes de o
+  plano existir, e a entrega dele não começa o dia (`comecarODia: false`): só o
+  `fazer_o_dia` faz triagem. `produzir_reel` aceita `url`: do YouTube, com o
+  canal como crédito e a fala transcrita; de outro lugar, pelo yt-dlp do
+  worker. Arquivo de vídeo arrastado no chat não chega ao MCP: o Claude pede o
+  link.
+- **Todo post do MCP vira matéria do blog e entra na newsletter**, regra do
+  dono. `artigosDoPlano` e `newsletterDoPlano` em `mcp/dia/plano-store.ts`. A
+  newsletter leva primeiro as pautas que o plano escolheu, depois os posts, até
+  o teto da cadência (4); o que passa fica de fora, por decisão do dono, e o
+  extra que chega depois de a newsletter estar escrita também.
+- **Os extras moram em `itens.extras`** do plano, com formato, cena e frase. O
+  plano proposto depois de um link não o apaga (`comExtrasDe`).
+

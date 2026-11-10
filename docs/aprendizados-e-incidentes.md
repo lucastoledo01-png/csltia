@@ -2338,3 +2338,27 @@ parada de um lado, atividade do outro.
 **Lição.** Corte "sem marca" não é corte bom: tirar o que não pode aparecer é
 metade da régua, a outra é mostrar o que tem de aparecer. E a folha de quadros
 com o corte desenhado mostrou em um olhar o que nenhum número mostrava.
+
+### 10/11/2026: o plano fechado empurrou o fim de semana para segunda, e a descoberta de Reels não rodava
+
+**Sintoma 1.** Na sexta 06/11 a Bruna pediu posts para sábado e domingo. Os
+planos de 07 e 08 estavam `aprovado/pronto`, o diretor só respondia "pronto",
+e o Claude dela planejou 09/11 sem dizer que isso não atendia o pedido. Os dias
+07 e 08 ficaram com 3 e 1 peça viva no Instagram.
+
+**Causa.** O plano era um tiro só: nenhuma etapa voltava de `pronto`, e não
+existia ferramenta para pôr pauta num dia aprovado. Corrigido com o
+complemento e o link (ver `decisoes.md`). A instrução do MCP passou a dizer que
+a data pedida não se troca por outra.
+
+**Sintoma 2.** O plano dizia "vídeo primeiro", e nenhum dia teve Reel de
+vídeo. `reels_candidatos` não tinha linha desde 09/11 e a última
+`reels_rodada` em `platform_events` era de 30/10.
+
+**Causa.** A rota `/api/cron/reels` existe em produção (responde 401 sem o
+segredo), mas nada a chama: a linha de cron de hora em hora nunca entrou no
+agendador atual. Sem descoberta não há vídeo sugerido, e a regra "vídeo
+primeiro" do plano não dispara, porque ela só pede Reel de vídeo quando há
+sugerido. **Lição:** capacidade nova que depende de cron só está ligada quando
+há `reels_rodada` no banco, não quando o código está no ar.
+

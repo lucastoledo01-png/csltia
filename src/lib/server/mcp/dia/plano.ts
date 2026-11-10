@@ -226,6 +226,20 @@ export async function abrirPlano(projeto: Project, plano: PlanoDoDia, material: 
   });
 }
 
+/** Pura: o plano novo com os extras do anterior (formato, cena e frase de cada um). */
+export function comExtrasDe(novo: ItensDoPlano, anterior: ItensDoPlano | undefined): ItensDoPlano {
+  const extras = (anterior?.extras ?? []).filter((id) => !novo.posts.includes(id));
+  if (!extras.length) return novo;
+  const de = <T>(mapa: Record<string, T> | undefined) => Object.fromEntries(extras.filter((id) => mapa?.[id] !== undefined).map((id) => [id, mapa![id]]));
+  return {
+    ...novo,
+    extras,
+    formatos: { ...de(anterior?.formatos), ...(novo.formatos ?? {}) },
+    cenas: { ...de(anterior?.cenas), ...novo.cenas },
+    porque: { ...de(anterior?.porque), ...novo.porque },
+  };
+}
+
 export type DepsDoPlano = {
   tarefas: TarefasStore;
   planos: PlanosStore;
@@ -246,8 +260,10 @@ export async function entregarPlano(
     return { ok: true, desfecho: "reparar", motivos, tarefa: await deps.tarefas.pedirReparo(tarefa.id, resultado, motivos, quem) };
   }
   await deps.tarefas.entregar(tarefa.id, resultado, quem);
+  // O link que o dono mandou antes do plano (10/11/2026) continua no dia: o plano proposto não o apaga.
+  const anterior = await deps.planos.porId(material.planoId);
   const plano = await deps.planos.atualizar(material.planoId, {
-    itens: lido.data,
+    itens: comExtrasDe(lido.data, anterior?.itens),
     estado: "aguardando",
     etapa: "aguardando_aprovacao",
     motivo: null,

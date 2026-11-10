@@ -116,6 +116,8 @@ export async function abrirTriagem(
   data: string,
   coletadas: Coletada[],
   deps: DepsDaTriagem,
+  /** A triagem do complemento (10/11/2026) tem chave própria: `triagem-c1-1`. */
+  rodada?: string,
 ): Promise<Tarefa[]> {
   const system = await deps.comInstrucoes(projeto, async () => montarSystemDoClassificador(linhaDoProjeto(projeto)));
   const tarefas: Tarefa[] = [];
@@ -136,7 +138,7 @@ export async function abrirTriagem(
         projectId: projeto.id,
         editionDate: data,
         tipo: TIPO_DA_TRIAGEM,
-        chave: `triagem-${i + 1}`,
+        chave: `triagem-${rodada ? `${rodada}-` : ""}${i + 1}`,
         instrucao: {
           system,
           user: montarUserDoClassificador(pautas),

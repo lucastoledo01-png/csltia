@@ -32,6 +32,8 @@ export const NOMES_DAS_FERRAMENTAS = [
   "ver_reel",
   "fazer_o_dia",
   "aguardar",
+  "complementar_o_dia",
+  "pauta_do_link",
   "buscar_imagens",
   "ver_imagem",
   "imagens_da_pagina",
@@ -72,7 +74,10 @@ export const INSTRUCOES_DO_MCP = [
   "PARA FAZER O DIA INTEIRO SOZINHO: chame fazer_o_dia. Ele devolve UM passo: uma tarefa (faça e entregue com entregar_tarefa; a resposta já traz o passo seguinte em `proximo`), \"aguardar\" (chame aguardar e repita até mudar; é o dono aprovando o plano no painel) ou \"pronto\". Siga até \"pronto\" sem esperar nova ordem. Se a conversa encher, abra outra e chame fazer_o_dia: o dia continua de onde parou.",
   "Você faz o trabalho de modelo do eua.journal: escreve, audita e corrige os posts, e a plataforma confere com as mesmas guardas da esteira automática.",
   "Quando o dono pedir o dia, as pautas, o que produzir hoje ou \"faça o dia\", use SEMPRE fazer_o_dia: a triagem lê as notícias das últimas 24 horas. Não use pautas_disponiveis para isso.",
-  "Caminho avulso, só se o dono pedir um post de uma pauta específica: pautas_disponiveis, iniciar_post, proxima_tarefa e entregar_tarefa até ficar pronto, montar_post, agendar_post.",
+  "O DIA NÃO FECHA: depois do plano aprovado, e mesmo com o dia pronto, dá para pôr mais pautas. O alvo é 5 peças no Instagram por dia; quando o dono reprova ou cancela e o dia fica abaixo disso, chame fazer_o_dia de novo (ele abre o complemento sozinho) ou complementar_o_dia (com quantas e o pedido do dono). Vale para qualquer data, inclusive sábado e domingo: passe a data do dia pedido, nunca troque por outro dia.",
+  "FORA DO PLANO, com autonomia: quando o dono mandar o link de uma notícia, ou pedir que você ache uma (use a sua busca na web), chame pauta_do_link com o link, o título e o resumo que você leu na página. Ela vira post, matéria do blog e, se couber, newsletter do dia, e o retorno traz o primeiro passo: siga até \"pronto\". Vídeo: produzir_reel com url (YouTube, Instagram, X). Arquivo de vídeo arrastado no chat não chega à plataforma: peça o link.",
+  "Todo post do MCP vira também matéria do blog e entra na newsletter do dia, até 4 pautas na newsletter; o que passar disso fica só no post e na matéria.",
+  "Caminho avulso antigo, só se o dono pedir um post de uma pauta específica de pautas_disponiveis: iniciar_post, proxima_tarefa e entregar_tarefa até ficar pronto, montar_post, agendar_post.",
   "Cada tarefa traz a instrução (system e user), o material e o esquema JSON da resposta. Siga a instrução ao pé da letra e entregue SÓ o JSON do esquema.",
   "Quando a entrega volta com motivos, a tarefa está em reparo: peça a próxima tarefa e corrija só o apontado. Não invente para tapar buraco.",
   "Na auditoria, julgue só pelo pacote factual que vem na tarefa, como se não tivesse escrito o texto; se puder, audite numa conversa separada.",
@@ -199,6 +204,7 @@ export function criarServidorMcp(backend: Backend, versao = "0.4.0"): McpServer 
           .enum([
             "classificar",
             "propor_plano",
+            "propor_complemento",
             "escolher_foto",
             "extrair_pacote",
             "escrever_post",
@@ -302,6 +308,47 @@ export function criarServidorMcp(backend: Backend, versao = "0.4.0"): McpServer 
   );
 
   servidor.registerTool(
+    "complementar_o_dia",
+    {
+      title: "Complementar o dia",
+      description:
+        "Mais pautas para um dia cujo plano já foi aprovado, mesmo que o dia esteja pronto: abre uma tarefa propor_complemento com as pautas da triagem " +
+        "que o dia ainda não tem (ou uma triagem nova, se acabaram) e os vídeos sugeridos. Cada post escolhido vira post, matéria e, se couber, newsletter. " +
+        "Não passa de novo pela aprovação do plano; cada peça espera aprovação no painel. Use quando o Instagram do dia ficou abaixo de 5 peças ou o dono pedir mais.",
+      inputSchema: {
+        data: DATA,
+        quantas: z.number().int().min(1).max(5).optional().describe("Quantas peças a mais. Sem informar, o que falta para o alvo do dia (5)."),
+        pedido: z.string().max(500).optional().describe("O que o dono pediu, nas palavras dele (um assunto, uma editoria, \"algo de tecnologia\")."),
+      },
+    },
+    ({ data, quantas, pedido }) => chamar("complementar_o_dia", { data, quantas, pedido }),
+  );
+
+  servidor.registerTool(
+    "pauta_do_link",
+    {
+      title: "Pauta a partir de um link",
+      description:
+        "Põe no dia a notícia de um link, fora do plano: o dono mandou, ou pediu que você achasse uma. Leia a página antes e mande o título e o resumo. " +
+        "A notícia vira post (no formato pedido), matéria do blog e, se couber, newsletter do dia, com foto, fatos e as mesmas guardas de qualquer pauta. " +
+        "Funciona com o plano fechado e em dia que não começou. Devolve o primeiro passo da produção: siga até pronto.",
+      inputSchema: {
+        url: z.string().url().describe("O link da notícia."),
+        titulo: z.string().min(8).describe("O título da notícia, como está na página."),
+        resumo: z.string().max(2000).optional().describe("O que a notícia diz, em 2 a 5 frases, do que você leu na página."),
+        eixo: z.enum(["economia", "trabalho", "custo_de_vida", "politica", "tecnologia", "cultura", "seguranca", "brasil", "outro"]).optional(),
+        pais: z.enum(["EUA", "Brasil", "outro"]).optional().describe("De que país é a notícia. Padrão EUA."),
+        atores: z.array(z.string()).max(8).optional().describe("Pessoas e organizações no centro da notícia, com o nome completo: guiam a busca da foto."),
+        formato: FORMATO,
+        cena: z.string().max(200).optional().describe("Uma busca em inglês de foto de contexto, sem pessoa identificável nem texto."),
+        data: DATA,
+      },
+    },
+    ({ url, titulo, resumo, eixo, pais, atores, formato, cena, data }) =>
+      chamar("pauta_do_link", { url, titulo, resumo, eixo, pais, atores, formato, cena, data }),
+  );
+
+  servidor.registerTool(
     "reels_sugeridos",
     {
       title: "Reels sugeridos",
@@ -319,12 +366,19 @@ export function criarServidorMcp(backend: Backend, versao = "0.4.0"): McpServer 
     {
       title: "Produzir um Reel",
       description:
-        "Escolhe um vídeo de reels_sugeridos. A plataforma baixa, mede o corte que tira a marca de quem publicou e abre a tarefa escrever_reel. " +
+        "Escolhe um vídeo de reels_sugeridos (candidato_id) ou produz o vídeo de um link que o dono mandou ou que você achou (url: YouTube, Instagram, X). " +
+        "A plataforma baixa, mede o corte que tira a marca de quem publicou e abre a tarefa escrever_reel; do YouTube vem a fala transcrita, para a legenda em português. " +
         "Num Reel que falhou, tenta de novo com o texto já entregue. " +
         "Nada vai ao ar sem aprovação no painel.",
-      inputSchema: { candidato_id: z.string().min(1).describe("O id que reels_sugeridos devolve.") },
+      inputSchema: {
+        candidato_id: z.string().min(1).optional().describe("O id que reels_sugeridos devolve."),
+        url: z.string().url().optional().describe("Ou o link do vídeo. Arquivo arrastado no chat não chega: peça o link."),
+        idioma: z.enum(["en", "pt"]).optional().describe("Só com url: o idioma da fala (en pede legenda traduzida). Padrão en."),
+        credito: z.string().max(80).optional().describe("Só com url: quem publicou (o canal), para o crédito na legenda do post. Do YouTube, lido sozinho."),
+        titulo: z.string().max(200).optional().describe("Só com url fora do YouTube: do que o vídeo trata."),
+      },
     },
-    ({ candidato_id }) => chamar("produzir_reel", { candidato_id }),
+    ({ candidato_id, url, idioma, credito, titulo }) => chamar("produzir_reel", { candidato_id, url, idioma, credito, titulo }),
   );
 
   servidor.registerTool(

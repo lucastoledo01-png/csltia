@@ -104,6 +104,10 @@ ferramentas desaparecerem do Desktop, confira o arquivo.
 | `entregar_tarefa` | entrega o JSON da tarefa; a plataforma confere e diz o que vem depois |
 | `montar_post` | a peça renderizada e a legenda, para olhar antes de agendar |
 | `agendar_post` | congela a arte, grava na próxima vaga e põe na fila de aprovação |
+| `fazer_o_dia` | começa ou retoma o dia: triagem, plano, fotos, fatos, posts, matérias, newsletter; relê o dia pronto e completa o alvo |
+| `complementar_o_dia` | mais pautas num dia já aprovado, mesmo pronto (10/11/2026): abre `propor_complemento` |
+| `pauta_do_link` | a notícia de um link vira post, matéria e newsletter do dia, fora do plano (10/11/2026) |
+| `produzir_reel` | o Reel de um vídeo sugerido (`candidato_id`) ou de um link (`url`: YouTube, Instagram, X) |
 
 ## O ciclo de um post
 

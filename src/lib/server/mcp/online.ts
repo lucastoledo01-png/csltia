@@ -2,7 +2,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { criarServidorMcp, RecusaDaPlataforma, type Backend, type NomeDaFerramenta } from "@/mcp/ferramentas";
 import * as servico from "./servico";
 import { depsDoReelNoMcp, produzirReel, reelsSugeridos, verReel } from "./reels/servico";
-import { aguardar, fazerODia } from "./dia/servico";
+import { aguardar, complementarODia, fazerODia, pautaDoLink } from "./dia/servico";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import type { Resposta } from "./servico";
 import type { AcessoDoMcp } from "./tokens";
@@ -37,6 +37,8 @@ const CHAMADAS: Record<NomeDaFerramenta, (acesso: AcessoDoMcp, args: Record<stri
   ver_reel: (a, args) => verReel(a, args, depsDoReelNoMcp(getSupabaseAdminClient())),
   fazer_o_dia: (a, args) => fazerODia(a, args, getSupabaseAdminClient()),
   aguardar: (a, args) => aguardar(a, args, getSupabaseAdminClient()),
+  complementar_o_dia: (a, args) => complementarODia(a, args, getSupabaseAdminClient()),
+  pauta_do_link: (a, args) => pautaDoLink(a, args, getSupabaseAdminClient()),
   buscar_imagens: (a, args) => buscarImagens(a, args),
   ver_imagem: (a, args) => verImagem(a, args),
   imagens_da_pagina: (a, args) => imagensDaPagina(a, args),

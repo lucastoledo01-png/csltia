@@ -17,9 +17,9 @@ import { avancarNewsletter, gravarNewsletterDoClaude, type DepsDaNewsletter } fr
 import type { DepsDoDiretor } from "./diretor";
 import { abrirFoto, candidatasDaFoto } from "./fotos";
 import { abrirPacote } from "./pacotes";
-import { formatoDoPost } from "./plano-store";
+import { abrirComplemento as abrirTarefaDoComplemento, type MaterialDoComplemento } from "./complemento";
 import { abrirPlano, pautaDoPlano, reelsDoPlano, veiculosLexicos, volumesDoProjeto, type MaterialDoPlano } from "./plano";
-import { planosSupabase, type PlanoDoDia } from "./plano-store";
+import { artigosDoPlano, formatoDoPost, newsletterDoPlano, planosSupabase, postsDoPlano, type PlanoDoDia } from "./plano-store";
 import { abrirTriagem, preFiltrar, type Coletada } from "./triagem";
 import { ehPrioritaria, fontesPrioritarias } from "./fontes-prioritarias";
 import { rodarRadar } from "@/lib/server/newsroom/radar";
@@ -84,9 +84,11 @@ export function depsDaNewsletter(client: SupabaseClient, tarefas: TarefasStore):
     tarefas,
     async pautas(projeto, data) {
       const plano = await planos.doDia(projeto.id, data);
-      const mapa = await candidatos.buscarPorStoryIds(projeto.id, plano.itens.newsletter);
+      // Todo post do dia entra na newsletter até o teto (10/11/2026); o que passa fica de fora.
+      const ids = newsletterDoPlano(plano.itens, volumesDoProjeto(projeto).newsletter.maximo);
+      const mapa = await candidatos.buscarPorStoryIds(projeto.id, ids);
       const saida = [];
-      for (const id of plano.itens.newsletter) {
+      for (const id of ids) {
         const c = mapa.get(id);
         if (c) saida.push({ candidata: c, foto: await lerImagemDaPauta(client, projeto.id, id) });
       }
@@ -109,7 +111,7 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
   return {
     tarefas,
     planos,
-    async abrirTriagem(projeto, data) {
+    async abrirTriagem(projeto, data, rodada) {
       const fonte = (await projetoDaFonte(projeto)) ?? projeto;
       /*
        * A coleta na hora (29/10/2026). No motor Claude o ciclo das 06:03 não
@@ -140,7 +142,7 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
         tarefas,
         candidatos,
         comInstrucoes: (p, fn) => comInstrucoesDoProjeto(p, fn),
-      });
+      }, rodada);
     },
     async abrirPlano(projeto, plano: PlanoDoDia) {
       const fonte = (await projetoDaFonte(projeto)) ?? projeto;
@@ -169,11 +171,57 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
         reels: reelsDoPlano(await reels.sugeridos(projeto.id, 10)),
         jaUsadas: {
           newsletter: aprovados.flatMap((p) => p.itens.newsletter),
-          artigos: aprovados.flatMap((p) => p.itens.artigos),
-          instagram: aprovados.flatMap((p) => p.itens.posts),
+          artigos: aprovados.flatMap((p) => artigosDoPlano(p.itens)),
+          instagram: aprovados.flatMap((p) => postsDoPlano(p.itens)),
         },
       };
       return abrirPlano(projeto, plano, material, tarefas);
+    },
+    async abrirComplemento(projeto, plano, rodada, faltam, pedido) {
+      const fonte = (await projetoDaFonte(projeto)) ?? projeto;
+      const agora = Date.now();
+      const doDia = (await coletadas(client, fonte.id, new Date(agora - 24 * 3_600_000).toISOString())).map((c) => ({
+        titulo: c.title,
+        dominio: c.sourceDomain ?? "",
+      }));
+      const noDia = postsDoPlano(plano.itens);
+      const desde = new Date(agora - 30 * 86_400_000).toISOString().slice(0, 10);
+      const jaUsadas = (await planos.aprovadosDesde(projeto.id, desde)).filter((p) => p.id !== plano.id).flatMap((p) => postsDoPlano(p.itens));
+      const janela = [...(await candidatos.buscarDaJanela(projeto.id, 2)).values()].filter(
+        (c) => c.status === "approved" && !noDia.includes(c.storyId) && !jaUsadas.includes(c.storyId),
+      );
+      const prioritarias = fontesPrioritarias(projeto);
+      const pautas = janela
+        .map((c) => pautaDoPlano(c, doDia, null, ehPrioritaria(c.sourceDomain, prioritarias)))
+        .sort((a, b) => Math.min(b.veiculos, 6) - Math.min(a.veiculos, 6) || (b.relevancia ?? 0) - (a.relevancia ?? 0))
+        .slice(0, 30);
+      const sugeridos = reelsDoPlano(await reels.sugeridos(projeto.id, 10)).filter((r) => !plano.itens.reels.includes(r.id));
+      if (pautas.length === 0 && sugeridos.length === 0) return null;
+      const titulos = await candidatos.buscarPorStoryIds(projeto.id, noDia);
+      const material: MaterialDoComplemento = {
+        data: plano.data,
+        planoId: plano.id,
+        rodada,
+        faltam,
+        pautas,
+        reels: sugeridos,
+        noDia,
+        jaUsadasNoInstagram: jaUsadas,
+        ...(pedido ? { pedido } : {}),
+      };
+      return abrirTarefaDoComplemento(projeto, plano, material, noDia.map((id) => ({ id, titulo: titulos.get(id)?.title ?? id })), tarefas);
+    },
+    async pecasDoInstagram(projeto, data, ids) {
+      const { data: linhas, error } = await client
+        .from("social_posts")
+        .select("status")
+        .eq("project_id", projeto.id)
+        .eq("edition_date", data)
+        .eq("platform", "instagram");
+      if (error) throw new Error(`os posts do dia não puderam ser lidos: ${error.message}`);
+      const posts = (linhas ?? []).filter((l) => !["cancelled", "failed"].includes(String(l.status))).length;
+      const comOWorker = (await Promise.all(ids.map((id) => reels.porId(id)))).filter((r) => r && (r.estado === "escolhida" || r.estado === "renderizando")).length;
+      return posts + comOWorker;
     },
     candidatas: (projeto, ids) => candidatos.buscarPorStoryIds(projeto.id, ids),
     foto: (projeto, id) => lerImagemDaPauta(client, projeto.id, id),
@@ -196,7 +244,7 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
           candidatas: lista.map(({ asset: _a, ...resto }) => resto),
           assets: lista.map((x) => x.asset),
           // O post em carrossel pede as fotos dos slides junto com a da capa (09/11/2026).
-          ...(plano.itens.posts.includes(c.storyId) && formatoDoPost(plano.itens, c.storyId) === "carrossel" ? { fotosDoCarrossel: 4 } : {}),
+          ...(postsDoPlano(plano.itens).includes(c.storyId) && formatoDoPost(plano.itens, c.storyId) === "carrossel" ? { fotosDoCarrossel: 4 } : {}),
         },
         tarefas,
       );
@@ -234,7 +282,7 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
     },
     async iniciarPost(projeto, data, storyId) {
       const plano = await planos.doDia(projeto.id, data);
-      const carrossel = plano.itens.posts.includes(storyId) && formatoDoPost(plano.itens, storyId) === "carrossel";
+      const carrossel = postsDoPlano(plano.itens).includes(storyId) && formatoDoPost(plano.itens, storyId) === "carrossel";
       const r = await iniciarPost(projeto, { storyId, data, carrossel }, post);
       return r.ok ? r.tarefa : { erro: r.error };
     },
@@ -252,8 +300,9 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
     async iniciarArtigo(projeto, plano, storyId) {
       const c = (await candidatos.buscarPorStoryIds(projeto.id, [storyId])).get(storyId);
       if (!c?.factualPackage) return { erro: "sem pacote factual" };
-      const indice = plano.itens.artigos.indexOf(storyId);
-      const horarios = horariosDosArtigos(plano.itens.artigos.length, plano.data, projeto.timezone, horariosDoPortal(projeto));
+      const lista = artigosDoPlano(plano.itens);
+      const indice = Math.max(0, lista.indexOf(storyId));
+      const horarios = horariosDosArtigos(lista.length, plano.data, projeto.timezone, horariosDoPortal(projeto));
       return iniciarArtigo(
         projeto,
         { storyId, data: plano.data, publicarEm: horarios[indice] ?? horarios[0], candidata: c, foto: await lerImagemDaPauta(client, projeto.id, storyId) },
