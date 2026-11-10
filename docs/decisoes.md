@@ -3086,4 +3086,14 @@ planejar 09/11: as peças saíram na segunda.
   `platform_events` (`reels_rodada`, com `origem: "fazer_o_dia"`). Só entram
   vídeos postados até a hora em que a Bruna começa o dia. A busca guarda só a
   linha do vídeo (uns 2 KB); o arquivo é baixado quando um Reel é escolhido.
+- **Vídeo sem legenda pronta é transcrito no worker** (decisão do dono, no
+  mesmo dia). O Reel de um link do X da ABC saiu com um minuto de inglês sem
+  legenda: só o YouTube tinha a fala com tempo. Agora, sem legenda do
+  YouTube, o worker tira o áudio e transcreve com o whisper.cpp (modelo base
+  multilíngue, na CPU, sem API: o motor Claude não chama a OpenAI). A fala
+  entra na tarefa `escrever_reel` como a do YouTube, e o Claude escolhe o
+  trecho de 15 a 45 s e escreve a legenda em português. Só inglês e
+  português viram legenda. No link que o dono manda, falha na transcrição
+  para o Reel com o motivo, em vez de sair sem legenda; no vídeo da
+  descoberta, segue como antes. O link guarda 240 s do vídeo, como o canal.
 

@@ -12,7 +12,7 @@ import type { CandidatoDeReel, CandidatosDeReel } from "./candidatos";
 import { canalDoCandidato } from "./canais";
 import { ASPECTO_DO_MOLDE, cortesDeCena, folhaDeQuadros, medidasDoVideo, medirCorte, medirCorteDoCanal } from "./corte";
 import type { ReelParaGravar } from "./gravar";
-import { segmentosAte, transcreverDoYoutube, type Segmento } from "./transcricao";
+import { segmentosAte, transcreverDoArquivo, transcreverDoYoutube, type Segmento } from "./transcricao";
 
 /**
  * O trabalho do worker nos Reels (28/10/2026), em dois passos, cada um pego
@@ -51,6 +51,8 @@ export type DepsDoTrabalho = {
   }) => Promise<string>;
   baixar?: typeof baixarVideo;
   transcrever?: (url: string, idioma: "en" | "pt", pasta: string) => Segmento[];
+  /** A fala do arquivo baixado, pelo whisper.cpp do worker; o teste injeta. */
+  transcreverArquivo?: (arquivo: string, pasta: string) => { idioma: string | null; segmentos: Segmento[] };
   /** Os cortes de cena do vídeo baixado (ffmpeg); o teste injeta. */
   cenas?: (arquivo: string) => number[];
   fetcher?: typeof fetch;
@@ -96,10 +98,35 @@ export async function prepararCandidato(c: CandidatoDeReel, deps: DepsDoTrabalho
         if (canal.idioma === "en") throw e;
       }
     }
+    // O link que o dono mandou (10/11/2026) também é fala longa: guarda os mesmos 240 s do canal.
+    const longo = Boolean(canal) || c.fonte === "link";
     const video = await (deps.baixar ?? baixarVideo)(c, dir, {
       fetcher: deps.fetcher,
-      ...(canal ? { segundos: SEGUNDOS_DO_VIDEO_DE_CANAL, crf: 21 } : {}),
+      ...(longo ? { segundos: SEGUNDOS_DO_VIDEO_DE_CANAL, crf: 21 } : {}),
     });
+    /*
+     * Sem legenda do YouTube, a fala sai do próprio arquivo (10/11/2026): o
+     * vídeo do X da ABC saiu com um minuto de inglês sem legenda. Só inglês e
+     * português viram legenda. No link que o dono mandou, falha na
+     * transcrição para o Reel com o motivo, em vez de sair sem legenda; no
+     * vídeo achado pela descoberta, segue como antes.
+     */
+    let idioma: "en" | "pt" | null = canal?.idioma ?? null;
+    if (!transcricao) {
+      try {
+        const fala = (deps.transcreverArquivo ?? transcreverDoArquivo)(video.arquivo, dir);
+        if (fala.segmentos.length && (fala.idioma === "en" || fala.idioma === "pt")) {
+          transcricao = fala.segmentos;
+          idioma = fala.idioma;
+        } else if (fala.segmentos.length && c.fonte === "link") {
+          throw new Error(`a fala do vídeo está em "${fala.idioma ?? "?"}": só inglês e português viram legenda`);
+        }
+      } catch (e) {
+        if (c.fonte === "link") throw e;
+        console.error("[REELS] transcrição do arquivo:", e instanceof Error ? e.message : e);
+      }
+    }
+    const comFala = Boolean(transcricao?.length);
     /*
      * O vídeo deitado de canal (a transmissão de TV) tem o corte próprio: sempre
      * dentro da faixa limpa, centrado em quem fala. O vertical do canal (Short)
@@ -108,7 +135,7 @@ export async function prepararCandidato(c: CandidatoDeReel, deps: DepsDoTrabalho
     const transmissao = Boolean(canal) && video.largura > video.altura;
     const medir = (aspecto: number) => (transmissao ? medirCorteDoCanal(video.arquivo, aspecto) : medirCorte(video.arquivo, aspecto).corte);
     const corte = { a: medir(ASPECTO_DO_MOLDE.a), b: medir(ASPECTO_DO_MOLDE.b), ...(canal ? { q: medir(ASPECTO_DO_MOLDE.q) } : {}) };
-    const molde = canal || video.largura < video.altura ? "b" : "a";
+    const molde = canal || comFala || video.largura < video.altura ? "b" : "a";
     const folha = folhaDeQuadros(video.arquivo, path.join(dir, "folha.jpg"), corte[molde]);
     const base = `${projeto.slug}/${c.id}`;
     const videoUrl = await subirArquivo(deps, video.arquivo, `${base}/origem.mp4`, "video/mp4");
@@ -120,9 +147,9 @@ export async function prepararCandidato(c: CandidatoDeReel, deps: DepsDoTrabalho
       original: { largura: video.largura, altura: video.altura, segundos: video.segundos },
       corte,
       tarefaId: null as string | null,
-      ...(canal
+      ...(canal || comFala
         ? {
-            idioma: canal.idioma,
+            idioma: idioma ?? "en",
             transcricao: transcricao ? segmentosAte(transcricao, video.segundos) : null,
             cenas: (deps.cenas ?? cortesDeCena)(video.arquivo),
           }

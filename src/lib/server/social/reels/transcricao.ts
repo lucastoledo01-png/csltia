@@ -187,3 +187,49 @@ export function transcreverDoYoutube(url: string, idioma: "en" | "pt", pasta: st
   if (!segmentos.length) throw new Error(`a legenda do vídeo (${escolhido}) veio vazia`);
   return segmentos;
 }
+
+/*
+ * A fala de qualquer vídeo, transcrita no próprio worker (10/11/2026, decisão
+ * do dono). O vídeo do X, do Instagram ou de um site não tem legenda pronta, e
+ * o Reel da Bruna saiu com um minuto de fala em inglês sem legenda. O
+ * whisper.cpp roda na CPU do worker, sem chamar API nenhuma (o motor Claude
+ * não chama a OpenAI), e devolve a fala com tempo e o idioma detectado.
+ */
+export const WHISPER_CLI = process.env.WHISPER_CLI || "whisper-cli";
+export const WHISPER_MODELO = process.env.WHISPER_MODELO || "/opt/whisper/ggml-base.bin";
+
+export type SaidaDoWhisper = {
+  result?: { language?: string };
+  transcription?: Array<{ offsets?: { from?: number; to?: number }; text?: string }>;
+};
+
+/** Pura: a saída JSON do whisper.cpp em segmentos e idioma. Ruído entre colchetes ("[Music]") sai. */
+export function segmentosDoWhisper(saida: SaidaDoWhisper): { idioma: string | null; segmentos: Segmento[] } {
+  const segmentos: Segmento[] = [];
+  for (const t of saida.transcription ?? []) {
+    const texto = String(t.text ?? "").replace(/\[[^\]]*\]|\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
+    const inicio = Number(t.offsets?.from ?? NaN) / 1000;
+    const fim = Number(t.offsets?.to ?? NaN) / 1000;
+    if (!texto || !Number.isFinite(inicio) || !Number.isFinite(fim) || fim <= inicio) continue;
+    segmentos.push({ inicio: Math.round(inicio * 100) / 100, fim: Math.round(fim * 100) / 100, texto });
+  }
+  const idioma = saida.result?.language?.trim().toLowerCase() || null;
+  return { idioma, segmentos };
+}
+
+/** Transcreve o arquivo baixado: ffmpeg tira o áudio em 16 kHz mono, o whisper.cpp detecta o idioma e devolve a fala. */
+export function transcreverDoArquivo(arquivo: string, pasta: string): { idioma: string | null; segmentos: Segmento[] } {
+  const audio = path.join(pasta, "fala.wav");
+  execFileSync("ffmpeg", ["-v", "error", "-y", "-i", arquivo, "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", audio], {
+    stdio: "pipe",
+    timeout: 120_000,
+  });
+  const base = path.join(pasta, "fala-whisper");
+  try {
+    execFileSync(WHISPER_CLI, ["-m", WHISPER_MODELO, "-f", audio, "-l", "auto", "-oj", "-of", base, "-np"], { stdio: "pipe", timeout: 300_000 });
+  } catch (e) {
+    const detalhe = (e as { stderr?: Buffer }).stderr?.toString().trim().split("\n").pop() ?? (e as Error).message;
+    throw new Error(`o whisper não transcreveu o vídeo: ${detalhe.slice(0, 300)}`);
+  }
+  return segmentosDoWhisper(JSON.parse(readFileSync(`${base}.json`, "utf8")) as SaidaDoWhisper);
+}
