@@ -167,7 +167,7 @@ function userDoReel(m: MaterialDoReel): string {
     m.credito ? `CANAL: ${m.credito} (o crédito "Vídeo: ${m.credito}" entra sozinho na legenda do post).` : "",
     m.cenas?.length ? `CORTES DE CENA (segundos do vídeo): ${m.cenas.map((c) => c.toFixed(2)).join(", ")}.` : "",
     m.transcricao?.length
-      ? `TRANSCRIÇÃO (${m.idioma === "en" ? "inglês" : "português"}, legenda do YouTube, [início-fim] em segundos do vídeo):\n${transcricaoDoPrompt(m.transcricao)}`
+      ? `TRANSCRIÇÃO (${m.idioma === "en" ? "inglês" : "português"}, transcrição automática, [início-fim] em segundos do vídeo):\n${transcricaoDoPrompt(m.transcricao)}`
       : "",
     m.reprovacao ? `\nO DONO REPROVOU A VERSÃO ANTERIOR NO PAINEL. Corrija isto: ${m.reprovacao}` : "",
   ]

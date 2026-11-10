@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { segmentosAte, segmentosDoVtt, segundosDoTempo } from "./transcricao";
+import { segmentosAte, segmentosDoVtt, segmentosDoWhisper, segundosDoTempo } from "./transcricao";
 
 /** O começo real de uma legenda automática da CNBC (Powell em Harvard, baixada em 09/11/2026). */
 const AUTOMATICA = `WEBVTT
@@ -76,5 +76,30 @@ describe("a fala do vídeo", () => {
       { inicio: 5, fim: 6, texto: "And watch the data." },
     ]);
     expect(segmentosDoVtt("WEBVTT\n\n")).toEqual([]);
+  });
+});
+
+describe("a fala transcrita pelo whisper.cpp (10/11/2026)", () => {
+  it("lê o JSON do whisper-cli: idioma detectado, tempo em segundos, ruído fora", () => {
+    // Trecho real do vídeo da ABC no X (Trump defendendo Hegseth), transcrito pelo whisper-cli com o modelo base.
+    const r = segmentosDoWhisper({
+      result: { language: "en" },
+      transcription: [
+        { offsets: { from: 0, to: 6100 }, text: " Now, he's after Pete Hexath, he doesn't like Hexath, but really, what is Hexath then?" },
+        { offsets: { from: 6100, to: 7100 }, text: " He won the war." },
+        { offsets: { from: 7100, to: 8000 }, text: " [Music]" },
+        { offsets: { from: 9000, to: 9000 }, text: " vazio" },
+      ],
+    });
+    expect(r.idioma).toBe("en");
+    expect(r.segmentos).toEqual([
+      { inicio: 0, fim: 6.1, texto: "Now, he's after Pete Hexath, he doesn't like Hexath, but really, what is Hexath then?" },
+      { inicio: 6.1, fim: 7.1, texto: "He won the war." },
+    ]);
+  });
+
+  it("sem fala, sem segmento", () => {
+    expect(segmentosDoWhisper({ result: { language: "pt" }, transcription: [] })).toEqual({ idioma: "pt", segmentos: [] });
+    expect(segmentosDoWhisper({})).toEqual({ idioma: null, segmentos: [] });
   });
 });
