@@ -2426,3 +2426,23 @@ post que foi para outro dia como agendado.
 ser sacrificado por ela (a cabeça). E a mesma regra de vaga em dois caminhos é
 a "mesma regra em três cópias" outra vez: quando uma ganhou a saída para o dia
 seguinte, a outra ficou sem.
+
+### 10/11/2026: posts saindo com minutos de diferença
+
+**Sintoma.** Em 09/11 um post aprovado às 23:04 (planejado para 22:00) saiu
+onze minutos antes do seguinte; em 10/11 dois Reels aprovados para as 18:07
+saíram com um segundo de diferença.
+
+**Causa.** A escolha da vaga respeitava 45 minutos entre posts, mas a
+liberação da fila não: ela punha o post no horário planejado, ou AGORA se ele
+já tinha passado, sem olhar o que já estava agendado. A liberação é a porta de
+todo post (plano, complemento, Reel, peça feita à mão), e era a única sem a
+régua.
+
+**Corrigido.** `horarioSemColar` (`social/espacamento.ts`), chamado na
+liberação do post: o horário é empurrado para depois enquanto estiver a menos
+de 45 minutos de outro post agendado ou publicado. Rascunho não conta. A mesma
+constante vale para `vagasDaTarde`.
+
+**Lição.** Regra de espaçamento na escolha da vaga não alcança quem muda o
+horário depois. Toda escrita de `scheduled_at` precisa da mesma régua.
