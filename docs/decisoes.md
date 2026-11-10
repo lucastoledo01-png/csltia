@@ -3078,4 +3078,12 @@ planejar 09/11: as peças saíram na segunda.
   extra que chega depois de a newsletter estar escrita também.
 - **Os extras moram em `itens.extras`** do plano, com formato, cena e frase. O
   plano proposto depois de um link não o apaga (`comExtrasDe`).
+- **O "faça o dia" busca os vídeos sozinho, sem cron** (decisão do dono, no
+  mesmo dia). A triagem roda a busca de vídeos (`rodarDescoberta`: canais do
+  YouTube e perfis do Instagram) ao mesmo tempo que lê as notícias
+  (`buscarVideosDoDia`, em `mcp/dia/deps.ts`), com teto de 60 s: passou disso,
+  a triagem segue e a busca termina sozinha. A rodada fica em
+  `platform_events` (`reels_rodada`, com `origem: "fazer_o_dia"`). Só entram
+  vídeos postados até a hora em que a Bruna começa o dia. A busca guarda só a
+  linha do vídeo (uns 2 KB); o arquivo é baixado quando um Reel é escolhido.
 

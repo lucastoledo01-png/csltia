@@ -46,7 +46,9 @@ autorização ou vídeo próprio.
 
 O caminho, do vídeo achado ao Reel na fila:
 
-1. **Descoberta**, de hora em hora das 9h às 17h (`/api/cron/reels?relogio=1`,
+1. **Descoberta**, no começo do "faça o dia" do MCP desde 10/11/2026, junto
+   com a coleta de notícias (a rota de cron continua, se alguém quiser de hora
+   em hora: `/api/cron/reels?relogio=1`,
    capacidade `reels`): lê os perfis de referência e `settings.reels.perfis_ig`
    no Instagram (Business Discovery com `media_url`) e até quatro buscas no
    YouTube (`YOUTUBE_API_KEY`). Ordena pela nota da fonte e pelo calor da

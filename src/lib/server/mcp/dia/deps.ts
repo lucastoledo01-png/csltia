@@ -23,6 +23,48 @@ import { artigosDoPlano, formatoDoPost, newsletterDoPlano, planosSupabase, posts
 import { abrirTriagem, preFiltrar, type Coletada } from "./triagem";
 import { ehPrioritaria, fontesPrioritarias } from "./fontes-prioritarias";
 import { rodarRadar } from "@/lib/server/newsroom/radar";
+import { EVENTO_DA_RODADA_DE_REELS, modoDosReels, rodarDescoberta } from "@/lib/server/social/reels/descoberta";
+import { depsDeProducao } from "@/lib/server/social/reels/producao";
+
+/** O teto da busca de vídeos dentro do "faça o dia": passou disso, a triagem segue e a busca termina sozinha. */
+export const PRAZO_DA_BUSCA_DE_VIDEOS_MS = 60_000;
+
+/**
+ * A busca de vídeos do dia (10/11/2026, decisão do dono): o "faça o dia" lê os
+ * canais do YouTube e os perfis do Instagram junto com as notícias, em vez de
+ * depender de um cron de hora em hora. É o que enche `reels_sugeridos` antes
+ * do plano, e sem ela a regra "vídeo primeiro" nunca disparava. Falha ou
+ * demora não trava o dia: o plano segue com o que já está no banco.
+ */
+export async function buscarVideosDoDia(
+  client: SupabaseClient,
+  projeto: Project,
+  rodar: typeof rodarDescoberta = rodarDescoberta,
+  prazoMs = PRAZO_DA_BUSCA_DE_VIDEOS_MS,
+): Promise<"ok" | "desligada" | "prazo" | "falhou"> {
+  if (modoDosReels(projeto) === "off") return "desligada";
+  const busca = (async () => {
+    const desfecho = await rodar(projeto, depsDeProducao(client, projeto.id));
+    await client.from("platform_events").insert({
+      event_type: EVENTO_DA_RODADA_DE_REELS,
+      project_id: projeto.id,
+      payload: { ...desfecho, origem: "fazer_o_dia" },
+    });
+    return "ok" as const;
+  })().catch((e: unknown) => {
+    console.error("[MCP DIA] busca de vídeos:", e instanceof Error ? e.message : e);
+    return "falhou" as const;
+  });
+  let relogio: ReturnType<typeof setTimeout> | undefined;
+  const prazo = new Promise<"prazo">((r) => {
+    relogio = setTimeout(() => r("prazo"), prazoMs);
+  });
+  try {
+    return await Promise.race([busca, prazo]);
+  } finally {
+    clearTimeout(relogio);
+  }
+}
 
 /** As matérias do dia na coleta do projeto de onde vêm as pautas. */
 async function coletadas(client: SupabaseClient, projectIdDaFonte: string, desdeIso: string): Promise<Coletada[]> {
@@ -120,7 +162,9 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
        * e o dia parte das notícias daquela hora. Falha na coleta não trava o
        * dia: a triagem segue com o que já está no banco.
        */
-      const coleta = await rodarRadar(fonte, { client });
+      // As notícias e os vídeos ao mesmo tempo (10/11/2026): os vídeos achados viram `reels_sugeridos` do plano.
+      const [coleta, videos] = await Promise.all([rodarRadar(fonte, { client }), buscarVideosDoDia(client, projeto)]);
+      if (videos !== "ok" && videos !== "desligada") console.error("[MCP DIA] busca de vídeos antes da triagem:", videos);
       if (!coleta.ok) console.error("[MCP DIA] coleta antes da triagem:", coleta.erros.join("; "));
       const agora = Date.now();
       const lista = await coletadas(client, fonte.id, new Date(agora - 24 * 3_600_000).toISOString());
