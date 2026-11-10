@@ -77,6 +77,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.pexels.com" },
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "azqpdesusdzqndvsqmko.supabase.co" },
+      // O projeto Supabase novo, no plano Pro (09/11/2026). O antigo fica enquanto houver link velho.
+      { protocol: "https", hostname: "ybkcxlztmsunqyinemap.supabase.co" },
       { protocol: "https", hostname: "casaloti.ia.br" },
       { protocol: "https", hostname: "euajournal.com" },
       /*

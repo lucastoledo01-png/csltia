@@ -715,27 +715,29 @@ ${bolha ? bolhaDoMiolo(bolha, slide.inset_position) : ""}
  * variante continua `cta_assinatura` para as linhas já gravadas e a refação da
  * arte acharem o mesmo desenho. A linha do comentário continua: quem comenta a
  * palavra ainda recebe o link pelo Direct.
+ *
+ * ATUALIZADO no mesmo dia, com o desenho que o dono aprovou no carrossel do
+ * divórcio de Jensen Huang: a foto da capa desfocada ao fundo, "Siga
+ * @eua.journal" e a tagline no CENTRO, sem botão e sem avatar. Sem foto, o
+ * fundo é preto. A linha do comentário só aparece com palavra escutada.
  */
 const ctaAssinatura: SlideVariant = {
   key: "cta_assinatura",
   label: "Notícia: convite para seguir o perfil",
   render: (slide): VariantOutput => {
     const palavra = (slide.highlight_text ?? "").trim().toUpperCase();
+    const foto = (slide.bg_image_url ?? "").trim();
     return {
       full: true,
       onDark: true,
       body: `
 <div class="ja-fundo"></div>
+${foto ? `<img class="js-fundo" src="${esc(foto)}" alt="" />` : ""}
 <img class="j-marca" src="${esc(MARCA.logoInstagramEscuro)}" alt="" />
-<div class="js-perfil" aria-hidden="true">
-  <img class="js-ava" src="${esc(MARCA.avatar)}" alt="" />
-  <div class="js-nome">${esc(MARCA.instagramNome)}</div>
-  <div class="js-arroba">${esc(MARCA.instagramHandle)}</div>
-</div>
-<div class="ja-texto">
-  <div class="ja-titulo">Siga <em>${esc(MARCA.instagramHandle)}</em></div>
-  <div class="ja-linha-sub">${esc(MARCA.tagline)}</div>
-  <span class="ja-palavra">${palavra ? `Comente ${esc(palavra)} e receba o link` : "Siga o perfil"}</span>
+<div class="js-centro">
+  <div class="js-titulo">Siga<em>${esc(MARCA.instagramHandle)}</em></div>
+  <div class="js-apoio">${esc(MARCA.tagline)}</div>
+  ${palavra ? `<div class="js-palavra">Comente ${esc(palavra)} e receba o link</div>` : ""}
 </div>`,
     };
   },

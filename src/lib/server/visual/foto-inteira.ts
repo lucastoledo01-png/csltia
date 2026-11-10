@@ -29,6 +29,7 @@ export const HOSTS_DA_FOTO_INTEIRA = [
   "upload.wikimedia.org",
   "live.staticflickr.com",
   "azqpdesusdzqndvsqmko.supabase.co",
+  "ybkcxlztmsunqyinemap.supabase.co",
   "euajournal.com",
   "www.camara.leg.br",
   "www.whitehouse.gov",

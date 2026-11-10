@@ -261,13 +261,18 @@ export function entradasDoCarrossel(
        * texto do convite é da marca e mora no desenho; o que vem daqui é só a
        * palavra do comentário, quando há automação escutando. Sem ela, o slide
        * convida do mesmo jeito, só sem a linha de como pedir o link.
+       *
+       * ATUALIZADO em 09/11/2026: o convite é para seguir o perfil, e o fundo
+       * é a foto da CAPA desfocada (desenho aprovado pelo dono). A foto entra
+       * por `asset`, como nos outros slides, e passa pelo mesmo download; se
+       * não baixar, o slide sai no fundo preto, sem buraco.
        */
       const slide = slideVazio(posicao, "cta", VARIANTE_DO_CONVITE);
       slide.cta_text = copy.cta;
       slide.highlight_text = palavraDoCta(copy.cta);
       entradas.push({
         headline: copy.headline,
-        asset: null,
+        asset: opcoes.asset ?? null,
         slidePronto: slide,
         posicao,
         total,

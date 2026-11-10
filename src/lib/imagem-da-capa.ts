@@ -238,6 +238,7 @@ export const HOSTS_OTIMIZAVEIS = [
   "images.pexels.com",
   "images.unsplash.com",
   "azqpdesusdzqndvsqmko.supabase.co",
+  "ybkcxlztmsunqyinemap.supabase.co",
   "casaloti.ia.br",
   "euajournal.com",
   "upload.wikimedia.org",

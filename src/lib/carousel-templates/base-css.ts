@@ -598,14 +598,18 @@ html,body{width:var(--s-w);height:var(--s-h);background:var(--s-bg);color:var(--
 .ja-palavra{align-self:flex-start;margin-top:40px;padding:20px 38px;
   background:#E4344A;color:#fff;font-family:var(--s-font-display);
   font-size:32px;font-weight:800;letter-spacing:0.02em;text-transform:uppercase;}
-/* Convite para seguir o perfil (09/11/2026): o avatar grande, o nome e o arroba
-   no alto, e o texto apoiado na base como nos outros slides. */
-.js-perfil{position:absolute;z-index:2;left:9%;right:9%;top:19%;display:flex;
-  flex-direction:column;align-items:center;}
-.js-ava{width:300px;height:300px;border-radius:50%;object-fit:cover;display:block;
-  border:8px solid #E4344A;}
-.js-nome{margin-top:30px;font-family:var(--s-font-display);font-size:40px;font-weight:800;color:#fff;}
-.js-arroba{margin-top:6px;font-family:var(--s-font-display);font-size:30px;font-weight:500;
-  color:rgba(255,255,255,0.6);}
+/* Convite para seguir o perfil (09/11/2026, desenho aprovado pelo dono): a foto
+   da capa desfocada e escurecida ao fundo, e a chamada no centro, sem botao. */
+.js-fundo{position:absolute;z-index:1;left:-60px;top:-60px;width:calc(100% + 120px);
+  height:calc(100% + 120px);object-fit:cover;filter:blur(26px) brightness(.45) saturate(1.1);}
+.js-centro{position:absolute;z-index:3;left:8%;right:8%;top:50%;transform:translateY(-50%);
+  text-align:center;}
+.js-titulo{font-family:var(--s-font-display);font-size:104px;font-weight:800;line-height:1.02;
+  letter-spacing:-0.02em;color:#fff;}
+.js-titulo em{display:block;font-style:normal;color:#ff3b53;}
+.js-apoio{margin:34px auto 0;max-width:820px;font-family:var(--s-font-display);font-size:36px;
+  font-weight:500;line-height:1.35;color:rgba(255,255,255,0.85);}
+.js-palavra{margin-top:44px;font-family:var(--s-font-display);font-size:30px;font-weight:700;
+  color:#fff;}
 
 `;
