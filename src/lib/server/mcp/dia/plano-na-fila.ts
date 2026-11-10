@@ -21,6 +21,22 @@ export function itensEditados(anteriorBruto: unknown, novoTexto: string): ItensD
     const novos = novo[canal].filter((id) => !anterior[canal].includes(id));
     if (novos.length) throw new Error(`${canal}: só dá para tirar item do plano, e ${novos.join(", ")} não estava nele`);
   }
-  // As cenas e os porquês ficam os do Claude; a edição só escolhe quais itens seguem.
-  return { ...novo, porque: anterior.porque, cenas: anterior.cenas };
+  /*
+   * Os extras (link e complemento) não estão no esquema do plano, e o parse os
+   * jogava fora: em 10/11/2026 tirar dois vídeos velhos no painel apagou as
+   * pautas por link da Anthropic e da Ring. Sem a chave no texto, ficam todos;
+   * com ela, ficam os que o dono deixou (só tirar, nunca pôr).
+   */
+  const extrasDoTexto = (bruto as { extras?: unknown }).extras;
+  const extras = Array.isArray(extrasDoTexto)
+    ? (anterior.extras ?? []).filter((id) => extrasDoTexto.includes(id))
+    : (anterior.extras ?? []);
+  // As cenas, os porquês e os formatos dos extras ficam os do Claude; a edição só escolhe quais itens seguem.
+  return {
+    ...novo,
+    ...(extras.length ? { extras } : {}),
+    formatos: { ...Object.fromEntries(extras.filter((id) => anterior.formatos?.[id]).map((id) => [id, anterior.formatos![id]])), ...(novo.formatos ?? {}) },
+    porque: anterior.porque,
+    cenas: anterior.cenas,
+  };
 }

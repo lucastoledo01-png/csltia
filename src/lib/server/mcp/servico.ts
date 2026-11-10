@@ -7,7 +7,7 @@ import { projectToday } from "@/lib/server/projects";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import { linkDoPainel, pecasDaFila, resumoDoDia } from "./dia";
 import { agendarPost, montarPost, type FormatoDaPeca, type PedidoDoPost } from "./post/agendar";
-import { formatoDoPost, planosSupabase } from "./dia/plano-store";
+import { formatoDoPost, planosSupabase, postsDoPlano } from "./dia/plano-store";
 import { depsDoPost, projetoDaFonte } from "./post/deps";
 import { entregarTarefaDoPost, iniciarPost } from "./post/fluxo";
 import { pautasDisponiveis } from "./post/material";
@@ -138,7 +138,7 @@ async function pedidoDeMontagem(args: Record<string, unknown>, acesso: AcessoDoM
   if (args.formato === "reel" || args.formato === "estatico" || args.formato === "carrossel") formato = args.formato;
   else {
     const plano = await planosSupabase(client).doDia(acesso.projeto.id, base.data);
-    formato = plano.itens.posts.includes(base.storyId) ? formatoDoPost(plano.itens, base.storyId) : "reel";
+    formato = postsDoPlano(plano.itens).includes(base.storyId) ? formatoDoPost(plano.itens, base.storyId) : "reel";
   }
   return { ...base, formato, ...(foco && (foco.x !== undefined || foco.y !== undefined) ? { foco } : {}) };
 }
