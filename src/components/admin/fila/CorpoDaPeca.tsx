@@ -211,7 +211,8 @@ export function CorpoDoArtigo({
 
 /** Só o host do Storage passa pelo otimizador; outro host derrubaria a página (`next.config.ts`). */
 function ehDoStorage(url: string): boolean {
-  return /^https:\/\/azqpdesusdzqndvsqmko\.supabase\.co\//.test(url);
+  // O projeto antigo e o novo (09/11/2026), os dois no `next.config.ts`.
+  return /^https:\/\/(azqpdesusdzqndvsqmko|ybkcxlztmsunqyinemap)\.supabase\.co\//.test(url);
 }
 
 export function TelasDoPost({ telas, titulo }: { telas: string[]; titulo: string }) {
