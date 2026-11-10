@@ -2362,3 +2362,6 @@ primeiro" do plano não dispara, porque ela só pede Reel de vídeo quando há
 sugerido. **Lição:** capacidade nova que depende de cron só está ligada quando
 há `reels_rodada` no banco, não quando o código está no ar.
 
+**Corrigido sem cron**, por escolha do dono: o `fazer_o_dia` roda a busca de
+vídeos junto com a coleta de notícias. Ver `decisoes.md`.
+
