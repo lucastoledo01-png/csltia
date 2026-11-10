@@ -8,7 +8,7 @@ import { maximoDeReparos } from "@/lib/server/social/gerador";
 import { canalDoCandidato } from "@/lib/server/social/reels/canais";
 import type { CandidatoDeReel, CandidatosDeReel, PreparoDoReel, TextoDoReel } from "@/lib/server/social/reels/candidatos";
 import type { Segmento } from "@/lib/server/social/reels/transcricao";
-import { ajustarAosCortesDeCena } from "@/lib/server/social/reels/corte";
+import { ajustarAosCortesDeCena, videoEmPe } from "@/lib/server/social/reels/corte";
 import type { Tarefa, TarefasStore } from "../tarefas-store";
 
 /**
@@ -123,7 +123,7 @@ const SYSTEM_DA_FALA = [
   "categoria (a etiqueta vermelha): a editoria ou o tema (POLÍTICA, ECONOMIA, TECNOLOGIA...). Nunca \"VÍDEO: BLOOMBERG\" nem o nome do veículo: crédito de vídeo e de imagem vai SÓ na legenda do post.",
   "legendas: a fala dos trechos traduzida para o português do Brasil, fiel ao que a pessoa disse (não resuma, não acrescente, não melhore), em pedaços de até 7 palavras, cada um com início e fim em segundos do Reel MONTADO: o 0 é o começo do primeiro trecho, e o segundo trecho começa onde o primeiro acaba. Sem sobreposição entre pedaços, sem travessão.",
   "A manchete e a legenda do post se apoiam na transcrição: nome, número e data que não estão nela, no título ou na descrição não entram.",
-  'Marca de terceiro não aparece no vídeo: o corte proposto tira logotipo do canal, faixa de manchete, "LIVE" e relógio. Se o corte em 9:16 ficar fechado demais (só um pedaço do rosto), use enquadramento "quadrado". O crédito do canal vai na legenda do post, que a plataforma escreve sozinha; não escreva crédito na legenda.',
+  'Marca de terceiro não aparece no vídeo: o corte proposto tira logotipo do canal, faixa de manchete, "LIVE" e relógio. Nenhum corte tira a cabeça de quem fala: na folha de quadros, a cabeça inteira fica dentro do amarelo, com folga acima do cabelo. Se o corte em 9:16 ficar fechado demais (só um pedaço do rosto), use enquadramento "quadrado". O crédito do canal vai na legenda do post, que a plataforma escreve sozinha; não escreva crédito na legenda.',
 ].join("\n");
 
 const SEGUNDOS_MINIMOS_DO_TRECHO = 15;
@@ -162,6 +162,9 @@ function userDoReel(m: MaterialDoReel): string {
     m.historia ? `A HISTÓRIA DO DIA COM QUE ELE CASOU (termômetro): ${m.historia}` : "",
     `VÍDEO ORIGINAL: ${m.original.largura}x${m.original.altura}, ${Math.round(m.original.segundos)} s.`,
     `CORTE PROPOSTO (tira logotipo e legenda gravada de quem publicou): molde A ${JSON.stringify(m.corteProposto.a)}, molde B ${JSON.stringify(m.corteProposto.b)}.`,
+    videoEmPe(m.original)
+      ? "VÍDEO EM PÉ: no molde B ele entra inteiro, sem corte nenhum, e a plataforma apaga o logotipo de terceiro no próprio quadro. Não mande corte para o molde B: ele seria ignorado."
+      : "",
     m.corteProposto.q ? `CORTE QUADRADO PROPOSTO (enquadramento "quadrado"): ${JSON.stringify(m.corteProposto.q)}.` : "",
     m.folhaUrl ? `A folha de quadros com o corte desenhado em amarelo está em ver_reel(${m.candidatoId}).` : "",
     m.credito ? `CANAL: ${m.credito} (o crédito "Vídeo: ${m.credito}" entra sozinho na legenda do post).` : "",
@@ -352,8 +355,10 @@ export function conferirTextoDoReel(
   const embrulhaHorizontal = Boolean(a && a.largura > a.altura);
   // O vídeo de canal é sempre o molde B (09/11/2026): a regra do Reel de vídeo, e a legenda da fala é desenhada nele.
   const deCanal = Boolean(material.idioma);
-  const t =
+  const forcado =
     (deCanal || (vertical && !embrulhaHorizontal)) && lidoLimpo.molde === "a" ? { ...lidoLimpo, molde: "b" as const, corte: null } : lidoLimpo;
+  // Em pé, o molde B entra inteiro (10/11/2026): o corte que o Claude mandar tiraria a cabeça para fugir do logotipo.
+  const t = videoEmPe(material.original) && forcado.molde === "b" && forcado.enquadramento !== "quadrado" ? { ...forcado, corte: null } : forcado;
 
   const manchete = t.linhas.join(" ").replace(/\s+/g, " ").trim();
   const corpo = [t.legenda.gancho, ...t.legenda.paragrafos].map((p) => p.trim()).filter(Boolean).join("\n\n");
@@ -388,7 +393,10 @@ export function conferirTextoDoReel(
       categoria: t.categoria.toUpperCase(),
       manchete,
       legenda: corpo,
-      corte: t.corte ?? (t.enquadramento === "quadrado" ? (material.corteProposto.q ?? null) : material.corteProposto[t.molde]),
+      corte:
+        t !== forcado
+          ? null
+          : (t.corte ?? (t.enquadramento === "quadrado" ? (material.corteProposto.q ?? null) : material.corteProposto[t.molde])),
       ...(t.trechos?.length ? { trechos: t.trechos.map((x) => ({ inicio: arred(x.inicio), fim: arred(x.fim) })) } : {}),
       ...(t.legendas?.length
         ? { legendas: t.legendas.map((l) => ({ inicio: arred(l.inicio), fim: arred(l.fim), texto: l.texto.trim() })) }

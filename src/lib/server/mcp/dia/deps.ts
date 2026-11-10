@@ -1,3 +1,4 @@
+import { DIAS_PARA_ACHAR_VAGA, somarDias } from "@/lib/server/social/proxima-vaga";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Project } from "@/lib/server/projects";
 import { comInstrucoesDoProjeto } from "@/lib/server/instrucoes";
@@ -357,11 +358,13 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
       }
     },
     async postAgendado(projeto, data, storyId) {
+      // O post que achou vaga só no dia seguinte (10/11/2026) conta como agendado.
       const { data: linhas } = await client
         .from("social_posts")
         .select("id")
         .eq("project_id", projeto.id)
-        .eq("edition_date", data)
+        .gte("edition_date", data)
+        .lte("edition_date", somarDias(data, DIAS_PARA_ACHAR_VAGA))
         .eq("story_id", storyId)
         .limit(1);
       return (linhas ?? []).length > 0;

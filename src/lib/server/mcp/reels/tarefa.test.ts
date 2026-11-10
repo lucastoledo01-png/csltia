@@ -129,7 +129,7 @@ describe("o laço da tarefa", () => {
 });
 
 describe("o molde do vídeo vertical", () => {
-  it("vídeo vertical vai sempre para o molde B, com o corte do B", () => {
+  it("vídeo vertical vai sempre para o molde B, inteiro: em pé não tem corte (10/11/2026)", () => {
     const vertical = {
       ...PREPARO,
       original: { largura: 720, altura: 1280, segundos: 32 },
@@ -140,7 +140,25 @@ describe("o molde do vídeo vertical", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.texto.molde).toBe("b");
-    expect(r.texto.corte).toEqual(PREPARO.corte.b);
+    expect(r.texto.corte).toBeNull();
+  });
+
+  it("o corte que o Claude manda para o vídeo em pé é ignorado: ele tirava a cabeça para fugir do logotipo", () => {
+    // O Reel da ABC no X (480x852): o corte começava em y 130, abaixo do logotipo, e cortou a cabeça do Trump.
+    const abc = { ...PREPARO, original: { largura: 480, altura: 852, segundos: 60 }, corte: { a: null, b: null } };
+    const material = materialDoCandidato(candidato(), abc);
+    const r = conferirTextoDoReel({ ...BOM, molde: "b", corte: { x: 37, y: 130, largura: 406, altura: 722 } }, material);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.texto.corte).toBeNull();
+  });
+
+  it("o vídeo deitado continua com o corte que o Claude escolheu", () => {
+    const material = materialDoCandidato(candidato(), PREPARO);
+    const r = conferirTextoDoReel({ ...BOM, molde: "b", corte: { x: 100, y: 0, largura: 404, altura: 720 } }, material);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.texto.corte).toEqual({ x: 100, y: 0, largura: 404, altura: 720 });
   });
 
   it("vertical que embrulha um vídeo deitado fica no A, com o corte do meio", () => {

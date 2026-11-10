@@ -3,7 +3,6 @@ import type { Project } from "@/lib/server/projects";
 import { modoDaFila } from "@/lib/server/aprovacao/modo";
 import { opcoesDaFilaParaOStore, projetoDaFila } from "@/lib/server/aprovacao/integracao";
 import { montarContexto, pautaAvaliadaDoContexto } from "@/lib/server/aprovacao/contexto-de-producao";
-import { cadenciaDoProjeto } from "@/lib/server/cadencia";
 import type { CandidataPersistida } from "@/lib/server/editorial/candidatos-store";
 import { entidadesDaClassificacao } from "@/lib/server/editorial/classificador";
 import { impressaoDoAcontecimento } from "@/lib/server/editorial/fingerprint";
@@ -19,11 +18,10 @@ import { subirArquivoParaStorage } from "@/lib/server/social/instagram/armazenam
 import { renderizarReelDeFoto, type Foco, type ReelDeFoto, type RegistroDoReelDeFoto } from "@/lib/server/social/reel-de-foto";
 import { legendaDoInstagram, linhaDeCredito } from "@/lib/server/social/legenda-final";
 import { modoDoPipelineSocial, permiteEnforce } from "@/lib/server/social/modo";
-import { vagasDaTarde, type PostDoDia } from "@/lib/server/social/quente-da-tarde";
+import { proximaVagaDoInstagram } from "@/lib/server/social/proxima-vaga";
 import { topicoDaPauta } from "@/lib/server/social/selecao";
 import { avaliarPostSocial } from "@/lib/server/social/social-guard";
 import { chaveDeIdempotencia, criarSocialPostsStore, resolverOrigem } from "@/lib/server/social/social-posts-store";
-import { zonedTimeToUtc } from "@/lib/server/time";
 import type { TarefasStore } from "../tarefas-store";
 import type { MaterialDaEscrita, ResultadoDaEscrita } from "./fluxo";
 import { visualDoMaterial } from "./material";
@@ -298,30 +296,13 @@ export async function agendarPost(
   const pronto = await postPronto(projeto, pedido.storyId, pedido.data, deps);
   if (!pronto.ok) return pronto;
 
-  const { data: linhas, error } = await deps.client
-    .from("social_posts")
-    .select("status, scheduled_at, error_message, dry_run")
-    .eq("project_id", projeto.id)
-    .eq("edition_date", pedido.data)
-    .eq("platform", "instagram");
-  if (error) return falha(`os posts do dia não puderam ser lidos: ${error.message}`);
-  const cadencia = cadenciaDoProjeto(projeto);
-  const agora = deps.agora ? deps.agora() : new Date();
-  const vagas = vagasDaTarde({
-    horarios: cadencia.instagram.horarios,
-    dataIso: pedido.data,
-    timezone: projeto.timezone,
-    agoraMs: agora.getTime(),
-    postsDoDia: (linhas ?? []) as PostDoDia[],
-    maximoDoDia: cadencia.instagram.volume.maximo,
-    maximoDoCiclo: 1,
-  });
-  const horaLocal = vagas.teto > 0 ? vagas.horarios[0] : null;
-  if (!horaLocal) return falha(`sem vaga no Instagram em ${pedido.data}: ${vagas.motivo}`);
-  const quando = zonedTimeToUtc(pedido.data, horaLocal, projeto.timezone).toISOString();
+  // Sem vaga no dia do plano, o próximo dia com horário livre (10/11/2026), como no Reel de vídeo.
+  const achada = await proximaVagaDoInstagram(projeto, pedido.data, deps);
+  if (!achada.ok) return falha(achada.error);
+  const { data: dataDaVaga, horaLocal, quandoIso: quando } = achada.vaga;
 
   const capa = capaDo(pronto);
-  const chave = chaveDeIdempotencia(pedido.data, pedido.storyId);
+  const chave = chaveDeIdempotencia(dataDaVaga, pedido.storyId);
   let formato = pedido.formato ?? "estatico";
   let artefatos: ArtefatoDeSlide[] = [];
   let quadro: Buffer | undefined;
@@ -330,7 +311,7 @@ export async function agendarPost(
   let nota: string | undefined;
   if (formato === "carrossel") {
     const c = await pecasDoCarrossel(projeto, pronto, pedido, deps);
-    const congelado = c.ok ? await (deps.congelarCarrossel ?? congelarCarrossel)({ slides: c.entradas, path: `${projeto.slug}/${pedido.data}/${chave}` }) : null;
+    const congelado = c.ok ? await (deps.congelarCarrossel ?? congelarCarrossel)({ slides: c.entradas, path: `${projeto.slug}/${dataDaVaga}/${chave}` }) : null;
     if (c.ok && congelado?.ok) {
       carrossel = c;
       artefatos = congelado.artefatos;
@@ -348,7 +329,7 @@ export async function agendarPost(
     const sha = sha256De(r.reel.video);
     const subir = deps.subir ?? ((b: Buffer, c: string, m: string) => subirArquivoParaStorage(b, c, m, BUCKET_DOS_REELS));
     // O hash no nome: a versão refeita é outro arquivo, nunca o mesmo sobrescrito.
-    const caminho = `${projeto.slug}/${pedido.data}/${chave}/reel-${sha.slice(0, 12)}.mp4`;
+    const caminho = `${projeto.slug}/${dataDaVaga}/${chave}/reel-${sha.slice(0, 12)}.mp4`;
     const url = await subir(r.reel.video, caminho, "video/mp4");
     if (!url) return falha(`o Storage recusou o Reel em ${caminho}`);
     const artefato: ArtefatoCongelado = {
@@ -366,7 +347,7 @@ export async function agendarPost(
     quadro = r.reel.quadro;
     registroDoReel = r.registro;
   } else {
-    const congelado = await (deps.congelar ?? congelarArtefato)({ capa, path: `${projeto.slug}/${pedido.data}/${chave}` });
+    const congelado = await (deps.congelar ?? congelarArtefato)({ capa, path: `${projeto.slug}/${dataDaVaga}/${chave}` });
     if (!congelado.ok) return falha(`a arte não fechou: ${congelado.motivo}`);
     artefatos = [{ ...congelado.artefato, index: 1 }];
   }
@@ -381,7 +362,7 @@ export async function agendarPost(
   const r = await store.gravar([
     {
       projectId: projeto.id,
-      editionDate: pedido.data,
+      editionDate: dataDaVaga,
       post: {
         pauta: pronto.pauta,
         copy: carrossel ? carrossel.copy : pronto.copy,
@@ -393,7 +374,7 @@ export async function agendarPost(
         reparosAplicados: [],
       },
       chapeu: capa.chapeu,
-      vaga: { posicao: pronto.material.posicao, slot: `${pedido.data}-mcp-${horaLocal}`, quandoIso: quando, horaLocal },
+      vaga: { posicao: pronto.material.posicao, slot: `${dataDaVaga}-mcp-${horaLocal}`, quandoIso: quando, horaLocal },
       visual,
       candidateId: pronto.candidata?.id ?? pronto.material.candidateId,
       topicId: topicoDaPauta(pronto.pauta),
@@ -410,7 +391,7 @@ export async function agendarPost(
       creditosDasFotos: [...new Set(fotosQueForam.map((f) => (f?.attribution ?? "").trim()).filter(Boolean))],
       legendaFinal,
       contexto: montarContexto({
-        data: pedido.data,
+        data: dataDaVaga,
         pautas: [pronto.pauta],
         pacotes: new Map([[pedido.storyId, pronto.material.pacote]]),
       }),

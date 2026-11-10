@@ -10,9 +10,31 @@ import type { TarefasStore } from "@/lib/server/mcp/tarefas-store";
 import { baixarVideo } from "./baixar";
 import type { CandidatoDeReel, CandidatosDeReel } from "./candidatos";
 import { canalDoCandidato } from "./canais";
-import { ASPECTO_DO_MOLDE, cortesDeCena, folhaDeQuadros, medidasDoVideo, medirCorte, medirCorteDoCanal } from "./corte";
+import {
+  ASPECTO_DO_MOLDE,
+  cortesDeCena,
+  folhaDeQuadros,
+  medidasDoVideo,
+  medirCaixasParaApagar,
+  medirCorte,
+  medirCorteDoCanal,
+  videoEmPe,
+  type Corte,
+} from "./corte";
 import type { ReelParaGravar } from "./gravar";
 import { segmentosAte, transcreverDoArquivo, transcreverDoYoutube, type Segmento } from "./transcricao";
+
+export type VideoEmPe = { emPe: boolean; apagar: Corte[] };
+
+/** O vídeo em pé e as marcas de terceiro a apagar nele. Falha ao medir é "não está em pé": o corte segue como era. */
+export function medirVideoEmPe(arquivo: string): VideoEmPe {
+  try {
+    if (!videoEmPe(medidasDoVideo(arquivo))) return { emPe: false, apagar: [] };
+    return { emPe: true, apagar: medirCaixasParaApagar(arquivo) };
+  } catch {
+    return { emPe: false, apagar: [] };
+  }
+}
 
 /**
  * O trabalho do worker nos Reels (28/10/2026), em dois passos, cada um pego
@@ -47,8 +69,11 @@ export type DepsDoTrabalho = {
     trechos?: Array<{ inicio: number; fim: number }>;
     legendas?: Array<{ inicio: number; fim: number; texto: string }>;
     enquadramento?: "cheio" | "quadrado";
+    apagar?: Array<{ x: number; y: number; largura: number; altura: number }>;
     tetoDeBytes?: number;
   }) => Promise<string>;
+  /** O vídeo em pé e as marcas a apagar nele (10/11/2026); o teste injeta. */
+  medirEmPe?: (arquivo: string) => VideoEmPe;
   baixar?: typeof baixarVideo;
   transcrever?: (url: string, idioma: "en" | "pt", pasta: string) => Segmento[];
   /** A fala do arquivo baixado, pelo whisper.cpp do worker; o teste injeta. */
@@ -134,7 +159,13 @@ export async function prepararCandidato(c: CandidatoDeReel, deps: DepsDoTrabalho
      */
     const transmissao = Boolean(canal) && video.largura > video.altura;
     const medir = (aspecto: number) => (transmissao ? medirCorteDoCanal(video.arquivo, aspecto) : medirCorte(video.arquivo, aspecto).corte);
-    const corte = { a: medir(ASPECTO_DO_MOLDE.a), b: medir(ASPECTO_DO_MOLDE.b), ...(canal ? { q: medir(ASPECTO_DO_MOLDE.q) } : {}) };
+    // Em pé, o molde B não tem corte (10/11/2026): a folha mostra o quadro inteiro, que é o que vai ao ar.
+    const emPe = videoEmPe(video);
+    const corte = {
+      a: medir(ASPECTO_DO_MOLDE.a),
+      b: emPe ? null : medir(ASPECTO_DO_MOLDE.b),
+      ...(canal ? { q: medir(ASPECTO_DO_MOLDE.q) } : {}),
+    };
     const molde = canal || comFala || video.largura < video.altura ? "b" : "a";
     const folha = folhaDeQuadros(video.arquivo, path.join(dir, "folha.jpg"), corte[molde]);
     const base = `${projeto.slug}/${c.id}`;
@@ -175,6 +206,13 @@ export async function renderizarCandidato(c: CandidatoDeReel, deps: DepsDoTrabal
     writeFileSync(origem, Buffer.from(await resposta.arrayBuffer()));
 
     const saida = path.join(dir, "reel.mp4");
+    /*
+     * Vídeo em pé no molde B entra inteiro (10/11/2026): nenhum corte, nem o
+     * proposto nem o que o Claude escolheu, porque qualquer corte só tira
+     * cabeça ou pé. A marca de terceiro é apagada no quadro.
+     */
+    const emPe = t.molde === "b" && t.enquadramento !== "quadrado" ? (deps.medirEmPe ?? medirVideoEmPe)(origem) : { emPe: false, apagar: [] };
+    const corte = emPe.emPe ? null : t.corte;
     // As palavras pesadas saem disfarçadas no vídeo, como na legenda (29/10/2026).
     const linhas = t.linhas.map((l, i) => (i === t.destaque ? `*${disfarcarPalavrasPesadas(l)}*` : disfarcarPalavrasPesadas(l))).join("|");
     await deps.montar({
@@ -183,11 +221,12 @@ export async function renderizarCandidato(c: CandidatoDeReel, deps: DepsDoTrabal
       linhas: [linhas],
       rotulo: disfarcarPalavrasPesadas(t.rotulo),
       categoria: t.categoria,
-      corte: t.corte,
+      corte,
       saida,
       trechos: t.trechos,
       legendas: t.legendas?.map((l) => ({ ...l, texto: disfarcarPalavrasPesadas(l.texto) })),
       enquadramento: t.enquadramento,
+      ...(emPe.apagar.length ? { apagar: emPe.apagar } : {}),
       tetoDeBytes: TETO_DO_REEL_EM_BYTES,
     });
 
@@ -229,7 +268,8 @@ export async function renderizarCandidato(c: CandidatoDeReel, deps: DepsDoTrabal
         categoria: t.categoria,
         linhas: t.linhas,
         destaque: t.destaque,
-        corte: t.corte,
+        corte,
+        ...(emPe.emPe ? { em_pe: true, apagado: emPe.apagar } : {}),
         tarefa_id: t.tarefaId,
         ...(t.trechos ? { trechos: t.trechos } : {}),
         ...(t.legendas ? { legendas: t.legendas } : {}),
