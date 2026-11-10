@@ -74,9 +74,12 @@ export function conferirComplemento(c: Complemento, m: MaterialDoComplemento): s
     else if (t) titulos.set(t, id);
   }
   for (const id of c.reels) if (!reels.has(id)) motivos.push(`reels: ${id} não está entre os vídeos sugeridos`);
-  for (const id of c.posts) if (!c.formatos[id]) motivos.push(`formatos: falta o formato do post ${id} ("reel", "carrossel" ou "estatico")`);
+  for (const id of c.posts) if (!c.formatos[id]) motivos.push(`formatos: falta o formato do post ${id} ("reel" ou "carrossel")`);
+  for (const id of c.posts) {
+    if (c.formatos[id] === "estatico") motivos.push(`formatos: ${id} está em "estatico"; o perfil não publica mais imagem estática, use "reel" ou "carrossel"`);
+  }
   if (c.posts.filter((id) => c.formatos[id] === "carrossel").length > MAXIMO_DE_CARROSSEIS) {
-    motivos.push(`formatos: no máximo ${MAXIMO_DE_CARROSSEIS} carrossel no complemento`);
+    motivos.push(`formatos: no máximo ${MAXIMO_DE_CARROSSEIS} carrosséis no complemento`);
   }
   for (const id of c.posts) if (!c.cenas[id]?.consulta) motivos.push(`cenas: falta a busca da foto de contexto de ${id}`);
   for (const id of [...c.posts, ...c.reels]) if (!c.porque[id]) motivos.push(`porque: falta a frase de ${id}`);
@@ -102,7 +105,7 @@ const SYSTEM = [
   "Não repita assunto que o dia já tem (a lista JÁ NO DIA): a mesma história por outra fonte não conta como pauta nova.",
   "Havendo vídeo sugerido que conte notícia, um Reel de vídeo em `reels` vale como uma das peças.",
   "Cada post escolhido vira também matéria do blog e entra na newsletter, se ainda couber: escolha pauta com material para isso.",
-  "Formato de cada post em `formatos`: \"reel\" (o padrão), \"estatico\" ou \"carrossel\" (no máximo um). Para cada post, a busca em inglês de uma foto de contexto em `cenas` e uma frase em `porque`.",
+  "Formato de cada post em `formatos`: \"carrossel\" para a pauta com mais material (números, quem disse o quê, desdobramento; até dois) e \"reel\" para o resto. Imagem estática não sai mais. Para cada post, a busca em inglês de uma foto de contexto em `cenas` e uma frase em `porque`.",
   "Se nenhuma pauta da lista vale um post, devolva as listas vazias: é melhor que encher o dia.",
 ].join("\n");
 

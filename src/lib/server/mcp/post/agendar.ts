@@ -237,7 +237,8 @@ export async function montarPost(
   const pronto = await postPronto(projeto, pedido.storyId, pedido.data, deps);
   if (!pronto.ok) return pronto;
   let credito = linhaDeCredito([visualDoMaterial(pronto.material).asset]);
-  let formato = pedido.formato ?? "estatico";
+  // Imagem estática não sai mais (10/11/2026): o pedido "estatico" e o sem formato viram Reel de foto.
+  let formato: FormatoDaPeca = pedido.formato === "carrossel" ? "carrossel" : "reel";
   let nota: string | undefined;
   let png: Buffer | undefined;
   let telas: Buffer[] | undefined;
@@ -303,7 +304,8 @@ export async function agendarPost(
 
   const capa = capaDo(pronto);
   const chave = chaveDeIdempotencia(dataDaVaga, pedido.storyId);
-  let formato = pedido.formato ?? "estatico";
+  // Imagem estática não sai mais (10/11/2026): o pedido "estatico" e o sem formato viram Reel de foto.
+  let formato: FormatoDaPeca = pedido.formato === "carrossel" ? "carrossel" : "reel";
   let artefatos: ArtefatoDeSlide[] = [];
   let quadro: Buffer | undefined;
   let registroDoReel: RegistroDoReelDeFoto | undefined;

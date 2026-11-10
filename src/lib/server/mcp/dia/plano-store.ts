@@ -69,8 +69,13 @@ export function pautasDoPlano(itens: ItensDoPlano): string[] {
 export const FORMATOS_DO_POST = ["reel", "estatico", "carrossel"] as const;
 export type FormatoDoPostDoClaude = (typeof FORMATOS_DO_POST)[number];
 
+/**
+ * O formato do post no plano. Imagem estática não sai mais (10/11/2026, decisão
+ * do dono): o "estatico" de um plano antigo e o post sem formato saem em Reel de foto.
+ */
 export function formatoDoPost(itens: Pick<ItensDoPlano, "formatos">, storyId: string): FormatoDoPostDoClaude {
-  return itens.formatos?.[storyId] ?? "estatico";
+  const f = itens.formatos?.[storyId];
+  return f === "carrossel" ? "carrossel" : "reel";
 }
 
 export const PLANO_VAZIO: ItensDoPlano = { newsletter: [], artigos: [], posts: [], reels: [], porque: {}, cenas: {} };

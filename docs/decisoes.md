@@ -3097,3 +3097,23 @@ planejar 09/11: as peças saíram na segunda.
   para o Reel com o motivo, em vez de sair sem legenda; no vídeo da
   descoberta, segue como antes. O link guarda 240 s do vídeo, como o canal.
 
+## O Instagram do MCP é vídeo e carrossel (10/11/2026)
+
+O dono: "parar de fazer imagem estática e trazer carrossel", pelo menos 5
+posts por dia, de 1 a 2 carrosséis e o resto vídeo; sem pauta que renda
+carrossel, só vídeo.
+
+- **Imagem estática não sai mais.** O plano e o complemento recusam
+  `"estatico"`; o post sem formato, o de plano antigo e o pedido `estatico`
+  feito no chat saem em Reel de foto (`formatoDoPost`, `agendarPost`).
+- **De 1 a 2 carrosséis por dia** (`MINIMO_DE_CARROSSEIS`,
+  `MAXIMO_DE_CARROSSEIS`), na pauta com mais material. Sem nenhuma que
+  renda, o plano diz por quê em `porque.carrossel` e passa: é a mesma saída
+  de `porque.reels`, porque cota sem saída faz o modelo completar com o que
+  tiver (incidente de 10/11).
+- **O dia inteiro da cadência** (`minimoDoInstagram`): posts e Reels de
+  vídeo somam o teto do Instagram (hoje 5), ou menos quando não há pauta nova
+  nem vídeo, ou com o motivo em `porque.instagram`.
+- **Mais de 5 por dia** é cadência, não código: o painel
+  `/admin/<projeto>/cadencia` (volume e horários do Instagram).
+
