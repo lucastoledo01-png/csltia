@@ -9,6 +9,7 @@ import { hashDaNewsletter, hashDoArtigo, hashDoPlano, hashDoPostDaLinha } from "
 import { itensEditados } from "../mcp/dia/plano-na-fila";
 import { arteDaLinhaDoPost } from "../aprendizado/detalhes";
 import { legendaDoInstagram } from "../social/legenda-final";
+import { horarioSemColar } from "../social/espacamento";
 
 /**
  * As peças de verdade, nas tabelas de verdade.
@@ -244,7 +245,27 @@ export function criarAdaptadorSupabase(
          * próximo giro do worker, e não amanhã.
          */
         const planejado = aprovacao.publicarEm ? Date.parse(aprovacao.publicarEm) : NaN;
-        const quando = new Date(Number.isFinite(planejado) ? Math.max(planejado, agora.getTime()) : agora.getTime());
+        const base = Number.isFinite(planejado) ? Math.max(planejado, agora.getTime()) : agora.getTime();
+        // Nunca colado em outro post: ver `social/espacamento.ts` (10/11/2026).
+        const { data: vizinhos, error: erroDosVizinhos } = await client
+          .from("social_posts")
+          .select("id, scheduled_at, dry_run")
+          .eq("project_id", projeto.id)
+          .eq("platform", "instagram")
+          .in("status", ["scheduled", "published"])
+          .neq("id", pecaId)
+          .gte("scheduled_at", new Date(base - 6 * 3_600_000).toISOString())
+          .lte("scheduled_at", new Date(base + 48 * 3_600_000).toISOString());
+        if (erroDosVizinhos) return { ok: false, motivo: `os posts agendados não puderam ser lidos: ${erroDosVizinhos.message}` };
+        const quando = new Date(
+          horarioSemColar({
+            planejadoMs: Number.isFinite(planejado) ? planejado : null,
+            agoraMs: agora.getTime(),
+            ocupadosMs: (vizinhos ?? [])
+              .filter((v) => v.dry_run !== true)
+              .map((v) => Date.parse(String(v.scheduled_at ?? ""))),
+          }),
+        );
         const { data, error } = await client
           .from("social_posts")
           .update({ status: "scheduled", scheduled_at: quando.toISOString(), error_message: null, updated_at: agora.toISOString() })

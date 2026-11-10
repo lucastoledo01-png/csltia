@@ -4,6 +4,7 @@ import { ambientePelaCadencia, cadenciaDoProjeto, canalPublicaEm, type ProjetoCo
 import type { PautaAvaliada } from "../editorial/guarda";
 import type { Calor } from "../editorial/calor";
 import { zonedTimeToUtc } from "../time";
+import { ESPACAMENTO_MINIMO_MINUTOS } from "./espacamento";
 
 /**
  * A notícia quente no MESMO dia (06/10/2026), decisão 7 do dono sobre a
@@ -177,7 +178,7 @@ export function vagasDaTarde(entrada: {
   espacamentoMinutos?: number;
 }): VagasDaTarde {
   const folga = (entrada.folgaMinutos ?? 30) * 60_000;
-  const espacamento = (entrada.espacamentoMinutos ?? 45) * 60_000;
+  const espacamento = (entrada.espacamentoMinutos ?? ESPACAMENTO_MINIMO_MINUTOS) * 60_000;
   const ocupando = entrada.postsDoDia.filter(ocupaVaga);
   const instantesOcupados = ocupando
     .map((p) => Date.parse(p.scheduled_at ?? ""))
