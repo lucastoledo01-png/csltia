@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { Project } from "@/lib/server/projects";
 import type { Tarefa, TarefasStore } from "../tarefas-store";
-import { MAXIMO_DE_CARROSSEIS, type MaterialDoPlano, type PautaDoPlano } from "./plano";
+import { MAXIMO_DE_CARROSSEIS, blocoDoPerfil, linhaDoReel, type MaterialDoPlano, type PautaDoPlano } from "./plano";
 import { FORMATOS_DO_POST, postsDoPlano, type ItensDoPlano, type PlanoDoDia, type PlanosStore } from "./plano-store";
 
 /**
@@ -47,6 +47,7 @@ export type MaterialDoComplemento = {
   /** O que o dia já tem: o complemento não repete. */
   noDia: string[];
   jaUsadasNoInstagram: string[];
+  noPerfil?: string[];
   pedido?: string;
 };
 
@@ -109,10 +110,11 @@ function userDoComplemento(m: MaterialDoComplemento, noDia: Array<{ id: string; 
   const pautas = m.pautas
     .map((p) => `- ${p.storyId} | ${p.titulo} | ${p.fonte ?? "?"} | ${p.eixo ?? "?"}/${p.pais ?? "?"} | relevância ${p.relevancia ?? "?"} | ${p.veiculos} veículo(s)${p.quente ? " | QUENTE" : ""}\n  ${p.resumo}`)
     .join("\n");
-  const reels = m.reels.map((r) => `- ${r.id} | ${r.fonte} @${r.autor ?? "?"} | nota ${r.nota} | ${r.titulo ?? ""} | ${r.link ?? ""}`).join("\n");
+  const reels = m.reels.map(linhaDoReel).join("\n");
   return [
     `DATA: ${m.data}. COMPLEMENTO ${m.rodada}: faltam ${m.faltam} peça(s) no Instagram (posts e Reels juntos).`,
     m.pedido ? `PEDIDO DO DONO: ${m.pedido}` : "",
+    blocoDoPerfil(m.noPerfil),
     `JÁ NO DIA (não repita o assunto):\n${noDia.map((x) => `- ${x.id} | ${x.titulo}`).join("\n") || "(nada)"}`,
     `PAUTAS DISPONÍVEIS (${m.pautas.length}):\n${pautas || "(nenhuma)"}`,
     `VÍDEOS SUGERIDOS PARA REEL (${m.reels.length}):\n${reels || "(nenhum)"}`,

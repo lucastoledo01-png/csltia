@@ -26,6 +26,46 @@ import { rodarRadar } from "@/lib/server/newsroom/radar";
 import { EVENTO_DA_RODADA_DE_REELS, modoDosReels, rodarDescoberta } from "@/lib/server/social/reels/descoberta";
 import { depsDeProducao } from "@/lib/server/social/reels/producao";
 
+/**
+ * Pauta do plano e do complemento: publicada na fonte nas últimas 36 horas
+ * (10/11/2026, regra do dono: só hoje ou ontem, a mesma janela dos vídeos).
+ * Era 2 dias.
+ */
+export const JANELA_DAS_PAUTAS_DIAS = 1.5;
+
+/** Quantos dias de feed o plano e o complemento recebem como "já saiu no perfil". */
+export const DIAS_DO_PERFIL_NO_PLANO = 7;
+
+/**
+ * O que foi ao feed nos últimos dias, pela manchete (ou a primeira linha da
+ * legenda), mais recente primeiro (10/11/2026). O plano só conhecia os
+ * `storyId` dos planos aprovados, e a mesma história chega com outro id: o
+ * Reel de vídeo de outro perfil, ou a matéria de outro veículo.
+ */
+export async function manchetesDoPerfil(client: SupabaseClient, projectId: string, desde: string): Promise<string[]> {
+  const { data, error } = await client
+    .from("social_posts")
+    .select("caption,content_json,status,edition_date")
+    .eq("project_id", projectId)
+    .eq("platform", "instagram")
+    .gte("edition_date", desde)
+    .order("edition_date", { ascending: false })
+    .limit(80);
+  if (error) throw new Error(`o feed recente não pôde ser lido: ${error.message}`);
+  const vistas = new Set<string>();
+  const saida: string[] = [];
+  for (const l of data ?? []) {
+    if (["cancelled", "failed"].includes(String(l.status))) continue;
+    const copy = (l.content_json as { copy?: { headline?: string } } | null)?.copy;
+    const titulo = (copy?.headline || String(l.caption ?? "").split("\n")[0] || "").trim().slice(0, 160);
+    const chave = titulo.toLowerCase();
+    if (!titulo || vistas.has(chave)) continue;
+    vistas.add(chave);
+    saida.push(`${l.edition_date} | ${titulo}`);
+  }
+  return saida;
+}
+
 /** O teto da busca de vídeos dentro do "faça o dia": passou disso, a triagem segue e a busca termina sozinha. */
 export const PRAZO_DA_BUSCA_DE_VIDEOS_MS = 60_000;
 
@@ -195,7 +235,7 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
         titulo: c.title,
         dominio: c.sourceDomain ?? "",
       }));
-      const janela = [...(await candidatos.buscarDaJanela(projeto.id, 2)).values()].filter((c) => c.status === "approved");
+      const janela = [...(await candidatos.buscarDaJanela(projeto.id, JANELA_DAS_PAUTAS_DIAS)).values()].filter((c) => c.status === "approved");
       const prioritarias = fontesPrioritarias(projeto);
       const desde = new Date(agora - 30 * 86_400_000).toISOString().slice(0, 10);
       const aprovados = (await planos.aprovadosDesde(projeto.id, desde)).filter((p) => p.id !== plano.id);
@@ -213,6 +253,7 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
           )
           .slice(0, 40),
         reels: reelsDoPlano(await reels.sugeridos(projeto.id, 10)),
+        noPerfil: await manchetesDoPerfil(client, projeto.id, new Date(agora - DIAS_DO_PERFIL_NO_PLANO * 86_400_000).toISOString().slice(0, 10)),
         jaUsadas: {
           newsletter: aprovados.flatMap((p) => p.itens.newsletter),
           artigos: aprovados.flatMap((p) => artigosDoPlano(p.itens)),
@@ -231,7 +272,7 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
       const noDia = postsDoPlano(plano.itens);
       const desde = new Date(agora - 30 * 86_400_000).toISOString().slice(0, 10);
       const jaUsadas = (await planos.aprovadosDesde(projeto.id, desde)).filter((p) => p.id !== plano.id).flatMap((p) => postsDoPlano(p.itens));
-      const janela = [...(await candidatos.buscarDaJanela(projeto.id, 2)).values()].filter(
+      const janela = [...(await candidatos.buscarDaJanela(projeto.id, JANELA_DAS_PAUTAS_DIAS)).values()].filter(
         (c) => c.status === "approved" && !noDia.includes(c.storyId) && !jaUsadas.includes(c.storyId),
       );
       const prioritarias = fontesPrioritarias(projeto);
@@ -251,6 +292,7 @@ export function depsDoDiretor(client: SupabaseClient): DepsDoDiretor {
         reels: sugeridos,
         noDia,
         jaUsadasNoInstagram: jaUsadas,
+        noPerfil: await manchetesDoPerfil(client, projeto.id, new Date(agora - DIAS_DO_PERFIL_NO_PLANO * 86_400_000).toISOString().slice(0, 10)),
         ...(pedido ? { pedido } : {}),
       };
       return abrirTarefaDoComplemento(projeto, plano, material, noDia.map((id) => ({ id, titulo: titulos.get(id)?.title ?? id })), tarefas);
